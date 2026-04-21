@@ -6,7 +6,6 @@ import {
   Field,
   Input,
   PageHeader,
-  Select,
   Textarea,
 } from "@/components/ui";
 import { createRepairOrder } from "../actions";
@@ -14,6 +13,7 @@ import { fullName, vehicleLabel } from "@/lib/utils";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { openROsForVehicle } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
+import { VehiclePickerOrCreate } from "./VehiclePickerOrCreate";
 
 export const dynamic = "force-dynamic";
 
@@ -83,44 +83,64 @@ export default async function NewRepairOrderPage({
   });
   if (!customer) notFound();
 
-  // Step 2: pick vehicle if not provided
+  // Step 2: pick vehicle if not provided — OR inline-create one
   if (!vehicleId) {
-    if (customer.vehicles.length === 0) {
-      redirect(`/vehicles/new?customerId=${customer.id}`);
+    async function pickOrCreateVehicle(fd: FormData) {
+      "use server";
+      const c = fd.get("customerId");
+      if (typeof c !== "string" || !c) return;
+      const mode = fd.get("mode");
+
+      if (mode === "existing") {
+        const v = fd.get("vehicleId");
+        if (typeof v !== "string" || !v) return;
+        redirect(`/repair-orders/new?customerId=${c}&vehicleId=${v}`);
+      }
+
+      // Inline create new vehicle
+      const get = (k: string) => {
+        const v = fd.get(k);
+        return typeof v === "string" && v.trim() ? v.trim() : null;
+      };
+      const yearStr = get("year");
+      const mileageStr = get("mileage");
+      const plate = get("licensePlate");
+      const state = get("licenseState");
+      const created = await db.vehicle.create({
+        data: {
+          customerId: c,
+          vin: get("vin")?.toUpperCase() ?? null,
+          year: yearStr ? parseInt(yearStr, 10) || null : null,
+          make: get("make"),
+          model: get("model"),
+          trim: get("trim"),
+          engine: get("engine"),
+          color: get("color"),
+          licensePlate: plate ? plate.toUpperCase() : null,
+          licenseState: state ? state.toUpperCase() : null,
+          mileage: mileageStr ? parseInt(mileageStr, 10) || null : null,
+        },
+      });
+      redirect(`/repair-orders/new?customerId=${c}&vehicleId=${created.id}`);
     }
 
-    async function pickVehicle(fd: FormData) {
-      "use server";
-      const v = fd.get("vehicleId");
-      const c = fd.get("customerId");
-      if (typeof v !== "string" || typeof c !== "string") return;
-      redirect(`/repair-orders/new?customerId=${c}&vehicleId=${v}`);
-    }
+    const vehicles = customer.vehicles.map((v) => ({
+      id: v.id,
+      label: `${vehicleLabel(v)}${v.licensePlate ? ` · ${v.licensePlate}` : ""}`,
+    }));
 
     return (
       <>
         <PageHeader
           title="New Repair Order"
-          description={`Step 2: pick vehicle for ${fullName(customer)}`}
+          description={`Step 2: pick or add vehicle for ${fullName(customer)}`}
         />
         <Card className="p-6">
-          <form action={pickVehicle} className="space-y-4 max-w-md">
-            <input type="hidden" name="customerId" value={customer.id} />
-            <Field label="Vehicle">
-              <Select name="vehicleId" required defaultValue="">
-                <option value="" disabled>
-                  Select a vehicle…
-                </option>
-                {customer.vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {vehicleLabel(v)}
-                    {v.licensePlate ? ` · ${v.licensePlate}` : ""}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Button type="submit">Continue</Button>
-          </form>
+          <VehiclePickerOrCreate
+            customerId={customer.id}
+            action={pickOrCreateVehicle}
+            vehicles={vehicles}
+          />
         </Card>
       </>
     );

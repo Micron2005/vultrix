@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, CardHeader, Field, Input } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
+import { SupplierLinks } from "./SupplierLinks";
 
 type Vehicle = {
   year: number | null;
@@ -366,6 +367,14 @@ export function VehicleSearchClient() {
                 </div>
               )}
             </div>
+            <SupplierLinks
+              ctx={{
+                year: vehicle.year,
+                make: vehicle.make,
+                model: vehicle.model,
+              }}
+              label="Look up parts for this vehicle on"
+            />
             {vehicle.source === "vin" &&
               vehicle.details &&
               vehicle.details.length > 0 && (
@@ -452,6 +461,7 @@ export function VehicleSearchClient() {
                       <th className="px-4 py-2 font-medium text-right">
                         Price
                       </th>
+                      <th className="px-4 py-2 font-medium">Look up on</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
@@ -509,6 +519,18 @@ export function VehicleSearchClient() {
                           </td>
                           <td className="px-4 py-2 text-right tabular-nums">
                             {p.unitPrice != null ? formatMoney(p.unitPrice) : "—"}
+                          </td>
+                          <td className="px-4 py-2">
+                            <SupplierLinks
+                              compact
+                              ctx={{
+                                partName: p.name,
+                                partNumber: p.partNumber,
+                                year: vehicle.year,
+                                make: vehicle.make,
+                                model: vehicle.model,
+                              }}
+                            />
                           </td>
                         </tr>
                       );

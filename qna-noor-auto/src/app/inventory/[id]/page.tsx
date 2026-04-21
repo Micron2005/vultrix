@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { adjustStock, deletePart, toggleArchived } from "../actions";
+import { SupplierLinks } from "@/app/vehicle-search/SupplierLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -168,6 +169,43 @@ export default async function PartDetailPage({
           </div>
         </Card>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader title="Look up on">
+          <span className="text-xs text-zinc-500 font-normal">
+            Opens the supplier&apos;s site in a new tab prefilled with this
+            part. Sign in there with your pro account.
+          </span>
+        </CardHeader>
+        <div className="p-4">
+          <SupplierLinks
+            ctx={{
+              partName: part.name,
+              partNumber: part.partNumber,
+              year:
+                part.fitsYearMin && part.fitsYearMax && part.fitsYearMin === part.fitsYearMax
+                  ? part.fitsYearMin
+                  : null,
+              make: part.fitsMake,
+              model: part.fitsModel,
+            }}
+          />
+          {(part.fitsMake || part.fitsModel || part.fitsYearMin || part.fitsYearMax) && (
+            <div className="mt-2 text-xs text-zinc-500">
+              Fits{" "}
+              {[
+                [part.fitsYearMin, part.fitsYearMax]
+                  .filter((n) => n != null)
+                  .join("–"),
+                part.fitsMake,
+                part.fitsModel,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader title="Receive / adjust stock" />
