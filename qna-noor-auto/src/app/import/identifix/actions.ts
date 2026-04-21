@@ -49,6 +49,56 @@ async function mapConcurrent<T, R>(
 }
 
 // ------------------------------------------------------------------
+// RESET: nuke all imported data so the user can start fresh.
+// Deletes every RepairOrder (cascades to labor/part/fee/payment lines),
+// every Appointment, every Vehicle, and every Customer.
+// Kept OUT of normal delete flows — only callable from the Identifix
+// import page.
+// ------------------------------------------------------------------
+export async function resetImportedData(
+  confirm: string,
+): Promise<StepResult> {
+  const res: StepResult = {
+    ok: true,
+    message: "",
+    stats: {
+      repairOrders: 0,
+      appointments: 0,
+      vehicles: 0,
+      customers: 0,
+    },
+    errors: [],
+  };
+  if (confirm !== "DELETE EVERYTHING") {
+    res.ok = false;
+    res.message =
+      "Reset not executed. Confirmation text did not match 'DELETE EVERYTHING'.";
+    return res;
+  }
+  try {
+    // Order matters: RO first (has FK to customer/vehicle without cascade),
+    // then appointments, then vehicles, then customers.
+    const ro = await db.repairOrder.deleteMany({});
+    res.stats.repairOrders = ro.count;
+    const ap = await db.appointment.deleteMany({});
+    res.stats.appointments = ap.count;
+    const vh = await db.vehicle.deleteMany({});
+    res.stats.vehicles = vh.count;
+    const cu = await db.customer.deleteMany({});
+    res.stats.customers = cu.count;
+    res.message = `Wiped ${res.stats.customers} customers, ${res.stats.vehicles} vehicles, ${res.stats.repairOrders} repair orders, and ${res.stats.appointments} appointments. Database is now clean — run Step 1 next.`;
+  } catch (e) {
+    res.ok = false;
+    res.message = e instanceof Error ? e.message : "Unknown error";
+  }
+  revalidatePath("/customers");
+  revalidatePath("/vehicles");
+  revalidatePath("/repair-orders");
+  revalidatePath("/appointments");
+  return res;
+}
+
+// ------------------------------------------------------------------
 // Step 0: heal data from a prior broken import.
 //   (1) Customers whose firstName looks like an Identifix ObjectID
 //       (24 hex chars) and have no externalId — move the ID into

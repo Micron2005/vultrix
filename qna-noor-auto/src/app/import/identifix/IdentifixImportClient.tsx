@@ -7,12 +7,14 @@ import {
   runVehiclesImport,
   runInvoicesImport,
   wipeOrphans,
+  resetImportedData,
   type StepResult,
 } from "./actions";
 
 export function IdentifixImportClient() {
   return (
     <>
+      <ResetCard />
       <WipeCard />
       <StepCard
         step="1"
@@ -36,6 +38,57 @@ export function IdentifixImportClient() {
         action={runInvoicesImport}
       />
     </>
+  );
+}
+
+function ResetCard() {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<StepResult | null>(null);
+  const [confirm, setConfirm] = useState("");
+  const armed = confirm === "DELETE EVERYTHING";
+  return (
+    <Card className="mb-4 border-red-300">
+      <CardHeader title="⚠️ Reset · Delete ALL imported data (danger)" />
+      <div className="p-6 space-y-3">
+        <p className="text-sm text-zinc-700">
+          Deletes <strong>every</strong> customer, vehicle, appointment, and
+          repair order in your database. Use this before a fresh Identifix
+          import if earlier imports left bad data behind. This is irreversible.
+        </p>
+        <p className="text-sm text-zinc-700">
+          Type <code className="bg-red-100 px-1 rounded">DELETE EVERYTHING</code>{" "}
+          in the box below to arm the button.
+        </p>
+        <input
+          type="text"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="DELETE EVERYTHING"
+          className="border border-zinc-300 rounded px-2 py-1 text-sm font-mono w-72"
+        />
+        <div>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={pending || !armed}
+            onClick={() => {
+              startTransition(async () => {
+                const r = await resetImportedData(confirm);
+                setResult(r);
+                setConfirm("");
+              });
+            }}
+          >
+            {pending
+              ? "Wiping…"
+              : armed
+                ? "Delete ALL customers, vehicles, ROs, appointments"
+                : "(type DELETE EVERYTHING to arm)"}
+          </Button>
+        </div>
+        {result && <ResultBlock result={result} />}
+      </div>
+    </Card>
   );
 }
 
