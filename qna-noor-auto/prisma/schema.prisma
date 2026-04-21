@@ -12,6 +12,9 @@ datasource db {
 
 model Customer {
   id            String         @id @default(cuid())
+  // External id from a prior system (Identifix export Id). Lets a re-run of
+  // CSV import update the existing record instead of creating a duplicate.
+  externalId    String?        @unique
   // INDIVIDUAL | BUSINESS — controls which tab the record lives in and how
   // A/R is split on the dashboard.
   type          String         @default("INDIVIDUAL")
@@ -44,6 +47,9 @@ model Customer {
 
 model Vehicle {
   id            String         @id @default(cuid())
+  // External id from a prior system (Identifix vehicle Id). Lets a re-run of
+  // CSV import update the existing record instead of creating a duplicate.
+  externalId    String?        @unique
   customerId    String
   customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
