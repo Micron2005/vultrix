@@ -386,10 +386,23 @@ async function computeRoTotal(id: string): Promise<number> {
   const labor = ro.laborLines.reduce((s, l) => s + l.hours * l.rate, 0);
   const parts = ro.partLines.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
   const fees = ro.feeLines.reduce((s, f) => s + (f.amount || 0), 0);
-  const subtotal = labor + parts + fees;
-  const afterDiscount = Math.max(subtotal - (ro.discount || 0), 0);
+  const { loadAppliedShopFees } = await import("@/lib/shopFees");
+  const appliedShopFees = await loadAppliedShopFees(id, {
+    partsSubtotal: parts,
+    laborSubtotal: labor,
+  });
+  const shopFeesTaxable = appliedShopFees
+    .filter((f) => f.taxable)
+    .reduce((s, f) => s + f.amount, 0);
+  const shopFeesNonTaxable = appliedShopFees
+    .filter((f) => !f.taxable)
+    .reduce((s, f) => s + f.amount, 0);
+  const taxableBase = labor + parts + fees + shopFeesTaxable;
+  const afterDiscount = Math.max(taxableBase - (ro.discount || 0), 0);
   const tax = afterDiscount * ((ro.taxRate || 0) / 100);
-  return Math.round((afterDiscount + tax) * 100) / 100;
+  const subtotal = labor + parts + fees + shopFeesTaxable + shopFeesNonTaxable;
+  const total = Math.max(0, subtotal - (ro.discount || 0)) + tax;
+  return Math.round(total * 100) / 100;
 }
 
 export async function recordPayment(repairOrderId: string, fd: FormData) {

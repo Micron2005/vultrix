@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { findNotesForVehicle } from "@/lib/notes";
 import {
   formatDate,
@@ -41,6 +42,13 @@ export default async function VehicleDetailPage({
     },
   });
   if (!vehicle) notFound();
+
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    vehicle.repairOrders.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
 
   const del = deleteVehicle.bind(null, vehicle.id);
   const relevantNotes = await findNotesForVehicle(vehicle);
@@ -198,7 +206,8 @@ export default async function VehicleDetailPage({
             </thead>
             <tbody className="divide-y divide-zinc-200">
               {vehicle.repairOrders.map((ro) => {
-                const { total } = computeTotals(ro);
+                const shopFees = shopFeesByRO.get(ro.id) ?? [];
+                const { total } = computeTotals({ ...ro, shopFees });
                 return (
                   <tr key={ro.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-2">

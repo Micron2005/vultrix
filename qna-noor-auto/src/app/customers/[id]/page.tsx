@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
   formatDate,
   formatMoney,
@@ -43,6 +44,13 @@ export default async function CustomerDetailPage({
     },
   });
   if (!customer) notFound();
+
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    customer.repairOrders.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
 
   const deleteAction = deleteCustomer.bind(null, customer.id);
 
@@ -204,7 +212,8 @@ export default async function CustomerDetailPage({
             </thead>
             <tbody className="divide-y divide-zinc-200">
               {customer.repairOrders.map((ro) => {
-                const { total } = computeTotals(ro);
+                const shopFees = shopFeesByRO.get(ro.id) ?? [];
+                const { total } = computeTotals({ ...ro, shopFees });
                 return (
                   <tr key={ro.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-2">

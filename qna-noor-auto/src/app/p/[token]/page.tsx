@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
   formatDate,
   formatMoney,
@@ -51,8 +52,15 @@ export default async function CustomerPortalPage({
     balance: number;
   };
 
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    customer.repairOrders.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
   const rosWithDerived: ROWithDerived[] = customer.repairOrders.map((ro) => {
-    const total = computeTotals(ro).total;
+    const shopFees = shopFeesByRO.get(ro.id) ?? [];
+    const total = computeTotals({ ...ro, shopFees }).total;
     const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
     const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
     return { ...ro, total, paid, balance };

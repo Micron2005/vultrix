@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { computeTotals } from "@/lib/totals";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
+import { loadAppliedShopFees } from "@/lib/shopFees";
 
 export async function GET(
   req: Request,
@@ -24,7 +25,12 @@ export async function GET(
   if (!ro) notFound();
 
   const settings = await getAllSettings();
-  const totals = computeTotals(ro);
+  const preliminary = computeTotals(ro);
+  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+    partsSubtotal: preliminary.partsSubtotal,
+    laborSubtotal: preliminary.laborSubtotal,
+  });
+  const totals = computeTotals({ ...ro, shopFees: appliedShopFees });
 
   // Document type: explicit ?type=estimate/invoice override, otherwise based on RO status.
   // ESTIMATE / IN_PROGRESS / COMPLETED => "ESTIMATE". INVOICED / PAID => "INVOICE".
@@ -330,6 +336,9 @@ export async function GET(
   ];
   if (totals.feesSubtotal > 0)
     totalsRows.push(["Fees", formatMoney(totals.feesSubtotal)]);
+  for (const sf of appliedShopFees) {
+    totalsRows.push([sf.description || sf.name, formatMoney(sf.amount)]);
+  }
   totalsRows.push(["Subtotal", formatMoney(totals.subtotal)]);
   if (totals.discount > 0)
     totalsRows.push(["Discount", `- ${formatMoney(totals.discount)}`]);

@@ -125,6 +125,7 @@ model RepairOrder {
   feeLines      FeeLine[]
   appointments  Appointment[]
   payments      Payment[]
+  shopFeeExclusions RepairOrderShopFeeExclusion[]
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -472,4 +473,46 @@ model Expense {
 
   @@index([paidAt])
   @@index([category])
+}
+
+// Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
+// auto-apply to every repair order. Each fee = min(maxCap, partsSubtotal *
+// partsPercent + laborSubtotal * laborPercent). Rendered as its own line on
+// invoices. Individual ROs can exclude specific fees via
+// RepairOrderShopFeeExclusion (for waived fees on a given job).
+model ShopFee {
+  id              String   @id @default(cuid())
+
+  name            String
+  description     String?
+  partsPercent    Float    @default(0)
+  laborPercent    Float    @default(0)
+  maxCap          Float?   // null = no cap
+  taxable         Boolean  @default(false)
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  exclusions      RepairOrderShopFeeExclusion[]
+
+  @@index([active])
+  @@index([sortOrder])
+}
+
+// If a row exists here, that shop fee is EXCLUDED from that RO. Absent = fee
+// applies. Composite PK so each (RO, fee) pair is unique.
+model RepairOrderShopFeeExclusion {
+  repairOrderId   String
+  shopFeeId       String
+
+  repairOrder     RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  shopFee         ShopFee     @relation(fields: [shopFeeId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+
+  @@id([repairOrderId, shopFeeId])
+  @@index([repairOrderId])
+  @@index([shopFeeId])
 }

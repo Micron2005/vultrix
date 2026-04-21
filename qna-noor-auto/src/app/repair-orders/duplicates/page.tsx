@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { Card, CardHeader, PageHeader, StatusBadge } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { deleteFromDuplicates } from "./actions";
 
@@ -193,6 +194,12 @@ export default async function DuplicatesPage({
   const { deleted, error } = await searchParams;
   const ros = await loadROs();
   const clusters = clusterROs(ros);
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    ros.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
 
   return (
     <>
@@ -244,7 +251,8 @@ export default async function DuplicatesPage({
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {c.ros.map((ro) => {
-                    const totals = computeTotals(ro);
+                    const shopFees = shopFeesByRO.get(ro.id) ?? [];
+                    const totals = computeTotals({ ...ro, shopFees });
                     const paid = ro.payments.reduce(
                       (s, p) => s + p.amount,
                       0,

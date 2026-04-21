@@ -48,6 +48,11 @@ import {
   openROsForVehicle,
 } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
+import { loadShopFeeStatus } from "@/lib/shopFees";
+import {
+  excludeShopFeeFromRO,
+  readdShopFeeToRO,
+} from "@/app/settings/shop-fees-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +78,22 @@ export default async function RepairOrderDetailPage({
   });
   if (!ro) notFound();
 
-  const totals = computeTotals(ro);
+  // First pass of totals without shop fees, to get labor/parts subtotals.
+  const preliminary = computeTotals(ro);
+  const shopFeeStatus = await loadShopFeeStatus(ro.id, {
+    partsSubtotal: preliminary.partsSubtotal,
+    laborSubtotal: preliminary.laborSubtotal,
+  });
+  const appliedShopFees = shopFeeStatus
+    .filter((f) => !f.excluded)
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      description: f.description,
+      amount: f.amount,
+      taxable: f.taxable,
+    }));
+  const totals = computeTotals({ ...ro, shopFees: appliedShopFees });
   const partsProfit = computePartsProfit(ro.partLines);
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
@@ -261,6 +281,13 @@ export default async function RepairOrderDetailPage({
             {totals.feesSubtotal > 0 && (
               <Row label="Fees" value={formatMoney(totals.feesSubtotal)} />
             )}
+            {appliedShopFees.map((f) => (
+              <Row
+                key={f.id}
+                label={f.description || f.name}
+                value={formatMoney(f.amount)}
+              />
+            ))}
             <Row label="Subtotal" value={formatMoney(totals.subtotal)} />
             {totals.discount > 0 && (
               <Row
@@ -755,6 +782,91 @@ export default async function RepairOrderDetailPage({
           </div>
         </form>
       </Card>
+
+      {shopFeeStatus.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader
+            title={`Shop fees (${shopFeeStatus.filter((f) => !f.excluded).length}/${shopFeeStatus.length})`}
+          >
+            <span className="text-xs text-zinc-500 font-normal">
+              Auto-applied percentage fees. Remove any that don&apos;t apply to this job.
+            </span>
+          </CardHeader>
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-2 font-medium">Fee</th>
+                <th className="px-4 py-2 font-medium">Formula</th>
+                <th className="px-4 py-2 font-medium text-right w-32">Amount</th>
+                <th className="px-4 py-2 font-medium text-right w-32">Status</th>
+                <th className="px-2 py-2 w-24"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200">
+              {shopFeeStatus.map((f) => {
+                const formula = [
+                  f.partsPercent > 0 ? `${f.partsPercent}% parts` : null,
+                  f.laborPercent > 0 ? `${f.laborPercent}% labor` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" + ");
+                const suffix = f.maxCap != null ? `, max ${formatMoney(f.maxCap)}` : "";
+                const taxTag = f.taxable ? " · taxable" : "";
+                return (
+                  <tr key={f.id} className={f.excluded ? "opacity-50" : ""}>
+                    <td className="px-4 py-2">
+                      <div className="font-medium">{f.name}</div>
+                      {f.description && (
+                        <div className="text-xs text-zinc-500">{f.description}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-zinc-600">
+                      {(formula || "—") + suffix + taxTag}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {f.excluded ? (
+                        <span className="text-zinc-400 line-through">
+                          {formatMoney(f.amount)}
+                        </span>
+                      ) : (
+                        formatMoney(f.amount)
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {f.excluded ? (
+                        <span className="text-xs text-zinc-500">excluded</span>
+                      ) : (
+                        <span className="text-xs text-green-700">applied</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {f.excluded ? (
+                        <form action={readdShopFeeToRO.bind(null, ro.id, f.id)}>
+                          <button
+                            type="submit"
+                            className="text-xs text-blue-700 hover:underline"
+                          >
+                            Re-add
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={excludeShopFeeFromRO.bind(null, ro.id, f.id)}>
+                          <button
+                            type="submit"
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardHeader title={`Payments (${ro.payments.length})`}>

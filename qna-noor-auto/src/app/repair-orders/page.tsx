@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
   formatDate,
   formatMoney,
@@ -67,6 +68,13 @@ export default async function RepairOrdersPage({
     orderBy: { openedAt: "desc" },
     take: 200,
   });
+
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    ros.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
 
   return (
     <>
@@ -132,7 +140,8 @@ export default async function RepairOrdersPage({
             </thead>
             <tbody className="divide-y divide-zinc-200">
               {ros.map((ro) => {
-                const { total } = computeTotals(ro);
+                const shopFees = shopFeesByRO.get(ro.id) ?? [];
+                const { total } = computeTotals({ ...ro, shopFees });
                 return (
                   <tr key={ro.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-2">

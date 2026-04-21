@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { db } from "@/lib/db";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
 import { computeVehicleReminders } from "@/lib/serviceReminders";
@@ -65,6 +66,13 @@ export async function GET(
     },
   });
   if (!customer) notFound();
+
+  const shopFeesByRO = await loadAppliedShopFeesForROs(
+    customer.repairOrders.map((ro) => {
+      const t = computeTotals(ro);
+      return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+    }),
+  );
 
   const settings = await getAllSettings();
 
@@ -246,7 +254,8 @@ export async function GET(
 
   let lifetime = 0;
   for (const ro of customer.repairOrders) {
-    const totals = computeTotals(ro);
+    const shopFees = shopFeesByRO.get(ro.id) ?? [];
+    const totals = computeTotals({ ...ro, shopFees });
     const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
     const balance = Math.max(0, Math.round((totals.total - paid) * 100) / 100);
     lifetime += totals.total;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
 import { prettyCategory } from "../expenses/categories";
@@ -140,12 +141,21 @@ export default async function ReportsPage({
 
   const revenueInRange = paymentsInRange.reduce((s, p) => s + p.amount, 0);
 
+  const arShopFeesByRO = await loadAppliedShopFeesForROs(
+    allROs
+      .filter((ro) => ro.status === "INVOICED")
+      .map((ro) => {
+        const t = computeTotals(ro);
+        return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
+      }),
+  );
   let arTotal = 0;
   let arIndividuals = 0;
   let arBusinesses = 0;
   for (const ro of allROs) {
     if (ro.status !== "INVOICED") continue;
-    const total = computeTotals(ro).total;
+    const shopFees = arShopFeesByRO.get(ro.id) ?? [];
+    const total = computeTotals({ ...ro, shopFees }).total;
     const paid = ro.payments.reduce((x, p) => x + p.amount, 0);
     const balance = Math.max(0, total - paid);
     arTotal += balance;

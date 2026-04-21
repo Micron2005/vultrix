@@ -31,6 +31,7 @@ async function main() {
   const existing = await db.customer.count();
   if (existing > 0) {
     console.log(`Skipping customer seed — ${existing} customers already exist.`);
+    await seedShopDefaults();
     await seedNotesIfEmpty();
     await seedAppointmentsIfEmpty();
     await seedTechniciansIfEmpty();
@@ -325,6 +326,36 @@ async function seedShopDefaults() {
     create: { key: "defaultTaxRate", value: "8.25" },
     update: {},
   });
+
+  // Phase 19: seed default Identifix-style shop fees if no fees exist yet.
+  const shopFeeCount = await db.shopFee.count();
+  if (shopFeeCount === 0) {
+    await db.shopFee.create({
+      data: {
+        name: "Shop Supplies",
+        description: "Shop Supplies",
+        partsPercent: 7.5,
+        laborPercent: 7.5,
+        maxCap: 65,
+        taxable: false,
+        active: true,
+        sortOrder: 1,
+      },
+    });
+    await db.shopFee.create({
+      data: {
+        name: "Hazardous Materials",
+        description: "Hazardous Materials",
+        partsPercent: 6,
+        laborPercent: 0,
+        maxCap: 50,
+        taxable: false,
+        active: true,
+        sortOrder: 2,
+      },
+    });
+    console.log("Seeded default shop fees (Shop Supplies, Hazardous Materials).");
+  }
 }
 
 async function seedShareTokensIfEmpty() {

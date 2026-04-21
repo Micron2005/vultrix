@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFees } from "@/lib/shopFees";
 import {
   formatDate,
   formatDateTime,
@@ -36,10 +37,22 @@ export default async function PublicEstimatePage({
   if (!ro) notFound();
 
   const shop = await getAllSettings();
+  const preliminary = computeTotals({
+    laborLines: ro.laborLines,
+    partLines: ro.partLines,
+    feeLines: ro.feeLines,
+    taxRate: ro.taxRate,
+    discount: ro.discount,
+  });
+  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+    partsSubtotal: preliminary.partsSubtotal,
+    laborSubtotal: preliminary.laborSubtotal,
+  });
   const totals = computeTotals({
     laborLines: ro.laborLines,
     partLines: ro.partLines,
     feeLines: ro.feeLines,
+    shopFees: appliedShopFees,
     taxRate: ro.taxRate,
     discount: ro.discount,
   });
@@ -242,6 +255,12 @@ export default async function PublicEstimatePage({
 
           <section className="px-8 py-6 border-b border-zinc-200">
             <div className="ml-auto w-full max-w-xs space-y-1 text-sm">
+              {appliedShopFees.map((f) => (
+                <div key={f.id} className="flex justify-between">
+                  <span className="text-zinc-600">{f.description || f.name}</span>
+                  <span className="tabular-nums">{formatMoney(f.amount)}</span>
+                </div>
+              ))}
               <div className="flex justify-between">
                 <span className="text-zinc-600">Subtotal</span>
                 <span className="tabular-nums">{formatMoney(totals.subtotal)}</span>

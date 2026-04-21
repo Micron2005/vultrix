@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFees } from "@/lib/shopFees";
 import {
   formatDate,
   formatDateTime,
@@ -51,7 +52,12 @@ export default async function CustomerPortalROPage({
   if (!ro || ro.customerId !== customer.id) notFound();
 
   const shop = await getAllSettings();
-  const totals = computeTotals(ro);
+  const preliminary = computeTotals(ro);
+  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+    partsSubtotal: preliminary.partsSubtotal,
+    laborSubtotal: preliminary.laborSubtotal,
+  });
+  const totals = computeTotals({ ...ro, shopFees: appliedShopFees });
   const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.max(0, Math.round((totals.total - paid) * 100) / 100);
 
@@ -294,6 +300,12 @@ export default async function CustomerPortalROPage({
                     </dd>
                   </div>
                 )}
+                {appliedShopFees.map((f) => (
+                  <div key={f.id} className="flex justify-between text-zinc-600">
+                    <dt>{f.description || f.name}</dt>
+                    <dd className="tabular-nums">{formatMoney(f.amount)}</dd>
+                  </div>
+                ))}
                 <div className="flex justify-between text-zinc-700">
                   <dt>Subtotal</dt>
                   <dd className="tabular-nums">
