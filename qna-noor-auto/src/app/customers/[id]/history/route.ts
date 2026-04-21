@@ -58,6 +58,7 @@ export async function GET(
           vehicle: true,
           laborLines: { orderBy: { sortOrder: "asc" } },
           partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
           payments: true,
         },
       },

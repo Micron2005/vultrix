@@ -43,6 +43,7 @@ export default async function CustomerPortalROPage({
       vehicle: true,
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
+      feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "desc" } },
     },
   });
@@ -210,6 +211,32 @@ export default async function CustomerPortalROPage({
             </section>
           )}
 
+          {ro.feeLines.length > 0 && (
+            <section className="px-8 py-4 border-b border-zinc-200">
+              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                Fees
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-zinc-500">
+                    <th className="py-1">Description</th>
+                    <th className="py-1 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ro.feeLines.map((f) => (
+                    <tr key={f.id} className="border-t border-zinc-100">
+                      <td className="py-2 text-zinc-800">{f.description}</td>
+                      <td className="py-2 text-right text-zinc-900 tabular-nums">
+                        {formatMoney(f.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
           {ro.partLines.length > 0 && (
             <section className="px-8 py-4 border-b border-zinc-200">
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
@@ -259,6 +286,14 @@ export default async function CustomerPortalROPage({
                     {formatMoney(totals.partsSubtotal)}
                   </dd>
                 </div>
+                {totals.feesSubtotal > 0 && (
+                  <div className="flex justify-between text-zinc-600">
+                    <dt>Fees</dt>
+                    <dd className="tabular-nums">
+                      {formatMoney(totals.feesSubtotal)}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex justify-between text-zinc-700">
                   <dt>Subtotal</dt>
                   <dd className="tabular-nums">

@@ -62,6 +62,7 @@ export default async function RepairOrdersPage({
       vehicle: true,
       laborLines: true,
       partLines: true,
+      feeLines: true,
     },
     orderBy: { openedAt: "desc" },
     take: 200,
@@ -72,7 +73,17 @@ export default async function RepairOrdersPage({
       <PageHeader
         title="Repair Orders"
         description="All repair orders across the shop"
-        actions={<LinkButton href="/repair-orders/new">New RO</LinkButton>}
+        actions={
+          <div className="flex gap-2">
+            <Link
+              href="/repair-orders/duplicates"
+              className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            >
+              Review duplicates
+            </Link>
+            <LinkButton href="/repair-orders/new">New RO</LinkButton>
+          </div>
+        }
       />
 
       <form className="mb-4 flex gap-2 max-w-xl" method="GET">

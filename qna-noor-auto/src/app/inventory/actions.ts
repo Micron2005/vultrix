@@ -14,6 +14,10 @@ const PartSchema = z.object({
   unitPrice: z.string().optional().nullable(),
   qtyOnHand: z.string().optional().nullable(),
   reorderLevel: z.string().optional().nullable(),
+  fitsMake: z.string().optional().nullable(),
+  fitsModel: z.string().optional().nullable(),
+  fitsYearMin: z.string().optional().nullable(),
+  fitsYearMax: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   archived: z.string().optional().nullable(),
 });
@@ -32,6 +36,14 @@ function parseFloatOrNull(raw: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseIntOrNull(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 function toData(fd: FormData) {
   const raw = PartSchema.parse(Object.fromEntries(fd.entries()));
   return {
@@ -43,6 +55,10 @@ function toData(fd: FormData) {
     unitPrice: parseFloatOrNull(raw.unitPrice),
     qtyOnHand: parseFloatOrNull(raw.qtyOnHand) ?? 0,
     reorderLevel: parseFloatOrNull(raw.reorderLevel) ?? 0,
+    fitsMake: cleanStr(raw.fitsMake),
+    fitsModel: cleanStr(raw.fitsModel),
+    fitsYearMin: parseIntOrNull(raw.fitsYearMin),
+    fitsYearMax: parseIntOrNull(raw.fitsYearMax),
     notes: cleanStr(raw.notes),
     archived: raw.archived === "on" || raw.archived === "true",
   };

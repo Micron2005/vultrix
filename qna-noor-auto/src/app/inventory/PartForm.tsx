@@ -87,6 +87,51 @@ export function PartForm({
         </Field>
       </div>
 
+      <div className="rounded border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900">
+            Fitment (optional)
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Leave blank for a universal part. Tagged parts show on the Vehicle
+            Search tab only when the picked vehicle&rsquo;s make / model / year
+            matches.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Field label="Fits make">
+            <Input
+              name="fitsMake"
+              defaultValue={part?.fitsMake ?? ""}
+              placeholder="e.g. Honda"
+            />
+          </Field>
+          <Field label="Fits model">
+            <Input
+              name="fitsModel"
+              defaultValue={part?.fitsModel ?? ""}
+              placeholder="e.g. Civic"
+            />
+          </Field>
+          <Field label="Year from">
+            <Input
+              name="fitsYearMin"
+              inputMode="numeric"
+              defaultValue={part?.fitsYearMin ?? ""}
+              placeholder="e.g. 2015"
+            />
+          </Field>
+          <Field label="Year to">
+            <Input
+              name="fitsYearMax"
+              inputMode="numeric"
+              defaultValue={part?.fitsYearMax ?? ""}
+              placeholder="e.g. 2020"
+            />
+          </Field>
+        </div>
+      </div>
+
       <Field label="Notes">
         <Textarea
           name="notes"

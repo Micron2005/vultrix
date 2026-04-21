@@ -247,72 +247,16 @@ export function CannedJobForm({
         {parts.length === 0 ? (
           <p className="text-sm text-zinc-500">No parts.</p>
         ) : (
-          <div className="space-y-2">
-            {parts.map((row) => (
+          <div className="space-y-4">
+            {parts.map((row, idx) => (
               <div
                 key={row.key}
-                className="grid grid-cols-12 gap-2 items-end"
+                className="rounded border border-zinc-200 bg-zinc-50 p-3 space-y-2"
               >
-                <div className="col-span-3">
-                  <Select
-                    name="partId[]"
-                    value={row.partId}
-                    onChange={(e) => onPartCatalogChange(row.key, e.target.value)}
-                  >
-                    <option value="">Free-text part…</option>
-                    {catalog.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {c.partNumber ? ` · ${c.partNumber}` : ""}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    name="partNumber[]"
-                    placeholder="Part #"
-                    value={row.partNumber}
-                    onChange={(e) =>
-                      updatePart(row.key, { partNumber: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="col-span-3">
-                  <Input
-                    name="partDescription[]"
-                    placeholder="Description"
-                    value={row.description}
-                    onChange={(e) =>
-                      updatePart(row.key, { description: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="col-span-1">
-                  <Input
-                    name="partQty[]"
-                    type="number"
-                    step="1"
-                    placeholder="Qty"
-                    value={row.quantity}
-                    onChange={(e) =>
-                      updatePart(row.key, { quantity: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    name="partUnitPrice[]"
-                    type="number"
-                    step="0.01"
-                    placeholder="Price"
-                    value={row.unitPrice}
-                    onChange={(e) =>
-                      updatePart(row.key, { unitPrice: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="col-span-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-wider text-zinc-500">
+                    Part {idx + 1}
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -320,8 +264,79 @@ export function CannedJobForm({
                     onClick={() => removePart(row.key)}
                     aria-label="Remove part"
                   >
-                    ✕
+                    ✕ Remove
                   </Button>
+                </div>
+                <Field label="Name / description">
+                  <Input
+                    name="partDescription[]"
+                    placeholder="e.g. Front brake pads (ceramic), AC condenser, Engine oil (5W-30)"
+                    value={row.description}
+                    onChange={(e) =>
+                      updatePart(row.key, { description: e.target.value })
+                    }
+                  />
+                </Field>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <Field label="Catalog (optional)">
+                      <Select
+                        name="partId[]"
+                        value={row.partId}
+                        onChange={(e) =>
+                          onPartCatalogChange(row.key, e.target.value)
+                        }
+                      >
+                        <option value="">Free-text (no catalog link)</option>
+                        {catalog.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                            {c.partNumber ? ` · ${c.partNumber}` : ""}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+                  <div className="col-span-3">
+                    <Field label="Part #">
+                      <Input
+                        name="partNumber[]"
+                        placeholder="optional"
+                        value={row.partNumber}
+                        onChange={(e) =>
+                          updatePart(row.key, { partNumber: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <div className="col-span-2">
+                    <Field label="Qty">
+                      <Input
+                        name="partQty[]"
+                        type="number"
+                        step="1"
+                        placeholder="1"
+                        value={row.quantity}
+                        onChange={(e) =>
+                          updatePart(row.key, { quantity: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <div className="col-span-2">
+                    <Field label="Price">
+                      <Input
+                        name="partUnitPrice[]"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={row.unitPrice}
+                        onChange={(e) =>
+                          updatePart(row.key, { unitPrice: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
                 </div>
               </div>
             ))}

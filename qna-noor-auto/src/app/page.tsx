@@ -30,6 +30,7 @@ export default async function DashboardPage() {
           vehicle: true,
           laborLines: true,
           partLines: true,
+          feeLines: true,
         },
       }),
       db.appointment.findMany({
@@ -46,7 +47,7 @@ export default async function DashboardPage() {
         gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
       },
     },
-    include: { laborLines: true, partLines: true },
+    include: { laborLines: true, partLines: true, feeLines: true },
   });
   const revenueThisMonth = paidThisMonthROs.reduce(
     (s, ro) => s + computeTotals(ro).total,
@@ -64,6 +65,7 @@ export default async function DashboardPage() {
       vehicle: true,
       laborLines: true,
       partLines: true,
+      feeLines: true,
       payments: true,
     },
   });

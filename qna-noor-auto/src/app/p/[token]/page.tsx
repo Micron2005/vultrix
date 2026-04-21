@@ -34,6 +34,7 @@ export default async function CustomerPortalPage({
           vehicle: true,
           laborLines: { orderBy: { sortOrder: "asc" } },
           partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
           payments: { orderBy: { paidAt: "desc" } },
         },
       },

@@ -310,6 +310,33 @@ export async function addPartLine(repairOrderId: string, fd: FormData) {
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
+// Fees
+export async function addFeeLine(repairOrderId: string, fd: FormData) {
+  const description = String(fd.get("description") ?? "").trim();
+  if (!description) return;
+  const amount = parseFloat(String(fd.get("amount") ?? "0")) || 0;
+
+  const max = await db.feeLine.findFirst({
+    where: { repairOrderId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  await db.feeLine.create({
+    data: {
+      repairOrderId,
+      description,
+      amount: Math.round(amount * 100) / 100,
+      sortOrder: (max?.sortOrder ?? 0) + 1,
+    },
+  });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+}
+
+export async function deleteFeeLine(id: string, repairOrderId: string) {
+  await db.feeLine.delete({ where: { id } });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+}
+
 export async function deletePartLine(id: string, repairOrderId: string) {
   const line = await db.partLine.findUnique({
     where: { id },
@@ -353,12 +380,13 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 async function computeRoTotal(id: string): Promise<number> {
   const ro = await db.repairOrder.findUnique({
     where: { id },
-    include: { laborLines: true, partLines: true },
+    include: { laborLines: true, partLines: true, feeLines: true },
   });
   if (!ro) return 0;
   const labor = ro.laborLines.reduce((s, l) => s + l.hours * l.rate, 0);
   const parts = ro.partLines.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
-  const subtotal = labor + parts;
+  const fees = ro.feeLines.reduce((s, f) => s + (f.amount || 0), 0);
+  const subtotal = labor + parts + fees;
   const afterDiscount = Math.max(subtotal - (ro.discount || 0), 0);
   const tax = afterDiscount * ((ro.taxRate || 0) / 100);
   return Math.round((afterDiscount + tax) * 100) / 100;

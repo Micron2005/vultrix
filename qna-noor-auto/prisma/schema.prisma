@@ -122,6 +122,7 @@ model RepairOrder {
 
   laborLines    LaborLine[]
   partLines     PartLine[]
+  feeLines      FeeLine[]
   appointments  Appointment[]
   payments      Payment[]
 
@@ -211,6 +212,24 @@ model PartLine {
   @@index([partId])
 }
 
+// Flat-amount fees / charges on an RO (e.g. state inspection $20, shop supplies $5).
+// Separate from labor and parts so invoices can show them as their own section.
+// Included in subtotal and subject to the RO's tax rate (set tax rate to 0 on
+// the RO if the fee is a pass-through / not taxable in your state).
+model FeeLine {
+  id              String      @id @default(cuid())
+  repairOrderId   String
+  repairOrder     RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  description     String
+  amount          Float       @default(0)
+  sortOrder       Int         @default(0)
+
+  createdAt       DateTime    @default(now())
+
+  @@index([repairOrderId])
+}
+
 // Inventory catalog — parts the shop actually stocks.
 // Free-form partLines (not tied to a Part) continue to work; the catalog is optional.
 model Part {
@@ -224,6 +243,14 @@ model Part {
 
   qtyOnHand       Float          @default(0)
   reorderLevel    Float          @default(0) // "low stock" if qtyOnHand <= reorderLevel
+
+  // Optional fitment tags used by /vehicle-search. A part is shown for a given
+  // picked vehicle when either (a) all fitment fields are null (universal), or
+  // (b) the set fields match. Blank make/model = matches anything for that axis.
+  fitsMake        String?
+  fitsModel       String?
+  fitsYearMin     Int?
+  fitsYearMax     Int?
 
   notes           String?
   archived        Boolean        @default(false)

@@ -25,8 +25,10 @@ import {
   vehicleLabel,
 } from "@/lib/utils";
 import {
+  addFeeLine,
   addLaborLine,
   addPartLine,
+  deleteFeeLine,
   deleteLaborLine,
   deletePartLine,
   deletePayment,
@@ -41,6 +43,11 @@ import {
   revokeShareToken,
 } from "../share";
 import { getSetting } from "@/lib/shop";
+import {
+  filterDuplicatesByLabor,
+  openROsForVehicle,
+} from "@/lib/duplicates";
+import { DuplicateROBanner } from "@/components/DuplicateROBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +67,7 @@ export default async function RepairOrderDetailPage({
         include: { technician: true },
       },
       partLines: { orderBy: { sortOrder: "asc" } },
+      feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
     },
   });
@@ -130,11 +138,21 @@ export default async function RepairOrderDetailPage({
   const updateAction = updateRepairOrder.bind(null, ro.id);
   const addLabor = addLaborLine.bind(null, ro.id);
   const addPart = addPartLine.bind(null, ro.id);
+  const addFee = addFeeLine.bind(null, ro.id);
   const recordPay = recordPayment.bind(null, ro.id);
   const del = deleteRepairOrder.bind(null, ro.id);
   const genShare = generateShareToken.bind(null, ro.id);
   const regenShare = regenerateShareToken.bind(null, ro.id);
   const revokeShare = revokeShareToken.bind(null, ro.id);
+
+  // Possible-duplicate detection: only flag other OPEN ROs on the same
+  // vehicle whose labor lines share a significant word with this RO's
+  // labor lines. Empty labor lines → no flag (handled by the filter).
+  const otherOpen = await openROsForVehicle(ro.vehicleId, ro.id);
+  const duplicates = filterDuplicatesByLabor(
+    otherOpen,
+    ro.laborLines.map((l) => l.description),
+  );
 
   return (
     <>
@@ -164,6 +182,16 @@ export default async function RepairOrderDetailPage({
           />
         }
       />
+
+      {duplicates.length > 0 && (
+        <div className="mb-4">
+          <DuplicateROBanner
+            ros={duplicates}
+            heading={`Possible duplicate — ${duplicates.length} other open RO${duplicates.length === 1 ? "" : "s"} on this vehicle share overlapping labor`}
+            subheading="Review before invoicing. If this RO is truly a different job, you can ignore this notice."
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <Card className="lg:col-span-2">
@@ -230,6 +258,9 @@ export default async function RepairOrderDetailPage({
           <div className="p-4 text-sm space-y-2">
             <Row label="Labor" value={formatMoney(totals.laborSubtotal)} />
             <Row label="Parts" value={formatMoney(totals.partsSubtotal)} />
+            {totals.feesSubtotal > 0 && (
+              <Row label="Fees" value={formatMoney(totals.feesSubtotal)} />
+            )}
             <Row label="Subtotal" value={formatMoney(totals.subtotal)} />
             {totals.discount > 0 && (
               <Row
@@ -648,6 +679,78 @@ export default async function RepairOrderDetailPage({
           <div className="col-span-12">
             <Button type="submit" variant="secondary">
               + Add part
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader title={`Fees (${ro.feeLines.length})`}>
+          <span className="text-xs text-zinc-500 font-normal">
+            Flat-amount charges (state inspection, shop supplies, diagnostic fee, etc).
+          </span>
+        </CardHeader>
+        {ro.feeLines.length > 0 && (
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-2 font-medium">Description</th>
+                <th className="px-4 py-2 font-medium text-right w-32">Amount</th>
+                <th className="px-2 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200">
+              {ro.feeLines.map((f) => {
+                const delF = deleteFeeLine.bind(null, f.id, ro.id);
+                return (
+                  <tr key={f.id}>
+                    <td className="px-4 py-2">{f.description}</td>
+                    <td className="px-4 py-2 text-right">
+                      {formatMoney(f.amount)}
+                    </td>
+                    <td className="px-2 py-2">
+                      <form action={delF}>
+                        <button
+                          type="submit"
+                          className="text-zinc-400 hover:text-red-600 text-sm"
+                          aria-label="Delete"
+                        >
+                          ×
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <form
+          action={addFee}
+          className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
+        >
+          <div className="col-span-8">
+            <Field label="Description">
+              <Input
+                name="description"
+                placeholder="e.g. State inspection, shop supplies, diagnostic fee"
+                required
+              />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Field label="Amount ($)">
+              <Input
+                name="amount"
+                inputMode="decimal"
+                defaultValue="0"
+                required
+              />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Button type="submit" className="w-full" variant="secondary">
+              + Add fee
             </Button>
           </div>
         </form>

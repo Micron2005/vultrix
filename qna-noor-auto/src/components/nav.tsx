@@ -9,6 +9,8 @@ const items = [
   { href: "/customers", label: "Customers" },
   { href: "/businesses", label: "Businesses" },
   { href: "/vehicles", label: "Vehicles" },
+  { href: "/lookup", label: "Lookup" },
+  { href: "/vehicle-search", label: "Vehicle Search" },
   { href: "/repair-orders", label: "Repair Orders" },
   { href: "/appointments", label: "Schedule" },
   { href: "/notes", label: "Knowledge" },

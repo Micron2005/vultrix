@@ -29,6 +29,7 @@ export default async function PublicEstimatePage({
       vehicle: true,
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
+      feeLines: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -38,6 +39,7 @@ export default async function PublicEstimatePage({
   const totals = computeTotals({
     laborLines: ro.laborLines,
     partLines: ro.partLines,
+    feeLines: ro.feeLines,
     taxRate: ro.taxRate,
     discount: ro.discount,
   });
@@ -202,6 +204,34 @@ export default async function PublicEstimatePage({
                       </td>
                       <td className="py-2 pl-2 text-right tabular-nums">
                         {formatMoney(p.quantity * p.unitPrice)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {ro.feeLines.length > 0 && (
+            <section className="px-8 py-4 border-b border-zinc-200">
+              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                Fees
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-zinc-500">
+                    <th className="py-1 pr-2 font-medium">Description</th>
+                    <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ro.feeLines.map((f) => (
+                    <tr key={f.id} className="border-t border-zinc-100">
+                      <td className="py-2 pr-2 text-zinc-800">
+                        {f.description}
+                      </td>
+                      <td className="py-2 pl-2 text-right tabular-nums">
+                        {formatMoney(f.amount)}
                       </td>
                     </tr>
                   ))}

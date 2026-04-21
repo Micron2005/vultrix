@@ -36,7 +36,7 @@ export default async function VehicleDetailPage({
       customer: true,
       repairOrders: {
         orderBy: { openedAt: "desc" },
-        include: { laborLines: true, partLines: true },
+        include: { laborLines: true, partLines: true, feeLines: true },
       },
     },
   });

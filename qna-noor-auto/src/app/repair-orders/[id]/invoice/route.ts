@@ -17,6 +17,7 @@ export async function GET(
       vehicle: true,
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
+      feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
     },
   });
@@ -285,6 +286,35 @@ export async function GET(
     y -= 6;
   }
 
+  // Fees section
+  if (ro.feeLines.length > 0) {
+    page.drawText("FEES", {
+      x: margin,
+      y,
+      size: 9,
+      font: bold,
+      color: gray,
+    });
+    y -= 14;
+    drawLineHeader(page, y, font, gray, [
+      { text: "Description", x: margin },
+      { text: "Amount", x: 612 - margin, align: "right" },
+    ]);
+    y -= 12;
+    for (const f of ro.feeLines) {
+      page.drawText(f.description, {
+        x: margin,
+        y,
+        size: 10,
+        font,
+        color: black,
+      });
+      drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
+      y -= 14;
+    }
+    y -= 6;
+  }
+
   // Totals (right side)
   page.drawLine({
     start: { x: 360, y },
@@ -297,8 +327,10 @@ export async function GET(
   const totalsRows: [string, string][] = [
     ["Labor", formatMoney(totals.laborSubtotal)],
     ["Parts", formatMoney(totals.partsSubtotal)],
-    ["Subtotal", formatMoney(totals.subtotal)],
   ];
+  if (totals.feesSubtotal > 0)
+    totalsRows.push(["Fees", formatMoney(totals.feesSubtotal)]);
+  totalsRows.push(["Subtotal", formatMoney(totals.subtotal)]);
   if (totals.discount > 0)
     totalsRows.push(["Discount", `- ${formatMoney(totals.discount)}`]);
   totalsRows.push([`Tax (${ro.taxRate}%)`, formatMoney(totals.tax)]);

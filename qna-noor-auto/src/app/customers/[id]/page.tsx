@@ -37,6 +37,7 @@ export default async function CustomerDetailPage({
           vehicle: true,
           laborLines: true,
           partLines: true,
+          feeLines: true,
         },
       },
     },
