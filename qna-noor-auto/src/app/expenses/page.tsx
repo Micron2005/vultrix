@@ -7,6 +7,8 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { computeTotals } from "@/lib/totals";
+import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { prettyCategory, prettyMethod } from "./categories";
 
 export const dynamic = "force-dynamic";
@@ -36,20 +38,100 @@ export default async function ExpensesListPage({
   }
   if (category) where.category = category;
 
-  const expenses = await db.expense.findMany({
-    where,
-    orderBy: { paidAt: "desc" },
-  });
+  // Month-to-date window for the top summary cards. Independent of the
+  // filters below so the summary always reflects the current month.
+  const now = new Date();
+  const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+  const mtdTo = new Date(now);
+  mtdTo.setHours(23, 59, 59, 999);
+
+  const [expenses, mtdPayments, mtdExpenses, invoicedROs] = await Promise.all([
+    db.expense.findMany({ where, orderBy: { paidAt: "desc" } }),
+    db.payment.findMany({
+      where: { paidAt: { gte: mtdFrom, lte: mtdTo } },
+      select: { amount: true },
+    }),
+    db.expense.findMany({
+      where: { paidAt: { gte: mtdFrom, lte: mtdTo } },
+      select: { amount: true },
+    }),
+    db.repairOrder.findMany({
+      where: { status: "INVOICED" },
+      include: {
+        laborLines: true,
+        partLines: true,
+        feeLines: true,
+        payments: { select: { amount: true } },
+      },
+    }),
+  ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const mtdRevenue = mtdPayments.reduce((s, p) => s + p.amount, 0);
+  const mtdExpensesTotal = mtdExpenses.reduce((s, e) => s + e.amount, 0);
+  const mtdNet = mtdRevenue - mtdExpensesTotal;
+
+  // Sum outstanding balance across every RO currently in the INVOICED state.
+  // Shop fees are applied the same way `/reports` computes them.
+  const arShopFeesByRO = await loadAppliedShopFeesForROs(
+    invoicedROs.map((ro) => {
+      const t = computeTotals(ro);
+      return {
+        id: ro.id,
+        partsSubtotal: t.partsSubtotal,
+        laborSubtotal: t.laborSubtotal,
+      };
+    }),
+  );
+  let arTotal = 0;
+  for (const ro of invoicedROs) {
+    const shopFees = arShopFeesByRO.get(ro.id) ?? [];
+    const grand = computeTotals({ ...ro, shopFees }).total;
+    const paid = ro.payments.reduce((x, p) => x + p.amount, 0);
+    arTotal += Math.max(0, grand - paid);
+  }
+  const arCount = invoicedROs.length;
 
   return (
     <>
       <PageHeader
-        title="Expenses"
-        description="Shop overhead — rent, utilities, supplies, tools, insurance, etc."
+        title="Financials"
+        description="Revenue, money owed, and shop expenses — all in one place."
         actions={<LinkButton href="/expenses/new">+ New expense</LinkButton>}
       />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <SummaryCard label="Revenue this month" value={formatMoney(mtdRevenue)} />
+        <SummaryCard
+          label="A/R outstanding"
+          value={formatMoney(arTotal)}
+          sub={
+            arCount === 0
+              ? "No open invoices"
+              : `${arCount} invoice${arCount === 1 ? "" : "s"} unpaid`
+          }
+          highlight={arTotal > 0}
+        />
+        <SummaryCard
+          label="Expenses this month"
+          value={formatMoney(mtdExpensesTotal)}
+        />
+        <SummaryCard
+          label="Net this month"
+          value={formatMoney(mtdNet)}
+          sub="Revenue − expenses"
+        />
+      </div>
+
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-zinc-900">Shop expenses</h2>
+        <Link
+          href="/reports"
+          className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+        >
+          View full reports →
+        </Link>
+      </div>
 
       <Card className="p-4 mb-4">
         <form className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm items-end">
@@ -178,5 +260,34 @@ export default async function ExpensesListPage({
         </Card>
       )}
     </>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  sub,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "rounded-lg border p-3 " +
+        (highlight
+          ? "border-amber-300 bg-amber-50"
+          : "border-zinc-200 bg-white")
+      }
+    >
+      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-zinc-900 tabular-nums">
+        {value}
+      </div>
+      {sub && <div className="mt-1 text-[11px] text-zinc-500">{sub}</div>}
+    </div>
   );
 }
