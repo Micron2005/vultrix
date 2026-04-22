@@ -17,7 +17,7 @@ const items = [
   { href: "/technicians", label: "Technicians" },
   { href: "/inventory", label: "Inventory" },
   { href: "/canned-jobs", label: "Presets" },
-  { href: "/expenses", label: "Expenses" },
+  { href: "/expenses", label: "Financials" },
   { href: "/reports", label: "Reports" },
   { href: "/import", label: "Import" },
   { href: "/export", label: "Export" },
