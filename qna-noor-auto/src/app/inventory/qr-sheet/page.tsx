@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
+import { stickerScanUrl } from "@/lib/scanTokens";
 import { PrintQrButton } from "../[id]/qr/PrintQrButton";
 
 export const dynamic = "force-dynamic";
@@ -94,7 +95,7 @@ export default async function QrSheetPage({
 
   const qrCodes = await Promise.all(
     parts.map(async (p) => {
-      const url = origin ? `${origin}/s/${p.id}` : `/s/${p.id}`;
+      const url = stickerScanUrl(origin, p.id);
       const svg = await QRCode.toString(url, {
         type: "svg",
         margin: 1,

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
+import { stickerScanUrl } from "@/lib/scanTokens";
 import { PrintQrButton } from "./PrintQrButton";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function PartQrPage({
   if (!part) notFound();
 
   const origin = await resolveOrigin();
-  const scanUrl = origin ? `${origin}/s/${id}` : `/s/${id}`;
+  const scanUrl = stickerScanUrl(origin, id);
 
   // SVG stays crisp at any size, unlike the PNG data URL.
   const qrSvg = await QRCode.toString(scanUrl, {

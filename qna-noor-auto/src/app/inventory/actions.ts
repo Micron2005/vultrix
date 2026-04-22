@@ -230,3 +230,45 @@ export async function scanAdjustStock(id: string, fd: FormData) {
   revalidatePath("/");
   redirect(`/s/${id}?ok=1`);
 }
+
+/**
+ * Reverses a single StockMove entry created by the quick-scan flow. Used by
+ * the "Undo" button on `/q/<id>/done`. Applies the opposite delta, logs a
+ * compensating StockMove so the audit log shows the undo, and redirects
+ * back to the inventory detail page.
+ */
+export async function undoScanMove(fd: FormData) {
+  const moveId = String(fd.get("moveId") ?? "").trim();
+  const partId = String(fd.get("partId") ?? "").trim();
+  if (!moveId || !partId) return;
+
+  const move = await db.stockMove.findUnique({
+    where: { id: moveId },
+    select: { id: true, partId: true, delta: true },
+  });
+  if (!move || move.partId !== partId) {
+    redirect(`/q/${partId}/done`);
+  }
+
+  const inverse = -move.delta;
+  await db.$transaction(async (tx) => {
+    await tx.part.update({
+      where: { id: partId },
+      data: { qtyOnHand: { increment: inverse } },
+    });
+    await tx.stockMove.create({
+      data: {
+        partId,
+        delta: inverse,
+        reason: "ADJUST",
+        note: "Scan: undo",
+      },
+    });
+  });
+
+  revalidatePath("/inventory");
+  revalidatePath(`/inventory/${partId}`);
+  revalidatePath(`/s/${partId}`);
+  revalidatePath("/");
+  redirect(`/q/${partId}/done?undone=1`);
+}
