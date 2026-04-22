@@ -190,7 +190,7 @@ export default async function RemindersPage({
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-400">
                         {r.lastVisit
-                          ? `Last visit ${Math.round((r.daysSince ?? 0) / 30)} months ago`
+                          ? `Last visit ${Math.round((r.daysSince ?? 0) / 30)} month${Math.round((r.daysSince ?? 0) / 30) === 1 ? "" : "s"} ago`
                           : "Never visited"}
                       </div>
                     </div>
