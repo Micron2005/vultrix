@@ -403,7 +403,10 @@ export default async function RepairOrderDetailPage({
                     {formatMoney(partsProfit.profit)}
                     {partsProfit.markupPct != null && (
                       <span className="ml-2 text-xs">
-                        ({formatMarkup(partsProfit.markupPct)})
+                        ({formatMarkup(partsProfit.markupPct)}
+                        {partsProfit.marginPct != null &&
+                          ` / ${Math.round(partsProfit.marginPct)}% margin`}
+                        )
                       </span>
                     )}
                   </span>
@@ -712,7 +715,7 @@ export default async function RepairOrderDetailPage({
               <th className="px-4 py-2 font-medium text-right w-16">Qty</th>
               <th className="px-4 py-2 font-medium text-right w-24">Cost</th>
               <th className="px-4 py-2 font-medium text-right w-24">Price</th>
-              <th className="px-4 py-2 font-medium text-right w-20">Markup</th>
+              <th className="px-4 py-2 font-medium text-right w-24">Markup / Margin</th>
               <th className="px-4 py-2 font-medium text-right w-24">Amount</th>
               <th className="px-2 py-2 w-10"></th>
             </tr>
@@ -722,6 +725,7 @@ export default async function RepairOrderDetailPage({
               const delP = deletePartLine.bind(null, p.id, ro.id);
               const updP = updatePartLine.bind(null, p.id, ro.id);
               const markup = calcMarkup(p.costPrice, p.unitPrice);
+              const margin = calcMargin(p.costPrice, p.unitPrice);
               if (isLocked) {
                 return (
                   <tr key={p.id}>
@@ -745,7 +749,18 @@ export default async function RepairOrderDetailPage({
                         markupClass(markup)
                       }
                     >
-                      {markup == null ? "—" : formatMarkup(markup)}
+                      {markup == null ? (
+                        "—"
+                      ) : (
+                        <>
+                          {formatMarkup(markup)}
+                          {margin != null && (
+                            <div className="text-[10px] font-normal text-zinc-500">
+                              {formatMargin(margin)}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-right">
                       {formatMoney(p.quantity * p.unitPrice)}
@@ -802,7 +817,18 @@ export default async function RepairOrderDetailPage({
                       markupClass(markup)
                     }
                   >
-                    {markup == null ? "—" : formatMarkup(markup)}
+                    {markup == null ? (
+                      "—"
+                    ) : (
+                      <>
+                        {formatMarkup(markup)}
+                        {margin != null && (
+                          <div className="text-[10px] font-normal text-zinc-500">
+                            {formatMargin(margin)}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-right">
                     {formatMoney(p.quantity * p.unitPrice)}
@@ -1294,10 +1320,28 @@ function calcMarkup(
   return ((price - cost) / cost) * 100;
 }
 
+// Margin % = (price - cost) / price * 100. Complements markup — shops
+// instinctively think in markup ("I mark parts up 40%") but financial
+// reporting uses margin ("25% gross margin").
+function calcMargin(
+  cost: number | null | undefined,
+  price: number | null | undefined,
+): number | null {
+  if (cost == null || !isFinite(cost)) return null;
+  if (price == null || !isFinite(price) || price <= 0) return null;
+  return ((price - cost) / price) * 100;
+}
+
 function formatMarkup(pct: number): string {
   const rounded = Math.round(pct * 10) / 10;
   const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : "";
   return `${sign}${Math.abs(rounded).toFixed(1)}%`;
+}
+
+function formatMargin(pct: number): string {
+  const rounded = Math.round(pct);
+  const sign = rounded < 0 ? "−" : "";
+  return `${sign}${Math.abs(rounded)}% margin`;
 }
 
 function markupClass(pct: number | null): string {
@@ -1321,6 +1365,7 @@ function computePartsProfit(
   totalCharged: number;
   profit: number;
   markupPct: number | null;
+  marginPct: number | null;
   uncosted: number;
   hasAnyCost: boolean;
 } {
@@ -1344,11 +1389,16 @@ function computePartsProfit(
   const profit = chargedForCostedLines - totalCost;
   const markupPct =
     totalCost > 0 ? ((chargedForCostedLines - totalCost) / totalCost) * 100 : null;
+  const marginPct =
+    chargedForCostedLines > 0
+      ? ((chargedForCostedLines - totalCost) / chargedForCostedLines) * 100
+      : null;
   return {
     totalCost,
     totalCharged,
     profit,
     markupPct,
+    marginPct,
     uncosted,
     hasAnyCost,
   };
