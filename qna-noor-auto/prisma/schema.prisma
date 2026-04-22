@@ -295,6 +295,11 @@ model StockMove {
   partLineId      String?
   partLine        PartLine?      @relation(fields: [partLineId], references: [id], onDelete: SetNull)
 
+  // True after a compensating move has been created to reverse this one.
+  // Used by the scan-undo flow so a double-click or form resubmission
+  // can't apply the inverse delta twice.
+  undone          Boolean        @default(false)
+
   createdAt       DateTime       @default(now())
 
   @@index([partId])

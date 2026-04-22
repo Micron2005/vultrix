@@ -244,14 +244,24 @@ export async function undoScanMove(fd: FormData) {
 
   const move = await db.stockMove.findUnique({
     where: { id: moveId },
-    select: { id: true, partId: true, delta: true },
+    select: { id: true, partId: true, delta: true, undone: true },
   });
   if (!move || move.partId !== partId) {
     redirect(`/q/${partId}/done`);
   }
 
+  // Idempotency guard: flip `undone` from false -> true atomically as part
+  // of the same transaction that writes the compensating move. If the row
+  // is already undone (double-click / back+resubmit), updateMany returns 0
+  // and we skip the inverse delta so stock can't drift.
   const inverse = -move.delta;
-  await db.$transaction(async (tx) => {
+  const appliedInverse = await db.$transaction(async (tx) => {
+    const flagged = await tx.stockMove.updateMany({
+      where: { id: moveId, undone: false },
+      data: { undone: true },
+    });
+    if (flagged.count !== 1) return 0;
+
     await tx.part.update({
       where: { id: partId },
       data: { qtyOnHand: { increment: inverse } },
@@ -262,13 +272,18 @@ export async function undoScanMove(fd: FormData) {
         delta: inverse,
         reason: "ADJUST",
         note: "Scan: undo",
+        // The compensating move itself can't be undone again.
+        undone: true,
       },
     });
+    return inverse;
   });
 
-  revalidatePath("/inventory");
-  revalidatePath(`/inventory/${partId}`);
-  revalidatePath(`/s/${partId}`);
-  revalidatePath("/");
+  if (appliedInverse !== 0) {
+    revalidatePath("/inventory");
+    revalidatePath(`/inventory/${partId}`);
+    revalidatePath(`/s/${partId}`);
+    revalidatePath("/");
+  }
   redirect(`/q/${partId}/done?undone=1`);
 }
