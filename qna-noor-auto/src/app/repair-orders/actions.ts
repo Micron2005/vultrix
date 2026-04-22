@@ -179,7 +179,9 @@ export async function deleteRepairOrder(id: string) {
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
   revalidatePath(`/vehicles/${ro.vehicleId}`);
-  redirect("/repair-orders");
+  // Bounce back to the dashboard rather than the RO list — same rule as
+  // Save & Exit on the RO detail page.
+  redirect("/");
 }
 
 // Lines
