@@ -13,6 +13,7 @@ const items = [
   { href: "/vehicle-search", label: "Vehicle Search" },
   { href: "/repair-orders", label: "Repair Orders" },
   { href: "/appointments", label: "Schedule" },
+  { href: "/reminders", label: "Reminders" },
   { href: "/notes", label: "Knowledge" },
   { href: "/technicians", label: "Technicians" },
   { href: "/inventory", label: "Inventory" },
