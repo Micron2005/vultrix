@@ -92,6 +92,9 @@ export default async function PartDetailPage({
         description={part.description ?? undefined}
         actions={
           <div className="flex gap-2">
+            <LinkButton href={`/inventory/${id}/qr`} variant="secondary">
+              QR sticker
+            </LinkButton>
             <LinkButton href={`/inventory/${id}/edit`} variant="secondary">
               Edit
             </LinkButton>

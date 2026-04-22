@@ -37,10 +37,15 @@ export function Nav() {
   const [q, setQ] = useState("");
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
+  // Also hide on the QR-scan flow so techs scanning stickers on their phone
+  // see a single-column page with no chrome in the way.
   if (
     pathname?.startsWith("/e/") ||
     pathname?.startsWith("/p/") ||
     pathname?.startsWith("/a/") ||
+    pathname?.startsWith("/s/") ||
+    pathname?.startsWith("/inventory/qr-sheet") ||
+    pathname?.endsWith("/qr") ||
     pathname === "/login"
   )
     return null;

@@ -75,7 +75,17 @@ export default async function InventoryPage({
       <PageHeader
         title="Inventory"
         description="Parts you stock. Link these to RO part lines and the stock auto-deducts when used."
-        actions={<LinkButton href="/inventory/new">Add part</LinkButton>}
+        actions={
+          <div className="flex gap-2">
+            <LinkButton
+              href={`/inventory/qr-sheet${filter !== "active" ? `?filter=${filter}` : ""}${q ? `${filter !== "active" ? "&" : "?"}q=${encodeURIComponent(q)}` : ""}`}
+              variant="secondary"
+            >
+              Print QR stickers
+            </LinkButton>
+            <LinkButton href="/inventory/new">Add part</LinkButton>
+          </div>
+        }
       />
 
       <div className="mb-4 flex flex-wrap gap-2 items-center">

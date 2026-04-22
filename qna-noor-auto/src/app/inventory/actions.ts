@@ -153,3 +153,61 @@ export async function adjustStock(id: string, fd: FormData) {
   revalidatePath(`/inventory/${id}`);
   revalidatePath("/");
 }
+
+/**
+ * Quick adjust from the mobile QR-scan page (`/s/<id>`). Accepts either
+ * `delta` (relative +/- change) or `setTo` (absolute target count). Logs a
+ * StockMove row so the audit trail on the part detail page stays intact.
+ */
+export async function scanAdjustStock(id: string, fd: FormData) {
+  const deltaRaw = String(fd.get("delta") ?? "").trim();
+  const setToRaw = String(fd.get("setTo") ?? "").trim();
+  const reason = String(fd.get("reason") ?? "ADJUST").trim() || "ADJUST";
+  const note = cleanStr(String(fd.get("note") ?? ""));
+
+  // Resolve to a relative delta so the StockMove log always records a change.
+  let delta: number | null = null;
+  if (setToRaw !== "") {
+    const target = parseFloat(setToRaw);
+    if (!Number.isFinite(target)) return;
+    const part = await db.part.findUnique({
+      where: { id },
+      select: { qtyOnHand: true },
+    });
+    if (!part) return;
+    delta = target - part.qtyOnHand;
+  } else if (deltaRaw !== "") {
+    const d = parseFloat(deltaRaw);
+    if (!Number.isFinite(d)) return;
+    delta = d;
+  }
+
+  if (delta == null || delta === 0) {
+    redirect(`/s/${id}`);
+  }
+
+  await db.part.update({
+    where: { id },
+    data: { qtyOnHand: { increment: delta } },
+  });
+  await db.stockMove.create({
+    data: {
+      partId: id,
+      delta,
+      reason:
+        reason === "USE_RO" ||
+        reason === "RECEIVE" ||
+        reason === "ADJUST" ||
+        reason === "RESTOCK_RO"
+          ? reason
+          : "ADJUST",
+      note,
+    },
+  });
+
+  revalidatePath("/inventory");
+  revalidatePath(`/inventory/${id}`);
+  revalidatePath(`/s/${id}`);
+  revalidatePath("/");
+  redirect(`/s/${id}?ok=1`);
+}
