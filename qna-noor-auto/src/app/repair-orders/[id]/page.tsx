@@ -14,6 +14,8 @@ import {
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
+import { ShareActions } from "./ShareActions";
+import { getAllSettings } from "@/lib/shop";
 import { ApplyPresetForm } from "./ApplyPresetForm";
 import { applyCannedJobFormAction } from "@/app/canned-jobs/actions";
 import { computeTotals } from "@/lib/totals";
@@ -119,6 +121,9 @@ export default async function RepairOrderDetailPage({
       unitPrice: true,
     },
   });
+
+  const shopSettings = await getAllSettings();
+  const shopName = shopSettings.shopName || "QNA / Noor Auto Repair";
 
   const presets = await db.cannedJob.findMany({
     where: { archived: false },
@@ -403,6 +408,14 @@ export default async function RepairOrderDetailPage({
           {ro.shareToken ? (
             <>
               <ShareLinkPanel token={ro.shareToken} />
+              <ShareActions
+                token={ro.shareToken}
+                customerEmail={ro.customer.email}
+                customerPhone={ro.customer.phone}
+                customerName={fullName(ro.customer)}
+                roNumber={ro.roNumber}
+                shopName={shopName}
+              />
               {ro.approvedAt ? (
                 <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-900">
                   <span className="font-medium">✓ Approved by customer</span>
