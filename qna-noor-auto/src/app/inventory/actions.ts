@@ -158,6 +158,10 @@ export async function adjustStock(id: string, fd: FormData) {
  * Quick adjust from the mobile QR-scan page (`/s/<id>`). Accepts either
  * `delta` (relative +/- change) or `setTo` (absolute target count). Logs a
  * StockMove row so the audit trail on the part detail page stays intact.
+ *
+ * The `setTo` path reads current qty and writes the diff inside a single
+ * Prisma interactive transaction so two concurrent scans can't race and
+ * leave the part at an unintended count.
  */
 export async function scanAdjustStock(id: string, fd: FormData) {
   const deltaRaw = String(fd.get("delta") ?? "").trim();
@@ -165,45 +169,54 @@ export async function scanAdjustStock(id: string, fd: FormData) {
   const reason = String(fd.get("reason") ?? "ADJUST").trim() || "ADJUST";
   const note = cleanStr(String(fd.get("note") ?? ""));
 
-  // Resolve to a relative delta so the StockMove log always records a change.
-  let delta: number | null = null;
+  const safeReason =
+    reason === "USE_RO" ||
+    reason === "RECEIVE" ||
+    reason === "ADJUST" ||
+    reason === "RESTOCK_RO"
+      ? reason
+      : "ADJUST";
+
   if (setToRaw !== "") {
     const target = parseFloat(setToRaw);
     if (!Number.isFinite(target)) return;
-    const part = await db.part.findUnique({
-      where: { id },
-      select: { qtyOnHand: true },
+
+    const appliedDelta = await db.$transaction(async (tx) => {
+      const part = await tx.part.findUnique({
+        where: { id },
+        select: { qtyOnHand: true },
+      });
+      if (!part) return 0;
+      const d = target - part.qtyOnHand;
+      if (d === 0) return 0;
+      await tx.part.update({
+        where: { id },
+        data: { qtyOnHand: { increment: d } },
+      });
+      await tx.stockMove.create({
+        data: { partId: id, delta: d, reason: safeReason, note },
+      });
+      return d;
     });
-    if (!part) return;
-    delta = target - part.qtyOnHand;
+
+    if (appliedDelta === 0) {
+      redirect(`/s/${id}`);
+    }
   } else if (deltaRaw !== "") {
     const d = parseFloat(deltaRaw);
-    if (!Number.isFinite(d)) return;
-    delta = d;
-  }
-
-  if (delta == null || delta === 0) {
+    if (!Number.isFinite(d) || d === 0) {
+      redirect(`/s/${id}`);
+    }
+    await db.part.update({
+      where: { id },
+      data: { qtyOnHand: { increment: d } },
+    });
+    await db.stockMove.create({
+      data: { partId: id, delta: d, reason: safeReason, note },
+    });
+  } else {
     redirect(`/s/${id}`);
   }
-
-  await db.part.update({
-    where: { id },
-    data: { qtyOnHand: { increment: delta } },
-  });
-  await db.stockMove.create({
-    data: {
-      partId: id,
-      delta,
-      reason:
-        reason === "USE_RO" ||
-        reason === "RECEIVE" ||
-        reason === "ADJUST" ||
-        reason === "RESTOCK_RO"
-          ? reason
-          : "ADJUST",
-      note,
-    },
-  });
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
