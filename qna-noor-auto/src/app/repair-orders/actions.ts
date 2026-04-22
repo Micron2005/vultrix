@@ -234,22 +234,16 @@ export async function updateLaborLineTech(
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
-// Status values beyond which line edits are locked: once money has been
-// billed or collected, changing prices or quantities retroactively would
-// desync the printed invoice from the stored record.
-const LOCKED_STATUSES = new Set(["INVOICED", "PAID", "CANCELLED"]);
-
+// Line items stay editable at every status so the shop can correct a
+// printed invoice after it's been generated. Kept as a helper (not a
+// constant) so we can re-add a status lock later without touching every
+// call site.
 async function assertROEditable(repairOrderId: string): Promise<void> {
   const ro = await db.repairOrder.findUnique({
     where: { id: repairOrderId },
-    select: { status: true },
+    select: { id: true },
   });
   if (!ro) throw new Error("Repair order not found");
-  if (LOCKED_STATUSES.has(ro.status)) {
-    throw new Error(
-      `This repair order is ${ro.status.toLowerCase()} — line items are locked. Change the status back to In Progress to edit prices.`,
-    );
-  }
 }
 
 export async function updateLaborLine(

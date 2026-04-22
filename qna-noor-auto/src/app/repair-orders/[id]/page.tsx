@@ -158,12 +158,10 @@ export default async function RepairOrderDetailPage({
     (a, b) => b.hours - a.hours,
   );
 
-  // Once an RO has been billed or settled, its line items are locked. The
-  // user can still flip the status back to IN_PROGRESS from the lifecycle
-  // panel if they really need to edit, but by default edits are disabled so
-  // the printed invoice always matches what's on file.
-  const isLocked =
-    ro.status === "INVOICED" || ro.status === "PAID" || ro.status === "CANCELLED";
+  // Line items stay editable at every status so the shop can correct a
+  // printed invoice after it's been generated. The variable is kept so the
+  // lock can be reinstated later without rewriting every row.
+  const isLocked = false;
 
   const updateAction = updateRepairOrder.bind(null, ro.id);
   const addLabor = addLaborLine.bind(null, ro.id);
