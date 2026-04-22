@@ -226,7 +226,7 @@ export default async function RepairOrderDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <Card className="lg:col-span-2">
           <CardHeader title="Details" />
-          <form action={updateAction} className="p-4 space-y-4">
+          <form id="ro-details-form" action={updateAction} className="p-4 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Mileage in">
                 <Input
@@ -279,7 +279,9 @@ export default async function RepairOrderDetailPage({
                 />
               </Field>
             </div>
-            <Button type="submit">Save changes</Button>
+            <p className="text-xs text-zinc-500">
+              Save from the action bar at the bottom of the page.
+            </p>
           </form>
         </Card>
 
@@ -1167,11 +1169,36 @@ export default async function RepairOrderDetailPage({
         )}
       </Card>
 
-      <form action={del} className="mt-10">
-        <Button type="submit" variant="danger" size="sm">
-          Delete RO
-        </Button>
-      </form>
+      {/* Bottom action bar: Save + Save & Exit on the left, Delete on the
+          right. All three buttons live outside the Details form and target
+          it via the form="ro-details-form" attribute, so a click on Save
+          submits the whole Details form. Save & Exit adds exit=1 which the
+          server action uses to redirect back to the RO list. */}
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-6">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            form="ro-details-form"
+            className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            Save
+          </button>
+          <button
+            type="submit"
+            form="ro-details-form"
+            name="exit"
+            value="1"
+            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+          >
+            Save &amp; exit
+          </button>
+        </div>
+        <form action={del}>
+          <Button type="submit" variant="danger" size="sm">
+            Delete RO
+          </Button>
+        </form>
+      </div>
     </>
   );
 }
