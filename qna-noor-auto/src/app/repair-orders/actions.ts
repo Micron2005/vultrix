@@ -179,6 +179,7 @@ export async function deleteRepairOrder(id: string) {
 
 // Lines
 export async function addLaborLine(repairOrderId: string, fd: FormData) {
+  await assertROEditable(repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
   const hours = parseFloat(String(fd.get("hours") ?? "0")) || 0;
@@ -228,12 +229,56 @@ export async function updateLaborLineTech(
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
+// Status values beyond which line edits are locked: once money has been
+// billed or collected, changing prices or quantities retroactively would
+// desync the printed invoice from the stored record.
+const LOCKED_STATUSES = new Set(["INVOICED", "PAID", "CANCELLED"]);
+
+async function assertROEditable(repairOrderId: string): Promise<void> {
+  const ro = await db.repairOrder.findUnique({
+    where: { id: repairOrderId },
+    select: { status: true },
+  });
+  if (!ro) throw new Error("Repair order not found");
+  if (LOCKED_STATUSES.has(ro.status)) {
+    throw new Error(
+      `This repair order is ${ro.status.toLowerCase()} — line items are locked. Change the status back to In Progress to edit prices.`,
+    );
+  }
+}
+
+export async function updateLaborLine(
+  id: string,
+  repairOrderId: string,
+  fd: FormData,
+) {
+  await assertROEditable(repairOrderId);
+  const description = String(fd.get("description") ?? "").trim();
+  const hoursRaw = String(fd.get("hours") ?? "").trim();
+  const rateRaw = String(fd.get("rate") ?? "").trim();
+  const data: Record<string, unknown> = {};
+  if (description) data.description = description;
+  if (hoursRaw !== "") {
+    const h = parseFloat(hoursRaw);
+    if (!Number.isNaN(h) && h >= 0) data.hours = h;
+  }
+  if (rateRaw !== "") {
+    const r = parseFloat(rateRaw);
+    if (!Number.isNaN(r) && r >= 0) data.rate = r;
+  }
+  if (Object.keys(data).length === 0) return;
+  await db.laborLine.update({ where: { id }, data });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+}
+
 export async function deleteLaborLine(id: string, repairOrderId: string) {
+  await assertROEditable(repairOrderId);
   await db.laborLine.delete({ where: { id } });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
 export async function addPartLine(repairOrderId: string, fd: FormData) {
+  await assertROEditable(repairOrderId);
   const partId = String(fd.get("partId") ?? "").trim() || null;
 
   // If picking from the catalog, copy that part's details forward and skip
@@ -312,6 +357,7 @@ export async function addPartLine(repairOrderId: string, fd: FormData) {
 
 // Fees
 export async function addFeeLine(repairOrderId: string, fd: FormData) {
+  await assertROEditable(repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
   const amount = parseFloat(String(fd.get("amount") ?? "0")) || 0;
@@ -333,11 +379,56 @@ export async function addFeeLine(repairOrderId: string, fd: FormData) {
 }
 
 export async function deleteFeeLine(id: string, repairOrderId: string) {
+  await assertROEditable(repairOrderId);
   await db.feeLine.delete({ where: { id } });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
+export async function updatePartLine(
+  id: string,
+  repairOrderId: string,
+  fd: FormData,
+) {
+  await assertROEditable(repairOrderId);
+  const description = String(fd.get("description") ?? "").trim();
+  const qtyRaw = String(fd.get("quantity") ?? "").trim();
+  const priceRaw = String(fd.get("unitPrice") ?? "").trim();
+  const data: Record<string, unknown> = {};
+  if (description) data.description = description;
+  if (qtyRaw !== "") {
+    const q = parseFloat(qtyRaw);
+    if (!Number.isNaN(q) && q >= 0) data.quantity = q;
+  }
+  if (priceRaw !== "") {
+    const p = parseFloat(priceRaw);
+    if (!Number.isNaN(p) && p >= 0) data.unitPrice = p;
+  }
+  if (Object.keys(data).length === 0) return;
+  await db.partLine.update({ where: { id }, data });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+}
+
+export async function updateFeeLine(
+  id: string,
+  repairOrderId: string,
+  fd: FormData,
+) {
+  await assertROEditable(repairOrderId);
+  const description = String(fd.get("description") ?? "").trim();
+  const amountRaw = String(fd.get("amount") ?? "").trim();
+  const data: Record<string, unknown> = {};
+  if (description) data.description = description;
+  if (amountRaw !== "") {
+    const a = parseFloat(amountRaw);
+    if (!Number.isNaN(a) && a >= 0) data.amount = Math.round(a * 100) / 100;
+  }
+  if (Object.keys(data).length === 0) return;
+  await db.feeLine.update({ where: { id }, data });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+}
+
 export async function deletePartLine(id: string, repairOrderId: string) {
+  await assertROEditable(repairOrderId);
   const line = await db.partLine.findUnique({
     where: { id },
     select: { id: true, partId: true, quantity: true },

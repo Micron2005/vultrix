@@ -34,7 +34,10 @@ import {
   deletePayment,
   deleteRepairOrder,
   recordPayment,
+  updateFeeLine,
+  updateLaborLine,
   updateLaborLineTech,
+  updatePartLine,
   updateRepairOrder,
 } from "../actions";
 import {
@@ -154,6 +157,13 @@ export default async function RepairOrderDetailPage({
   const techSummary = Array.from(techSummaryMap.values()).sort(
     (a, b) => b.hours - a.hours,
   );
+
+  // Once an RO has been billed or settled, its line items are locked. The
+  // user can still flip the status back to IN_PROGRESS from the lifecycle
+  // panel if they really need to edit, but by default edits are disabled so
+  // the printed invoice always matches what's on file.
+  const isLocked =
+    ro.status === "INVOICED" || ro.status === "PAID" || ro.status === "CANCELLED";
 
   const updateAction = updateRepairOrder.bind(null, ro.id);
   const addLabor = addLaborLine.bind(null, ro.id);
@@ -472,16 +482,18 @@ export default async function RepairOrderDetailPage({
         </Card>
       )}
 
-      <Card className="mb-4">
-        <CardHeader title="Apply preset">
-          <span className="text-xs text-zinc-500 font-normal">
-            Drops all labor and parts from a canned job onto this RO.
-          </span>
-        </CardHeader>
-        <div className="p-4">
-          <ApplyPresetForm action={applyPreset} presets={presetList} />
-        </div>
-      </Card>
+      {!isLocked && (
+        <Card className="mb-4">
+          <CardHeader title="Apply preset">
+            <span className="text-xs text-zinc-500 font-normal">
+              Drops all labor and parts from a canned job onto this RO.
+            </span>
+          </CardHeader>
+          <div className="p-4">
+            <ApplyPresetForm action={applyPreset} presets={presetList} />
+          </div>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardHeader title={`Labor (${ro.laborLines.length})`} />
@@ -499,9 +511,40 @@ export default async function RepairOrderDetailPage({
           <tbody className="divide-y divide-zinc-200">
             {ro.laborLines.map((l) => {
               const delL = deleteLaborLine.bind(null, l.id, ro.id);
+              const updL = updateLaborLine.bind(null, l.id, ro.id);
+              if (isLocked) {
+                return (
+                  <tr key={l.id}>
+                    <td className="px-4 py-2">{l.description}</td>
+                    <td className="px-4 py-2 text-zinc-600">
+                      {l.technician?.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right">{l.hours}</td>
+                    <td className="px-4 py-2 text-right">
+                      {formatMoney(l.rate)}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatMoney(l.hours * l.rate)}
+                    </td>
+                    <td className="px-2 py-2"></td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={l.id}>
-                  <td className="px-4 py-2">{l.description}</td>
+                  <td className="px-2 py-1">
+                    <form
+                      id={`labor-${l.id}`}
+                      action={updL}
+                      className="contents"
+                    />
+                    <Input
+                      form={`labor-${l.id}`}
+                      name="description"
+                      defaultValue={l.description}
+                      className="w-full"
+                    />
+                  </td>
                   <td className="px-4 py-2">
                     <TechLineSelect
                       laborLineId={l.id}
@@ -511,15 +554,37 @@ export default async function RepairOrderDetailPage({
                       techs={activeTechs}
                     />
                   </td>
-                  <td className="px-4 py-2 text-right">{l.hours}</td>
-                  <td className="px-4 py-2 text-right">
-                    {formatMoney(l.rate)}
+                  <td className="px-2 py-1 text-right">
+                    <Input
+                      form={`labor-${l.id}`}
+                      name="hours"
+                      inputMode="decimal"
+                      defaultValue={String(l.hours)}
+                      className="w-20 text-right"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <Input
+                      form={`labor-${l.id}`}
+                      name="rate"
+                      inputMode="decimal"
+                      defaultValue={String(l.rate)}
+                      className="w-24 text-right"
+                    />
                   </td>
                   <td className="px-4 py-2 text-right">
                     {formatMoney(l.hours * l.rate)}
                   </td>
-                  <td className="px-2 py-2">
-                    <form action={delL}>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <button
+                      type="submit"
+                      form={`labor-${l.id}`}
+                      className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                      title="Save price changes"
+                    >
+                      Save
+                    </button>
+                    <form action={delL} className="inline">
                       <button
                         type="submit"
                         className="text-zinc-400 hover:text-red-600 text-sm"
@@ -534,6 +599,7 @@ export default async function RepairOrderDetailPage({
             })}
           </tbody>
         </table>
+        {!isLocked && (
         <form
           action={addLabor}
           className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
@@ -571,6 +637,14 @@ export default async function RepairOrderDetailPage({
             </Button>
           </div>
         </form>
+        )}
+        {isLocked && (
+          <div className="px-4 py-3 text-xs text-zinc-500 border-t border-zinc-200 bg-zinc-50">
+            Labor is locked because this RO is <strong>{ro.status}</strong>.
+            Flip the status back to <em>In Progress</em> above to edit or add
+            labor lines.
+          </div>
+        )}
       </Card>
 
       <Card className="mb-4">
@@ -596,22 +670,81 @@ export default async function RepairOrderDetailPage({
           <tbody className="divide-y divide-zinc-200">
             {ro.partLines.map((p) => {
               const delP = deletePartLine.bind(null, p.id, ro.id);
+              const updP = updatePartLine.bind(null, p.id, ro.id);
               const markup = calcMarkup(p.costPrice, p.unitPrice);
+              if (isLocked) {
+                return (
+                  <tr key={p.id}>
+                    <td className="px-4 py-2">{p.description}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-zinc-600">
+                      {p.partNumber ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-zinc-600">
+                      {p.source ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right">{p.quantity}</td>
+                    <td className="px-4 py-2 text-right text-zinc-500">
+                      {p.costPrice != null ? formatMoney(p.costPrice) : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatMoney(p.unitPrice)}
+                    </td>
+                    <td
+                      className={
+                        "px-4 py-2 text-right text-xs font-medium " +
+                        markupClass(markup)
+                      }
+                    >
+                      {markup == null ? "—" : formatMarkup(markup)}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatMoney(p.quantity * p.unitPrice)}
+                    </td>
+                    <td className="px-2 py-2"></td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={p.id}>
-                  <td className="px-4 py-2">{p.description}</td>
+                  <td className="px-2 py-1">
+                    <form
+                      id={`part-${p.id}`}
+                      action={updP}
+                      className="contents"
+                    />
+                    <Input
+                      form={`part-${p.id}`}
+                      name="description"
+                      defaultValue={p.description}
+                      className="w-full"
+                    />
+                  </td>
                   <td className="px-4 py-2 font-mono text-xs text-zinc-600">
                     {p.partNumber ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-xs text-zinc-600">
                     {p.source ?? "—"}
                   </td>
-                  <td className="px-4 py-2 text-right">{p.quantity}</td>
+                  <td className="px-2 py-1 text-right">
+                    <Input
+                      form={`part-${p.id}`}
+                      name="quantity"
+                      inputMode="decimal"
+                      defaultValue={String(p.quantity)}
+                      className="w-16 text-right"
+                    />
+                  </td>
                   <td className="px-4 py-2 text-right text-zinc-500">
                     {p.costPrice != null ? formatMoney(p.costPrice) : "—"}
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    {formatMoney(p.unitPrice)}
+                  <td className="px-2 py-1 text-right">
+                    <Input
+                      form={`part-${p.id}`}
+                      name="unitPrice"
+                      inputMode="decimal"
+                      defaultValue={String(p.unitPrice)}
+                      className="w-24 text-right"
+                    />
                   </td>
                   <td
                     className={
@@ -624,8 +757,16 @@ export default async function RepairOrderDetailPage({
                   <td className="px-4 py-2 text-right">
                     {formatMoney(p.quantity * p.unitPrice)}
                   </td>
-                  <td className="px-2 py-2">
-                    <form action={delP}>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <button
+                      type="submit"
+                      form={`part-${p.id}`}
+                      className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                      title="Save price changes"
+                    >
+                      Save
+                    </button>
+                    <form action={delP} className="inline">
                       <button
                         type="submit"
                         className="text-zinc-400 hover:text-red-600 text-sm"
@@ -640,6 +781,7 @@ export default async function RepairOrderDetailPage({
             })}
           </tbody>
         </table>
+        {!isLocked && (
         <form
           action={addPart}
           className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
@@ -709,6 +851,14 @@ export default async function RepairOrderDetailPage({
             </Button>
           </div>
         </form>
+        )}
+        {isLocked && (
+          <div className="px-4 py-3 text-xs text-zinc-500 border-t border-zinc-200 bg-zinc-50">
+            Parts are locked because this RO is <strong>{ro.status}</strong>.
+            Flip the status back to <em>In Progress</em> above to edit or add
+            parts.
+          </div>
+        )}
       </Card>
 
       <Card className="mb-4">
@@ -729,14 +879,52 @@ export default async function RepairOrderDetailPage({
             <tbody className="divide-y divide-zinc-200">
               {ro.feeLines.map((f) => {
                 const delF = deleteFeeLine.bind(null, f.id, ro.id);
+                const updF = updateFeeLine.bind(null, f.id, ro.id);
+                if (isLocked) {
+                  return (
+                    <tr key={f.id}>
+                      <td className="px-4 py-2">{f.description}</td>
+                      <td className="px-4 py-2 text-right">
+                        {formatMoney(f.amount)}
+                      </td>
+                      <td className="px-2 py-2"></td>
+                    </tr>
+                  );
+                }
                 return (
                   <tr key={f.id}>
-                    <td className="px-4 py-2">{f.description}</td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(f.amount)}
+                    <td className="px-2 py-1">
+                      <form
+                        id={`fee-${f.id}`}
+                        action={updF}
+                        className="contents"
+                      />
+                      <Input
+                        form={`fee-${f.id}`}
+                        name="description"
+                        defaultValue={f.description}
+                        className="w-full"
+                      />
                     </td>
-                    <td className="px-2 py-2">
-                      <form action={delF}>
+                    <td className="px-2 py-1 text-right">
+                      <Input
+                        form={`fee-${f.id}`}
+                        name="amount"
+                        inputMode="decimal"
+                        defaultValue={String(f.amount)}
+                        className="w-24 text-right"
+                      />
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <button
+                        type="submit"
+                        form={`fee-${f.id}`}
+                        className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                        title="Save fee changes"
+                      >
+                        Save
+                      </button>
+                      <form action={delF} className="inline">
                         <button
                           type="submit"
                           className="text-zinc-400 hover:text-red-600 text-sm"
@@ -752,6 +940,7 @@ export default async function RepairOrderDetailPage({
             </tbody>
           </table>
         )}
+        {!isLocked && (
         <form
           action={addFee}
           className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
@@ -781,6 +970,7 @@ export default async function RepairOrderDetailPage({
             </Button>
           </div>
         </form>
+        )}
       </Card>
 
       {shopFeeStatus.length > 0 && (

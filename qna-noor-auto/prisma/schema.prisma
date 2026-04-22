@@ -7,7 +7,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime uses the Neon -pooler endpoint (pgbouncer, transaction mode) so
+  // serverless functions reuse pooled connections cleanly.
+  url       = env("DATABASE_URL")
+  // Migrations (prisma migrate deploy) MUST use the direct (non-pooled)
+  // endpoint — pgbouncer in transaction mode can't hold Postgres advisory
+  // locks, so migrate deploy hangs and times out via the pooler.
+  // Falls back to DATABASE_URL when unset (e.g. local dev).
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 model Customer {

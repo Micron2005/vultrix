@@ -239,11 +239,74 @@ export async function computeVehicleReminders(
 export async function computeAllVehicleReminders(
   now: Date = new Date(),
 ): Promise<VehicleWithReminders[]> {
-  const vehicles = await db.vehicle.findMany({ orderBy: { createdAt: "asc" } });
+  // Fetch everything we need in 4 queries total, then do the math in-memory.
+  // The previous implementation called computeVehicleReminders in a loop,
+  // which issued 3 queries per vehicle — with 4,000+ vehicles that's 12,000+
+  // sequential round-trips through the Neon pooler, which blows past
+  // Vercel's function timeout and makes the dashboard feel hung.
+  const [vehicles, intervals, allLogs, allROs] = await Promise.all([
+    db.vehicle.findMany({ orderBy: { createdAt: "asc" } }),
+    db.serviceInterval.findMany({
+      where: { archived: false },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    }),
+    db.serviceLog.findMany({ orderBy: { performedAt: "desc" } }),
+    db.repairOrder.findMany({
+      select: {
+        vehicleId: true,
+        mileageIn: true,
+        mileageOut: true,
+        openedAt: true,
+        completedAt: true,
+      },
+    }),
+  ]);
+
+  const logsByVehicle = new Map<string, ServiceLog[]>();
+  for (const l of allLogs) {
+    const list = logsByVehicle.get(l.vehicleId) ?? [];
+    list.push(l);
+    logsByVehicle.set(l.vehicleId, list);
+  }
+
+  const roMileagesByVehicle = new Map<
+    string,
+    Array<{ mileage: number | null; date: Date }>
+  >();
+  for (const r of allROs) {
+    const list = roMileagesByVehicle.get(r.vehicleId) ?? [];
+    if (typeof r.mileageIn === "number")
+      list.push({ mileage: r.mileageIn, date: r.openedAt });
+    if (typeof r.mileageOut === "number")
+      list.push({
+        mileage: r.mileageOut,
+        date: r.completedAt ?? r.openedAt,
+      });
+    roMileagesByVehicle.set(r.vehicleId, list);
+  }
+
   const out: VehicleWithReminders[] = [];
-  for (const v of vehicles) {
-    const r = await computeVehicleReminders(v.id, now);
-    if (r) out.push(r);
+  for (const vehicle of vehicles) {
+    const logs = logsByVehicle.get(vehicle.id) ?? [];
+    const roMileages = roMileagesByVehicle.get(vehicle.id) ?? [];
+    const currentMileage = currentVehicleMileage(vehicle, roMileages);
+    const items = intervals.map((interval) => {
+      const lastLog = logs.find((l) => l.intervalId === interval.id) ?? null;
+      return computeDueness({
+        interval,
+        lastLog,
+        vehicleCreatedAt: vehicle.createdAt,
+        currentMileage,
+        now,
+      });
+    });
+    out.push({
+      vehicle,
+      items,
+      overdueCount: items.filter((i) => i.status === "overdue").length,
+      soonCount: items.filter((i) => i.status === "soon").length,
+      currentMileage,
+    });
   }
   return out;
 }

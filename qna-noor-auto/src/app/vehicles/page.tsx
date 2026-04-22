@@ -23,12 +23,17 @@ export default async function VehiclesPage({
     where: query
       ? {
           OR: [
-            { vin: { contains: query } },
-            { licensePlate: { contains: query } },
-            { make: { contains: query } },
-            { model: { contains: query } },
-            { customer: { lastName: { contains: query } } },
-            { customer: { firstName: { contains: query } } },
+            { vin: { contains: query, mode: "insensitive" } },
+            { licensePlate: { contains: query, mode: "insensitive" } },
+            { make: { contains: query, mode: "insensitive" } },
+            { model: { contains: query, mode: "insensitive" } },
+            { customer: { lastName: { contains: query, mode: "insensitive" } } },
+            { customer: { firstName: { contains: query, mode: "insensitive" } } },
+            {
+              customer: {
+                companyName: { contains: query, mode: "insensitive" },
+              },
+            },
           ],
         }
       : undefined,

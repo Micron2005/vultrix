@@ -65,11 +65,14 @@ function tokenize(text: string): string[] {
 type ROWithRelations = Awaited<ReturnType<typeof loadROs>>[number];
 
 async function loadROs() {
-  // CANCELLED ROs aren't useful for duplicate review — they're already dead.
-  // Everything else (ESTIMATE, IN_PROGRESS, COMPLETED, INVOICED, PAID) is fair
-  // game: the user may have accidentally invoiced the same job twice.
+  // Hide settled ROs from duplicate review. PAID invoices are closed books —
+  // the user has no reason to "fix" a duplicate once money has already
+  // changed hands. CANCELLED ROs are dead for the same reason. Everything
+  // still open (ESTIMATE / IN_PROGRESS / COMPLETED / INVOICED-but-unpaid)
+  // remains fair game since those are the ones that might accidentally end
+  // up duplicated.
   return db.repairOrder.findMany({
-    where: { status: { not: "CANCELLED" } },
+    where: { status: { notIn: ["CANCELLED", "PAID"] } },
     orderBy: { openedAt: "desc" },
     include: {
       customer: true,
