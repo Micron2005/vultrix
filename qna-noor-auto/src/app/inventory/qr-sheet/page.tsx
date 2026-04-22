@@ -54,7 +54,8 @@ export default async function QrSheetPage({
   if (idList.length > 0) {
     where.id = { in: idList };
   } else {
-    where.archived = false;
+    // "all" keeps archived parts; every other filter excludes them.
+    if (filter !== "all") where.archived = false;
     if (q) {
       where.OR = [
         { name: { contains: q } },
