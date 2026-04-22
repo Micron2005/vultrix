@@ -67,6 +67,13 @@ export default async function AppointmentsPage({
             >
               Today
             </LinkButton>
+            <LinkButton
+              href="/reminders/appointments?day=tomorrow"
+              variant="secondary"
+              size="sm"
+            >
+              Reminders
+            </LinkButton>
             <LinkButton href="/appointments/new">+ New appointment</LinkButton>
           </>
         }
