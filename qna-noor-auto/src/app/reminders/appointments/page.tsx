@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import {
   Card,
@@ -68,6 +69,19 @@ export default async function AppointmentRemindersPage({
   const rangeEnd = new Date(rangeStart);
   rangeEnd.setDate(rangeEnd.getDate() + (mode === "week" ? 7 : 1));
 
+  // Resolve the origin so the customer-facing /a/<token> links embedded in
+  // the SMS / email bodies are full URLs (e.g. https://host/a/abc) rather
+  // than bare paths, which most phones won't auto-linkify.
+  const hdrs = await headers();
+  const forwardedHost = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const forwardedProto =
+    hdrs.get("x-forwarded-proto") ?? (forwardedHost.startsWith("localhost") ? "http" : "https");
+  const originFromHeaders = forwardedHost ? `${forwardedProto}://${forwardedHost}` : "";
+  const originFromEnv =
+    process.env.NEXT_PUBLIC_BASE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const origin = originFromHeaders || originFromEnv;
+
   const [appointments, shopName, shopPhone, shopAddress] = await Promise.all([
     db.appointment.findMany({
       where: {
@@ -136,7 +150,14 @@ export default async function AppointmentRemindersPage({
               const firstName = (a.customer.firstName || name).split(" ")[0];
               const when = `${new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(a.startsAt)} at ${formatTime(a.startsAt)}`;
               const vehiclePart = a.vehicle ? ` for your ${vehicleLabel(a.vehicle)}` : "";
-              const shareLink = a.shareToken ? `/a/${a.shareToken}` : null;
+              // Only build a shareable link if we resolved a full origin —
+              // a bare "/a/<token>" path is useless inside an SMS or email
+              // body because the recipient's mail/SMS client can't turn it
+              // into a clickable URL.
+              const shareLink =
+                a.shareToken && origin
+                  ? `${origin}/a/${a.shareToken}`
+                  : null;
 
               const smsBody =
                 `Hi ${firstName}, reminder: your appointment${vehiclePart} with ${displayShop} is ${when}.` +
