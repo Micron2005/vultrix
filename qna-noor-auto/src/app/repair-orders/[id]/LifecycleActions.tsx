@@ -35,6 +35,8 @@ export function LifecycleActions({
             href={`/repair-orders/${id}/invoice?type=estimate`}
             variant="secondary"
             size="sm"
+            target="_blank"
+            rel="noreferrer"
           >
             Print Estimate
           </LinkButton>
@@ -52,6 +54,8 @@ export function LifecycleActions({
             href={`/repair-orders/${id}/invoice?type=estimate`}
             variant="secondary"
             size="sm"
+            target="_blank"
+            rel="noreferrer"
           >
             Print Estimate
           </LinkButton>
@@ -69,6 +73,8 @@ export function LifecycleActions({
             href={`/repair-orders/${id}/invoice?type=estimate`}
             variant="secondary"
             size="sm"
+            target="_blank"
+            rel="noreferrer"
           >
             Print Estimate
           </LinkButton>
@@ -86,6 +92,8 @@ export function LifecycleActions({
             href={`/repair-orders/${id}/invoice`}
             variant="secondary"
             size="sm"
+            target="_blank"
+            rel="noreferrer"
           >
             Invoice PDF
           </LinkButton>
@@ -102,6 +110,8 @@ export function LifecycleActions({
           href={`/repair-orders/${id}/invoice`}
           variant="secondary"
           size="sm"
+          target="_blank"
+          rel="noreferrer"
         >
           Invoice PDF
         </LinkButton>
