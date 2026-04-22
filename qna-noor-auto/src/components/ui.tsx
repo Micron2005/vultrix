@@ -100,16 +100,22 @@ export function LinkButton({
   size = "md",
   className,
   children,
+  target,
+  rel,
 }: {
   href: string;
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md";
   className?: string;
   children: React.ReactNode;
+  target?: string;
+  rel?: string;
 }) {
   return (
     <Link
       href={href}
+      target={target}
+      rel={rel}
       className={cn(btnBase, btnVariants[variant], btnSizes[size], className)}
     >
       {children}
