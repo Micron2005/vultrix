@@ -181,6 +181,12 @@ export async function scanAdjustStock(id: string, fd: FormData) {
     const target = parseFloat(setToRaw);
     if (!Number.isFinite(target)) return;
 
+    // Direct `set target` instead of `increment: delta`. Under READ COMMITTED,
+    // two concurrent scans could both read the same stale qty and both apply
+    // their delta — leaving the final qty wrong. Writing `target` directly
+    // makes the setTo flow idempotent: whichever tx commits last wins and
+    // the part ends at exactly `target`. The logged StockMove delta reflects
+    // what this scan saw, which is accurate audit for this specific request.
     const appliedDelta = await db.$transaction(async (tx) => {
       const part = await tx.part.findUnique({
         where: { id },
@@ -191,7 +197,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
       if (d === 0) return 0;
       await tx.part.update({
         where: { id },
-        data: { qtyOnHand: { increment: d } },
+        data: { qtyOnHand: target },
       });
       await tx.stockMove.create({
         data: { partId: id, delta: d, reason: safeReason, note },
