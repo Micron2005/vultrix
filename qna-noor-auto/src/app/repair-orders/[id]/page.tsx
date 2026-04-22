@@ -398,8 +398,18 @@ export default async function RepairOrderDetailPage({
         </Card>
       </div>
 
+      {/* Card title & copy shift between "estimate" and "invoice" based on
+          lifecycle stage — the underlying share token is the same. */}
+      {(() => {
+        const isInvoiceStage =
+          ro.status === "INVOICED" ||
+          ro.status === "PAID" ||
+          ro.status === "COMPLETED";
+        const docWord = isInvoiceStage ? "invoice" : "estimate";
+        const DocWord = isInvoiceStage ? "Invoice" : "Estimate";
+        return (
       <Card className="mb-4">
-        <CardHeader title="Shareable estimate link">
+        <CardHeader title={`Shareable ${docWord} link`}>
           <span className="text-xs text-zinc-500 font-normal">
             Customer-safe — no cost, supplier, or internal data.
           </span>
@@ -415,6 +425,7 @@ export default async function RepairOrderDetailPage({
                 customerName={fullName(ro.customer)}
                 roNumber={ro.roNumber}
                 shopName={shopName}
+                docLabel={DocWord}
               />
               {ro.approvedAt ? (
                 <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-900">
@@ -440,8 +451,9 @@ export default async function RepairOrderDetailPage({
                 </div>
               ) : (
                 <div className="text-xs text-zinc-500">
-                  Waiting for customer response. Paste the link above into a
-                  text or email.
+                  {isInvoiceStage
+                    ? "Use the buttons above to email, text, or print this invoice for the customer."
+                    : "Waiting for customer response. Use the buttons above to email, text, or print the estimate."}
                 </div>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
@@ -462,16 +474,19 @@ export default async function RepairOrderDetailPage({
           ) : (
             <>
               <div className="text-zinc-600">
-                Generate a link to send your customer. They can review the
-                estimate and approve or decline online — no login needed.
+                {isInvoiceStage
+                  ? `Generate a link to send this ${docWord} to your customer — they can view, print, or download it online, no login needed.`
+                  : `Generate a link to send your customer. They can review the ${docWord} and approve or decline online — no login needed.`}
               </div>
               <form action={genShare}>
-                <Button type="submit">Generate share link</Button>
+                <Button type="submit">Generate {docWord} link</Button>
               </form>
             </>
           )}
         </div>
       </Card>
+        );
+      })()}
 
       {techSummary.length > 0 && (
         <Card className="mb-4">

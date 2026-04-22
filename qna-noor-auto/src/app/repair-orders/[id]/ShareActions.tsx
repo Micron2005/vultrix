@@ -20,6 +20,7 @@ export function ShareActions({
   customerName,
   roNumber,
   shopName,
+  docLabel = "Invoice",
 }: {
   token: string;
   customerEmail: string | null | undefined;
@@ -27,6 +28,7 @@ export function ShareActions({
   customerName: string;
   roNumber: number;
   shopName: string;
+  docLabel?: "Estimate" | "Invoice";
 }) {
   const [origin, setOrigin] = useState("");
 
@@ -36,11 +38,14 @@ export function ShareActions({
 
   const shareUrl = origin ? `${origin}/e/${token}` : "";
 
-  const subject = `${shopName} — Invoice / RO #${roNumber}`;
+  const subject = `${shopName} — ${docLabel} #${roNumber}`;
+  const verb = docLabel === "Estimate" ? "estimate" : "invoice";
   const body =
     `Hi ${customerName.split(" ")[0] || "there"},\n\n` +
-    `Here's your estimate / invoice for RO #${roNumber}:\n${shareUrl}\n\n` +
-    `You can review the details, approve the estimate, and see your balance.\n\n` +
+    `Here's your ${verb} for RO #${roNumber}:\n${shareUrl}\n\n` +
+    (docLabel === "Estimate"
+      ? `You can review the details, approve the estimate, and see your balance.\n\n`
+      : `You can review the itemized charges, print a copy, or reply to this message with any questions.\n\n`) +
     `Thanks,\n${shopName}`;
 
   const mailtoHref = shareUrl
@@ -50,7 +55,7 @@ export function ShareActions({
   // SMS URI scheme: most phones support sms:<number>?body=... (iOS uses &
   // after the number, Android uses ?). Using ? works on both for the first
   // param. Leading + keeps international formatting intact.
-  const smsBody = `${shopName} — invoice for RO #${roNumber}: ${shareUrl}`;
+  const smsBody = `${shopName} — ${verb} for RO #${roNumber}: ${shareUrl}`;
   const smsHref = shareUrl
     ? `sms:${(customerPhone ?? "").replace(/[^+\d]/g, "")}?body=${encodeURIComponent(smsBody)}`
     : "";
