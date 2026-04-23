@@ -363,13 +363,78 @@
 
   /**
    * Try to auto-click AZP / First Call's "Change" / "Manage" /
-   * "Manage Vehicles" / "My Garage" trigger so the Add Vehicle dialog
-   * opens without the user doing it. We only click an element whose
-   * accessible label clearly refers to vehicle management, and only
-   * once per page load. If we click wrong, the worst case is an extra
-   * menu opens — still safe because we never submit forms.
+   * "Add Vehicle" trigger so the Add Vehicle dialog opens without the
+   * user doing it. We never submit a form — worst case an unrelated
+   * menu opens.
+   *
+   * Strategy, in order:
+   *
+   *   A. Find an anchor whose href clearly belongs to the vehicle
+   *      management area (manage-vehicles, my-garage, add-vehicle,
+   *      select-vehicle). AZP's top bar sits a plain "Change" button
+   *      next to exactly this kind of link. Click the nearest visible
+   *      button/link in that region whose text is change/manage/edit/
+   *      switch/add.
+   *   B. Fall back: any button whose aria-label or text together
+   *      mention a vehicle action (change vehicle, manage vehicle,
+   *      my garage, add vehicle, etc.).
+   *
+   * Returns true if a click was dispatched.
    */
+  const VEHICLE_HREF_SELECTOR = [
+    'a[href*="manage-vehicle" i]',
+    'a[href*="manage-vehicles" i]',
+    'a[href*="my-garage" i]',
+    'a[href*="my-vehicle" i]',
+    'a[href*="select-vehicle" i]',
+    'a[href*="add-vehicle" i]',
+    'a[href*="add-a-vehicle" i]',
+  ].join(",");
+
+  const ACTION_TEXT_RE =
+    /^\s*(change|manage|edit|switch|add(?:\s+vehicle)?|select)\s*$/i;
+
+  function clickIfActionButtonIn(scope) {
+    const buttons = Array.from(
+      scope.querySelectorAll('button, a, [role="button"]'),
+    );
+    for (const b of buttons) {
+      if (!isVisible(b)) continue;
+      // Skip the manage-vehicles <a> itself so we click the sibling
+      // "Change" button (which opens the dialog in place) rather than
+      // navigating away to a separate management page.
+      if (b.tagName === "A" && /manage-vehicle|my-garage/i.test(b.href || "")) {
+        continue;
+      }
+      const aria = b.getAttribute("aria-label") || "";
+      const text = (b.textContent || "").trim();
+      const acc = `${aria} ${text}`.trim();
+      if (ACTION_TEXT_RE.test(acc) || /change|manage|edit|switch|add/i.test(aria)) {
+        try {
+          b.click();
+          return true;
+        } catch {
+          // keep searching
+        }
+      }
+    }
+    return false;
+  }
+
   function tryClickChangeButton() {
+    // Strategy A: look for a vehicle-management anchor and click the
+    // Change/Manage button in its vicinity (walk up a few ancestors).
+    const links = Array.from(document.querySelectorAll(VEHICLE_HREF_SELECTOR));
+    for (const link of links) {
+      if (!isVisible(link)) continue;
+      let node = link.parentElement;
+      for (let depth = 0; depth < 6 && node; depth++) {
+        if (clickIfActionButtonIn(node)) return true;
+        node = node.parentElement;
+      }
+    }
+
+    // Strategy B: fall back to semantic label matching.
     const candidates = Array.from(
       document.querySelectorAll('button, a, [role="button"]'),
     );
@@ -390,8 +455,8 @@
         try {
           el.click();
           return true;
-        } catch (e) {
-          // Keep trying other candidates
+        } catch {
+          // keep searching
         }
       }
     }
