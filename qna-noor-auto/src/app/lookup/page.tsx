@@ -1,16 +1,9 @@
-import { PageHeader } from "@/components/ui";
-import { LookupClient } from "./LookupClient";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function LookupPage() {
-  return (
-    <>
-      <PageHeader
-        title="Lookup"
-        description="Decode a VIN via NHTSA or look up a vehicle already in your records by plate. No customer add required."
-      />
-      <LookupClient />
-    </>
-  );
+// Phase 28: /lookup and /vehicle-search were redundant — Lookup's VIN decoder
+// and plate-in-records features are already covered by Vehicle Search. We
+// keep the /lookup URL alive as a permanent redirect so bookmarks and prior
+// links stay valid.
+export default function LookupRedirect() {
+  redirect("/vehicle-search");
 }

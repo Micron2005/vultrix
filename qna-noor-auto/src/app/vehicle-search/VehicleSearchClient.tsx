@@ -367,14 +367,6 @@ export function VehicleSearchClient() {
                 </div>
               )}
             </div>
-            <SupplierLinks
-              ctx={{
-                year: vehicle.year,
-                make: vehicle.make,
-                model: vehicle.model,
-              }}
-              label="Look up parts for this vehicle on"
-            />
             {vehicle.source === "vin" &&
               vehicle.details &&
               vehicle.details.length > 0 && (
@@ -436,17 +428,31 @@ export function VehicleSearchClient() {
                 {partsResult.count} match{partsResult.count === 1 ? "" : "es"}
               </div>
               {partsResult.count === 0 ? (
-                <div className="p-4 text-sm text-zinc-600">
-                  No catalog parts matched
-                  {partsQuery ? ` "${partsQuery}"` : ""} for this vehicle. Tag
-                  parts with fitment fields on the{" "}
-                  <Link
-                    href="/inventory"
-                    className="text-blue-700 hover:underline"
-                  >
-                    Inventory page
-                  </Link>{" "}
-                  so they show up here.
+                <div className="p-4 space-y-3">
+                  <div className="text-sm text-zinc-700">
+                    <span className="font-medium">Not in stock.</span>{" "}
+                    No catalog parts matched
+                    {partsQuery ? ` "${partsQuery}"` : ""} for this vehicle.
+                  </div>
+                  <SupplierLinks
+                    ctx={{
+                      partName: partsQuery || undefined,
+                      year: vehicle.year,
+                      make: vehicle.make,
+                      model: vehicle.model,
+                    }}
+                    label="Order from"
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Want it to show up here next time? Add it to your{" "}
+                    <Link
+                      href="/inventory"
+                      className="text-blue-700 hover:underline"
+                    >
+                      Inventory
+                    </Link>{" "}
+                    and tag fitment (year / make / model) on the part.
+                  </p>
                 </div>
               ) : (
                 <table className="w-full text-sm">

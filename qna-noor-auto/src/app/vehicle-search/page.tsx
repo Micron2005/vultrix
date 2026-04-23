@@ -7,8 +7,8 @@ export default function VehicleSearchPage() {
   return (
     <>
       <PageHeader
-        title="Vehicle Search"
-        description="Pick a vehicle by VIN or plate, then browse catalog parts that fit. No customer add required."
+        title="Lookup"
+        description="Pick a vehicle by VIN or plate, then search your parts catalog. Supplier links appear when you don't have the part in stock."
       />
       <VehicleSearchClient />
     </>
