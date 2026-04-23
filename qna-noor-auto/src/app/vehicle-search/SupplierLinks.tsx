@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   PARTS_SUPPLIERS,
-  formatVehicleHint,
+  formatSupplierClipboard,
   type SupplierDef,
   type SupplierLookup,
 } from "@/lib/partsSuppliers";
@@ -25,8 +25,10 @@ type Props = {
  * into the supplier's own vehicle picker after the tab opens.
  */
 export function SupplierLinks({ ctx, compact = false, label }: Props) {
-  const [copied, setCopied] = useState<string | null>(null);
-  const vehicleHint = formatVehicleHint(ctx);
+  const [copied, setCopied] = useState<{ id: string; hint: string } | null>(
+    null,
+  );
+  const clip = formatSupplierClipboard(ctx);
 
   function openSupplier(s: SupplierDef) {
     const url = s.buildUrl(ctx);
@@ -34,14 +36,14 @@ export function SupplierLinks({ ctx, compact = false, label }: Props) {
     // consumes the transient user-activation token in Firefox/Safari, so
     // a later window.open would be treated as a popup and silently blocked.
     window.open(url, "_blank", "noopener,noreferrer");
-    if (s.needsVehicleContext && vehicleHint) {
+    if (s.needsVehicleContext && clip) {
       void navigator.clipboard
-        ?.writeText(vehicleHint)
+        ?.writeText(clip.text)
         .then(() => {
-          setCopied(s.id);
+          setCopied({ id: s.id, hint: clip.hint });
           window.setTimeout(
-            () => setCopied((prev) => (prev === s.id ? null : prev)),
-            4000,
+            () => setCopied((prev) => (prev?.id === s.id ? null : prev)),
+            6000,
           );
         })
         .catch(() => {
@@ -79,19 +81,43 @@ export function SupplierLinks({ ctx, compact = false, label }: Props) {
                   ↗
                 </span>
               )}
-              {copied === s.id && (
-                <span className="ml-1.5 text-emerald-600">✓ vehicle copied</span>
+              {copied?.id === s.id && (
+                <span className="ml-1.5 text-emerald-600">✓ copied</span>
               )}
             </button>
           );
         })}
       </div>
-      {!compact && vehicleHint && (
+      {!compact && copied && (
+        <div className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+          {copied.hint}
+        </div>
+      )}
+      {!compact && !copied && clip && (
         <div className="mt-1.5 text-xs text-zinc-500">
-          Vehicle context:{" "}
-          <span className="font-medium text-zinc-700">{vehicleHint}</span>
-          {" "}— clicking AutoZone or O&apos;Reilly auto-copies this; paste into
-          the supplier&apos;s &ldquo;My Zone&rdquo; / vehicle selector to filter results.
+          {clip.kind === "vin" && (
+            <>
+              Clicking AutoZone or O&apos;Reilly auto-copies the{" "}
+              <span className="font-medium text-zinc-700">VIN</span> so you can
+              paste it straight into their &ldquo;Add Vehicle → VIN&rdquo;
+              dialog.
+            </>
+          )}
+          {clip.kind === "plate" && (
+            <>
+              No VIN on file — clicking AutoZone or O&apos;Reilly auto-copies
+              the <span className="font-medium text-zinc-700">plate</span> for
+              their &ldquo;Add Vehicle → License Plate&rdquo; dialog.
+            </>
+          )}
+          {clip.kind === "ymm" && (
+            <>
+              No VIN or plate on file — clicking AutoZone or O&apos;Reilly
+              auto-copies{" "}
+              <span className="font-medium text-zinc-700">{clip.text}</span>{" "}
+              so you can pick year/make/model manually.
+            </>
+          )}
         </div>
       )}
     </div>

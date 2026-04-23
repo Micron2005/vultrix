@@ -20,6 +20,11 @@ export type SupplierLookup = {
   year?: number | null;
   make?: string | null;
   model?: string | null;
+  /** VIN — pasted into AutoZone Pro / First Call's Add Vehicle dialog. */
+  vin?: string | null;
+  /** License plate + state — fallback when no VIN is available. */
+  licensePlate?: string | null;
+  licenseState?: string | null;
 };
 
 export type SupplierDef = {
@@ -61,13 +66,60 @@ function combined(ctx: SupplierLookup): string {
   return parts.join(" ").trim();
 }
 
-/** Formats year/make/model into a single "2018 Toyota Camry" string for clipboard. */
+/** Year/make/model for fallback display — not used for clipboard anymore. */
 export function formatVehicleHint(ctx: SupplierLookup): string {
   const parts: string[] = [];
   if (ctx.year) parts.push(String(ctx.year));
   if (ctx.make) parts.push(ctx.make);
   if (ctx.model) parts.push(ctx.model);
   return parts.join(" ").trim();
+}
+
+/**
+ * Clipboard payload for suppliers that use an Add-Vehicle dialog.
+ *
+ * AutoZone Pro and First Call both have an "Add Vehicle" dialog with a
+ * VIN input — pasting the raw VIN there (no spaces/labels) gives a
+ * one-click vehicle lock-in. If we don't have a VIN, fall back to the
+ * plate (they both also accept plate + state). Only fall back to
+ * year/make/model as a last resort.
+ */
+export type SupplierClipboard = {
+  text: string;
+  kind: "vin" | "plate" | "ymm";
+  hint: string;
+};
+
+export function formatSupplierClipboard(
+  ctx: SupplierLookup,
+): SupplierClipboard | null {
+  const vin = ctx.vin?.trim().toUpperCase();
+  if (vin && vin.length === 17) {
+    return {
+      text: vin,
+      kind: "vin",
+      hint: "VIN copied — paste into Add Vehicle → VIN.",
+    };
+  }
+  const plate = ctx.licensePlate?.trim().toUpperCase();
+  if (plate) {
+    return {
+      text: plate,
+      kind: "plate",
+      hint: `Plate ${plate}${
+        ctx.licenseState ? ` (${ctx.licenseState})` : ""
+      } copied — paste into Add Vehicle → License Plate.`,
+    };
+  }
+  const ymm = formatVehicleHint(ctx);
+  if (ymm) {
+    return {
+      text: ymm,
+      kind: "ymm",
+      hint: `${ymm} copied — use Add Vehicle → Year/Make/Model (no VIN on file).`,
+    };
+  }
+  return null;
 }
 
 export const PARTS_SUPPLIERS: SupplierDef[] = [

@@ -440,6 +440,9 @@ export function VehicleSearchClient() {
                       year: vehicle.year,
                       make: vehicle.make,
                       model: vehicle.model,
+                      vin: vehicle.vin,
+                      licensePlate: vehicle.licensePlate,
+                      licenseState: vehicle.licenseState,
                     }}
                     label="Order from"
                   />
@@ -535,6 +538,9 @@ export function VehicleSearchClient() {
                                 year: vehicle.year,
                                 make: vehicle.make,
                                 model: vehicle.model,
+                                vin: vehicle.vin,
+                                licensePlate: vehicle.licensePlate,
+                                licenseState: vehicle.licenseState,
                               }}
                             />
                           </td>
