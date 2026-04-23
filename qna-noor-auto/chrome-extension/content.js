@@ -84,8 +84,8 @@
         ${kindLabel}: <span class="qna-mono">${payload.value}</span>${stateLabel}
       </div>
       <div class="qna-hint">
-        Click <b>Change</b> / <b>Manage</b> on their page to open Add Vehicle —
-        the ${kindLabel} will fill automatically.
+        Opening Add Vehicle… ${kindLabel} will fill automatically. You'll only
+        need to click <b>ADD</b>. If nothing opens, use <b>Fill now</b>.
       </div>
       <div class="qna-row">
         <button id="qna-fill">Fill now</button>
@@ -361,43 +361,144 @@
     return null;
   }
 
+  /**
+   * Try to auto-click AZP / First Call's "Change" / "Manage" /
+   * "Manage Vehicles" / "My Garage" trigger so the Add Vehicle dialog
+   * opens without the user doing it. We only click an element whose
+   * accessible label clearly refers to vehicle management, and only
+   * once per page load. If we click wrong, the worst case is an extra
+   * menu opens — still safe because we never submit forms.
+   */
+  function tryClickChangeButton() {
+    const candidates = Array.from(
+      document.querySelectorAll('button, a, [role="button"]'),
+    );
+    for (const el of candidates) {
+      if (!isVisible(el)) continue;
+      const aria = el.getAttribute("aria-label") || "";
+      const text = (el.textContent || "").trim();
+      const acc = `${aria} ${text}`.toLowerCase().replace(/\s+/g, " ").trim();
+      if (!acc) continue;
+      if (
+        /\b(change|manage|edit|switch|pick|select)\b[^.]*\bvehicle/.test(acc) ||
+        /\bvehicle[^.]*\b(change|manage|edit|switch|picker|selector)\b/.test(
+          acc,
+        ) ||
+        /\bmy\s+garage\b/.test(acc) ||
+        /\badd\s+(?:a\s+)?vehicle\b/.test(acc)
+      ) {
+        try {
+          el.click();
+          return true;
+        } catch (e) {
+          // Keep trying other candidates
+        }
+      }
+    }
+    return false;
+  }
+
   // --- main ---
+
+  // Key for remembering the URL we want to return to after the user
+  // submits the Add Vehicle dialog. AZP sometimes redirects to their
+  // home / garage page after ADD, losing the part-search query — we
+  // navigate back there automatically so the user doesn't re-search.
+  const RESUME_KEY = "qna_resume_url";
+
+  function stripQnaHash(url) {
+    return url.replace(/[#&]qna-[^&#]*/g, "").replace(/[#?]$/, "");
+  }
 
   function run() {
     const payload = parseQnaHash();
-    if (!payload) return;
-    // Show the bar on page-load so the user sees "QNA: set vehicle" and
-    // knows to click Change / Manage. We do NOT auto-fill on page load
-    // — only after a mutation introduces an Add Vehicle dialog.
+
+    if (!payload) {
+      // No hash on this page. If we had stashed a "return here after
+      // vehicle is added" URL in sessionStorage (previous navigation in
+      // this same tab), and the current URL differs, resume it.
+      try {
+        const resume = sessionStorage.getItem(RESUME_KEY);
+        if (resume && resume !== location.href) {
+          sessionStorage.removeItem(RESUME_KEY);
+          location.replace(resume);
+        }
+      } catch {
+        // sessionStorage not available — nothing to do
+      }
+      return;
+    }
+
     makeBar(payload);
+
+    // Remember where to return after the user clicks ADD.
+    try {
+      sessionStorage.setItem(RESUME_KEY, stripQnaHash(location.href));
+    } catch {
+      // ignore
+    }
+
+    // Try to open the Add Vehicle dialog automatically. If the page is
+    // still loading we may find the button after the first mutation.
+    let clickedOnce = false;
+    const tryClickOnce = () => {
+      if (clickedOnce) return;
+      if (tryClickChangeButton()) {
+        clickedOnce = true;
+      }
+    };
+    setTimeout(tryClickOnce, 500);
+    setTimeout(tryClickOnce, 1500);
+    setTimeout(tryClickOnce, 3000);
 
     // Watch for the Add Vehicle dialog to appear; once it does, fill.
     let filledAt = 0;
-    const tryFill = () => {
-      if (Date.now() - filledAt < 1500) return; // cooldown
+    let dialogWasOpen = false;
+    const tryFillCycle = () => {
       const container = findAddVehicleContainer();
-      if (!container) return;
-      // Small delay for framework to finish rendering child inputs
-      setTimeout(() => {
-        const result = fillAddVehicle(payload);
-        if (result.ok) {
-          filledAt = Date.now();
-          const status = document.getElementById("qna-status");
-          if (status) {
-            status.textContent = "Filled. Click ADD on their dialog.";
-            status.className = "qna-ok";
-            status.hidden = false;
+      if (container) {
+        dialogWasOpen = true;
+        if (Date.now() - filledAt < 1500) return; // cooldown
+        setTimeout(() => {
+          const result = fillAddVehicle(payload);
+          if (result.ok) {
+            filledAt = Date.now();
+            const status = document.getElementById("qna-status");
+            if (status) {
+              status.textContent = "Filled. Click ADD on their dialog.";
+              status.className = "qna-ok";
+              status.hidden = false;
+            }
           }
+        }, 120);
+      } else if (dialogWasOpen) {
+        // Dialog was open and now closed. Assume user clicked ADD. If
+        // AZP hasn't navigated us away yet, return to the resume URL
+        // so the part search refreshes with the new vehicle in scope.
+        dialogWasOpen = false;
+        try {
+          const resume = sessionStorage.getItem(RESUME_KEY);
+          if (resume) {
+            sessionStorage.removeItem(RESUME_KEY);
+            setTimeout(() => {
+              if (location.href.replace(/#.*$/, "") !== resume) {
+                location.href = resume;
+              } else {
+                // Same URL — a refresh will re-run the search under
+                // the new vehicle context.
+                location.reload();
+              }
+            }, 400);
+          }
+        } catch {
+          // ignore
         }
-      }, 120);
+      }
     };
 
-    const mo = new MutationObserver(() => {
-      tryFill();
-    });
+    const mo = new MutationObserver(tryFillCycle);
     mo.observe(document.documentElement, { childList: true, subtree: true });
-    // Also attempt once in case the dialog is already open when we run.
-    tryFill();
+    tryFillCycle();
     // Stop after 10 minutes to avoid persistent observation.
     setTimeout(() => mo.disconnect(), 10 * 60 * 1000);
   }
