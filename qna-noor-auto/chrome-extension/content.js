@@ -503,11 +503,26 @@
       // ignore
     }
 
+    // Strip the #qna- fragment from the live URL so a subsequent
+    // refresh / AZP-triggered reload doesn't retrigger the flow.
+    try {
+      const cleanUrl = stripQnaHash(location.href);
+      if (cleanUrl !== location.href) {
+        history.replaceState(history.state, document.title, cleanUrl);
+      }
+    } catch {
+      // ignore
+    }
+
+    // Once we've decided to navigate back to the resume URL, block all
+    // further auto-clicks and fills so the dialog can't re-open.
+    let resumeInitiated = false;
+
     // Try to open the Add Vehicle dialog automatically. If the page is
     // still loading we may find the button after the first mutation.
     let clickedOnce = false;
     const tryClickOnce = () => {
-      if (clickedOnce) return;
+      if (clickedOnce || resumeInitiated) return;
       if (tryClickChangeButton()) {
         clickedOnce = true;
       }
@@ -520,39 +535,40 @@
     let filledAt = 0;
     let dialogWasOpen = false;
     const tryFillCycle = () => {
+      if (resumeInitiated) return;
       const container = findAddVehicleContainer();
       if (container) {
         dialogWasOpen = true;
-        if (Date.now() - filledAt < 1500) return; // cooldown
+        if (Date.now() - filledAt < 5000) return; // cooldown
         setTimeout(() => {
+          if (resumeInitiated) return;
           const result = fillAddVehicle(payload);
           if (result.ok) {
             filledAt = Date.now();
             const status = document.getElementById("qna-status");
             if (status) {
-              status.textContent = "Filled. Click ADD on their dialog.";
+              status.textContent = "Filled. AZP should auto-add the vehicle.";
               status.className = "qna-ok";
               status.hidden = false;
             }
           }
         }, 120);
       } else if (dialogWasOpen) {
-        // Dialog was open and now closed. Assume user clicked ADD. If
-        // AZP hasn't navigated us away yet, return to the resume URL
-        // so the part search refreshes with the new vehicle in scope.
+        // Dialog was open and now closed. Assume vehicle was added.
+        // Navigate back to the resume URL so the part search refreshes
+        // under the new vehicle in scope.
         dialogWasOpen = false;
+        resumeInitiated = true;
         try {
           const resume = sessionStorage.getItem(RESUME_KEY);
           if (resume) {
             sessionStorage.removeItem(RESUME_KEY);
             setTimeout(() => {
-              if (location.href.replace(/#.*$/, "") !== resume) {
-                location.href = resume;
-              } else {
-                // Same URL — a refresh will re-run the search under
-                // the new vehicle context.
-                location.reload();
-              }
+              // Always use location.replace against the clean (hash-
+              // stripped) resume URL. Even if it equals the current
+              // location, replace triggers a refresh without carrying
+              // the #qna- fragment.
+              location.replace(resume);
             }, 400);
           }
         } catch {
