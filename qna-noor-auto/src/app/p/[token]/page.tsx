@@ -234,38 +234,6 @@ export default async function CustomerPortalPage({
           </section>
         )}
 
-        <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
-            My vehicles ({customer.vehicles.length})
-          </div>
-          {customer.vehicles.length === 0 ? (
-            <div className="p-6 text-sm text-zinc-500">
-              No vehicles on file.
-            </div>
-          ) : (
-            <ul className="divide-y divide-zinc-200">
-              {customer.vehicles.map((v) => (
-                <li key={v.id} className="px-6 py-3">
-                  <div className="text-sm font-medium text-zinc-900">
-                    {vehicleLabel(v)}
-                  </div>
-                  <div className="mt-0.5 text-xs text-zinc-500">
-                    {v.licensePlate && (
-                      <span className="mr-3">Plate: {v.licensePlate}</span>
-                    )}
-                    {v.vin && (
-                      <span className="mr-3 font-mono">VIN: {v.vin}</span>
-                    )}
-                    {typeof v.mileage === "number" && (
-                      <span>Mileage: {v.mileage.toLocaleString()}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
         {outstanding.length > 0 && (
           <section className="rounded-lg bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
@@ -368,6 +336,38 @@ export default async function CustomerPortalPage({
                 ))}
               </tbody>
             </table>
+          )}
+        </section>
+
+        <section className="rounded-lg bg-white shadow-sm overflow-hidden">
+          <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            My vehicles ({customer.vehicles.length})
+          </div>
+          {customer.vehicles.length === 0 ? (
+            <div className="p-6 text-sm text-zinc-500">
+              No vehicles on file.
+            </div>
+          ) : (
+            <ul className="divide-y divide-zinc-200">
+              {customer.vehicles.map((v) => (
+                <li key={v.id} className="px-6 py-3">
+                  <div className="text-sm font-medium text-zinc-900">
+                    {vehicleLabel(v)}
+                  </div>
+                  <div className="mt-0.5 text-xs text-zinc-500">
+                    {v.licensePlate && (
+                      <span className="mr-3">Plate: {v.licensePlate}</span>
+                    )}
+                    {v.vin && (
+                      <span className="mr-3 font-mono">VIN: {v.vin}</span>
+                    )}
+                    {typeof v.mileage === "number" && (
+                      <span>Mileage: {v.mileage.toLocaleString()}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
