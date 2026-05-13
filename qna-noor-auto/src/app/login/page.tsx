@@ -43,6 +43,16 @@ export default async function LoginPage({
                 className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
               />
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="remember"
+                value="1"
+                defaultChecked
+                className="rounded border-zinc-300"
+              />
+              <span className="text-sm text-zinc-600">Remember me</span>
+            </label>
             {error && (
               <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
                 Wrong password. Try again.

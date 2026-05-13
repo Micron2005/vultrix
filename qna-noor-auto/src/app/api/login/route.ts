@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const form = await req.formData();
   const password = form.get("password");
+  const remember = form.get("remember") === "1";
   const next = safeNext(
     typeof form.get("next") === "string" ? (form.get("next") as string) : "/",
   );
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
   return res;
 }
