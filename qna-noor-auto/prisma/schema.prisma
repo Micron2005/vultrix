@@ -534,3 +534,29 @@ model RepairOrderShopFeeExclusion {
   @@index([repairOrderId])
   @@index([shopFeeId])
 }
+
+// Landing-page content blocks (legacy – kept for migration history).
+model LandingBlock {
+  id        String   @id @default(cuid())
+  type      String
+  content   String   @default("")
+  imageData String?
+  x         Float    @default(0)
+  y         Float    @default(0)
+  width     Float    @default(400)
+  height    Float    @default(100)
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+// Rich-text landing page content (singleton row, id = "singleton").
+// The shop owner edits this via /site/edit; customers see it at /site.
+model LandingContent {
+  id        String   @id @default("singleton")
+  html      String   @default("")
+  updatedAt DateTime @updatedAt
+}

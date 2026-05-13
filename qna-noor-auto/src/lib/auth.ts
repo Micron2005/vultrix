@@ -74,6 +74,7 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/p/")) return true;
   if (pathname.startsWith("/a/")) return true;
   if (pathname.startsWith("/q/")) return true;
+  if (pathname === "/site") return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/favicon")) return true;
   return false;
