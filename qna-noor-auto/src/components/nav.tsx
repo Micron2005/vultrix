@@ -22,6 +22,7 @@ const items = [
   { href: "/import", label: "Import" },
   { href: "/export", label: "Export" },
   { href: "/settings", label: "Settings" },
+  { href: "/site/edit", label: "Website" },
 ];
 
 function isActive(pathname: string | null, href: string): boolean {
