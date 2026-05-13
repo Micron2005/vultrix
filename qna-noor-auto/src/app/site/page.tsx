@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { isAuthenticated } from "@/lib/auth";
-import { LandingCanvas } from "./LandingCanvas";
+import { getLandingContent } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function SitePage() {
-  const [shop, blocks, authed] = await Promise.all([
+  const [shop, html, authed] = await Promise.all([
     getAllSettings(),
-    db.landingBlock.findMany({ orderBy: { sortOrder: "asc" } }),
+    getLandingContent(),
     isAuthenticated(),
   ]);
 
@@ -119,18 +118,21 @@ export default async function SitePage() {
         </div>
       </section>
 
-      {/* Custom content blocks */}
+      {/* Custom content (rendered from rich text HTML) */}
       <section className="mx-auto max-w-6xl px-6 py-12">
-        {blocks.length === 0 ? (
+        {html ? (
+          <div
+            className="landing-content"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : (
           <div className="text-center py-20">
             <div className="text-zinc-400 text-lg">
               {authed
-                ? "No content yet. Click \"Edit page\" to add text and images."
+                ? "No content yet. Click \"Edit page\" to start writing."
                 : ""}
             </div>
           </div>
-        ) : (
-          <LandingCanvas blocks={blocks} editable={false} />
         )}
       </section>
 
@@ -138,8 +140,6 @@ export default async function SitePage() {
       <footer className="border-t border-zinc-200 bg-white py-8">
         <div className="mx-auto max-w-6xl px-6 text-center text-sm text-zinc-500">
           {shop.shopName}
-          {shop.shopAddress && ` · ${shop.shopAddress.replace(/\n/g, ", ")}`}
-          {shop.shopPhone && ` · ${shop.shopPhone}`}
         </div>
       </footer>
     </div>

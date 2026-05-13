@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { isAuthenticated } from "@/lib/auth";
-import { LandingCanvas } from "../LandingCanvas";
+import { getLandingContent } from "../actions";
+import { RichTextEditor } from "../RichTextEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +12,9 @@ export default async function SiteEditPage() {
     redirect("/login?next=/site/edit");
   }
 
-  const [shop, blocks] = await Promise.all([
+  const [shop, html] = await Promise.all([
     getAllSettings(),
-    db.landingBlock.findMany({ orderBy: { sortOrder: "asc" } }),
+    getLandingContent(),
   ]);
 
   return (
@@ -46,7 +46,7 @@ export default async function SiteEditPage() {
       </header>
 
       <section className="mx-auto max-w-6xl px-6 py-8">
-        <LandingCanvas blocks={blocks} editable />
+        <RichTextEditor initialHtml={html} />
       </section>
     </div>
   );
