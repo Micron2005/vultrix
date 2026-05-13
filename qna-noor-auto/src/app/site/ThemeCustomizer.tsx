@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveLandingTheme } from "./actions";
-import type { LandingTheme } from "./actions";
+import type { LandingTheme } from "./theme";
 
 const PATTERNS = [
   { value: "none", label: "None" },
