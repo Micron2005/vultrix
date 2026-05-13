@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getAllSettings } from "@/lib/shop";
-import { isAuthenticated } from "@/lib/auth";
 import { getLandingContent } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +24,9 @@ function patternClass(pattern: string): string {
 }
 
 export default async function SitePage() {
-  const [shop, { html, theme }, authed] = await Promise.all([
+  const [shop, { html, theme }] = await Promise.all([
     getAllSettings(),
     getLandingContent(),
-    isAuthenticated(),
   ]);
 
   return (
@@ -70,37 +68,16 @@ export default async function SitePage() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            {authed ? (
-              <>
-                <Link
-                  href="/site/edit"
-                  className="rounded-md px-4 py-2 text-sm font-medium"
-                  style={{
-                    backgroundColor: theme.buttonBg,
-                    color: theme.buttonText,
-                  }}
-                >
-                  Edit page
-                </Link>
-                <Link
-                  href="/"
-                  className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-                >
-                  Dashboard
-                </Link>
-              </>
-            ) : (
-              <Link
-                href="/login?next=/site/edit"
-                className="rounded-md px-4 py-2 text-sm font-medium"
-                style={{
-                  backgroundColor: theme.buttonBg,
-                  color: theme.buttonText,
-                }}
-              >
-                Login
-              </Link>
-            )}
+            <Link
+              href="/login?next=/site/edit"
+              className="rounded-md px-4 py-2 text-sm font-medium"
+              style={{
+                backgroundColor: theme.buttonBg,
+                color: theme.buttonText,
+              }}
+            >
+              Login
+            </Link>
           </div>
         </div>
       </header>
@@ -177,13 +154,7 @@ export default async function SitePage() {
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ) : (
-          <div className="text-center py-20">
-            <div className="text-zinc-400 text-lg">
-              {authed
-                ? 'No content yet. Click "Edit page" to start writing.'
-                : ""}
-            </div>
-          </div>
+          <div className="text-center py-20" />
         )}
       </section>
 
