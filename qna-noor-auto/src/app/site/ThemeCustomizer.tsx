@@ -21,6 +21,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#fafaf9",
       headerBg: "#ffffff",
       headerText: "#18181b",
+      headerBorder: "#e4e4e7",
       heroBg: "#18181b",
       heroText: "#ffffff",
       heroSubtext: "#d4d4d8",
@@ -38,6 +39,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#eff6ff",
       headerBg: "#ffffff",
       headerText: "#1e3a5f",
+      headerBorder: "#bfdbfe",
       heroBg: "#1e3a8a",
       heroText: "#ffffff",
       heroSubtext: "#bfdbfe",
@@ -55,6 +57,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#f0fdf4",
       headerBg: "#ffffff",
       headerText: "#14532d",
+      headerBorder: "#bbf7d0",
       heroBg: "#14532d",
       heroText: "#ffffff",
       heroSubtext: "#bbf7d0",
@@ -72,6 +75,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#fef2f2",
       headerBg: "#ffffff",
       headerText: "#7f1d1d",
+      headerBorder: "#fecaca",
       heroBg: "#7f1d1d",
       heroText: "#ffffff",
       heroSubtext: "#fecaca",
@@ -89,6 +93,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#faf5ff",
       headerBg: "#ffffff",
       headerText: "#581c87",
+      headerBorder: "#e9d5ff",
       heroBg: "#581c87",
       heroText: "#ffffff",
       heroSubtext: "#e9d5ff",
@@ -106,6 +111,7 @@ const PRESETS: { name: string; theme: Partial<LandingTheme> }[] = [
       pageBg: "#fff7ed",
       headerBg: "#ffffff",
       headerText: "#7c2d12",
+      headerBorder: "#fed7aa",
       heroBg: "#9a3412",
       heroText: "#ffffff",
       heroSubtext: "#fed7aa",
@@ -231,6 +237,11 @@ export function ThemeCustomizer({
                   label="Text"
                   value={theme.headerText}
                   onChange={(v) => update("headerText", v)}
+                />
+                <ColorField
+                  label="Border"
+                  value={theme.headerBorder}
+                  onChange={(v) => update("headerBorder", v)}
                 />
               </div>
             </fieldset>

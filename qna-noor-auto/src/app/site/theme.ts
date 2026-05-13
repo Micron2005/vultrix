@@ -2,6 +2,7 @@ export interface LandingTheme {
   pageBg: string;
   headerBg: string;
   headerText: string;
+  headerBorder: string;
   heroBg: string;
   heroText: string;
   heroSubtext: string;
@@ -17,6 +18,7 @@ export const DEFAULT_THEME: LandingTheme = {
   pageBg: "#fafaf9",
   headerBg: "#ffffff",
   headerText: "#18181b",
+  headerBorder: "#e4e4e7",
   heroBg: "#18181b",
   heroText: "#ffffff",
   heroSubtext: "#d4d4d8",
