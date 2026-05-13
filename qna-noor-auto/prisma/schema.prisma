@@ -534,3 +534,22 @@ model RepairOrderShopFeeExclusion {
   @@index([repairOrderId])
   @@index([shopFeeId])
 }
+
+// Landing-page content blocks. The shop owner adds/positions these via
+// the admin editor at /site/edit; customers see them read-only at /site.
+model LandingBlock {
+  id        String   @id @default(cuid())
+  type      String   // TEXT | IMAGE | HEADING
+  content   String   @default("")
+  imageData String?  // stored image data (base64) for IMAGE blocks
+  x         Float    @default(0)
+  y         Float    @default(0)
+  width     Float    @default(400)
+  height    Float    @default(100)
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}

@@ -44,6 +44,7 @@ export function Nav() {
     pathname?.startsWith("/a/") ||
     pathname?.startsWith("/s/") ||
     pathname?.startsWith("/q/") ||
+    pathname === "/site" ||
     pathname?.startsWith("/inventory/qr-sheet") ||
     pathname?.endsWith("/qr") ||
     pathname === "/login"
