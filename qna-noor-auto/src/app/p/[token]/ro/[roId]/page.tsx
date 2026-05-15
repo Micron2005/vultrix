@@ -42,6 +42,14 @@ export default async function CustomerPortalROPage({
     include: {
       customer: true,
       vehicle: true,
+      jobs: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          laborLines: { orderBy: { sortOrder: "asc" } },
+          partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
+        },
+      },
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
@@ -183,99 +191,168 @@ export default async function CustomerPortalROPage({
             </section>
           )}
 
-          {ro.laborLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Labor
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1">Description</th>
-                    <th className="py-1 text-right">Hours</th>
-                    <th className="py-1 text-right">Rate</th>
-                    <th className="py-1 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.laborLines.map((l) => (
-                    <tr key={l.id} className="border-t border-zinc-100">
-                      <td className="py-2 text-zinc-800">{l.description}</td>
-                      <td className="py-2 text-right text-zinc-700 tabular-nums">
-                        {l.hours.toFixed(1)}
-                      </td>
-                      <td className="py-2 text-right text-zinc-700 tabular-nums">
-                        {formatMoney(l.rate)}
-                      </td>
-                      <td className="py-2 text-right text-zinc-900 tabular-nums">
-                        {formatMoney(l.hours * l.rate)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {ro.jobs.map((job) => (
+            <section key={job.id} className="px-8 py-4 border-b border-zinc-200">
+              <div className="text-sm font-semibold text-zinc-900 mb-3">{job.name}</div>
+              {job.laborLines.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Labor</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1">Description</th>
+                        <th className="py-1 text-right">Hours</th>
+                        <th className="py-1 text-right">Rate</th>
+                        <th className="py-1 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.laborLines.map((l) => (
+                        <tr key={l.id} className="border-t border-zinc-100">
+                          <td className="py-2 text-zinc-800">{l.description}</td>
+                          <td className="py-2 text-right text-zinc-700 tabular-nums">{l.hours.toFixed(1)}</td>
+                          <td className="py-2 text-right text-zinc-700 tabular-nums">{formatMoney(l.rate)}</td>
+                          <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(l.hours * l.rate)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {job.partLines.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Parts</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1">Description</th>
+                        <th className="py-1 text-right">Qty</th>
+                        <th className="py-1 text-right">Price</th>
+                        <th className="py-1 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.partLines.map((p) => (
+                        <tr key={p.id} className="border-t border-zinc-100">
+                          <td className="py-2 text-zinc-800">{p.description}</td>
+                          <td className="py-2 text-right text-zinc-700 tabular-nums">{p.quantity}</td>
+                          <td className="py-2 text-right text-zinc-700 tabular-nums">{formatMoney(p.unitPrice)}</td>
+                          <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(p.quantity * p.unitPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {job.feeLines.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fees</div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1">Description</th>
+                        <th className="py-1 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.feeLines.map((f) => (
+                        <tr key={f.id} className="border-t border-zinc-100">
+                          <td className="py-2 text-zinc-800">{f.description}</td>
+                          <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(f.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
-          )}
+          ))}
 
-          {ro.feeLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Fees
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1">Description</th>
-                    <th className="py-1 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.feeLines.map((f) => (
-                    <tr key={f.id} className="border-t border-zinc-100">
-                      <td className="py-2 text-zinc-800">{f.description}</td>
-                      <td className="py-2 text-right text-zinc-900 tabular-nums">
-                        {formatMoney(f.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          {ro.partLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Parts
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1">Description</th>
-                    <th className="py-1 text-right">Qty</th>
-                    <th className="py-1 text-right">Price</th>
-                    <th className="py-1 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.partLines.map((p) => (
-                    <tr key={p.id} className="border-t border-zinc-100">
-                      <td className="py-2 text-zinc-800">{p.description}</td>
-                      <td className="py-2 text-right text-zinc-700 tabular-nums">
-                        {p.quantity}
-                      </td>
-                      <td className="py-2 text-right text-zinc-700 tabular-nums">
-                        {formatMoney(p.unitPrice)}
-                      </td>
-                      <td className="py-2 text-right text-zinc-900 tabular-nums">
-                        {formatMoney(p.quantity * p.unitPrice)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
+          {/* Ungrouped lines */}
+          {(() => {
+            const uL = ro.laborLines.filter((l) => !l.jobId);
+            const uP = ro.partLines.filter((p) => !p.jobId);
+            const uF = ro.feeLines.filter((f) => !f.jobId);
+            if (!uL.length && !uP.length && !uF.length) return null;
+            return (
+              <section className="px-8 py-4 border-b border-zinc-200">
+                {ro.jobs.length > 0 && (
+                  <div className="text-sm font-semibold text-zinc-900 mb-3">Other Items</div>
+                )}
+                {uL.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Labor</div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1">Description</th>
+                          <th className="py-1 text-right">Hours</th>
+                          <th className="py-1 text-right">Rate</th>
+                          <th className="py-1 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uL.map((l) => (
+                          <tr key={l.id} className="border-t border-zinc-100">
+                            <td className="py-2 text-zinc-800">{l.description}</td>
+                            <td className="py-2 text-right text-zinc-700 tabular-nums">{l.hours.toFixed(1)}</td>
+                            <td className="py-2 text-right text-zinc-700 tabular-nums">{formatMoney(l.rate)}</td>
+                            <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(l.hours * l.rate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {uP.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Parts</div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1">Description</th>
+                          <th className="py-1 text-right">Qty</th>
+                          <th className="py-1 text-right">Price</th>
+                          <th className="py-1 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uP.map((p) => (
+                          <tr key={p.id} className="border-t border-zinc-100">
+                            <td className="py-2 text-zinc-800">{p.description}</td>
+                            <td className="py-2 text-right text-zinc-700 tabular-nums">{p.quantity}</td>
+                            <td className="py-2 text-right text-zinc-700 tabular-nums">{formatMoney(p.unitPrice)}</td>
+                            <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(p.quantity * p.unitPrice)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {uF.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fees</div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1">Description</th>
+                          <th className="py-1 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uF.map((f) => (
+                          <tr key={f.id} className="border-t border-zinc-100">
+                            <td className="py-2 text-zinc-800">{f.description}</td>
+                            <td className="py-2 text-right text-zinc-900 tabular-nums">{formatMoney(f.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
           <section className="px-8 py-4 border-b border-zinc-200">
             <div className="flex justify-end">

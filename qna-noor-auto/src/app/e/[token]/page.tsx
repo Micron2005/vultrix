@@ -28,6 +28,14 @@ export default async function PublicEstimatePage({
     include: {
       customer: true,
       vehicle: true,
+      jobs: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          laborLines: { orderBy: { sortOrder: "asc" } },
+          partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
+        },
+      },
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
@@ -150,108 +158,226 @@ export default async function PublicEstimatePage({
             </section>
           )}
 
-          {ro.laborLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Labor
+          {ro.jobs.map((job) => (
+            <section key={job.id} className="px-8 py-4 border-b border-zinc-200">
+              <div className="text-sm font-semibold text-zinc-900 mb-3">
+                {job.name}
               </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1 pr-2 font-medium">Description</th>
-                    <th className="py-1 px-2 font-medium text-right">Hours</th>
-                    <th className="py-1 px-2 font-medium text-right">Rate</th>
-                    <th className="py-1 pl-2 font-medium text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.laborLines.map((l) => (
-                    <tr key={l.id} className="border-t border-zinc-100">
-                      <td className="py-2 pr-2 text-zinc-800">{l.description}</td>
-                      <td className="py-2 px-2 text-right tabular-nums">
-                        {l.hours.toFixed(2)}
-                      </td>
-                      <td className="py-2 px-2 text-right tabular-nums">
-                        {formatMoney(l.rate)}
-                      </td>
-                      <td className="py-2 pl-2 text-right tabular-nums">
-                        {formatMoney(l.hours * l.rate)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {job.laborLines.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                    Labor
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1 pr-2 font-medium">Description</th>
+                        <th className="py-1 px-2 font-medium text-right">Hours</th>
+                        <th className="py-1 px-2 font-medium text-right">Rate</th>
+                        <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.laborLines.map((l) => (
+                        <tr key={l.id} className="border-t border-zinc-100">
+                          <td className="py-2 pr-2 text-zinc-800">{l.description}</td>
+                          <td className="py-2 px-2 text-right tabular-nums">
+                            {l.hours.toFixed(2)}
+                          </td>
+                          <td className="py-2 px-2 text-right tabular-nums">
+                            {formatMoney(l.rate)}
+                          </td>
+                          <td className="py-2 pl-2 text-right tabular-nums">
+                            {formatMoney(l.hours * l.rate)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {job.partLines.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                    Parts
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1 pr-2 font-medium">Description</th>
+                        <th className="py-1 px-2 font-medium text-right">Qty</th>
+                        <th className="py-1 px-2 font-medium text-right">Price</th>
+                        <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.partLines.map((p) => (
+                        <tr key={p.id} className="border-t border-zinc-100">
+                          <td className="py-2 pr-2 text-zinc-800">
+                            {p.description}
+                            {p.partNumber && (
+                              <span className="ml-1 font-mono text-xs text-zinc-500">
+                                · {p.partNumber}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-right tabular-nums">
+                            {p.quantity}
+                          </td>
+                          <td className="py-2 px-2 text-right tabular-nums">
+                            {formatMoney(p.unitPrice)}
+                          </td>
+                          <td className="py-2 pl-2 text-right tabular-nums">
+                            {formatMoney(p.quantity * p.unitPrice)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {job.feeLines.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                    Fees
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-zinc-500">
+                        <th className="py-1 pr-2 font-medium">Description</th>
+                        <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.feeLines.map((f) => (
+                        <tr key={f.id} className="border-t border-zinc-100">
+                          <td className="py-2 pr-2 text-zinc-800">{f.description}</td>
+                          <td className="py-2 pl-2 text-right tabular-nums">
+                            {formatMoney(f.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
-          )}
+          ))}
 
-          {ro.partLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Parts
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1 pr-2 font-medium">Description</th>
-                    <th className="py-1 px-2 font-medium text-right">Qty</th>
-                    <th className="py-1 px-2 font-medium text-right">Price</th>
-                    <th className="py-1 pl-2 font-medium text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.partLines.map((p) => (
-                    <tr key={p.id} className="border-t border-zinc-100">
-                      <td className="py-2 pr-2 text-zinc-800">
-                        {p.description}
-                        {p.partNumber && (
-                          <span className="ml-1 font-mono text-xs text-zinc-500">
-                            · {p.partNumber}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 px-2 text-right tabular-nums">
-                        {p.quantity}
-                      </td>
-                      <td className="py-2 px-2 text-right tabular-nums">
-                        {formatMoney(p.unitPrice)}
-                      </td>
-                      <td className="py-2 pl-2 text-right tabular-nums">
-                        {formatMoney(p.quantity * p.unitPrice)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          {ro.feeLines.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
-              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                Fees
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500">
-                    <th className="py-1 pr-2 font-medium">Description</th>
-                    <th className="py-1 pl-2 font-medium text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ro.feeLines.map((f) => (
-                    <tr key={f.id} className="border-t border-zinc-100">
-                      <td className="py-2 pr-2 text-zinc-800">
-                        {f.description}
-                      </td>
-                      <td className="py-2 pl-2 text-right tabular-nums">
-                        {formatMoney(f.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
+          {/* Ungrouped lines (legacy data) */}
+          {(() => {
+            const uLabor = ro.laborLines.filter((l) => !l.jobId);
+            const uParts = ro.partLines.filter((p) => !p.jobId);
+            const uFees = ro.feeLines.filter((f) => !f.jobId);
+            if (uLabor.length === 0 && uParts.length === 0 && uFees.length === 0) return null;
+            return (
+              <section className="px-8 py-4 border-b border-zinc-200">
+                {ro.jobs.length > 0 && (
+                  <div className="text-sm font-semibold text-zinc-900 mb-3">
+                    Other Items
+                  </div>
+                )}
+                {uLabor.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                      Labor
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1 pr-2 font-medium">Description</th>
+                          <th className="py-1 px-2 font-medium text-right">Hours</th>
+                          <th className="py-1 px-2 font-medium text-right">Rate</th>
+                          <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uLabor.map((l) => (
+                          <tr key={l.id} className="border-t border-zinc-100">
+                            <td className="py-2 pr-2 text-zinc-800">{l.description}</td>
+                            <td className="py-2 px-2 text-right tabular-nums">
+                              {l.hours.toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2 text-right tabular-nums">
+                              {formatMoney(l.rate)}
+                            </td>
+                            <td className="py-2 pl-2 text-right tabular-nums">
+                              {formatMoney(l.hours * l.rate)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {uParts.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                      Parts
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1 pr-2 font-medium">Description</th>
+                          <th className="py-1 px-2 font-medium text-right">Qty</th>
+                          <th className="py-1 px-2 font-medium text-right">Price</th>
+                          <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uParts.map((p) => (
+                          <tr key={p.id} className="border-t border-zinc-100">
+                            <td className="py-2 pr-2 text-zinc-800">
+                              {p.description}
+                              {p.partNumber && (
+                                <span className="ml-1 font-mono text-xs text-zinc-500">
+                                  · {p.partNumber}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-right tabular-nums">
+                              {p.quantity}
+                            </td>
+                            <td className="py-2 px-2 text-right tabular-nums">
+                              {formatMoney(p.unitPrice)}
+                            </td>
+                            <td className="py-2 pl-2 text-right tabular-nums">
+                              {formatMoney(p.quantity * p.unitPrice)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {uFees.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
+                      Fees
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-500">
+                          <th className="py-1 pr-2 font-medium">Description</th>
+                          <th className="py-1 pl-2 font-medium text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uFees.map((f) => (
+                          <tr key={f.id} className="border-t border-zinc-100">
+                            <td className="py-2 pr-2 text-zinc-800">{f.description}</td>
+                            <td className="py-2 pl-2 text-right tabular-nums">
+                              {formatMoney(f.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
           <section className="px-8 py-6 border-b border-zinc-200">
             <div className="ml-auto w-full max-w-xs space-y-1 text-sm">

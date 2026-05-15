@@ -176,6 +176,7 @@ export async function applyCannedJobToRepairOrder(
   const ro = await db.repairOrder.findUnique({
     where: { id: roId },
     include: {
+      jobs: { select: { sortOrder: true } },
       laborLines: { select: { sortOrder: true } },
       partLines: { select: { sortOrder: true } },
     },
@@ -183,17 +184,27 @@ export async function applyCannedJobToRepairOrder(
   if (!ro) throw new Error("Repair order not found");
 
   const defaultRate = parseFloat(await getSetting("defaultLaborRate")) || 0;
+  const nextJobSort =
+    ro.jobs.reduce((max, j) => Math.max(max, j.sortOrder), -1) + 1;
   const nextLaborSort =
     ro.laborLines.reduce((max, l) => Math.max(max, l.sortOrder), -1) + 1;
   const nextPartSort =
     ro.partLines.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1;
 
   await db.$transaction(async (tx) => {
+    const roJob = await tx.job.create({
+      data: {
+        repairOrderId: roId,
+        name: job.name,
+        sortOrder: nextJobSort,
+      },
+    });
     for (let i = 0; i < job.laborItems.length; i++) {
       const l = job.laborItems[i];
       await tx.laborLine.create({
         data: {
           repairOrderId: roId,
+          jobId: roJob.id,
           description: l.description,
           hours: l.hours,
           rate: l.rate ?? defaultRate,
@@ -207,6 +218,7 @@ export async function applyCannedJobToRepairOrder(
       const partLine = await tx.partLine.create({
         data: {
           repairOrderId: roId,
+          jobId: roJob.id,
           partId: p.partId ?? null,
           partNumber: p.partNumber ?? catalogPart?.partNumber ?? null,
           description: p.description,

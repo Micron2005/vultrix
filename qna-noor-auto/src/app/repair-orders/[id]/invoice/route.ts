@@ -16,6 +16,14 @@ export async function GET(
     include: {
       customer: true,
       vehicle: true,
+      jobs: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          laborLines: { orderBy: { sortOrder: "asc" } },
+          partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
+        },
+      },
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
@@ -200,125 +208,100 @@ export async function GET(
   });
   y -= 16;
 
-  // Labor section
-  if (ro.laborLines.length > 0) {
-    page.drawText("LABOR", {
-      x: margin,
-      y,
-      size: 9,
-      font: bold,
-      color: gray,
-    });
-    y -= 14;
-    drawLineHeader(page, y, font, gray, [
-      { text: "Description", x: margin },
-      { text: "Hours", x: 380, align: "right" },
-      { text: "Rate", x: 460, align: "right" },
-      { text: "Amount", x: 612 - margin, align: "right" },
-    ]);
-    y -= 12;
-    for (const l of ro.laborLines) {
-      page.drawText(l.description, {
-        x: margin,
-        y,
-        size: 10,
-        font,
-        color: black,
-      });
-      drawRight(page, l.hours.toString(), 380, y, font, 10, black);
-      drawRight(page, formatMoney(l.rate), 460, y, font, 10, black);
-      drawRight(
-        page,
-        formatMoney(l.hours * l.rate),
-        612 - margin,
-        y,
-        font,
-        10,
-        black,
-      );
-      y -= 14;
-    }
-    y -= 6;
-  }
+  type LaborRow = (typeof ro.laborLines)[number];
+  type PartRow = (typeof ro.partLines)[number];
+  type FeeRow = (typeof ro.feeLines)[number];
 
-  // Parts section
-  if (ro.partLines.length > 0) {
-    page.drawText("PARTS", {
-      x: margin,
-      y,
-      size: 9,
-      font: bold,
-      color: gray,
-    });
-    y -= 14;
-    drawLineHeader(page, y, font, gray, [
-      { text: "Description", x: margin },
-      { text: "Part #", x: 300 },
-      { text: "Qty", x: 420, align: "right" },
-      { text: "Unit", x: 480, align: "right" },
-      { text: "Amount", x: 612 - margin, align: "right" },
-    ]);
-    y -= 12;
-    for (const p of ro.partLines) {
-      page.drawText(p.description, {
-        x: margin,
-        y,
-        size: 10,
-        font,
-        color: black,
-      });
-      if (p.partNumber) {
-        page.drawText(p.partNumber, {
-          x: 300,
-          y,
-          size: 9,
-          font,
-          color: gray,
-        });
+  // Helper to render labor/parts/fees for a group
+  function drawJobLines(
+    laborLines: LaborRow[],
+    partLines: PartRow[],
+    feeLines: FeeRow[],
+  ) {
+    if (laborLines.length > 0) {
+      drawLineHeader(page, y, font, gray, [
+        { text: "Description", x: margin + 8 },
+        { text: "Hours", x: 380, align: "right" },
+        { text: "Rate", x: 460, align: "right" },
+        { text: "Amount", x: 612 - margin, align: "right" },
+      ]);
+      y -= 12;
+      for (const l of laborLines) {
+        page.drawText(l.description, { x: margin + 8, y, size: 10, font, color: black });
+        drawRight(page, l.hours.toString(), 380, y, font, 10, black);
+        drawRight(page, formatMoney(l.rate), 460, y, font, 10, black);
+        drawRight(page, formatMoney(l.hours * l.rate), 612 - margin, y, font, 10, black);
+        y -= 14;
       }
-      drawRight(page, p.quantity.toString(), 420, y, font, 10, black);
-      drawRight(page, formatMoney(p.unitPrice), 480, y, font, 10, black);
-      drawRight(
-        page,
-        formatMoney(p.quantity * p.unitPrice),
-        612 - margin,
-        y,
-        font,
-        10,
-        black,
-      );
-      y -= 14;
+      y -= 4;
     }
-    y -= 6;
+    if (partLines.length > 0) {
+      drawLineHeader(page, y, font, gray, [
+        { text: "Description", x: margin + 8 },
+        { text: "Part #", x: 300 },
+        { text: "Qty", x: 420, align: "right" },
+        { text: "Unit", x: 480, align: "right" },
+        { text: "Amount", x: 612 - margin, align: "right" },
+      ]);
+      y -= 12;
+      for (const p of partLines) {
+        page.drawText(p.description, { x: margin + 8, y, size: 10, font, color: black });
+        if (p.partNumber) {
+          page.drawText(p.partNumber, { x: 300, y, size: 9, font, color: gray });
+        }
+        drawRight(page, p.quantity.toString(), 420, y, font, 10, black);
+        drawRight(page, formatMoney(p.unitPrice), 480, y, font, 10, black);
+        drawRight(page, formatMoney(p.quantity * p.unitPrice), 612 - margin, y, font, 10, black);
+        y -= 14;
+      }
+      y -= 4;
+    }
+    if (feeLines.length > 0) {
+      drawLineHeader(page, y, font, gray, [
+        { text: "Description", x: margin + 8 },
+        { text: "Amount", x: 612 - margin, align: "right" },
+      ]);
+      y -= 12;
+      for (const f of feeLines) {
+        page.drawText(f.description, { x: margin + 8, y, size: 10, font, color: black });
+        drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
+        y -= 14;
+      }
+      y -= 4;
+    }
   }
 
-  // Fees section
-  if (ro.feeLines.length > 0) {
-    page.drawText("FEES", {
+  // Render jobs with their line items
+  const ungroupedLabor = ro.laborLines.filter((l) => !l.jobId);
+  const ungroupedParts = ro.partLines.filter((p) => !p.jobId);
+  const ungroupedFees = ro.feeLines.filter((f) => !f.jobId);
+
+  for (const job of ro.jobs) {
+    page.drawText(job.name.toUpperCase(), {
       x: margin,
       y,
-      size: 9,
+      size: 10,
       font: bold,
-      color: gray,
+      color: black,
     });
     y -= 14;
-    drawLineHeader(page, y, font, gray, [
-      { text: "Description", x: margin },
-      { text: "Amount", x: 612 - margin, align: "right" },
-    ]);
-    y -= 12;
-    for (const f of ro.feeLines) {
-      page.drawText(f.description, {
+    drawJobLines(job.laborLines, job.partLines, job.feeLines);
+    y -= 4;
+  }
+
+  // Ungrouped lines (legacy data)
+  if (ungroupedLabor.length > 0 || ungroupedParts.length > 0 || ungroupedFees.length > 0) {
+    if (ro.jobs.length > 0) {
+      page.drawText("OTHER ITEMS", {
         x: margin,
         y,
         size: 10,
-        font,
+        font: bold,
         color: black,
       });
-      drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
       y -= 14;
     }
-    y -= 6;
+    drawJobLines(ungroupedLabor, ungroupedParts, ungroupedFees);
   }
 
   // Totals (right side)

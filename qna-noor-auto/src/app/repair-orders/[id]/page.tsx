@@ -28,21 +28,25 @@ import {
 } from "@/lib/utils";
 import {
   addFeeLine,
+  addJob,
   addLaborLine,
   addPartLine,
   deleteFeeLine,
+  deleteJob,
   deleteLaborLine,
   deletePartLine,
   deletePayment,
   deleteRepairOrder,
   recordPayment,
   updateFeeLine,
+  updateJob,
   updateLaborLine,
   updateLaborLineTech,
   updatePartLine,
   updateRepairOrder,
   updateROVehicleInfo,
 } from "../actions";
+import { JobCard } from "./JobCard";
 import {
   generateShareToken,
   regenerateShareToken,
@@ -73,6 +77,17 @@ export default async function RepairOrderDetailPage({
     include: {
       customer: true,
       vehicle: true,
+      jobs: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          laborLines: {
+            orderBy: { sortOrder: "asc" },
+            include: { technician: true },
+          },
+          partLines: { orderBy: { sortOrder: "asc" } },
+          feeLines: { orderBy: { sortOrder: "asc" } },
+        },
+      },
       laborLines: {
         orderBy: { sortOrder: "asc" },
         include: { technician: true },
@@ -171,10 +186,16 @@ export default async function RepairOrderDetailPage({
   const isLocked =
     ro.status === "INVOICED" || ro.status === "PAID" || ro.status === "CANCELLED";
 
+  // Lines not assigned to any job (legacy or manually added without a job)
+  const ungroupedLabor = ro.laborLines.filter((l) => !l.jobId);
+  const ungroupedParts = ro.partLines.filter((p) => !p.jobId);
+  const ungroupedFees = ro.feeLines.filter((f) => !f.jobId);
+
   const updateAction = updateRepairOrder.bind(null, ro.id);
   const addLabor = addLaborLine.bind(null, ro.id);
   const addPart = addPartLine.bind(null, ro.id);
   const addFee = addFeeLine.bind(null, ro.id);
+  const addJobAction = addJob.bind(null, ro.id);
   const recordPay = recordPayment.bind(null, ro.id);
   const del = deleteRepairOrder.bind(null, ro.id);
   const genShare = generateShareToken.bind(null, ro.id);
@@ -601,519 +622,117 @@ export default async function RepairOrderDetailPage({
         </Card>
       )}
 
-      {!isLocked && (
-        <Card className="mb-4">
-          <CardHeader title="Apply preset">
-            <span className="text-xs text-zinc-500 font-normal">
-              Drops all labor and parts from a canned job onto this RO.
-            </span>
-          </CardHeader>
-          <div className="p-4">
-            <ApplyPresetForm action={applyPreset} presets={presetList} />
-          </div>
-        </Card>
-      )}
-
+      {/* Jobs section */}
       <Card className="mb-4">
-        <CardHeader title={`Labor (${ro.laborLines.length})`} />
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-2 font-medium">Description</th>
-              <th className="px-4 py-2 font-medium w-40">Tech</th>
-              <th className="px-4 py-2 font-medium text-right w-20">Hours</th>
-              <th className="px-4 py-2 font-medium text-right w-28">Rate</th>
-              <th className="px-4 py-2 font-medium text-right w-28">Amount</th>
-              <th className="px-2 py-2 w-10"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
-            {ro.laborLines.map((l) => {
-              const delL = deleteLaborLine.bind(null, l.id, ro.id);
-              const updL = updateLaborLine.bind(null, l.id, ro.id);
-              if (isLocked) {
-                return (
-                  <tr key={l.id}>
-                    <td className="px-4 py-2">{l.description}</td>
-                    <td className="px-4 py-2 text-zinc-600">
-                      {l.technician?.name ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right">{l.hours}</td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(l.rate)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(l.hours * l.rate)}
-                    </td>
-                    <td className="px-2 py-2"></td>
-                  </tr>
-                );
-              }
-              return (
-                <tr key={l.id}>
-                  <td className="px-2 py-1">
-                    <form
-                      id={`labor-${l.id}`}
-                      action={updL}
-                      className="contents"
-                    />
-                    <Input
-                      form={`labor-${l.id}`}
-                      name="description"
-                      defaultValue={l.description}
-                      className="w-full"
-                    />
-                  </td>
-                  <td className="px-4 py-2">
-                    <TechLineSelect
-                      laborLineId={l.id}
-                      repairOrderId={ro.id}
-                      currentId={l.technicianId}
-                      currentName={l.technician?.name ?? null}
-                      techs={activeTechs}
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    <Input
-                      form={`labor-${l.id}`}
-                      name="hours"
-                      inputMode="decimal"
-                      defaultValue={String(l.hours)}
-                      className="w-20 text-right"
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    <Input
-                      form={`labor-${l.id}`}
-                      name="rate"
-                      inputMode="decimal"
-                      defaultValue={String(l.rate)}
-                      className="w-24 text-right"
-                    />
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {formatMoney(l.hours * l.rate)}
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
-                    <button
-                      type="submit"
-                      form={`labor-${l.id}`}
-                      className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
-                      title="Save price changes"
-                    >
-                      Save
-                    </button>
-                    <form action={delL} className="inline">
-                      <button
-                        type="submit"
-                        className="text-zinc-400 hover:text-red-600 text-sm"
-                        aria-label="Delete"
-                      >
-                        ×
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!isLocked && (
-        <form
-          action={addLabor}
-          className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
-        >
-          <div className="col-span-5">
-            <Field label="Description">
-              <Input name="description" placeholder="e.g. Replace brake pads (front)" required />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Field label="Tech">
-              <Select name="technicianId" defaultValue="">
-                <option value="">— Unassigned —</option>
-                {activeTechs.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-          <div className="col-span-1">
-            <Field label="Hours">
-              <Input name="hours" inputMode="decimal" defaultValue="0" />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Field label="Rate">
-              <Input name="rate" inputMode="decimal" defaultValue={defaultLaborRate} />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Button type="submit" className="w-full" variant="secondary">
-              + Add labor
-            </Button>
-          </div>
-        </form>
-        )}
-        {isLocked && (
-          <div className="px-4 py-3 text-xs text-zinc-500 border-t border-zinc-200 bg-zinc-50">
-            Labor is locked because this RO is <strong>{ro.status}</strong>.
-            Flip the status back to <em>In Progress</em> above to edit or add
-            labor lines.
-          </div>
-        )}
-      </Card>
-
-      <Card className="mb-4">
-        <CardHeader title={`Parts (${ro.partLines.length})`}>
+        <CardHeader title={`Jobs (${ro.jobs.length})`}>
           <span className="text-xs text-zinc-500 font-normal">
-            Cost &amp; source are internal — not shown on customer invoice.
+            Each job groups its labor, parts, and fees together.
           </span>
         </CardHeader>
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-2 font-medium">Description</th>
-              <th className="px-4 py-2 font-medium w-28">Part #</th>
-              <th className="px-4 py-2 font-medium w-32">Source</th>
-              <th className="px-4 py-2 font-medium text-right w-16">Qty</th>
-              <th className="px-4 py-2 font-medium text-right w-24">Cost</th>
-              <th className="px-4 py-2 font-medium text-right w-24">Price</th>
-              <th className="px-4 py-2 font-medium text-right w-24">Markup / Margin</th>
-              <th className="px-4 py-2 font-medium text-right w-24">Amount</th>
-              <th className="px-2 py-2 w-10"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
-            {ro.partLines.map((p) => {
-              const delP = deletePartLine.bind(null, p.id, ro.id);
-              const updP = updatePartLine.bind(null, p.id, ro.id);
-              const markup = calcMarkup(p.costPrice, p.unitPrice);
-              const margin = calcMargin(p.costPrice, p.unitPrice);
-              if (isLocked) {
-                return (
-                  <tr key={p.id}>
-                    <td className="px-4 py-2">{p.description}</td>
-                    <td className="px-4 py-2 font-mono text-xs text-zinc-600">
-                      {p.partNumber ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-zinc-600">
-                      {p.source ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right">{p.quantity}</td>
-                    <td className="px-4 py-2 text-right text-zinc-500">
-                      {p.costPrice != null ? formatMoney(p.costPrice) : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(p.unitPrice)}
-                    </td>
-                    <td
-                      className={
-                        "px-4 py-2 text-right text-xs font-medium " +
-                        markupClass(markup)
-                      }
-                    >
-                      {markup == null ? (
-                        "—"
-                      ) : (
-                        <>
-                          {formatMarkup(markup)}
-                          {margin != null && (
-                            <div className="text-[10px] font-normal text-zinc-500">
-                              {formatMargin(margin)}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(p.quantity * p.unitPrice)}
-                    </td>
-                    <td className="px-2 py-2"></td>
-                  </tr>
-                );
-              }
-              return (
-                <tr key={p.id}>
-                  <td className="px-2 py-1">
-                    <form
-                      id={`part-${p.id}`}
-                      action={updP}
-                      className="contents"
-                    />
-                    <Input
-                      form={`part-${p.id}`}
-                      name="description"
-                      defaultValue={p.description}
-                      className="w-full"
-                    />
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs text-zinc-600">
-                    {p.partNumber ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-zinc-600">
-                    {p.source ?? "—"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    <Input
-                      form={`part-${p.id}`}
-                      name="quantity"
-                      inputMode="decimal"
-                      defaultValue={String(p.quantity)}
-                      className="w-16 text-right"
-                    />
-                  </td>
-                  <td className="px-4 py-2 text-right text-zinc-500">
-                    {p.costPrice != null ? formatMoney(p.costPrice) : "—"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    <Input
-                      form={`part-${p.id}`}
-                      name="unitPrice"
-                      inputMode="decimal"
-                      defaultValue={String(p.unitPrice)}
-                      className="w-24 text-right"
-                    />
-                  </td>
-                  <td
-                    className={
-                      "px-4 py-2 text-right text-xs font-medium " +
-                      markupClass(markup)
-                    }
-                  >
-                    {markup == null ? (
-                      "—"
-                    ) : (
-                      <>
-                        {formatMarkup(markup)}
-                        {margin != null && (
-                          <div className="text-[10px] font-normal text-zinc-500">
-                            {formatMargin(margin)}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {formatMoney(p.quantity * p.unitPrice)}
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
-                    <button
-                      type="submit"
-                      form={`part-${p.id}`}
-                      className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
-                      title="Save price changes"
-                    >
-                      Save
-                    </button>
-                    <form action={delP} className="inline">
-                      <button
-                        type="submit"
-                        className="text-zinc-400 hover:text-red-600 text-sm"
-                        aria-label="Delete"
-                      >
-                        ×
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
         {!isLocked && (
-        <form
-          action={addPart}
-          className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
-        >
-          {catalogParts.length > 0 && (
-            <div className="col-span-12">
-              <Field label="Inventory (optional — auto-fills and deducts stock)">
-                <Select name="partId" defaultValue="">
-                  <option value="">— Free-text part (not from inventory) —</option>
-                  {catalogParts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                      {p.partNumber ? ` · ${p.partNumber}` : ""}
-                      {` · ${p.qtyOnHand} on hand`}
-                      {p.unitPrice != null ? ` · $${p.unitPrice.toFixed(2)}` : ""}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+          <div className="p-4 border-b border-zinc-200 bg-zinc-50">
+            <div className="flex items-end gap-3">
+              <form action={addJobAction} className="flex items-end gap-2 flex-1">
+                <div className="flex-1">
+                  <Field label="Add a job">
+                    <Input
+                      name="name"
+                      placeholder="e.g. Oil Change, Brake Service, A/C Repair"
+                      required
+                    />
+                  </Field>
+                </div>
+                <Button type="submit" variant="secondary">
+                  + Add job
+                </Button>
+              </form>
+              {presetList.length > 0 && (
+                <div className="flex-1">
+                  <Field label="Or pick a preset">
+                    <ApplyPresetForm action={applyPreset} presets={presetList} />
+                  </Field>
+                </div>
+              )}
             </div>
-          )}
-          <div className="col-span-4">
-            <Field label="Description">
-              <Input
-                name="description"
-                placeholder="e.g. Brake pad set, front — or pick from inventory above"
-              />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Field label="Part #">
-              <Input name="partNumber" />
-            </Field>
-          </div>
-          <div className="col-span-3">
-            <Field label="Source (where you got it)">
-              <Input name="source" placeholder="e.g. NAPA, AutoZone, dealer" />
-            </Field>
-          </div>
-          <div className="col-span-1">
-            <Field label="Qty">
-              <Input name="quantity" inputMode="decimal" defaultValue="1" />
-            </Field>
-          </div>
-          <div className="col-span-1">
-            <Field label="Cost">
-              <Input
-                name="costPrice"
-                inputMode="decimal"
-                placeholder="you paid"
-              />
-            </Field>
-          </div>
-          <div className="col-span-1">
-            <Field label="Price">
-              <Input
-                name="unitPrice"
-                inputMode="decimal"
-                defaultValue="0"
-                title="What you charge the customer per unit"
-              />
-            </Field>
-          </div>
-          <div className="col-span-12">
-            <Button type="submit" variant="secondary">
-              + Add part
-            </Button>
-          </div>
-        </form>
-        )}
-        {isLocked && (
-          <div className="px-4 py-3 text-xs text-zinc-500 border-t border-zinc-200 bg-zinc-50">
-            Parts are locked because this RO is <strong>{ro.status}</strong>.
-            Flip the status back to <em>In Progress</em> above to edit or add
-            parts.
           </div>
         )}
       </Card>
 
-      <Card className="mb-4">
-        <CardHeader title={`Fees (${ro.feeLines.length})`}>
-          <span className="text-xs text-zinc-500 font-normal">
-            Flat-amount charges (state inspection, shop supplies, diagnostic fee, etc).
-          </span>
-        </CardHeader>
-        {ro.feeLines.length > 0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-2 font-medium">Description</th>
-                <th className="px-4 py-2 font-medium text-right w-32">Amount</th>
-                <th className="px-2 py-2 w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {ro.feeLines.map((f) => {
-                const delF = deleteFeeLine.bind(null, f.id, ro.id);
-                const updF = updateFeeLine.bind(null, f.id, ro.id);
-                if (isLocked) {
-                  return (
-                    <tr key={f.id}>
-                      <td className="px-4 py-2">{f.description}</td>
-                      <td className="px-4 py-2 text-right">
-                        {formatMoney(f.amount)}
-                      </td>
-                      <td className="px-2 py-2"></td>
-                    </tr>
-                  );
-                }
-                return (
-                  <tr key={f.id}>
-                    <td className="px-2 py-1">
-                      <form
-                        id={`fee-${f.id}`}
-                        action={updF}
-                        className="contents"
-                      />
-                      <Input
-                        form={`fee-${f.id}`}
-                        name="description"
-                        defaultValue={f.description}
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-right">
-                      <Input
-                        form={`fee-${f.id}`}
-                        name="amount"
-                        inputMode="decimal"
-                        defaultValue={String(f.amount)}
-                        className="w-24 text-right"
-                      />
-                    </td>
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      <button
-                        type="submit"
-                        form={`fee-${f.id}`}
-                        className="mr-1 h-7 px-2 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
-                        title="Save fee changes"
-                      >
-                        Save
-                      </button>
-                      <form action={delF} className="inline">
-                        <button
-                          type="submit"
-                          className="text-zinc-400 hover:text-red-600 text-sm"
-                          aria-label="Delete"
-                        >
-                          ×
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-        {!isLocked && (
-        <form
-          action={addFee}
-          className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
-        >
-          <div className="col-span-8">
-            <Field label="Description">
-              <Input
-                name="description"
-                placeholder="e.g. State inspection, shop supplies, diagnostic fee"
-                required
-              />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Field label="Amount ($)">
-              <Input
-                name="amount"
-                inputMode="decimal"
-                defaultValue="0"
-                required
-              />
-            </Field>
-          </div>
-          <div className="col-span-2">
-            <Button type="submit" className="w-full" variant="secondary">
-              + Add fee
-            </Button>
-          </div>
-        </form>
-        )}
-      </Card>
+      {ro.jobs.map((job) => (
+        <JobCard
+          key={job.id}
+          job={job}
+          roId={ro.id}
+          isLocked={isLocked}
+          activeTechs={activeTechs}
+          catalogParts={catalogParts}
+          defaultLaborRate={defaultLaborRate}
+          addLaborAction={addLabor}
+          addPartAction={addPart}
+          addFeeAction={addFee}
+          updateLaborAction={(lineId: string, fd: FormData) =>
+            updateLaborLine(lineId, ro.id, fd)
+          }
+          updatePartAction={(lineId: string, fd: FormData) =>
+            updatePartLine(lineId, ro.id, fd)
+          }
+          updateFeeAction={(lineId: string, fd: FormData) =>
+            updateFeeLine(lineId, ro.id, fd)
+          }
+          deleteLaborAction={(lineId: string) =>
+            deleteLaborLine(lineId, ro.id)
+          }
+          deletePartAction={(lineId: string) =>
+            deletePartLine(lineId, ro.id)
+          }
+          deleteFeeAction={(lineId: string) =>
+            deleteFeeLine(lineId, ro.id)
+          }
+          updateJobAction={updateJob.bind(null, job.id, ro.id)}
+          deleteJobAction={deleteJob.bind(null, job.id, ro.id)}
+        />
+      ))}
+
+      {/* Ungrouped lines (legacy data not assigned to any job) */}
+      {(ungroupedLabor.length > 0 || ungroupedParts.length > 0 || ungroupedFees.length > 0) && (
+        <JobCard
+          job={{
+            id: "__ungrouped__",
+            name: "Ungrouped Items",
+            laborLines: ungroupedLabor,
+            partLines: ungroupedParts,
+            feeLines: ungroupedFees,
+          }}
+          roId={ro.id}
+          isLocked={isLocked}
+          activeTechs={activeTechs}
+          catalogParts={catalogParts}
+          defaultLaborRate={defaultLaborRate}
+          addLaborAction={addLabor}
+          addPartAction={addPart}
+          addFeeAction={addFee}
+          updateLaborAction={(lineId: string, fd: FormData) =>
+            updateLaborLine(lineId, ro.id, fd)
+          }
+          updatePartAction={(lineId: string, fd: FormData) =>
+            updatePartLine(lineId, ro.id, fd)
+          }
+          updateFeeAction={(lineId: string, fd: FormData) =>
+            updateFeeLine(lineId, ro.id, fd)
+          }
+          deleteLaborAction={(lineId: string) =>
+            deleteLaborLine(lineId, ro.id)
+          }
+          deletePartAction={(lineId: string) =>
+            deletePartLine(lineId, ro.id)
+          }
+          deleteFeeAction={(lineId: string) =>
+            deleteFeeLine(lineId, ro.id)
+          }
+          updateJobAction={() => {}}
+          deleteJobAction={() => {}}
+        />
+      )}
 
       {shopFeeStatus.length > 0 && (
         <Card className="mb-4">

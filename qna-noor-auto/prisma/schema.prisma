@@ -133,6 +133,7 @@ model RepairOrder {
   estimateDeclinedAt   DateTime?
   customerResponseNote String?
 
+  jobs          Job[]
   laborLines    LaborLine[]
   partLines     PartLine[]
   feeLines      FeeLine[]
@@ -147,6 +148,23 @@ model RepairOrder {
   @@index([vehicleId])
   @@index([status])
   @@index([openedAt])
+}
+
+model Job {
+  id              String         @id @default(cuid())
+  repairOrderId   String
+  repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  name            String
+  sortOrder       Int            @default(0)
+
+  laborLines      LaborLine[]
+  partLines       PartLine[]
+  feeLines        FeeLine[]
+
+  createdAt       DateTime       @default(now())
+
+  @@index([repairOrderId])
 }
 
 model Payment {
@@ -171,6 +189,9 @@ model LaborLine {
   repairOrderId   String
   repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
+  jobId           String?
+  job             Job?           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
   description     String
   hours           Float          @default(0)
   rate            Float          @default(0)
@@ -182,6 +203,7 @@ model LaborLine {
   createdAt       DateTime       @default(now())
 
   @@index([repairOrderId])
+  @@index([jobId])
   @@index([technicianId])
 }
 
@@ -207,6 +229,9 @@ model PartLine {
   repairOrderId   String
   repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
+  jobId           String?
+  job             Job?           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
   partNumber      String?
   description     String
   quantity        Float          @default(1)
@@ -223,6 +248,7 @@ model PartLine {
   createdAt       DateTime       @default(now())
 
   @@index([repairOrderId])
+  @@index([jobId])
   @@index([partId])
 }
 
@@ -235,6 +261,9 @@ model FeeLine {
   repairOrderId   String
   repairOrder     RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
+  jobId           String?
+  job             Job?        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
   description     String
   amount          Float       @default(0)
   sortOrder       Int         @default(0)
@@ -242,6 +271,7 @@ model FeeLine {
   createdAt       DateTime    @default(now())
 
   @@index([repairOrderId])
+  @@index([jobId])
 }
 
 // Inventory catalog — parts the shop actually stocks.
