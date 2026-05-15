@@ -697,7 +697,7 @@ export default async function RepairOrderDetailPage({
       {(ungroupedLabor.length > 0 || ungroupedParts.length > 0 || ungroupedFees.length > 0) && (
         <JobCard
           job={{
-            id: "__ungrouped__",
+            id: "",
             name: "Ungrouped Items",
             laborLines: ungroupedLabor,
             partLines: ungroupedParts,

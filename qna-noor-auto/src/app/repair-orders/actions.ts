@@ -214,7 +214,34 @@ export async function updateJob(id: string, repairOrderId: string, fd: FormData)
 
 export async function deleteJob(id: string, repairOrderId: string) {
   await assertROEditable(repairOrderId);
-  await db.job.delete({ where: { id } });
+
+  const catalogParts = await db.partLine.findMany({
+    where: { jobId: id, partId: { not: null } },
+    select: { partId: true, quantity: true },
+  });
+
+  await db.$transaction(async (tx) => {
+    for (const pl of catalogParts) {
+      if (!pl.partId) continue;
+      await tx.part.update({
+        where: { id: pl.partId },
+        data: { qtyOnHand: { increment: pl.quantity } },
+      });
+      await tx.stockMove.create({
+        data: {
+          partId: pl.partId,
+          delta: pl.quantity,
+          reason: "RESTOCK_RO",
+          note: "Job deleted from RO",
+        },
+      });
+    }
+    await tx.job.delete({ where: { id } });
+  });
+
+  if (catalogParts.length > 0) {
+    revalidatePath("/inventory");
+  }
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
