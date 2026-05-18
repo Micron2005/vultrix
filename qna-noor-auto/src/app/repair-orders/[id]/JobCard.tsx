@@ -68,6 +68,7 @@ export function JobCard({
   job: {
     id: string;
     name: string;
+    approvalStatus?: string;
     laborLines: LaborLineData[];
     partLines: PartLineData[];
     feeLines: FeeLineData[];
@@ -101,6 +102,10 @@ export function JobCard({
   );
   const partsTotal = job.partLines.reduce(
     (s, p) => s + p.quantity * p.unitPrice,
+    0,
+  );
+  const partsCost = job.partLines.reduce(
+    (s, p) => s + p.quantity * (p.costPrice ?? p.unitPrice),
     0,
   );
   const feesTotal = job.feeLines.reduce((s, f) => s + f.amount, 0);
@@ -143,13 +148,25 @@ export function JobCard({
               </button>
             </form>
           ) : (
-            <button
-              onClick={() => !isLocked && updateJobAction && setEditingName(true)}
-              className="text-sm font-semibold text-zinc-900 hover:text-zinc-600"
-              title={isLocked || !updateJobAction ? undefined : "Click to rename"}
-            >
-              {job.name}
-            </button>
+            <>
+              <button
+                onClick={() => !isLocked && updateJobAction && setEditingName(true)}
+                className="text-sm font-semibold text-zinc-900 hover:text-zinc-600"
+                title={isLocked || !updateJobAction ? undefined : "Click to rename"}
+              >
+                {job.name}
+              </button>
+              {job.approvalStatus === "APPROVED" && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                  Approved
+                </span>
+              )}
+              {job.approvalStatus === "DECLINED" && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                  Declined
+                </span>
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -292,7 +309,8 @@ export function JobCard({
                     <th className="py-1 font-medium">Description</th>
                     <th className="py-1 font-medium w-20">Part #</th>
                     <th className="py-1 font-medium text-right w-12">Qty</th>
-                    <th className="py-1 font-medium text-right w-20">Price</th>
+                    <th className="py-1 font-medium text-right w-20">Cost</th>
+                    <th className="py-1 font-medium text-right w-20">List Price</th>
                     <th className="py-1 font-medium text-right w-24">Amount</th>
                     <th className="py-1 w-16"></th>
                   </tr>
@@ -309,6 +327,9 @@ export function JobCard({
                             {p.partNumber ?? "—"}
                           </td>
                           <td className="py-1.5 text-right">{p.quantity}</td>
+                          <td className="py-1.5 text-right text-zinc-500">
+                            {p.costPrice != null ? formatMoney(p.costPrice) : "—"}
+                          </td>
                           <td className="py-1.5 text-right">
                             {formatMoney(p.unitPrice)}
                           </td>
@@ -344,6 +365,16 @@ export function JobCard({
                             inputMode="decimal"
                             defaultValue={String(p.quantity)}
                             className="w-12 text-right"
+                          />
+                        </td>
+                        <td className="py-1 text-right">
+                          <Input
+                            form={`part-${p.id}`}
+                            name="costPrice"
+                            inputMode="decimal"
+                            defaultValue={p.costPrice != null ? String(p.costPrice) : ""}
+                            placeholder="—"
+                            className="w-20 text-right"
                           />
                         </td>
                         <td className="py-1 text-right">
@@ -583,7 +614,7 @@ export function JobCard({
                     </Field>
                   )}
                   <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4">
+                    <div className="col-span-3">
                       <Field label="Description">
                         <Input
                           name="description"
@@ -612,7 +643,16 @@ export function JobCard({
                       </Field>
                     </div>
                     <div className="col-span-1">
-                      <Field label="Price">
+                      <Field label="Cost">
+                        <Input
+                          name="costPrice"
+                          inputMode="decimal"
+                          placeholder="—"
+                        />
+                      </Field>
+                    </div>
+                    <div className="col-span-1">
+                      <Field label="List Price">
                         <Input
                           name="unitPrice"
                           inputMode="decimal"

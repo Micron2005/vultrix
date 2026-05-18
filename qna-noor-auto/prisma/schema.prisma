@@ -158,6 +158,12 @@ model Job {
   name            String
   sortOrder       Int            @default(0)
 
+  // Per-job approval on estimates: PENDING | APPROVED | DECLINED
+  approvalStatus  String         @default("PENDING")
+  approvedAt      DateTime?
+  declinedAt      DateTime?
+  customerNote    String?
+
   laborLines      LaborLine[]
   partLines       PartLine[]
   feeLines        FeeLine[]

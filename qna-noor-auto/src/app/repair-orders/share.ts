@@ -113,3 +113,67 @@ export async function declineEstimate(token: string, fd: FormData) {
   revalidatePath("/");
   redirect(`/e/${token}`);
 }
+
+export async function approveJob(
+  token: string,
+  jobId: string,
+  fd: FormData,
+) {
+  const ro = await findByToken(token);
+  if (!ro) return;
+
+  const job = await db.job.findUnique({
+    where: { id: jobId },
+    select: { id: true, repairOrderId: true, approvalStatus: true },
+  });
+  if (!job || job.repairOrderId !== ro.id) return;
+  if (job.approvalStatus !== "PENDING") return;
+
+  const note =
+    String(fd.get("customerNote") ?? "").trim() || null;
+
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      approvalStatus: "APPROVED",
+      approvedAt: new Date(),
+      customerNote: note,
+    },
+  });
+
+  revalidatePath(`/e/${token}`);
+  revalidatePath(`/repair-orders/${ro.id}`);
+  redirect(`/e/${token}`);
+}
+
+export async function declineJob(
+  token: string,
+  jobId: string,
+  fd: FormData,
+) {
+  const ro = await findByToken(token);
+  if (!ro) return;
+
+  const job = await db.job.findUnique({
+    where: { id: jobId },
+    select: { id: true, repairOrderId: true, approvalStatus: true },
+  });
+  if (!job || job.repairOrderId !== ro.id) return;
+  if (job.approvalStatus !== "PENDING") return;
+
+  const note =
+    String(fd.get("customerNote") ?? "").trim() || null;
+
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      approvalStatus: "DECLINED",
+      declinedAt: new Date(),
+      customerNote: note,
+    },
+  });
+
+  revalidatePath(`/e/${token}`);
+  revalidatePath(`/repair-orders/${ro.id}`);
+  redirect(`/e/${token}`);
+}

@@ -467,6 +467,7 @@ export async function updatePartLine(
   const description = String(fd.get("description") ?? "").trim();
   const qtyRaw = String(fd.get("quantity") ?? "").trim();
   const priceRaw = String(fd.get("unitPrice") ?? "").trim();
+  const costRaw = String(fd.get("costPrice") ?? "").trim();
   const data: Record<string, unknown> = {};
   if (description) data.description = description;
   if (qtyRaw !== "") {
@@ -476,6 +477,14 @@ export async function updatePartLine(
   if (priceRaw !== "") {
     const p = parseFloat(priceRaw);
     if (!Number.isNaN(p) && p >= 0) data.unitPrice = p;
+  }
+  if (fd.has("costPrice")) {
+    if (costRaw === "") {
+      data.costPrice = null;
+    } else {
+      const c = parseFloat(costRaw);
+      if (!Number.isNaN(c) && c >= 0) data.costPrice = c;
+    }
   }
   if (Object.keys(data).length === 0) return;
   await db.partLine.update({ where: { id }, data });
