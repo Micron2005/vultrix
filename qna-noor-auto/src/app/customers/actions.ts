@@ -55,3 +55,165 @@ export async function deleteCustomer(id: string) {
   revalidatePath("/");
   redirect("/customers");
 }
+
+// ---------------------------------------------------------------------------
+// Bulk payment
+// ---------------------------------------------------------------------------
+
+const PAYMENT_METHODS = ["CASH", "CARD", "CHECK", "TRANSFER", "OTHER"] as const;
+
+async function computeRoTotal(id: string): Promise<number> {
+  const ro = await db.repairOrder.findUnique({
+    where: { id },
+    include: {
+      jobs: { select: { id: true, approvalStatus: true } },
+      laborLines: true,
+      partLines: true,
+      feeLines: true,
+    },
+  });
+  if (!ro) return 0;
+  const declinedIds = new Set(
+    ro.jobs.filter((j) => j.approvalStatus === "DECLINED").map((j) => j.id),
+  );
+  const activeLabor = ro.laborLines.filter((l) => !l.jobId || !declinedIds.has(l.jobId));
+  const activeParts = ro.partLines.filter((p) => !p.jobId || !declinedIds.has(p.jobId));
+  const activeFees = ro.feeLines.filter((f) => !f.jobId || !declinedIds.has(f.jobId));
+  const labor = activeLabor.reduce((s, l) => s + l.hours * l.rate, 0);
+  const parts = activeParts.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
+  const fees = activeFees.reduce((s, f) => s + (f.amount || 0), 0);
+  const { loadAppliedShopFees } = await import("@/lib/shopFees");
+  const appliedShopFees = await loadAppliedShopFees(id, {
+    partsSubtotal: parts,
+    laborSubtotal: labor,
+  });
+  const shopFeesTaxable = appliedShopFees
+    .filter((f) => f.taxable)
+    .reduce((s, f) => s + f.amount, 0);
+  const shopFeesNonTaxable = appliedShopFees
+    .filter((f) => !f.taxable)
+    .reduce((s, f) => s + f.amount, 0);
+  const taxableBase = labor + parts + fees + shopFeesTaxable;
+  const afterDiscount = Math.max(taxableBase - (ro.discount || 0), 0);
+  const tax = afterDiscount * ((ro.taxRate || 0) / 100);
+  const subtotal = labor + parts + fees + shopFeesTaxable + shopFeesNonTaxable;
+  const total = Math.max(0, subtotal - (ro.discount || 0)) + tax;
+  return Math.round(total * 100) / 100;
+}
+
+export async function recordBulkPayment(
+  fd: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  const customerId = String(fd.get("customerId") ?? "");
+  const totalAmount = parseFloat(String(fd.get("amount") ?? "0"));
+  if (!customerId || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+    return { ok: false, message: "Invalid payment amount." };
+  }
+
+  const rawMethod = String(fd.get("method") ?? "CASH").toUpperCase();
+  const method = (PAYMENT_METHODS as readonly string[]).includes(rawMethod)
+    ? rawMethod
+    : "OTHER";
+  const reference = String(fd.get("reference") ?? "").trim() || null;
+  const note = String(fd.get("note") ?? "").trim() || null;
+
+  let allocations: { roId: string; applied: number }[];
+  try {
+    allocations = JSON.parse(String(fd.get("allocations") ?? "[]"));
+  } catch {
+    return { ok: false, message: "Invalid allocation data." };
+  }
+
+  if (!Array.isArray(allocations) || allocations.length === 0) {
+    return { ok: false, message: "No invoices to allocate payment to." };
+  }
+
+  // Verify all ROs belong to this customer
+  const roIds = allocations.map((a) => a.roId);
+  const ros = await db.repairOrder.findMany({
+    where: { id: { in: roIds }, customerId },
+    select: { id: true },
+  });
+  const validIds = new Set(ros.map((r) => r.id));
+  const validAllocations = allocations.filter(
+    (a) => validIds.has(a.roId) && a.applied > 0,
+  );
+
+  if (validAllocations.length === 0) {
+    return { ok: false, message: "No valid invoices found for this customer." };
+  }
+
+  const paidAt = new Date();
+  let appliedCount = 0;
+  let clearedCount = 0;
+
+  for (const alloc of validAllocations) {
+    const paymentAmount = Math.round(alloc.applied * 100) / 100;
+    if (paymentAmount <= 0) continue;
+
+    // Record the payment on this RO
+    await db.payment.create({
+      data: {
+        repairOrderId: alloc.roId,
+        amount: paymentAmount,
+        method,
+        reference,
+        note: note
+          ? `Bulk payment: ${note}`
+          : "Bulk payment",
+        paidAt,
+      },
+    });
+
+    appliedCount++;
+
+    // Check if this RO is now fully paid
+    const [ro, payments, total] = await Promise.all([
+      db.repairOrder.findUnique({ where: { id: alloc.roId } }),
+      db.payment.findMany({
+        where: { repairOrderId: alloc.roId },
+        select: { amount: true },
+      }),
+      computeRoTotal(alloc.roId),
+    ]);
+
+    if (ro) {
+      const paid = payments.reduce((s, p) => s + p.amount, 0);
+      const data: Record<string, unknown> = {};
+      if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
+        data.status = "INVOICED";
+        if (!ro.invoicedAt) data.invoicedAt = paidAt;
+      }
+      if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
+        data.status = "PAID";
+        data.paidAt = paidAt;
+        data.closedAt = paidAt;
+        clearedCount++;
+      }
+      if (Object.keys(data).length > 0) {
+        await db.repairOrder.update({ where: { id: alloc.roId }, data });
+      }
+    }
+  }
+
+  // Revalidate all relevant paths
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+  for (const alloc of validAllocations) {
+    revalidatePath(`/repair-orders/${alloc.roId}`);
+  }
+
+  const totalApplied = validAllocations.reduce((s, a) => s + a.applied, 0);
+  return {
+    ok: true,
+    message: `Applied ${formatMoney(totalApplied)} across ${appliedCount} invoice${appliedCount !== 1 ? "s" : ""}. ${clearedCount} fully cleared.`,
+  };
+}
+
+function formatMoney(n: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
+}
