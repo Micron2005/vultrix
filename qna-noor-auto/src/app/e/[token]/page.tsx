@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import {
   formatDate,
@@ -45,10 +45,11 @@ export default async function PublicEstimatePage({
   if (!ro) notFound();
 
   const shop = await getAllSettings();
+  const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals({
-    laborLines: ro.laborLines,
-    partLines: ro.partLines,
-    feeLines: ro.feeLines,
+    laborLines: filtered.laborLines,
+    partLines: filtered.partLines,
+    feeLines: filtered.feeLines,
     taxRate: ro.taxRate,
     discount: ro.discount,
   });
@@ -57,9 +58,9 @@ export default async function PublicEstimatePage({
     laborSubtotal: preliminary.laborSubtotal,
   });
   const totals = computeTotals({
-    laborLines: ro.laborLines,
-    partLines: ro.partLines,
-    feeLines: ro.feeLines,
+    laborLines: filtered.laborLines,
+    partLines: filtered.partLines,
+    feeLines: filtered.feeLines,
     shopFees: appliedShopFees,
     taxRate: ro.taxRate,
     discount: ro.discount,

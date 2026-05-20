@@ -18,7 +18,7 @@ import { ShareActions } from "./ShareActions";
 import { getAllSettings } from "@/lib/shop";
 import { ApplyPresetForm } from "./ApplyPresetForm";
 import { applyCannedJobFormAction } from "@/app/canned-jobs/actions";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import {
   formatDate,
   formatDateTime,
@@ -45,6 +45,9 @@ import {
   updatePartLine,
   updateRepairOrder,
   updateROVehicleInfo,
+  approveJobAdmin,
+  declineJobAdmin,
+  resetJobApproval,
 } from "../actions";
 import { JobCard } from "./JobCard";
 import {
@@ -99,8 +102,10 @@ export default async function RepairOrderDetailPage({
   });
   if (!ro) notFound();
 
+  // Filter out lines from declined jobs before computing totals.
+  const filtered = excludeDeclinedJobLines(ro);
   // First pass of totals without shop fees, to get labor/parts subtotals.
-  const preliminary = computeTotals(ro);
+  const preliminary = computeTotals(filtered);
   const shopFeeStatus = await loadShopFeeStatus(ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
@@ -114,8 +119,8 @@ export default async function RepairOrderDetailPage({
       amount: f.amount,
       taxable: f.taxable,
     }));
-  const totals = computeTotals({ ...ro, shopFees: appliedShopFees });
-  const partsProfit = computePartsProfit(ro.partLines);
+  const totals = computeTotals({ ...filtered, shopFees: appliedShopFees });
+  const partsProfit = computePartsProfit(filtered.partLines);
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
   const defaultLaborRate = await getSetting("defaultLaborRate");
@@ -678,6 +683,9 @@ export default async function RepairOrderDetailPage({
           deleteFeeAction={deleteFeeLine}
           updateJobAction={updateJob.bind(null, job.id, ro.id)}
           deleteJobAction={deleteJob.bind(null, job.id, ro.id)}
+          approveJobAction={approveJobAdmin.bind(null, job.id, ro.id)}
+          declineJobAction={declineJobAdmin.bind(null, job.id, ro.id)}
+          resetApprovalAction={resetJobApproval.bind(null, job.id, ro.id)}
         />
       ))}
 

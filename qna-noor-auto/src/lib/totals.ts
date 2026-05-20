@@ -15,6 +15,34 @@ export type RepairOrderLines = {
   discount: number;
 };
 
+/**
+ * Filter out labor, part, and fee lines that belong to declined jobs.
+ * Returns a new object with the same shape but declined-job lines removed.
+ */
+export function excludeDeclinedJobLines<
+  T extends {
+    jobs?: { id: string; approvalStatus?: string | null }[];
+    laborLines: { jobId?: string | null; hours: number; rate: number }[];
+    partLines: { jobId?: string | null; quantity: number; unitPrice: number }[];
+    feeLines?: { jobId?: string | null; amount: number }[];
+    taxRate: number;
+    discount: number;
+  },
+>(ro: T): T {
+  const declinedIds = new Set(
+    (ro.jobs ?? [])
+      .filter((j) => j.approvalStatus === "DECLINED")
+      .map((j) => j.id),
+  );
+  if (declinedIds.size === 0) return ro;
+  return {
+    ...ro,
+    laborLines: ro.laborLines.filter((l) => !l.jobId || !declinedIds.has(l.jobId)),
+    partLines: ro.partLines.filter((p) => !p.jobId || !declinedIds.has(p.jobId)),
+    feeLines: (ro.feeLines ?? []).filter((f) => !f.jobId || !declinedIds.has(f.jobId)),
+  };
+}
+
 export function computeTotals(ro: RepairOrderLines) {
   const laborSubtotal = ro.laborLines.reduce(
     (s, l) => s + (l.hours ?? 0) * (l.rate ?? 0),
