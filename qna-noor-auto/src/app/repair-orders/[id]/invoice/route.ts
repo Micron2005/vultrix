@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { db } from "@/lib/db";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
 import { loadAppliedShopFees } from "@/lib/shopFees";
@@ -33,12 +33,13 @@ export async function GET(
   if (!ro) notFound();
 
   const settings = await getAllSettings();
-  const preliminary = computeTotals(ro);
+  const filtered = excludeDeclinedJobLines(ro);
+  const preliminary = computeTotals(filtered);
   const appliedShopFees = await loadAppliedShopFees(ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
   });
-  const totals = computeTotals({ ...ro, shopFees: appliedShopFees });
+  const totals = computeTotals({ ...filtered, shopFees: appliedShopFees });
 
   // Document type: explicit ?type=estimate/invoice override, otherwise based on RO status.
   // ESTIMATE / IN_PROGRESS / COMPLETED => "ESTIMATE". INVOICED / PAID => "INVOICE".

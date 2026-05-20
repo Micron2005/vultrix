@@ -9,7 +9,7 @@ import {
   Select,
   StatusBadge,
 } from "@/components/ui";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
   formatDate,
@@ -104,6 +104,7 @@ export default async function RepairOrdersPage({
     include: {
       customer: true,
       vehicle: true,
+      jobs: { select: { id: true, approvalStatus: true } },
       laborLines: true,
       partLines: true,
       feeLines: true,
@@ -114,7 +115,7 @@ export default async function RepairOrdersPage({
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
     ros.map((ro) => {
-      const t = computeTotals(ro);
+      const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
     }),
   );
@@ -208,7 +209,7 @@ export default async function RepairOrdersPage({
             <tbody className="divide-y divide-zinc-200">
               {ros.map((ro) => {
                 const shopFees = shopFeesByRO.get(ro.id) ?? [];
-                const { total } = computeTotals({ ...ro, shopFees });
+                const { total } = computeTotals({ ...excludeDeclinedJobLines(ro), shopFees });
                 return (
                   <tr key={ro.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-2">

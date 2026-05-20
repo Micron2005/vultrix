@@ -64,6 +64,9 @@ export function JobCard({
   deleteFeeAction,
   updateJobAction,
   deleteJobAction,
+  approveJobAction,
+  declineJobAction,
+  resetApprovalAction,
 }: {
   job: {
     id: string;
@@ -89,6 +92,9 @@ export function JobCard({
   deleteFeeAction: (id: string, roId: string) => void;
   updateJobAction?: (fd: FormData) => void;
   deleteJobAction?: () => void;
+  approveJobAction?: () => void;
+  declineJobAction?: () => void;
+  resetApprovalAction?: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [addingType, setAddingType] = useState<
@@ -169,7 +175,38 @@ export function JobCard({
             </>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {!isLocked && approveJobAction && job.approvalStatus === "PENDING" && (
+            <>
+              <form action={approveJobAction} className="inline">
+                <button
+                  type="submit"
+                  className="rounded px-2 py-0.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Approve
+                </button>
+              </form>
+              <form action={declineJobAction} className="inline">
+                <button
+                  type="submit"
+                  className="rounded px-2 py-0.5 text-xs font-medium bg-white hover:bg-zinc-100 text-red-700 border border-red-300"
+                >
+                  Decline
+                </button>
+              </form>
+            </>
+          )}
+          {!isLocked && resetApprovalAction && job.approvalStatus !== "PENDING" && (
+            <form action={resetApprovalAction} className="inline">
+              <button
+                type="submit"
+                className="rounded px-2 py-0.5 text-xs font-medium bg-white hover:bg-zinc-100 text-zinc-600 border border-zinc-300"
+                title="Reset to pending"
+              >
+                Reset
+              </button>
+            </form>
+          )}
           <span className="text-sm font-medium text-zinc-700 tabular-nums">
             {formatMoney(jobTotal)}
           </span>
