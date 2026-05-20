@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { Card, CardHeader, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { prettyStatus } from "./appointments/AppointmentForm";
@@ -29,6 +29,7 @@ export default async function DashboardPage() {
         include: {
           customer: true,
           vehicle: true,
+          jobs: { select: { id: true, approvalStatus: true } },
           laborLines: true,
           partLines: true,
           feeLines: true,
@@ -43,7 +44,7 @@ export default async function DashboardPage() {
 
   const recentShopFeesByRO = await loadAppliedShopFeesForROs(
     recentROs.map((ro) => {
-      const t = computeTotals(ro);
+      const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
     }),
   );
@@ -55,18 +56,23 @@ export default async function DashboardPage() {
         gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
       },
     },
-    include: { laborLines: true, partLines: true, feeLines: true },
+    include: {
+      jobs: { select: { id: true, approvalStatus: true } },
+      laborLines: true,
+      partLines: true,
+      feeLines: true,
+    },
   });
   const paidShopFeesByRO = await loadAppliedShopFeesForROs(
     paidThisMonthROs.map((ro) => {
-      const t = computeTotals(ro);
+      const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
     }),
   );
   const revenueThisMonth = paidThisMonthROs.reduce(
     (s, ro) =>
       s +
-      computeTotals({ ...ro, shopFees: paidShopFeesByRO.get(ro.id) ?? [] }).total,
+      computeTotals({ ...excludeDeclinedJobLines(ro), shopFees: paidShopFeesByRO.get(ro.id) ?? [] }).total,
     0,
   );
 
@@ -79,6 +85,7 @@ export default async function DashboardPage() {
     include: {
       customer: true,
       vehicle: true,
+      jobs: { select: { id: true, approvalStatus: true } },
       laborLines: true,
       partLines: true,
       feeLines: true,
@@ -87,14 +94,14 @@ export default async function DashboardPage() {
   });
   const outstandingShopFeesByRO = await loadAppliedShopFeesForROs(
     outstandingROs.map((ro) => {
-      const t = computeTotals(ro);
+      const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
     }),
   );
   const outstandingWithBalance = outstandingROs
     .map((ro) => {
       const total = computeTotals({
-        ...ro,
+        ...excludeDeclinedJobLines(ro),
         shopFees: outstandingShopFeesByRO.get(ro.id) ?? [],
       }).total;
       const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
@@ -486,7 +493,7 @@ export default async function DashboardPage() {
             <tbody className="divide-y divide-zinc-200">
               {recentROs.map((ro) => {
                 const shopFees = recentShopFeesByRO.get(ro.id) ?? [];
-                const { total } = computeTotals({ ...ro, shopFees });
+                const { total } = computeTotals({ ...excludeDeclinedJobLines(ro), shopFees });
                 return (
                   <tr key={ro.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-2">

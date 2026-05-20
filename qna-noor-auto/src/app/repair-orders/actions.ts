@@ -554,12 +554,24 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 async function computeRoTotal(id: string): Promise<number> {
   const ro = await db.repairOrder.findUnique({
     where: { id },
-    include: { laborLines: true, partLines: true, feeLines: true },
+    include: {
+      jobs: { select: { id: true, approvalStatus: true } },
+      laborLines: true,
+      partLines: true,
+      feeLines: true,
+    },
   });
   if (!ro) return 0;
-  const labor = ro.laborLines.reduce((s, l) => s + l.hours * l.rate, 0);
-  const parts = ro.partLines.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
-  const fees = ro.feeLines.reduce((s, f) => s + (f.amount || 0), 0);
+  // Exclude lines from declined jobs
+  const declinedIds = new Set(
+    ro.jobs.filter((j) => j.approvalStatus === "DECLINED").map((j) => j.id),
+  );
+  const activeLabor = ro.laborLines.filter((l) => !l.jobId || !declinedIds.has(l.jobId));
+  const activeParts = ro.partLines.filter((p) => !p.jobId || !declinedIds.has(p.jobId));
+  const activeFees = ro.feeLines.filter((f) => !f.jobId || !declinedIds.has(f.jobId));
+  const labor = activeLabor.reduce((s, l) => s + l.hours * l.rate, 0);
+  const parts = activeParts.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
+  const fees = activeFees.reduce((s, f) => s + (f.amount || 0), 0);
   const { loadAppliedShopFees } = await import("@/lib/shopFees");
   const appliedShopFees = await loadAppliedShopFees(id, {
     partsSubtotal: parts,
@@ -711,4 +723,41 @@ export async function updateROVehicleInfo(fd: FormData) {
   revalidatePath(`/repair-orders/${parsed.repairOrderId}`);
   revalidatePath(`/vehicles/${parsed.vehicleId}`);
   redirect(`/repair-orders/${parsed.repairOrderId}`);
+}
+
+// Admin approve/decline jobs
+
+export async function approveJobAdmin(jobId: string, roId: string) {
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      approvalStatus: "APPROVED",
+      approvedAt: new Date(),
+    },
+  });
+  revalidatePath(`/repair-orders/${roId}`);
+}
+
+export async function declineJobAdmin(jobId: string, roId: string) {
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      approvalStatus: "DECLINED",
+      declinedAt: new Date(),
+    },
+  });
+  revalidatePath(`/repair-orders/${roId}`);
+}
+
+export async function resetJobApproval(jobId: string, roId: string) {
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      approvalStatus: "PENDING",
+      approvedAt: null,
+      declinedAt: null,
+      customerNote: null,
+    },
+  });
+  revalidatePath(`/repair-orders/${roId}`);
 }
