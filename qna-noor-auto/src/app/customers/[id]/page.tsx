@@ -7,12 +7,10 @@ import {
   CardHeader,
   LinkButton,
   PageHeader,
-  StatusBadge,
 } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines, type AppliedShopFee } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
-  formatDate,
   formatMoney,
   fullName,
   vehicleLabel,
@@ -20,6 +18,7 @@ import {
 import { deleteCustomer } from "../actions";
 import { PortalCard } from "./PortalCard";
 import { BulkPaymentCard } from "./BulkPaymentCard";
+import { SelectableROList, type ROItem } from "./SelectableROList";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +103,53 @@ export default async function CustomerDetailPage({
     paid: d.paid,
     balance: d.balance,
   }));
+
+  const toItem = (d: {
+    ro: ROWithLines;
+    total: number;
+    paid: number;
+    balance: number;
+  }): ROItem => ({
+    roId: d.ro.id,
+    roNumber: d.ro.roNumber,
+    vehicle: vehicleLabel(d.ro.vehicle),
+    status: d.ro.status,
+    openedAt:
+      d.ro.openedAt instanceof Date
+        ? d.ro.openedAt.toISOString()
+        : String(d.ro.openedAt),
+    total: d.total,
+    paid: d.paid,
+    balance: d.balance,
+  });
+
+  const ticketSections = [
+    {
+      key: "open-invoices",
+      title: `Open Invoices (${openInvoices.length})`,
+      items: openInvoices.map(toItem),
+      showBalance: true,
+    },
+    {
+      key: "open-ros",
+      title: `Open Repair Orders (${openROs.length})`,
+      items: openROs.map(toItem),
+    },
+    {
+      key: "paid",
+      title: `Paid (${paidROs.length})`,
+      items: paidROs.map(toItem),
+    },
+    ...(cancelledROs.length > 0
+      ? [
+          {
+            key: "cancelled",
+            title: `Cancelled (${cancelledROs.length})`,
+            items: cancelledROs.map(toItem),
+          },
+        ]
+      : []),
+  ];
 
   const deleteAction = deleteCustomer.bind(null, customer.id);
 
@@ -207,32 +253,8 @@ export default async function CustomerDetailPage({
         />
       )}
 
-      {/* Open Invoices */}
-      <ROTable
-        title={`Open Invoices (${openInvoices.length})`}
-        items={openInvoices}
-        showBalance
-      />
-
-      {/* Open Repair Orders */}
-      <ROTable
-        title={`Open Repair Orders (${openROs.length})`}
-        items={openROs}
-      />
-
-      {/* Paid */}
-      <ROTable
-        title={`Paid (${paidROs.length})`}
-        items={paidROs}
-      />
-
-      {/* Cancelled */}
-      {cancelledROs.length > 0 && (
-        <ROTable
-          title={`Cancelled (${cancelledROs.length})`}
-          items={cancelledROs}
-        />
-      )}
+      {/* Selectable tickets — bulk pay / delete */}
+      <SelectableROList customerId={customer.id} sections={ticketSections} />
 
       {/* Vehicles — last */}
       <Card className="mb-4">
@@ -305,81 +327,6 @@ export default async function CustomerDetailPage({
         </p>
       </form>
     </>
-  );
-}
-
-function ROTable({
-  title,
-  items,
-  showBalance,
-}: {
-  title: string;
-  items: { ro: ROWithLines; total: number; paid: number; balance: number }[];
-  showBalance?: boolean;
-}) {
-  return (
-    <Card className="mb-4">
-      <CardHeader title={title}>
-        <span />
-      </CardHeader>
-      {items.length === 0 ? (
-        <div className="p-6 text-sm text-zinc-500 text-center">
-          None.
-        </div>
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-2 font-medium">RO #</th>
-              <th className="px-4 py-2 font-medium">Vehicle</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Opened</th>
-              <th className="px-4 py-2 font-medium text-right">Total</th>
-              {showBalance && (
-                <>
-                  <th className="px-4 py-2 font-medium text-right">Paid</th>
-                  <th className="px-4 py-2 font-medium text-right">Balance</th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
-            {items.map(({ ro, total, paid, balance }) => (
-              <tr key={ro.id} className="hover:bg-zinc-50">
-                <td className="px-4 py-2">
-                  <Link
-                    href={`/repair-orders/${ro.id}`}
-                    className="font-medium text-zinc-900 hover:underline"
-                  >
-                    #{ro.roNumber}
-                  </Link>
-                </td>
-                <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
-                <td className="px-4 py-2">
-                  <StatusBadge status={ro.status} />
-                </td>
-                <td className="px-4 py-2 text-zinc-500">
-                  {formatDate(ro.openedAt)}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  {formatMoney(total)}
-                </td>
-                {showBalance && (
-                  <>
-                    <td className="px-4 py-2 text-right text-zinc-500">
-                      {formatMoney(paid)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium text-red-600">
-                      {formatMoney(balance)}
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </Card>
   );
 }
 
