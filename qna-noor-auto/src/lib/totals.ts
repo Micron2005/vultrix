@@ -66,7 +66,9 @@ export function computeTotals(ro: RepairOrderLines) {
     .reduce((s, f) => s + (f.amount ?? 0), 0);
   const shopFeesSubtotal = shopFeesTaxable + shopFeesNonTaxable;
 
-  const taxableBase = laborSubtotal + partsSubtotal + feesSubtotal + shopFeesTaxable;
+  // Fee lines are flat pass-through charges and are never taxed — they're
+  // added to the total as-is, after tax is computed on labor + parts.
+  const taxableBase = laborSubtotal + partsSubtotal + shopFeesTaxable;
   const afterDiscount = Math.max(0, taxableBase - (ro.discount ?? 0));
   const tax = afterDiscount * ((ro.taxRate ?? 0) / 100);
   const subtotal = laborSubtotal + partsSubtotal + feesSubtotal + shopFeesSubtotal;

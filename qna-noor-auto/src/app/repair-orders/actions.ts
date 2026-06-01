@@ -583,7 +583,8 @@ async function computeRoTotal(id: string): Promise<number> {
   const shopFeesNonTaxable = appliedShopFees
     .filter((f) => !f.taxable)
     .reduce((s, f) => s + f.amount, 0);
-  const taxableBase = labor + parts + fees + shopFeesTaxable;
+  // Fee lines are flat pass-through charges and are never taxed.
+  const taxableBase = labor + parts + shopFeesTaxable;
   const afterDiscount = Math.max(taxableBase - (ro.discount || 0), 0);
   const tax = afterDiscount * ((ro.taxRate || 0) / 100);
   const subtotal = labor + parts + fees + shopFeesTaxable + shopFeesNonTaxable;
