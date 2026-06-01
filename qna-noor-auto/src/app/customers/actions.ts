@@ -218,3 +218,125 @@ function formatMoney(n: number): string {
     currency: "USD",
   }).format(n);
 }
+
+/**
+ * Delete a set of repair orders belonging to a customer. Mirrors the behavior
+ * of the single-RO delete (cascade delete; inventory is not restocked) so bulk
+ * delete is equivalent to deleting each ticket individually.
+ */
+export async function bulkDeleteRepairOrders(
+  customerId: string,
+  roIds: string[],
+): Promise<{ ok: boolean; message: string }> {
+  if (!customerId || !Array.isArray(roIds) || roIds.length === 0) {
+    return { ok: false, message: "No tickets selected." };
+  }
+
+  // Only delete ROs that actually belong to this customer.
+  const ros = await db.repairOrder.findMany({
+    where: { id: { in: roIds }, customerId },
+    select: { id: true, vehicleId: true },
+  });
+  if (ros.length === 0) {
+    return { ok: false, message: "No matching tickets found for this customer." };
+  }
+
+  const validIds = ros.map((r) => r.id);
+  await db.repairOrder.deleteMany({ where: { id: { in: validIds } } });
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+  for (const r of ros) {
+    revalidatePath(`/vehicles/${r.vehicleId}`);
+  }
+
+  return {
+    ok: true,
+    message: `Deleted ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""}.`,
+  };
+}
+
+/**
+ * Pay off a set of selected repair orders in full — records a payment equal to
+ * each RO's remaining balance and marks it PAID. Used when the user hand-picks
+ * which tickets to clear (vs. the smart-allocation bulk payment).
+ */
+export async function paySelectedRepairOrders(
+  customerId: string,
+  roIds: string[],
+  method: string,
+): Promise<{ ok: boolean; message: string }> {
+  if (!customerId || !Array.isArray(roIds) || roIds.length === 0) {
+    return { ok: false, message: "No tickets selected." };
+  }
+
+  const payMethod = (PAYMENT_METHODS as readonly string[]).includes(
+    String(method).toUpperCase(),
+  )
+    ? String(method).toUpperCase()
+    : "CASH";
+
+  const ros = await db.repairOrder.findMany({
+    where: { id: { in: roIds }, customerId },
+    select: { id: true, status: true, invoicedAt: true },
+  });
+  if (ros.length === 0) {
+    return { ok: false, message: "No matching tickets found for this customer." };
+  }
+
+  const paidAt = new Date();
+  let clearedCount = 0;
+  let totalApplied = 0;
+
+  for (const ro of ros) {
+    if (ro.status === "CANCELLED") continue;
+    const [payments, total] = await Promise.all([
+      db.payment.findMany({
+        where: { repairOrderId: ro.id },
+        select: { amount: true },
+      }),
+      computeRoTotal(ro.id),
+    ]);
+    const alreadyPaid = payments.reduce((s, p) => s + p.amount, 0);
+    const balance = Math.round((total - alreadyPaid) * 100) / 100;
+    if (balance <= 0) continue;
+
+    await db.payment.create({
+      data: {
+        repairOrderId: ro.id,
+        amount: balance,
+        method: payMethod,
+        note: "Paid via bulk selection",
+        paidAt,
+      },
+    });
+    totalApplied += balance;
+    clearedCount++;
+
+    await db.repairOrder.update({
+      where: { id: ro.id },
+      data: {
+        status: "PAID",
+        paidAt,
+        closedAt: paidAt,
+        ...(ro.invoicedAt ? {} : { invoicedAt: paidAt }),
+      },
+    });
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+  for (const ro of ros) {
+    revalidatePath(`/repair-orders/${ro.id}`);
+  }
+
+  if (clearedCount === 0) {
+    return { ok: false, message: "Selected tickets had no outstanding balance." };
+  }
+  return {
+    ok: true,
+    message: `Paid ${formatMoney(totalApplied)} across ${clearedCount} ticket${clearedCount !== 1 ? "s" : ""}.`,
+  };
+}
