@@ -13,6 +13,27 @@ export function formatMoney(n: number | null | undefined): string {
   }).format(v);
 }
 
+/**
+ * Parse a user-entered mileage value into an integer, tolerating commas,
+ * spaces, and other separators (e.g. "123,456" or "123 456"). Returns null
+ * when there are no digits.
+ */
+export function parseMileage(
+  v: string | null | undefined,
+): number | null {
+  if (v == null) return null;
+  const digits = String(v).replace(/[^\d]/g, "");
+  if (digits === "") return null;
+  const n = parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Format a number of miles with thousands separators (e.g. 123456 -> "123,456"). */
+export function formatMileage(n: number | null | undefined): string {
+  if (typeof n !== "number" || !isFinite(n)) return "";
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
 export function formatDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;

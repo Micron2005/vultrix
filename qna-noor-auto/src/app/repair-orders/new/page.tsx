@@ -4,12 +4,12 @@ import {
   Button,
   Card,
   Field,
-  Input,
   PageHeader,
   Textarea,
 } from "@/components/ui";
+import { MileageInput } from "@/components/MileageInput";
 import { createRepairOrder } from "../actions";
-import { fullName, vehicleLabel } from "@/lib/utils";
+import { fullName, parseMileage, vehicleLabel } from "@/lib/utils";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { openROsForVehicle } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
@@ -118,7 +118,7 @@ export default async function NewRepairOrderPage({
           color: get("color"),
           licensePlate: plate ? plate.toUpperCase() : null,
           licenseState: state ? state.toUpperCase() : null,
-          mileage: mileageStr ? parseInt(mileageStr, 10) || null : null,
+          mileage: parseMileage(mileageStr),
         },
       });
       redirect(`/repair-orders/new?customerId=${c}&vehicleId=${created.id}`);
@@ -178,10 +178,9 @@ export default async function NewRepairOrderPage({
             />
           </Field>
           <Field label="Mileage in">
-            <Input
+            <MileageInput
               name="mileageIn"
-              inputMode="numeric"
-              defaultValue={vehicle.mileage?.toString() ?? ""}
+              defaultValue={vehicle.mileage ?? null}
             />
           </Field>
           <Button type="submit">Create Repair Order</Button>

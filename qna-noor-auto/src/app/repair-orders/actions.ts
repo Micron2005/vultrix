@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
+import { parseMileage } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 
 const RO_STATUSES = [
@@ -41,23 +42,19 @@ export async function createRepairOrder(fd: FormData) {
       customerId: parsed.customerId,
       vehicleId: parsed.vehicleId,
       complaint: parsed.complaint,
-      mileageIn: parsed.mileageIn
-        ? parseInt(parsed.mileageIn, 10) || null
-        : null,
+      mileageIn: parseMileage(parsed.mileageIn),
       taxRate: defaultTax,
       status: "ESTIMATE",
     },
   });
 
   // Also update vehicle mileage if mileageIn was provided and greater
-  if (parsed.mileageIn) {
-    const mi = parseInt(parsed.mileageIn, 10);
-    if (!isNaN(mi)) {
-      await db.vehicle.update({
-        where: { id: parsed.vehicleId },
-        data: { mileage: mi },
-      });
-    }
+  const createdMileageIn = parseMileage(parsed.mileageIn);
+  if (createdMileageIn !== null) {
+    await db.vehicle.update({
+      where: { id: parsed.vehicleId },
+      data: { mileage: createdMileageIn },
+    });
   }
 
   revalidatePath("/repair-orders");
@@ -98,12 +95,8 @@ export async function updateRepairOrder(id: string, fd: FormData) {
     cause: parsed.cause,
     correction: parsed.correction,
     notes: parsed.notes,
-    mileageIn: parsed.mileageIn
-      ? parseInt(parsed.mileageIn, 10) || null
-      : null,
-    mileageOut: parsed.mileageOut
-      ? parseInt(parsed.mileageOut, 10) || null
-      : null,
+    mileageIn: parseMileage(parsed.mileageIn),
+    mileageOut: parseMileage(parsed.mileageOut),
     taxRate: parsed.taxRate ? parseFloat(parsed.taxRate) || 0 : 0,
     discount: parsed.discount ? parseFloat(parsed.discount) || 0 : 0,
   };
@@ -717,7 +710,7 @@ export async function updateROVehicleInfo(fd: FormData) {
       vin: parsed.vin?.toUpperCase() ?? null,
       licensePlate: parsed.licensePlate?.toUpperCase() ?? null,
       licenseState: parsed.licenseState?.toUpperCase() ?? null,
-      mileage: parsed.mileage ? parseInt(parsed.mileage, 10) || null : null,
+      mileage: parseMileage(parsed.mileage),
     },
   });
 

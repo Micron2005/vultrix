@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button, Field, Input, Select } from "@/components/ui";
+import { MileageInput } from "@/components/MileageInput";
 import { decodeVinAction } from "@/app/vehicles/actions";
 import type { VinDecodeResult } from "@/lib/vin";
 
@@ -34,7 +35,6 @@ export function VehiclePickerOrCreate({
   const [color, setColor] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
   const [licenseState, setLicenseState] = useState("");
-  const [mileage, setMileage] = useState("");
   const [vinMsg, setVinMsg] = useState<string | null>(null);
   const [isDecoding, startDecode] = useTransition();
 
@@ -210,12 +210,7 @@ export function VehiclePickerOrCreate({
               />
             </Field>
             <Field label="Mileage">
-              <Input
-                name="mileage"
-                value={mileage}
-                onChange={(e) => setMileage(e.target.value)}
-                inputMode="numeric"
-              />
+              <MileageInput name="mileage" />
             </Field>
           </div>
           <p className="text-xs text-zinc-500">

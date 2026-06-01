@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button, Field, Input, Textarea } from "@/components/ui";
+import { MileageInput } from "@/components/MileageInput";
 import { decodeVinAction } from "./actions";
 import type { VinDecodeResult } from "@/lib/vin";
 
@@ -193,11 +194,7 @@ export function VehicleForm({
           />
         </Field>
         <Field label="Mileage">
-          <Input
-            name="mileage"
-            defaultValue={vehicle?.mileage?.toString() ?? ""}
-            inputMode="numeric"
-          />
+          <MileageInput name="mileage" defaultValue={vehicle?.mileage ?? null} />
         </Field>
       </div>
       <Field label="Notes">

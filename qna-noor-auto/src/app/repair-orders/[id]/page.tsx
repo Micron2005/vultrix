@@ -11,6 +11,7 @@ import {
   Select,
   Textarea,
 } from "@/components/ui";
+import { MileageInput } from "@/components/MileageInput";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
@@ -324,10 +325,9 @@ export default async function RepairOrderDetailPage({
           </div>
           <div className="md:col-span-2">
             <Field label="Mileage (current)">
-              <Input
+              <MileageInput
                 name="mileage"
-                defaultValue={ro.vehicle.mileage?.toString() ?? ""}
-                inputMode="numeric"
+                defaultValue={ro.vehicle.mileage ?? null}
                 placeholder="miles"
               />
             </Field>
@@ -346,17 +346,15 @@ export default async function RepairOrderDetailPage({
           <form id="ro-details-form" action={updateAction} className="p-4 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Mileage in">
-                <Input
+                <MileageInput
                   name="mileageIn"
-                  defaultValue={ro.mileageIn?.toString() ?? ""}
-                  inputMode="numeric"
+                  defaultValue={ro.mileageIn ?? null}
                 />
               </Field>
               <Field label="Mileage out">
-                <Input
+                <MileageInput
                   name="mileageOut"
-                  defaultValue={ro.mileageOut?.toString() ?? ""}
-                  inputMode="numeric"
+                  defaultValue={ro.mileageOut ?? null}
                 />
               </Field>
             </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { parseMileage } from "@/lib/utils";
 
 export async function markServiceDone(fd: FormData) {
   const vehicleId = String(fd.get("vehicleId") ?? "");
@@ -13,9 +14,7 @@ export async function markServiceDone(fd: FormData) {
   if (!vehicleId || !intervalId) return;
 
   const atMileage =
-    typeof atMileageRaw === "string" && atMileageRaw.trim() !== ""
-      ? parseInt(atMileageRaw, 10)
-      : null;
+    typeof atMileageRaw === "string" ? parseMileage(atMileageRaw) : null;
   const performedAt =
     typeof performedAtRaw === "string" && performedAtRaw.trim() !== ""
       ? new Date(performedAtRaw)

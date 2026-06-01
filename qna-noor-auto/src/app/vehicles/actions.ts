@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { parseMileage } from "@/lib/utils";
 import { decodeVin, type VinDecodeResult } from "@/lib/vin";
 
 const VehicleSchema = z.object({
@@ -43,7 +44,7 @@ function prepare(fd: FormData) {
     color: parsed.color ?? null,
     licensePlate: parsed.licensePlate?.toUpperCase() ?? null,
     licenseState: parsed.licenseState?.toUpperCase() ?? null,
-    mileage: parsed.mileage ? parseInt(parsed.mileage, 10) || null : null,
+    mileage: parseMileage(parsed.mileage),
     notes: parsed.notes ?? null,
   };
 }
