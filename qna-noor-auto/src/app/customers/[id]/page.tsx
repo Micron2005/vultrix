@@ -124,6 +124,7 @@ export default async function CustomerDetailPage({
     total: d.total,
     paid: d.paid,
     balance: d.balance,
+    cleared: d.ro.clearedAt != null,
   });
 
   const ticketSections = [
