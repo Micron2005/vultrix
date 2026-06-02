@@ -8,6 +8,7 @@ import {
   bulkDeleteRepairOrders,
   clearSelectedRepairOrders,
   paySelectedRepairOrders,
+  removeBulkSelectionPayments,
 } from "../actions";
 
 export type ROItem = {
@@ -44,6 +45,7 @@ export function SelectableROList({
   const [method, setMethod] = useState("CASH");
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingRemoveDup, setConfirmingRemoveDup] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const allItems = sections.flatMap((s) => s.items);
@@ -55,6 +57,7 @@ export function SelectableROList({
   const selectedClearable = selectedItems.filter(
     (i) => i.status === "PAID" && !i.cleared,
   );
+  const selectedPaid = selectedItems.filter((i) => i.status === "PAID");
 
   function toggle(roId: string) {
     setResult(null);
@@ -81,6 +84,7 @@ export function SelectableROList({
   function clearSelection() {
     setSelected(new Set());
     setConfirmingDelete(false);
+    setConfirmingRemoveDup(false);
     setResult(null);
   }
 
@@ -130,6 +134,25 @@ export function SelectableROList({
     }
   }
 
+  async function handleRemoveDup() {
+    if (selectedPaid.length === 0) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await removeBulkSelectionPayments(
+        customerId,
+        selectedPaid.map((i) => i.roId),
+      );
+      setResult(res);
+      if (res.ok) setSelected(new Set());
+    } catch {
+      setResult({ ok: false, message: "Something went wrong. Please try again." });
+    } finally {
+      setBusy(false);
+      setConfirmingRemoveDup(false);
+    }
+  }
+
   async function handleDelete() {
     if (selectedItems.length === 0) return;
     setBusy(true);
@@ -166,7 +189,41 @@ export function SelectableROList({
 
             <div className="flex-1" />
 
-            {!confirmingDelete ? (
+            {confirmingDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-red-700 font-medium">
+                  Delete {selected.size} ticket{selected.size !== 1 ? "s" : ""} permanently? This cannot be undone.
+                </span>
+                <Button variant="danger" onClick={handleDelete} disabled={busy}>
+                  {busy ? "Deleting…" : "Yes, delete"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={busy}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : confirmingRemoveDup ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-amber-700 font-medium">
+                  Remove duplicate bulk payments from {selectedPaid.length} paid
+                  ticket{selectedPaid.length !== 1 ? "s" : ""}? Tickets stay marked
+                  paid; only the extra payment records are deleted.
+                </span>
+                <Button variant="danger" onClick={handleRemoveDup} disabled={busy}>
+                  {busy ? "Removing…" : "Yes, remove"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setConfirmingRemoveDup(false)}
+                  disabled={busy}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
               <>
                 <div className="flex items-center gap-2">
                   <Select
@@ -198,6 +255,15 @@ export function SelectableROList({
                       : `Clear ${selectedClearable.length} paid`}
                   </Button>
                 )}
+                {selectedPaid.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirmingRemoveDup(true)}
+                    disabled={busy}
+                  >
+                    Remove duplicate payment
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   onClick={() => setConfirmingDelete(true)}
@@ -209,22 +275,6 @@ export function SelectableROList({
                   Deselect
                 </Button>
               </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-red-700 font-medium">
-                  Delete {selected.size} ticket{selected.size !== 1 ? "s" : ""} permanently? This cannot be undone.
-                </span>
-                <Button variant="danger" onClick={handleDelete} disabled={busy}>
-                  {busy ? "Deleting…" : "Yes, delete"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setConfirmingDelete(false)}
-                  disabled={busy}
-                >
-                  Cancel
-                </Button>
-              </div>
             )}
           </div>
         </div>

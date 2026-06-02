@@ -393,3 +393,60 @@ export async function clearSelectedRepairOrders(
     message: `Cleared ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""}.`,
   };
 }
+
+/**
+ * Remove duplicate payments created by an accidental "Pay selected" on tickets
+ * that were already marked paid. Deletes only payments tagged with the bulk-
+ * selection note, leaving the ticket marked PAID (the money was collected
+ * earlier; the duplicate just inflated revenue). Other payments are untouched.
+ */
+export async function removeBulkSelectionPayments(
+  customerId: string,
+  roIds: string[],
+): Promise<{ ok: boolean; message: string }> {
+  if (!customerId || !Array.isArray(roIds) || roIds.length === 0) {
+    return { ok: false, message: "No tickets selected." };
+  }
+
+  const ros = await db.repairOrder.findMany({
+    where: { id: { in: roIds }, customerId, status: "PAID" },
+    select: { id: true },
+  });
+  if (ros.length === 0) {
+    return { ok: false, message: "Select paid tickets to remove duplicate payments from." };
+  }
+
+  const validIds = ros.map((r) => r.id);
+  const dupPayments = await db.payment.findMany({
+    where: {
+      repairOrderId: { in: validIds },
+      note: "Paid via bulk selection",
+    },
+    select: { id: true, amount: true },
+  });
+
+  if (dupPayments.length === 0) {
+    return {
+      ok: false,
+      message: "No bulk-selection payments found on the selected tickets.",
+    };
+  }
+
+  const removedTotal = dupPayments.reduce((s, p) => s + p.amount, 0);
+  await db.payment.deleteMany({
+    where: { id: { in: dupPayments.map((p) => p.id) } },
+  });
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/reports");
+  revalidatePath("/");
+  for (const id of validIds) {
+    revalidatePath(`/repair-orders/${id}`);
+  }
+
+  return {
+    ok: true,
+    message: `Removed ${formatMoney(removedTotal)} in duplicate payment${dupPayments.length !== 1 ? "s" : ""} from ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""} (still marked paid).`,
+  };
+}
