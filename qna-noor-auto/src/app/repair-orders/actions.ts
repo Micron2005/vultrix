@@ -685,15 +685,17 @@ export async function undoPaid(id: string) {
   });
   if (!ro || ro.status !== "PAID") return;
 
-  await db.payment.deleteMany({ where: { repairOrderId: id } });
-  await db.repairOrder.update({
-    where: { id },
-    data: {
-      status: "INVOICED",
-      paidAt: null,
-      closedAt: null,
-      clearedAt: null,
-    },
+  await db.$transaction(async (tx) => {
+    await tx.payment.deleteMany({ where: { repairOrderId: id } });
+    await tx.repairOrder.update({
+      where: { id },
+      data: {
+        status: "INVOICED",
+        paidAt: null,
+        closedAt: null,
+        clearedAt: null,
+      },
+    });
   });
 
   revalidatePath(`/repair-orders/${id}`);
@@ -729,9 +731,9 @@ export async function clearRepairOrder(id: string) {
 export async function unclearRepairOrder(id: string) {
   const ro = await db.repairOrder.findUnique({
     where: { id },
-    select: { id: true, customerId: true },
+    select: { id: true, status: true, customerId: true },
   });
-  if (!ro) return;
+  if (!ro || ro.status !== "PAID") return;
 
   await db.repairOrder.update({
     where: { id },
