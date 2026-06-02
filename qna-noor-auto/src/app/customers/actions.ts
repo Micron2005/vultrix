@@ -422,7 +422,7 @@ export async function removeBulkSelectionPayments(
       repairOrderId: { in: validIds },
       note: "Paid via bulk selection",
     },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, repairOrderId: true },
   });
 
   if (dupPayments.length === 0) {
@@ -433,6 +433,9 @@ export async function removeBulkSelectionPayments(
   }
 
   const removedTotal = dupPayments.reduce((s, p) => s + p.amount, 0);
+  const affectedIds = Array.from(
+    new Set(dupPayments.map((p) => p.repairOrderId)),
+  );
   await db.payment.deleteMany({
     where: { id: { in: dupPayments.map((p) => p.id) } },
   });
@@ -441,12 +444,12 @@ export async function removeBulkSelectionPayments(
   revalidatePath("/repair-orders");
   revalidatePath("/reports");
   revalidatePath("/");
-  for (const id of validIds) {
+  for (const id of affectedIds) {
     revalidatePath(`/repair-orders/${id}`);
   }
 
   return {
     ok: true,
-    message: `Removed ${formatMoney(removedTotal)} in duplicate payment${dupPayments.length !== 1 ? "s" : ""} from ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""} (still marked paid).`,
+    message: `Removed ${formatMoney(removedTotal)} in duplicate payment${dupPayments.length !== 1 ? "s" : ""} from ${affectedIds.length} ticket${affectedIds.length !== 1 ? "s" : ""} (still marked paid).`,
   };
 }
