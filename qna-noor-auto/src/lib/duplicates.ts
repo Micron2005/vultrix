@@ -57,6 +57,54 @@ export async function openROsForVehicle(
   }));
 }
 
+// Statuses that mean "this RO is finished" — useful as history when deciding
+// whether a new ticket duplicates work already done on the vehicle.
+export const CLOSED_RO_STATUSES = [
+  "INVOICED",
+  "PAID",
+  "CANCELLED",
+] as const;
+
+/**
+ * Return recent closed (paid / invoiced / cancelled) ROs for a vehicle so the
+ * shop can see the car's past work history when starting a new ticket and
+ * judge whether it duplicates a previous job.
+ */
+export async function pastROsForVehicle(
+  vehicleId: string,
+  excludeId?: string,
+  limit = 10,
+): Promise<OpenROSummary[]> {
+  const rows = await db.repairOrder.findMany({
+    where: {
+      vehicleId,
+      status: { in: [...CLOSED_RO_STATUSES] },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    orderBy: { openedAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      roNumber: true,
+      status: true,
+      openedAt: true,
+      complaint: true,
+      laborLines: {
+        select: { description: true },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    roNumber: r.roNumber,
+    status: r.status,
+    openedAt: r.openedAt,
+    complaint: r.complaint,
+    laborDescriptions: r.laborLines.map((l) => l.description),
+  }));
+}
+
 // Short filler words the fuzzy match ignores. Anything ≥ 4 chars and not in
 // this list counts as a "significant word" for overlap detection.
 const STOP_WORDS = new Set([

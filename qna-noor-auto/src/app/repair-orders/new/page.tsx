@@ -11,7 +11,7 @@ import { MileageInput } from "@/components/MileageInput";
 import { createRepairOrder } from "../actions";
 import { fullName, parseMileage, vehicleLabel } from "@/lib/utils";
 import { CustomerPicker } from "@/components/CustomerPicker";
-import { openROsForVehicle } from "@/lib/duplicates";
+import { openROsForVehicle, pastROsForVehicle } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
 import { VehiclePickerOrCreate } from "./VehiclePickerOrCreate";
 
@@ -149,7 +149,10 @@ export default async function NewRepairOrderPage({
   const vehicle = await db.vehicle.findUnique({ where: { id: vehicleId } });
   if (!vehicle || vehicle.customerId !== customer.id) notFound();
 
-  const openROs = await openROsForVehicle(vehicle.id);
+  const [openROs, pastROs] = await Promise.all([
+    openROsForVehicle(vehicle.id),
+    pastROsForVehicle(vehicle.id),
+  ]);
 
   return (
     <>
@@ -163,6 +166,16 @@ export default async function NewRepairOrderPage({
             ros={openROs}
             heading={`This vehicle already has ${openROs.length} open repair order${openROs.length === 1 ? "" : "s"}`}
             subheading="Review before creating a new one — if it's a different job, continue as normal."
+          />
+        </div>
+      )}
+      {pastROs.length > 0 && (
+        <div className="mb-4">
+          <DuplicateROBanner
+            tone="info"
+            ros={pastROs}
+            heading={`Past tickets for this vehicle (${pastROs.length})`}
+            subheading="Already paid, invoiced or cancelled. Check these so you don't duplicate work that was done before."
           />
         </div>
       )}
