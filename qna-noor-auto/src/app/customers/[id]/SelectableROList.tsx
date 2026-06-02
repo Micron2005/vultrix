@@ -4,7 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, Button, Select, StatusBadge } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/utils";
-import { bulkDeleteRepairOrders, paySelectedRepairOrders } from "../actions";
+import {
+  bulkDeleteRepairOrders,
+  clearSelectedRepairOrders,
+  paySelectedRepairOrders,
+} from "../actions";
 
 export type ROItem = {
   roId: string;
@@ -15,6 +19,7 @@ export type ROItem = {
   total: number;
   paid: number;
   balance: number;
+  cleared: boolean;
 };
 
 type Section = {
@@ -44,7 +49,12 @@ export function SelectableROList({
   const allItems = sections.flatMap((s) => s.items);
   const selectedItems = allItems.filter((i) => selected.has(i.roId));
   const selectedBalance = selectedItems.reduce((s, i) => s + i.balance, 0);
-  const selectedPayable = selectedItems.filter((i) => i.balance > 0 && i.status !== "CANCELLED");
+  const selectedPayable = selectedItems.filter(
+    (i) => i.balance > 0 && i.status !== "CANCELLED" && i.status !== "PAID",
+  );
+  const selectedClearable = selectedItems.filter(
+    (i) => i.status === "PAID" && !i.cleared,
+  );
 
   function toggle(roId: string) {
     setResult(null);
@@ -92,6 +102,24 @@ export function SelectableROList({
         customerId,
         selectedPayable.map((i) => i.roId),
         method,
+      );
+      setResult(res);
+      if (res.ok) setSelected(new Set());
+    } catch {
+      setResult({ ok: false, message: "Something went wrong. Please try again." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClear() {
+    if (selectedClearable.length === 0) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await clearSelectedRepairOrders(
+        customerId,
+        selectedClearable.map((i) => i.roId),
       );
       setResult(res);
       if (res.ok) setSelected(new Set());
@@ -159,6 +187,17 @@ export function SelectableROList({
                     {busy ? "Processing…" : `Pay ${selectedPayable.length} ticket${selectedPayable.length !== 1 ? "s" : ""}`}
                   </Button>
                 </div>
+                {selectedClearable.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleClear}
+                    disabled={busy}
+                  >
+                    {busy
+                      ? "Clearing…"
+                      : `Clear ${selectedClearable.length} paid`}
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   onClick={() => setConfirmingDelete(true)}
@@ -167,7 +206,7 @@ export function SelectableROList({
                   Delete selected
                 </Button>
                 <Button variant="ghost" onClick={clearSelection} disabled={busy}>
-                  Clear
+                  Deselect
                 </Button>
               </>
             ) : (

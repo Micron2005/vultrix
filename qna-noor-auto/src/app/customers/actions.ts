@@ -291,6 +291,11 @@ export async function paySelectedRepairOrders(
 
   for (const ro of ros) {
     if (ro.status === "CANCELLED") continue;
+    // Never re-pay a ticket that's already marked PAID. Tickets marked paid via
+    // the status button carry no recorded payment, so a naive balance check
+    // (total - payments) would treat them as owed and create a duplicate
+    // payment, inflating revenue.
+    if (ro.status === "PAID") continue;
     const [payments, total] = await Promise.all([
       db.payment.findMany({
         where: { repairOrderId: ro.id },
@@ -338,5 +343,53 @@ export async function paySelectedRepairOrders(
   return {
     ok: true,
     message: `Paid ${formatMoney(totalApplied)} across ${clearedCount} ticket${clearedCount !== 1 ? "s" : ""}.`,
+  };
+}
+
+/**
+ * Mark a set of selected paid tickets as "cleared" — closed out of the active
+ * list (moved to the Cleared section) without deleting them. Only applies to
+ * tickets that are PAID and not already cleared.
+ */
+export async function clearSelectedRepairOrders(
+  customerId: string,
+  roIds: string[],
+): Promise<{ ok: boolean; message: string }> {
+  if (!customerId || !Array.isArray(roIds) || roIds.length === 0) {
+    return { ok: false, message: "No tickets selected." };
+  }
+
+  const ros = await db.repairOrder.findMany({
+    where: {
+      id: { in: roIds },
+      customerId,
+      status: "PAID",
+      clearedAt: null,
+    },
+    select: { id: true },
+  });
+  if (ros.length === 0) {
+    return {
+      ok: false,
+      message: "Select paid tickets that aren't already cleared.",
+    };
+  }
+
+  const validIds = ros.map((r) => r.id);
+  await db.repairOrder.updateMany({
+    where: { id: { in: validIds } },
+    data: { clearedAt: new Date() },
+  });
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+  for (const id of validIds) {
+    revalidatePath(`/repair-orders/${id}`);
+  }
+
+  return {
+    ok: true,
+    message: `Cleared ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""}.`,
   };
 }
