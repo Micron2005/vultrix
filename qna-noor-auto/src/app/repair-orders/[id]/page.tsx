@@ -60,6 +60,7 @@ import { getSetting } from "@/lib/shop";
 import {
   filterDuplicatesByLabor,
   openROsForVehicle,
+  pastROsForVehicle,
 } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
 import { loadShopFeeStatus } from "@/lib/shopFees";
@@ -216,6 +217,9 @@ export default async function RepairOrderDetailPage({
     otherOpen,
     ro.laborLines.map((l) => l.description),
   );
+  // Past (paid / invoiced / cancelled) tickets on this same vehicle, shown as
+  // history so the shop can judge whether this RO duplicates earlier work.
+  const pastTickets = await pastROsForVehicle(ro.vehicleId, ro.id);
 
   return (
     <>
@@ -273,6 +277,17 @@ export default async function RepairOrderDetailPage({
             ros={duplicates}
             heading={`Possible duplicate — ${duplicates.length} other open RO${duplicates.length === 1 ? "" : "s"} on this vehicle share overlapping labor`}
             subheading="Review before invoicing. If this RO is truly a different job, you can ignore this notice."
+          />
+        </div>
+      )}
+
+      {pastTickets.length > 0 && (
+        <div className="mb-4">
+          <DuplicateROBanner
+            tone="info"
+            ros={pastTickets}
+            heading={`Past tickets for this vehicle (${pastTickets.length})`}
+            subheading="Already paid, invoiced or cancelled. Check these so you don't duplicate work that was done before."
           />
         </div>
       )}
