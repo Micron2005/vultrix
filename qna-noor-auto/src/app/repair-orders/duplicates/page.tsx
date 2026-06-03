@@ -128,14 +128,13 @@ function clusterROs(ros: ROWithRelations[]): Cluster[] {
       for (let j = i + 1; j < list.length; j++) {
         const a = tokensPerRO[i];
         const b = tokensPerRO[j];
-        // Also merge if both ROs have NO labor lines yet — they are suspect
-        // duplicates (multiple drafts for same vehicle same day).
-        if (a.size === 0 && b.size === 0) {
-          const ra = list[i];
-          const rb = list[j];
-          const aDay = ra.openedAt.toISOString().slice(0, 10);
-          const bDay = rb.openedAt.toISOString().slice(0, 10);
-          if (aDay === bDay) union(i, j);
+        // A ticket with no labor lines yet (e.g. a freshly started RO) is a
+        // wildcard: there's nothing to fuzzy-match on, so we can't rule out a
+        // duplicate. Union it with every other ticket on the same vehicle so
+        // the car's history — including past paid/cleared tickets — shows up
+        // for comparison before the user adds the job.
+        if (a.size === 0 || b.size === 0) {
+          union(i, j);
           continue;
         }
         let overlap = false;
