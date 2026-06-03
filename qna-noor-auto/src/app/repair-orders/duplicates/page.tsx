@@ -65,14 +65,14 @@ function tokenize(text: string): string[] {
 type ROWithRelations = Awaited<ReturnType<typeof loadROs>>[number];
 
 async function loadROs() {
-  // Hide settled ROs from duplicate review. PAID invoices are closed books —
-  // the user has no reason to "fix" a duplicate once money has already
-  // changed hands. CANCELLED ROs are dead for the same reason. Everything
-  // still open (ESTIMATE / IN_PROGRESS / COMPLETED / INVOICED-but-unpaid)
-  // remains fair game since those are the ones that might accidentally end
-  // up duplicated.
+  // Include PAID (and paid-then-cleared) ROs so the shop can see a vehicle's
+  // past work history right next to a new/active ticket and judge whether the
+  // new job duplicates one that was already done and paid for. Clusters that
+  // contain ONLY settled ROs are filtered out later (see clusterROs) so the
+  // page stays focused on groups that still have an actionable ticket.
+  // CANCELLED ROs remain hidden — they were never real work.
   return db.repairOrder.findMany({
-    where: { status: { notIn: ["CANCELLED", "PAID"] } },
+    where: { status: { not: "CANCELLED" } },
     orderBy: { openedAt: "desc" },
     include: {
       customer: true,
@@ -160,6 +160,10 @@ function clusterROs(ros: ROWithRelations[]): Cluster[] {
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       const mros = members.map((i) => list[i]);
+      // Only surface clusters that still have at least one actionable ticket
+      // (anything not already PAID). A group of only paid/closed ROs is just
+      // history with nothing to fix, so skip it.
+      if (mros.every((r) => r.status === "PAID")) continue;
       // Shared words: intersection of all member token sets (nice summary).
       const firstTokens = tokensPerRO[members[0]];
       const intersection = new Set(firstTokens);
@@ -208,7 +212,7 @@ export default async function DuplicatesPage({
     <>
       <PageHeader
         title="Duplicate review"
-        description="Repair orders grouped by vehicle that share overlapping jobs. Review each group and delete extras. CANCELLED ROs are ignored."
+        description="Repair orders grouped by vehicle that share overlapping jobs. Past paid/cleared tickets are shown for reference so you can tell if a new ticket repeats earlier work. CANCELLED ROs are ignored."
       />
 
       {deleted === "1" && (
@@ -225,6 +229,12 @@ export default async function DuplicatesPage({
       {error === "not_found" && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
           That repair order no longer exists.
+        </div>
+      )}
+      {error === "paid_locked" && (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          That repair order is paid and can&apos;t be deleted here — paid
+          tickets are shown for reference only.
         </div>
       )}
 
@@ -272,7 +282,14 @@ export default async function DuplicatesPage({
                           >
                             RO #{ro.roNumber}
                           </Link>
-                          <StatusBadge status={ro.status} />
+                          <div className="flex items-center gap-1.5">
+                            <StatusBadge status={ro.status} />
+                            {ro.clearedAt && (
+                              <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                                Cleared
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="mt-1 text-xs text-zinc-600">
                           Opened {formatDate(ro.openedAt)}
@@ -303,24 +320,31 @@ export default async function DuplicatesPage({
                             {ro.feeLines.length}
                           </span>
                         </div>
-                        <form
-                          action={deleteFromDuplicates.bind(null, ro.id)}
-                          className="mt-3 flex items-center gap-2"
-                        >
-                          <input
-                            type="text"
-                            name="confirm"
-                            placeholder="Type DELETE"
-                            autoComplete="off"
-                            className="h-8 w-32 rounded border border-zinc-300 px-2 text-xs focus:border-red-500 focus:outline-none"
-                          />
-                          <button
-                            type="submit"
-                            className="h-8 px-3 text-xs rounded bg-red-600 text-white hover:bg-red-700 font-medium"
+                        {ro.status === "PAID" ? (
+                          <div className="mt-3 text-xs italic text-zinc-500">
+                            Paid ticket — shown for reference. Closed books are
+                            not deleted here.
+                          </div>
+                        ) : (
+                          <form
+                            action={deleteFromDuplicates.bind(null, ro.id)}
+                            className="mt-3 flex items-center gap-2"
                           >
-                            Delete this RO
-                          </button>
-                        </form>
+                            <input
+                              type="text"
+                              name="confirm"
+                              placeholder="Type DELETE"
+                              autoComplete="off"
+                              className="h-8 w-32 rounded border border-zinc-300 px-2 text-xs focus:border-red-500 focus:outline-none"
+                            />
+                            <button
+                              type="submit"
+                              className="h-8 px-3 text-xs rounded bg-red-600 text-white hover:bg-red-700 font-medium"
+                            >
+                              Delete this RO
+                            </button>
+                          </form>
+                        )}
                       </div>
                     );
                   })}

@@ -22,6 +22,13 @@ export async function deleteFromDuplicates(id: string, fd: FormData) {
     redirect("/repair-orders/duplicates?error=not_found");
   }
 
+  // PAID ROs are closed books — they only appear here for reference. Guard the
+  // server action itself (the UI hides the delete form, but server actions can
+  // be invoked directly) so a paid ticket's financial records can't be wiped.
+  if (ro.status === "PAID") {
+    redirect("/repair-orders/duplicates?error=paid_locked");
+  }
+
   await db.repairOrder.delete({ where: { id } });
   revalidatePath("/repair-orders");
   revalidatePath("/repair-orders/duplicates");
