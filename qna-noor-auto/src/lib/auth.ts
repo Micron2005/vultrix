@@ -1,63 +1,101 @@
 import { cookies } from "next/headers";
 import crypto from "node:crypto";
 
+// Pure auth primitives (no database access) so this module is safe to import
+// from the proxy/edge runtime. Database-backed helpers like getCurrentUser live
+// in ./session.ts.
+
 export const SESSION_COOKIE = "noor_auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 function getSessionSecret(): string {
-  return process.env.SESSION_SECRET || process.env.APP_PASSWORD || "dev-secret-change-me";
+  return (
+    process.env.SESSION_SECRET ||
+    process.env.APP_PASSWORD ||
+    "dev-secret-change-me"
+  );
 }
 
-function getAppPassword(): string {
-  return process.env.APP_PASSWORD || "changeme";
+function sign(value: string): string {
+  return crypto
+    .createHmac("sha256", getSessionSecret())
+    .update(value)
+    .digest("hex");
 }
 
-function sign(value: string, secret: string): string {
-  return crypto.createHmac("sha256", secret).update(value).digest("hex");
+// ---------------------------------------------------------------------------
+// Session token: a signed cookie that identifies the logged-in user. The body
+// embeds the userId so each request can resolve the user (and their org).
+//   token = `${userId}.${ts}.${nonce}.${sig}`
+// ---------------------------------------------------------------------------
+
+export function makeToken(userId: string): string {
+  const body = `${userId}.${Date.now().toString(36)}.${crypto
+    .randomBytes(16)
+    .toString("hex")}`;
+  return `${body}.${sign(body)}`;
 }
 
-function makeToken(): string {
-  const secret = getSessionSecret();
-  const body = `${Date.now().toString(36)}.${crypto.randomBytes(16).toString("hex")}`;
-  return `${body}.${sign(body, secret)}`;
-}
-
-function verifyToken(token: string | undefined | null): boolean {
-  if (!token) return false;
+/** Verify a token's signature and return the userId it carries, else null. */
+export function userIdFromToken(token: string | undefined | null): string | null {
+  if (!token) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  const [ts, nonce, sig] = parts;
-  const body = `${ts}.${nonce}`;
-  const expected = sign(body, getSessionSecret());
-  if (expected.length !== sig.length) return false;
+  if (parts.length !== 4) return null;
+  const [userId, ts, nonce, sig] = parts;
+  const body = `${userId}.${ts}.${nonce}`;
+  const expected = sign(body);
+  if (expected.length !== sig.length) return null;
   try {
-    return crypto.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(sig, "hex"));
+    const ok = crypto.timingSafeEqual(
+      Buffer.from(expected, "hex"),
+      Buffer.from(sig, "hex"),
+    );
+    return ok ? userId : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Password hashing (scrypt via node:crypto — no native deps).
+//   stored = `scrypt$${saltHex}$${hashHex}`
+// ---------------------------------------------------------------------------
+
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [scheme, saltHex, hashHex] = stored.split("$");
+  if (scheme !== "scrypt" || !saltHex || !hashHex) return false;
+  const salt = Buffer.from(saltHex, "hex");
+  const expected = Buffer.from(hashHex, "hex");
+  const actual = crypto.scryptSync(password, salt, expected.length);
+  if (expected.length !== actual.length) return false;
+  try {
+    return crypto.timingSafeEqual(expected, actual);
   } catch {
     return false;
   }
 }
 
-export async function isAuthenticated(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get(SESSION_COOKIE)?.value);
-}
+// ---------------------------------------------------------------------------
+// Cookie helpers
+// ---------------------------------------------------------------------------
 
-export function checkPassword(input: string): boolean {
-  const expected = getAppPassword();
-  const a = Buffer.from(input, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
-
-export async function createSession(): Promise<void> {
+export async function createSession(
+  userId: string,
+  remember = true,
+): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, makeToken(), {
+  store.set(SESSION_COOKIE, makeToken(userId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: COOKIE_MAX_AGE,
+    ...(remember ? { maxAge: COOKIE_MAX_AGE } : {}),
   });
 }
 

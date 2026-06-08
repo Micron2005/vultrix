@@ -9,9 +9,9 @@ function getSessionSecret(): string {
 function verifyToken(token: string | undefined | null): boolean {
   if (!token) return false;
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  const [ts, nonce, sig] = parts;
-  const body = `${ts}.${nonce}`;
+  if (parts.length !== 4) return false;
+  const [userId, ts, nonce, sig] = parts;
+  const body = `${userId}.${ts}.${nonce}`;
   const expected = crypto
     .createHmac("sha256", getSessionSecret())
     .update(body)

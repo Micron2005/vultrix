@@ -591,10 +591,47 @@ model LandingBlock {
 }
 
 // Rich-text landing page content (singleton row, id = "singleton").
-// The shop owner edits this via /site/edit; customers see it at /site.
+// Legacy — the /site website builder was removed; kept for migration history.
 model LandingContent {
   id        String   @id @default("singleton")
   html      String   @default("")
   theme     String   @default("{}")
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Multi-tenancy: each Organization is one business (tenant). Users are logins
+// that belong to an Organization. A platform owner (role SUPERADMIN) has no
+// Organization and manages all of them.
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String // the business's own shop name, shown to its users
+  // ACTIVE | SUSPENDED — a suspended org's users can't sign in (e.g. unpaid).
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+
+  @@index([status])
+}
+
+model User {
+  id           String        @id @default(cuid())
+  // Null only for a platform SUPERADMIN (M.S.A.M Industries staff).
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  username     String        @unique
+  passwordHash String
+  // SUPERADMIN | OWNER | ADMIN | STAFF
+  role         String        @default("STAFF")
+  isActive     Boolean       @default(true)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([orgId])
 }

@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+type NavProps = {
+  orgLabel: string;
+  canManageUsers?: boolean;
+  username?: string | null;
+};
+
 const items = [
   { href: "/", label: "Dashboard" },
   { href: "/customers", label: "Customers" },
@@ -30,10 +36,14 @@ function isActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function Nav() {
+export function Nav({ orgLabel, canManageUsers, username }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [q, setQ] = useState("");
+
+  const navItems = canManageUsers
+    ? [...items, { href: "/settings/users", label: "Logins" }]
+    : items;
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone
@@ -62,9 +72,11 @@ export function Nav() {
       <div className="p-5 border-b border-zinc-200">
         <Link href="/" className="block">
           <div className="text-sm font-semibold tracking-tight text-zinc-900">
-            QNA
+            {orgLabel}
           </div>
-          <div className="text-xs text-zinc-500">Noor Auto Repair</div>
+          {username && (
+            <div className="text-xs text-zinc-500">{username}</div>
+          )}
         </Link>
       </div>
       <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
@@ -78,7 +90,7 @@ export function Nav() {
         />
       </form>
       <nav className="p-2 flex flex-col gap-1">
-        {items.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
