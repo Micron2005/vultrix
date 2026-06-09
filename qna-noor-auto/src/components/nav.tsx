@@ -8,6 +8,7 @@ type NavProps = {
   orgLabel: string;
   canManageUsers?: boolean;
   username?: string | null;
+  isSuperadmin?: boolean;
 };
 
 const items = [
@@ -36,14 +37,23 @@ function isActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function Nav({ orgLabel, canManageUsers, username }: NavProps) {
+export function Nav({
+  orgLabel,
+  canManageUsers,
+  username,
+  isSuperadmin,
+}: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [q, setQ] = useState("");
 
-  const navItems = canManageUsers
-    ? [...items, { href: "/settings/users", label: "Logins" }]
-    : items;
+  // Platform admins (no organization) only ever manage businesses — the shop
+  // data pages are meaningless to them, so show a focused platform menu.
+  const navItems = isSuperadmin
+    ? [{ href: "/admin", label: "Manage businesses" }]
+    : canManageUsers
+      ? [...items, { href: "/settings/users", label: "Logins" }]
+      : items;
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone
@@ -79,16 +89,18 @@ export function Nav({ orgLabel, canManageUsers, username }: NavProps) {
           )}
         </Link>
       </div>
-      <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search customers, ROs, VIN…"
-          className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-          aria-label="Search"
-        />
-      </form>
+      {!isSuperadmin && (
+        <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search customers, ROs, VIN…"
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            aria-label="Search"
+          />
+        </form>
+      )}
       <nav className="p-2 flex flex-col gap-1">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);

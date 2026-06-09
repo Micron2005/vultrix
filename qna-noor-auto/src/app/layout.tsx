@@ -23,6 +23,7 @@ export default async function RootLayout({
             orgLabel={orgLabel}
             username={user?.username ?? null}
             canManageUsers={user ? canManageUsers(user.role) : false}
+            isSuperadmin={user?.role === "SUPERADMIN"}
           />
           <main className="flex-1 overflow-auto">
             <div className="mx-auto max-w-6xl p-6">{children}</div>

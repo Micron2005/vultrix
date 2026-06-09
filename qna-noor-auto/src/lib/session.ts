@@ -61,14 +61,25 @@ export function canManageUsers(role: Role): boolean {
  *
  * Every business only ever sees its own data, so all tenant queries are scoped
  * by this orgId. Redirects to /login when there's no session. Platform
- * SUPERADMINs have no organization and are sent to /settings/users (the only
- * area they manage), since data pages are meaningless without an org.
+ * SUPERADMINs have no organization and are sent to /admin (the platform
+ * controls they manage), since data pages are meaningless without an org.
  */
 export async function requireOrgId(): Promise<string> {
   const user = await requireUser();
   if (!user.orgId) {
     // SUPERADMIN (platform owner) — no business data to show.
-    redirect("/settings/users");
+    redirect("/admin");
   }
   return user.orgId;
+}
+
+/**
+ * Require a platform SUPERADMIN (M.S.A.M Industries staff who manage the whole
+ * platform). Anyone with an organization is a tenant user and is sent back to
+ * their own dashboard, since the platform controls aren't theirs to see.
+ */
+export async function requireSuperadmin(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (user.role !== "SUPERADMIN") redirect("/");
+  return user;
 }
