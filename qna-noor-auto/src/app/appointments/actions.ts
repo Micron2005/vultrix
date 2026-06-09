@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { getSetting } from "@/lib/shop";
 import { APPOINTMENT_STATUSES } from "./constants";
 
@@ -46,16 +47,31 @@ function toData(fd: FormData) {
 }
 
 export async function createAppointment(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  const created = await db.appointment.create({ data });
+  // Guard: customer (and vehicle, if any) must belong to this org.
+  const customer = await db.customer.findFirst({
+    where: { id: data.customerId, orgId },
+    select: { id: true },
+  });
+  if (!customer) throw new Error("Customer not found");
+  if (data.vehicleId) {
+    const vehicle = await db.vehicle.findFirst({
+      where: { id: data.vehicleId, orgId },
+      select: { id: true },
+    });
+    if (!vehicle) throw new Error("Vehicle not found");
+  }
+  const created = await db.appointment.create({ data: { ...data, orgId } });
   revalidatePath("/appointments");
   revalidatePath("/");
   redirect(`/appointments/${created.id}`);
 }
 
 export async function updateAppointment(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  await db.appointment.update({ where: { id }, data });
+  await db.appointment.updateMany({ where: { id, orgId }, data });
   revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);
   revalidatePath("/");
@@ -63,15 +79,17 @@ export async function updateAppointment(id: string, fd: FormData) {
 }
 
 export async function deleteAppointment(id: string) {
-  await db.appointment.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.appointment.deleteMany({ where: { id, orgId } });
   revalidatePath("/appointments");
   revalidatePath("/");
   redirect("/appointments");
 }
 
 export async function setAppointmentStatus(id: string, status: string) {
+  const orgId = await requireOrgId();
   if (!APPOINTMENT_STATUSES.includes(status as never)) return;
-  await db.appointment.update({ where: { id }, data: { status } });
+  await db.appointment.updateMany({ where: { id, orgId }, data: { status } });
   revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);
   revalidatePath("/");
@@ -81,8 +99,9 @@ export async function setAppointmentStatus(id: string, status: string) {
 // Carries customer, vehicle, and reason → complaint.
 // Marks the appointment as ARRIVED and links it to the new RO.
 export async function startRoFromAppointment(id: string) {
-  const appt = await db.appointment.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const appt = await db.appointment.findFirst({
+    where: { id, orgId },
     include: { customer: true, vehicle: true },
   });
   if (!appt) throw new Error("Appointment not found");
@@ -93,16 +112,18 @@ export async function startRoFromAppointment(id: string) {
 
   // Next RO number
   const last = await db.repairOrder.findFirst({
+    where: { orgId },
     orderBy: { roNumber: "desc" },
     select: { roNumber: true },
   });
   const nextNo = (last?.roNumber ?? 1000) + 1;
 
-  const taxRateStr = await getSetting("defaultTaxRate");
+  const taxRateStr = await getSetting(orgId, "defaultTaxRate");
   const taxRate = taxRateStr ? parseFloat(taxRateStr) || 0 : 0;
 
   const ro = await db.repairOrder.create({
     data: {
+      orgId,
       roNumber: nextNo,
       customerId: appt.customerId,
       vehicleId: appt.vehicleId,
@@ -114,7 +135,7 @@ export async function startRoFromAppointment(id: string) {
   });
 
   await db.appointment.update({
-    where: { id },
+    where: { id, orgId },
     data: {
       status: "ARRIVED",
       repairOrderId: ro.id,

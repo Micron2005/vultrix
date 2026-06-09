@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { parseMileage } from "@/lib/utils";
 import { decodeVin, type VinDecodeResult } from "@/lib/vin";
 
@@ -50,8 +51,14 @@ function prepare(fd: FormData) {
 }
 
 export async function createVehicle(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = prepare(fd);
-  const created = await db.vehicle.create({ data });
+  const customer = await db.customer.findFirst({
+    where: { id: data.customerId, orgId },
+    select: { id: true },
+  });
+  if (!customer) throw new Error("Customer not found");
+  const created = await db.vehicle.create({ data: { ...data, orgId } });
   revalidatePath(`/customers/${data.customerId}`);
   revalidatePath("/vehicles");
   revalidatePath("/");
@@ -59,17 +66,24 @@ export async function createVehicle(fd: FormData) {
 }
 
 export async function updateVehicle(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = prepare(fd);
-  await db.vehicle.update({ where: { id }, data });
+  const customer = await db.customer.findFirst({
+    where: { id: data.customerId, orgId },
+    select: { id: true },
+  });
+  if (!customer) throw new Error("Customer not found");
+  await db.vehicle.update({ where: { id, orgId }, data });
   revalidatePath(`/vehicles/${id}`);
   revalidatePath(`/customers/${data.customerId}`);
   redirect(`/vehicles/${id}`);
 }
 
 export async function deleteVehicle(id: string) {
-  const v = await db.vehicle.findUnique({ where: { id } });
+  const orgId = await requireOrgId();
+  const v = await db.vehicle.findFirst({ where: { id, orgId } });
   if (!v) return;
-  await db.vehicle.delete({ where: { id } });
+  await db.vehicle.delete({ where: { id, orgId } });
   revalidatePath(`/customers/${v.customerId}`);
   revalidatePath("/vehicles");
   redirect(`/customers/${v.customerId}`);

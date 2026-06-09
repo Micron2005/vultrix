@@ -9,28 +9,33 @@ const DEFAULTS: Record<string, string> = {
   defaultTaxRate: "8.25",
 };
 
-export async function getSetting(key: string): Promise<string> {
-  const row = await db.shopSetting.findUnique({ where: { key } });
+export async function getSetting(orgId: string, key: string): Promise<string> {
+  const row = await db.shopSetting.findUnique({
+    where: { orgId_key: { orgId, key } },
+  });
   return row?.value ?? DEFAULTS[key] ?? "";
 }
 
-export async function getAllSettings(): Promise<Record<string, string>> {
-  const rows = await db.shopSetting.findMany();
+export async function getAllSettings(
+  orgId: string,
+): Promise<Record<string, string>> {
+  const rows = await db.shopSetting.findMany({ where: { orgId } });
   const out: Record<string, string> = { ...DEFAULTS };
   for (const r of rows) out[r.key] = r.value;
   return out;
 }
 
-export async function setSetting(key: string, value: string) {
+export async function setSetting(orgId: string, key: string, value: string) {
   await db.shopSetting.upsert({
-    where: { key },
-    create: { key, value },
+    where: { orgId_key: { orgId, key } },
+    create: { orgId, key, value },
     update: { value },
   });
 }
 
-export async function getNextRoNumber(): Promise<number> {
+export async function getNextRoNumber(orgId: string): Promise<number> {
   const last = await db.repairOrder.findFirst({
+    where: { orgId },
     orderBy: { roNumber: "desc" },
     select: { roNumber: true },
   });

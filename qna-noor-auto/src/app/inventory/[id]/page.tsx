@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -50,9 +51,10 @@ export default async function PartDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const orgId = await requireOrgId();
 
-  const part = await db.part.findUnique({
-    where: { id },
+  const part = await db.part.findFirst({
+    where: { id, orgId },
     include: {
       stockMoves: {
         orderBy: { createdAt: "desc" },

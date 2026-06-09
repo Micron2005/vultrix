@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { NoteForm } from "../../NoteForm";
 import { updateNote } from "../../actions";
@@ -12,7 +13,8 @@ export default async function EditNotePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const note = await db.repairNote.findUnique({ where: { id } });
+  const orgId = await requireOrgId();
+  const note = await db.repairNote.findFirst({ where: { id, orgId } });
   if (!note) notFound();
 
   const action = updateNote.bind(null, note.id);

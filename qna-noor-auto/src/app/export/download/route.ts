@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import Papa from "papaparse";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ function csv<T extends object>(rows: T[]): string {
 }
 
 export async function GET() {
+  const orgId = await requireOrgId();
   const [
     customers,
     vehicles,
@@ -38,22 +40,37 @@ export async function GET() {
     cannedJobParts,
     settings,
   ] = await Promise.all([
-    db.customer.findMany({ orderBy: { createdAt: "asc" } }),
-    db.vehicle.findMany({ orderBy: { createdAt: "asc" } }),
-    db.repairOrder.findMany({ orderBy: { roNumber: "asc" } }),
-    db.laborLine.findMany({ orderBy: { createdAt: "asc" } }),
-    db.partLine.findMany({ orderBy: { createdAt: "asc" } }),
-    db.payment.findMany({ orderBy: { paidAt: "asc" } }),
-    db.part.findMany({ orderBy: { name: "asc" } }),
-    db.stockMove.findMany({ orderBy: { createdAt: "asc" } }),
-    db.appointment.findMany({ orderBy: { startsAt: "asc" } }),
-    db.repairNote.findMany({ orderBy: { createdAt: "asc" } }),
-    db.technician.findMany({ orderBy: { name: "asc" } }),
-    db.expense.findMany({ orderBy: { paidAt: "asc" } }),
-    db.cannedJob.findMany({ orderBy: { name: "asc" } }),
-    db.cannedJobLabor.findMany({ orderBy: { sortOrder: "asc" } }),
-    db.cannedJobPart.findMany({ orderBy: { sortOrder: "asc" } }),
-    db.shopSetting.findMany({ orderBy: { key: "asc" } }),
+    db.customer.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
+    db.vehicle.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
+    db.repairOrder.findMany({ where: { orgId }, orderBy: { roNumber: "asc" } }),
+    db.laborLine.findMany({
+      where: { repairOrder: { orgId } },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.partLine.findMany({
+      where: { repairOrder: { orgId } },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.payment.findMany({ where: { orgId }, orderBy: { paidAt: "asc" } }),
+    db.part.findMany({ where: { orgId }, orderBy: { name: "asc" } }),
+    db.stockMove.findMany({
+      where: { part: { orgId } },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.appointment.findMany({ where: { orgId }, orderBy: { startsAt: "asc" } }),
+    db.repairNote.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
+    db.technician.findMany({ where: { orgId }, orderBy: { name: "asc" } }),
+    db.expense.findMany({ where: { orgId }, orderBy: { paidAt: "asc" } }),
+    db.cannedJob.findMany({ where: { orgId }, orderBy: { name: "asc" } }),
+    db.cannedJobLabor.findMany({
+      where: { cannedJob: { orgId } },
+      orderBy: { sortOrder: "asc" },
+    }),
+    db.cannedJobPart.findMany({
+      where: { cannedJob: { orgId } },
+      orderBy: { sortOrder: "asc" },
+    }),
+    db.shopSetting.findMany({ where: { orgId }, orderBy: { key: "asc" } }),
   ]);
 
   const zip = new JSZip();

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 import {
   formatDate,
@@ -57,6 +58,7 @@ export default async function SearchPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const orgId = await requireOrgId();
   const { q: qRaw } = await searchParams;
   const q = (qRaw ?? "").trim();
 
@@ -138,24 +140,24 @@ export default async function SearchPage({
 
   const [customers, vehicles, repairOrders, notes] = await Promise.all([
     db.customer.findMany({
-      where: { AND: customerAnd },
+      where: { orgId, AND: customerAnd },
       orderBy: { lastName: "asc" },
       take: 20,
     }),
     db.vehicle.findMany({
-      where: { AND: vehicleAnd },
+      where: { orgId, AND: vehicleAnd },
       include: { customer: true },
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),
     db.repairOrder.findMany({
-      where: { AND: roAnd },
+      where: { orgId, AND: roAnd },
       include: { customer: true, vehicle: true },
       orderBy: { openedAt: "desc" },
       take: 20,
     }),
     db.repairNote.findMany({
-      where: { AND: noteAnd },
+      where: { orgId, AND: noteAnd },
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),

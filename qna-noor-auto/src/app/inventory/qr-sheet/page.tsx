@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { stickerScanUrl } from "@/lib/scanTokens";
 import { PrintQrButton } from "../[id]/qr/PrintQrButton";
 
@@ -39,6 +40,7 @@ export default async function QrSheetPage({
     size?: string;
   }>;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const idList = (sp.ids ?? "")
     .split(",")
@@ -51,7 +53,7 @@ export default async function QrSheetPage({
   const q = (sp.q ?? "").trim();
   const size = sp.size === "large" ? "large" : "small";
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { orgId };
   if (idList.length > 0) {
     where.id = { in: idList };
   } else {

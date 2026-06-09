@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -18,15 +19,17 @@ export default async function ExpensesListPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; category?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const from = sp.from ? new Date(sp.from) : null;
   const to = sp.to ? new Date(sp.to) : null;
   const category = sp.category?.trim() || null;
 
   const where: {
+    orgId: string;
     paidAt?: { gte?: Date; lte?: Date };
     category?: string;
-  } = {};
+  } = { orgId };
   if (from || to) {
     where.paidAt = {};
     if (from && !isNaN(from.getTime())) where.paidAt.gte = from;
@@ -48,15 +51,15 @@ export default async function ExpensesListPage({
   const [expenses, mtdPayments, mtdExpenses, invoicedROs] = await Promise.all([
     db.expense.findMany({ where, orderBy: { paidAt: "desc" } }),
     db.payment.findMany({
-      where: { paidAt: { gte: mtdFrom, lte: mtdTo } },
+      where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
       select: { amount: true },
     }),
     db.expense.findMany({
-      where: { paidAt: { gte: mtdFrom, lte: mtdTo } },
+      where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
       select: { amount: true },
     }),
     db.repairOrder.findMany({
-      where: { status: "INVOICED" },
+      where: { orgId, status: "INVOICED" },
       include: {
         laborLines: true,
         partLines: true,
@@ -74,6 +77,7 @@ export default async function ExpensesListPage({
   // Sum outstanding balance across every RO currently in the INVOICED state.
   // Shop fees are applied the same way `/reports` computes them.
   const arShopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     invoicedROs.map((ro) => {
       const t = computeTotals(ro);
       return {

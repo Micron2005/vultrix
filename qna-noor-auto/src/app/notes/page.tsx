@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -16,11 +17,12 @@ export default async function NotesPage({
 }: {
   searchParams: Promise<{ q?: string; tag?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { q, tag } = await searchParams;
   const query = q?.trim() ?? "";
   const tagFilter = tag?.trim().toLowerCase() ?? "";
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { orgId };
   const AND: Record<string, unknown>[] = [];
 
   if (query) {

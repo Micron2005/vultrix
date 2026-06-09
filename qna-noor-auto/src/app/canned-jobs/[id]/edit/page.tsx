@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, PageHeader } from "@/components/ui";
 import { CannedJobForm } from "../../CannedJobForm";
 import { updateCannedJob } from "../../actions";
@@ -12,8 +13,9 @@ export default async function EditCannedJobPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const job = await db.cannedJob.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const job = await db.cannedJob.findFirst({
+    where: { id, orgId },
     include: {
       laborItems: { orderBy: { sortOrder: "asc" } },
       partItems: { orderBy: { sortOrder: "asc" } },
@@ -22,7 +24,7 @@ export default async function EditCannedJobPage({
   if (!job) notFound();
 
   const catalog = await db.part.findMany({
-    where: { archived: false },
+    where: { orgId, archived: false },
     orderBy: { name: "asc" },
     select: {
       id: true,

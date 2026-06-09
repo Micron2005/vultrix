@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -14,11 +15,12 @@ export default async function CannedJobsListPage({
 }: {
   searchParams: Promise<{ archived?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const showArchived = sp.archived === "1";
 
   const jobs = await db.cannedJob.findMany({
-    where: { archived: showArchived },
+    where: { orgId, archived: showArchived },
     orderBy: [{ category: "asc" }, { name: "asc" }],
     include: {
       laborItems: { select: { id: true, hours: true } },

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, CardHeader, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -11,6 +12,7 @@ import { computeAllVehicleReminders } from "@/lib/serviceReminders";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const orgId = await requireOrgId();
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
@@ -18,12 +20,13 @@ export default async function DashboardPage() {
 
   const [customerCount, vehicleCount, openROs, recentROs, todayAppts] =
     await Promise.all([
-      db.customer.count(),
-      db.vehicle.count(),
+      db.customer.count({ where: { orgId } }),
+      db.vehicle.count({ where: { orgId } }),
       db.repairOrder.count({
-        where: { status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] } },
+        where: { orgId, status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] } },
       }),
       db.repairOrder.findMany({
+        where: { orgId },
         orderBy: { openedAt: "desc" },
         take: 8,
         include: {
@@ -36,13 +39,14 @@ export default async function DashboardPage() {
         },
       }),
       db.appointment.findMany({
-        where: { startsAt: { gte: dayStart, lt: dayEnd } },
+        where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
         orderBy: { startsAt: "asc" },
         include: { customer: true, vehicle: true },
       }),
     ]);
 
   const recentShopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     recentROs.map((ro) => {
       const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
@@ -51,6 +55,7 @@ export default async function DashboardPage() {
 
   const paidThisMonthROs = await db.repairOrder.findMany({
     where: {
+      orgId,
       status: "PAID",
       closedAt: {
         gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -64,6 +69,7 @@ export default async function DashboardPage() {
     },
   });
   const paidShopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     paidThisMonthROs.map((ro) => {
       const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
@@ -80,7 +86,7 @@ export default async function DashboardPage() {
   // Include INVOICED (in process) so partial payments still show up.
   // Exclude PAID and CANCELLED.
   const outstandingROs = await db.repairOrder.findMany({
-    where: { status: "INVOICED" },
+    where: { orgId, status: "INVOICED" },
     orderBy: { invoicedAt: "asc" },
     include: {
       customer: true,
@@ -93,6 +99,7 @@ export default async function DashboardPage() {
     },
   });
   const outstandingShopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     outstandingROs.map((ro) => {
       const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
@@ -125,7 +132,7 @@ export default async function DashboardPage() {
   const weekLaborLines = await db.laborLine.findMany({
     where: {
       technicianId: { not: null },
-      repairOrder: { openedAt: { gte: weekStart } },
+      repairOrder: { orgId, openedAt: { gte: weekStart } },
     },
     include: { technician: true },
   });
@@ -151,7 +158,7 @@ export default async function DashboardPage() {
   // Low stock: any active catalog part where qtyOnHand <= reorderLevel.
   // Sort out-of-stock first, then by how deep under the threshold.
   const activeParts = await db.part.findMany({
-    where: { archived: false },
+    where: { orgId, archived: false },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -165,7 +172,7 @@ export default async function DashboardPage() {
     .filter((p) => p.qtyOnHand <= p.reorderLevel)
     .sort((a, b) => a.qtyOnHand - a.reorderLevel - (b.qtyOnHand - b.reorderLevel));
 
-  const allReminders = await computeAllVehicleReminders();
+  const allReminders = await computeAllVehicleReminders(orgId);
   const vehiclesDue = allReminders
     .map((r) => ({
       ...r,

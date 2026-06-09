@@ -59,10 +59,10 @@ export default async function CustomerPortalROPage({
 
   if (!ro || ro.customerId !== customer.id) notFound();
 
-  const shop = await getAllSettings();
+  const shop = await getAllSettings(ro.orgId);
   const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals(filtered);
-  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+  const appliedShopFees = await loadAppliedShopFees(ro.orgId, ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
   });

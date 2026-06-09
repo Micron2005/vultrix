@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 const CustomerSchema = z.object({
   type: z.enum(["INDIVIDUAL", "BUSINESS"]).default("INDIVIDUAL"),
@@ -34,23 +35,26 @@ function parseFormData(fd: FormData) {
 }
 
 export async function createCustomer(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = parseFormData(fd);
-  const created = await db.customer.create({ data });
+  const created = await db.customer.create({ data: { ...data, orgId } });
   revalidatePath("/customers");
   revalidatePath("/");
   redirect(`/customers/${created.id}`);
 }
 
 export async function updateCustomer(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = parseFormData(fd);
-  await db.customer.update({ where: { id }, data });
+  await db.customer.update({ where: { id, orgId }, data });
   revalidatePath(`/customers/${id}`);
   revalidatePath("/customers");
   redirect(`/customers/${id}`);
 }
 
 export async function deleteCustomer(id: string) {
-  await db.customer.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.customer.delete({ where: { id, orgId } });
   revalidatePath("/customers");
   revalidatePath("/");
   redirect("/customers");
@@ -62,9 +66,9 @@ export async function deleteCustomer(id: string) {
 
 const PAYMENT_METHODS = ["CASH", "CARD", "CHECK", "TRANSFER", "OTHER"] as const;
 
-async function computeRoTotal(id: string): Promise<number> {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+async function computeRoTotal(orgId: string, id: string): Promise<number> {
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     include: {
       jobs: { select: { id: true, approvalStatus: true } },
       laborLines: true,
@@ -83,7 +87,7 @@ async function computeRoTotal(id: string): Promise<number> {
   const parts = activeParts.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
   const fees = activeFees.reduce((s, f) => s + (f.amount || 0), 0);
   const { loadAppliedShopFees } = await import("@/lib/shopFees");
-  const appliedShopFees = await loadAppliedShopFees(id, {
+  const appliedShopFees = await loadAppliedShopFees(orgId, id, {
     partsSubtotal: parts,
     laborSubtotal: labor,
   });
@@ -111,6 +115,7 @@ export async function recordBulkPayment(
     return { ok: false, message: "Invalid payment amount." };
   }
 
+  const orgId = await requireOrgId();
   const rawMethod = String(fd.get("method") ?? "CASH").toUpperCase();
   const method = (PAYMENT_METHODS as readonly string[]).includes(rawMethod)
     ? rawMethod
@@ -132,7 +137,7 @@ export async function recordBulkPayment(
   // Verify all ROs belong to this customer
   const roIds = allocations.map((a) => a.roId);
   const ros = await db.repairOrder.findMany({
-    where: { id: { in: roIds }, customerId },
+    where: { id: { in: roIds }, customerId, orgId },
     select: { id: true },
   });
   const validIds = new Set(ros.map((r) => r.id));
@@ -155,6 +160,7 @@ export async function recordBulkPayment(
     // Record the payment on this RO
     await db.payment.create({
       data: {
+        orgId,
         repairOrderId: alloc.roId,
         amount: paymentAmount,
         method,
@@ -170,12 +176,12 @@ export async function recordBulkPayment(
 
     // Check if this RO is now fully paid
     const [ro, payments, total] = await Promise.all([
-      db.repairOrder.findUnique({ where: { id: alloc.roId } }),
+      db.repairOrder.findFirst({ where: { id: alloc.roId, orgId } }),
       db.payment.findMany({
-        where: { repairOrderId: alloc.roId },
+        where: { repairOrderId: alloc.roId, orgId },
         select: { amount: true },
       }),
-      computeRoTotal(alloc.roId),
+      computeRoTotal(orgId, alloc.roId),
     ]);
 
     if (ro) {
@@ -192,7 +198,7 @@ export async function recordBulkPayment(
         clearedCount++;
       }
       if (Object.keys(data).length > 0) {
-        await db.repairOrder.update({ where: { id: alloc.roId }, data });
+        await db.repairOrder.update({ where: { id: alloc.roId, orgId }, data });
       }
     }
   }
@@ -231,10 +237,11 @@ export async function bulkDeleteRepairOrders(
   if (!customerId || !Array.isArray(roIds) || roIds.length === 0) {
     return { ok: false, message: "No tickets selected." };
   }
+  const orgId = await requireOrgId();
 
   // Only delete ROs that actually belong to this customer.
   const ros = await db.repairOrder.findMany({
-    where: { id: { in: roIds }, customerId },
+    where: { id: { in: roIds }, customerId, orgId },
     select: { id: true, vehicleId: true },
   });
   if (ros.length === 0) {
@@ -242,7 +249,7 @@ export async function bulkDeleteRepairOrders(
   }
 
   const validIds = ros.map((r) => r.id);
-  await db.repairOrder.deleteMany({ where: { id: { in: validIds } } });
+  await db.repairOrder.deleteMany({ where: { id: { in: validIds }, orgId } });
 
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/repair-orders");
@@ -277,8 +284,9 @@ export async function paySelectedRepairOrders(
     ? String(method).toUpperCase()
     : "CASH";
 
+  const orgId = await requireOrgId();
   const ros = await db.repairOrder.findMany({
-    where: { id: { in: roIds }, customerId },
+    where: { id: { in: roIds }, customerId, orgId },
     select: { id: true, status: true, invoicedAt: true },
   });
   if (ros.length === 0) {
@@ -298,10 +306,10 @@ export async function paySelectedRepairOrders(
     if (ro.status === "PAID") continue;
     const [payments, total] = await Promise.all([
       db.payment.findMany({
-        where: { repairOrderId: ro.id },
+        where: { repairOrderId: ro.id, orgId },
         select: { amount: true },
       }),
-      computeRoTotal(ro.id),
+      computeRoTotal(orgId, ro.id),
     ]);
     const alreadyPaid = payments.reduce((s, p) => s + p.amount, 0);
     const balance = Math.round((total - alreadyPaid) * 100) / 100;
@@ -309,6 +317,7 @@ export async function paySelectedRepairOrders(
 
     await db.payment.create({
       data: {
+        orgId,
         repairOrderId: ro.id,
         amount: balance,
         method: payMethod,
@@ -320,7 +329,7 @@ export async function paySelectedRepairOrders(
     clearedCount++;
 
     await db.repairOrder.update({
-      where: { id: ro.id },
+      where: { id: ro.id, orgId },
       data: {
         status: "PAID",
         paidAt,
@@ -359,10 +368,12 @@ export async function clearSelectedRepairOrders(
     return { ok: false, message: "No tickets selected." };
   }
 
+  const orgId = await requireOrgId();
   const ros = await db.repairOrder.findMany({
     where: {
       id: { in: roIds },
       customerId,
+      orgId,
       status: "PAID",
       clearedAt: null,
     },
@@ -377,7 +388,7 @@ export async function clearSelectedRepairOrders(
 
   const validIds = ros.map((r) => r.id);
   await db.repairOrder.updateMany({
-    where: { id: { in: validIds } },
+    where: { id: { in: validIds }, orgId },
     data: { clearedAt: new Date() },
   });
 
@@ -408,8 +419,9 @@ export async function removeBulkSelectionPayments(
     return { ok: false, message: "No tickets selected." };
   }
 
+  const orgId = await requireOrgId();
   const ros = await db.repairOrder.findMany({
-    where: { id: { in: roIds }, customerId, status: "PAID" },
+    where: { id: { in: roIds }, customerId, orgId, status: "PAID" },
     select: { id: true },
   });
   if (ros.length === 0) {
@@ -420,6 +432,7 @@ export async function removeBulkSelectionPayments(
   const dupPayments = await db.payment.findMany({
     where: {
       repairOrderId: { in: validIds },
+      orgId,
       note: "Paid via bulk selection",
     },
     select: { id: true, amount: true, repairOrderId: true },
@@ -437,7 +450,7 @@ export async function removeBulkSelectionPayments(
     new Set(dupPayments.map((p) => p.repairOrderId)),
   );
   await db.payment.deleteMany({
-    where: { id: { in: dupPayments.map((p) => p.id) } },
+    where: { id: { in: dupPayments.map((p) => p.id) }, orgId },
   });
 
   revalidatePath(`/customers/${customerId}`);

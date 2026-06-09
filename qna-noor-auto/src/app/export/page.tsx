@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExportPage() {
+  const orgId = await requireOrgId();
   const [
     customers,
     vehicles,
@@ -16,16 +18,16 @@ export default async function ExportPage() {
     expenses,
     cannedJobs,
   ] = await Promise.all([
-    db.customer.count(),
-    db.vehicle.count(),
-    db.repairOrder.count(),
-    db.payment.count(),
-    db.part.count(),
-    db.appointment.count(),
-    db.repairNote.count(),
-    db.technician.count(),
-    db.expense.count(),
-    db.cannedJob.count(),
+    db.customer.count({ where: { orgId } }),
+    db.vehicle.count({ where: { orgId } }),
+    db.repairOrder.count({ where: { orgId } }),
+    db.payment.count({ where: { orgId } }),
+    db.part.count({ where: { orgId } }),
+    db.appointment.count({ where: { orgId } }),
+    db.repairNote.count({ where: { orgId } }),
+    db.technician.count({ where: { orgId } }),
+    db.expense.count({ where: { orgId } }),
+    db.cannedJob.count({ where: { orgId } }),
   ]);
 
   const rows: { label: string; value: number }[] = [

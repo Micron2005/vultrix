@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { parseMileage } from "@/lib/utils";
 
 export async function markServiceDone(fd: FormData) {
+  const orgId = await requireOrgId();
   const vehicleId = String(fd.get("vehicleId") ?? "");
   const intervalId = String(fd.get("intervalId") ?? "");
   const atMileageRaw = fd.get("atMileage");
@@ -12,6 +14,12 @@ export async function markServiceDone(fd: FormData) {
   const note = fd.get("note");
 
   if (!vehicleId || !intervalId) return;
+
+  const vehicle = await db.vehicle.findFirst({
+    where: { id: vehicleId, orgId },
+    select: { id: true },
+  });
+  if (!vehicle) return;
 
   const atMileage =
     typeof atMileageRaw === "string" ? parseMileage(atMileageRaw) : null;
@@ -36,10 +44,11 @@ export async function markServiceDone(fd: FormData) {
 }
 
 export async function deleteServiceLog(fd: FormData) {
+  const orgId = await requireOrgId();
   const logId = String(fd.get("logId") ?? "");
   const vehicleId = String(fd.get("vehicleId") ?? "");
   if (!logId) return;
-  await db.serviceLog.delete({ where: { id: logId } });
+  await db.serviceLog.deleteMany({ where: { id: logId, vehicle: { orgId } } });
   if (vehicleId) revalidatePath(`/vehicles/${vehicleId}`);
   revalidatePath("/");
 }

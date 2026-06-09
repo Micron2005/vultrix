@@ -9,6 +9,7 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { deleteTechnician, toggleActive } from "../actions";
 
@@ -34,8 +35,9 @@ export default async function TechnicianDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tech = await db.technician.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const tech = await db.technician.findFirst({
+    where: { id, orgId },
     include: {
       laborLines: {
         include: {

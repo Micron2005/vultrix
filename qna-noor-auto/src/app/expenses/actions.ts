@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 function parseMoney(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? ""));
@@ -28,6 +29,7 @@ function parseCategory(v: FormDataEntryValue | null): string {
 }
 
 export async function createExpense(fd: FormData) {
+  const orgId = await requireOrgId();
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -39,7 +41,7 @@ export async function createExpense(fd: FormData) {
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
   await db.expense.create({
-    data: { amount, category, paidAt, vendor, reference, method, note },
+    data: { orgId, amount, category, paidAt, vendor, reference, method, note },
   });
 
   revalidatePath("/expenses");
@@ -48,6 +50,7 @@ export async function createExpense(fd: FormData) {
 }
 
 export async function updateExpense(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -58,8 +61,8 @@ export async function updateExpense(id: string, fd: FormData) {
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
-  await db.expense.update({
-    where: { id },
+  await db.expense.updateMany({
+    where: { id, orgId },
     data: { amount, category, paidAt, vendor, reference, method, note },
   });
 
@@ -69,7 +72,8 @@ export async function updateExpense(id: string, fd: FormData) {
 }
 
 export async function deleteExpense(id: string) {
-  await db.expense.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.expense.deleteMany({ where: { id, orgId } });
   revalidatePath("/expenses");
   revalidatePath("/reports");
   redirect("/expenses");

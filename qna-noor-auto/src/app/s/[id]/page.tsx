@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { scanAdjustStock } from "@/app/inventory/actions";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +26,12 @@ export default async function ScanPartPage({
   searchParams: Promise<{ ok?: string }>;
 }) {
   const { id } = await params;
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const justSaved = sp.ok === "1";
 
-  const part = await db.part.findUnique({
-    where: { id },
+  const part = await db.part.findFirst({
+    where: { id, orgId },
     include: {
       stockMoves: {
         orderBy: { createdAt: "desc" },

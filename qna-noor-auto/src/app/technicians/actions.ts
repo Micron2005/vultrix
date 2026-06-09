@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 const TechSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -48,16 +49,18 @@ function toData(fd: FormData) {
 }
 
 export async function createTechnician(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  const created = await db.technician.create({ data });
+  const created = await db.technician.create({ data: { ...data, orgId } });
   revalidatePath("/technicians");
   revalidatePath("/repair-orders");
   redirect(`/technicians/${created.id}`);
 }
 
 export async function updateTechnician(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  await db.technician.update({ where: { id }, data });
+  await db.technician.updateMany({ where: { id, orgId }, data });
   revalidatePath("/technicians");
   revalidatePath(`/technicians/${id}`);
   revalidatePath("/repair-orders");
@@ -65,6 +68,12 @@ export async function updateTechnician(id: string, fd: FormData) {
 }
 
 export async function deleteTechnician(id: string) {
+  const orgId = await requireOrgId();
+  const owned = await db.technician.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) redirect("/technicians");
   // Null out labor-line references first (preserve historical labor lines).
   await db.laborLine.updateMany({
     where: { technicianId: id },
@@ -77,7 +86,8 @@ export async function deleteTechnician(id: string) {
 }
 
 export async function toggleActive(id: string, active: boolean) {
-  await db.technician.update({ where: { id }, data: { active } });
+  const orgId = await requireOrgId();
+  await db.technician.updateMany({ where: { id, orgId }, data: { active } });
   revalidatePath("/technicians");
   revalidatePath(`/technicians/${id}`);
 }

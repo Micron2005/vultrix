@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { stickerScanUrl } from "@/lib/scanTokens";
 import { PrintQrButton } from "./PrintQrButton";
 
@@ -32,9 +33,10 @@ export default async function PartQrPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const orgId = await requireOrgId();
 
-  const part = await db.part.findUnique({
-    where: { id },
+  const part = await db.part.findFirst({
+    where: { id, orgId },
     select: { id: true, name: true, partNumber: true, source: true },
   });
   if (!part) notFound();

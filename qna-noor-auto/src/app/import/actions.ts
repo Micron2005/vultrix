@@ -3,6 +3,7 @@
 import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { decodeVin } from "@/lib/vin";
 import type { ColumnMap, LogicalField } from "./fields";
 
@@ -36,6 +37,7 @@ export async function runImport(
   skipped: number;
   errors: string[];
 }> {
+  const orgId = await requireOrgId();
   const columnMap = JSON.parse(columnMapJson) as ColumnMap;
   const result = Papa.parse<Record<string, string>>(csvText, {
     header: true,
@@ -106,10 +108,11 @@ export async function runImport(
         // Try find existing in DB
         const existing = customerData.email
           ? await db.customer.findFirst({
-              where: { email: customerData.email },
+              where: { orgId, email: customerData.email },
             })
           : await db.customer.findFirst({
               where: {
+                orgId,
                 firstName: customerData.firstName,
                 lastName: customerData.lastName,
                 phone: customerData.phone,
@@ -118,7 +121,9 @@ export async function runImport(
         if (existing) {
           customerId = existing.id;
         } else {
-          const created = await db.customer.create({ data: customerData });
+          const created = await db.customer.create({
+            data: { orgId, ...customerData },
+          });
           customerId = created.id;
           customersCreated++;
         }
@@ -134,15 +139,16 @@ export async function runImport(
       if (vin || year || make || model || plate) {
         // Try to avoid dupe by VIN or plate for this customer
         const existingVehicle = vin
-          ? await db.vehicle.findFirst({ where: { customerId, vin } })
+          ? await db.vehicle.findFirst({ where: { orgId, customerId, vin } })
           : plate
           ? await db.vehicle.findFirst({
-              where: { customerId, licensePlate: plate },
+              where: { orgId, customerId, licensePlate: plate },
             })
           : null;
 
         if (!existingVehicle) {
           let vehicleData = {
+            orgId,
             customerId,
             vin: vin ?? null,
             year: year ? parseInt(year, 10) || null : null,

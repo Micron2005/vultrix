@@ -13,6 +13,7 @@ type VehicleMatchSpec = {
 // all (universal) are excluded here — surface them on the Knowledge page, not
 // on every vehicle.
 export async function findNotesForVehicle(
+  orgId: string,
   v: VehicleMatchSpec,
 ): Promise<RepairNote[]> {
   const make = v.make?.trim();
@@ -25,6 +26,7 @@ export async function findNotesForVehicle(
   // Pull candidates by make (broadest, then filter). SQLite is case-sensitive
   // by default for `contains`, so pull wider and filter in JS.
   const all = await db.repairNote.findMany({
+    where: { orgId },
     orderBy: { updatedAt: "desc" },
     take: 500,
   });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   CardHeader,
@@ -60,6 +61,7 @@ export default async function AppointmentRemindersPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const mode = sp.day === "today" ? "today" : sp.day === "week" ? "week" : "tomorrow";
 
@@ -85,15 +87,16 @@ export default async function AppointmentRemindersPage({
   const [appointments, shopName, shopPhone, shopAddress] = await Promise.all([
     db.appointment.findMany({
       where: {
+        orgId,
         startsAt: { gte: rangeStart, lt: rangeEnd },
         status: { in: ["SCHEDULED", "CONFIRMED"] },
       },
       orderBy: { startsAt: "asc" },
       include: { customer: true, vehicle: true },
     }),
-    getSetting("shopName"),
-    getSetting("shopPhone"),
-    getSetting("shopAddress"),
+    getSetting(orgId, "shopName"),
+    getSetting(orgId, "shopPhone"),
+    getSetting(orgId, "shopAddress"),
   ]);
 
   const displayShop = shopName || "QNA / Noor Auto Repair";

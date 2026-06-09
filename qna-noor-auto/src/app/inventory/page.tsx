@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   CardHeader,
@@ -37,11 +38,12 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<{ filter?: string; q?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const filter = sp.filter === "low" || sp.filter === "out" || sp.filter === "archived" ? sp.filter : "active";
   const q = (sp.q ?? "").trim();
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { orgId };
   if (filter === "archived") {
     where.archived = true;
   } else {
@@ -66,7 +68,7 @@ export default async function InventoryPage({
     parts = parts.filter((p) => p.qtyOnHand <= 0);
   }
 
-  const lowCount = (await db.part.findMany({ where: { archived: false } })).filter(
+  const lowCount = (await db.part.findMany({ where: { orgId, archived: false } })).filter(
     (p) => p.qtyOnHand <= p.reorderLevel,
   ).length;
 

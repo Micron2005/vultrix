@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 function toNum(v: FormDataEntryValue | null, fallback = 0): number {
   if (v == null) return fallback;
@@ -27,6 +28,7 @@ function toBool(v: FormDataEntryValue | null): boolean {
 }
 
 export async function createShopFee(fd: FormData) {
+  const orgId = await requireOrgId();
   const name = String(fd.get("name") ?? "").trim();
   if (!name) redirect("/settings?error=fee_name_required#shop-fees");
   const description = String(fd.get("description") ?? "").trim() || null;
@@ -36,11 +38,13 @@ export async function createShopFee(fd: FormData) {
   const taxable = toBool(fd.get("taxable"));
   const active = fd.get("active") == null ? true : toBool(fd.get("active"));
   const last = await db.shopFee.findFirst({
+    where: { orgId },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
   await db.shopFee.create({
     data: {
+      orgId,
       name,
       description,
       partsPercent,
@@ -57,10 +61,11 @@ export async function createShopFee(fd: FormData) {
 }
 
 export async function updateShopFee(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const name = String(fd.get("name") ?? "").trim();
   if (!name) redirect("/settings?error=fee_name_required#shop-fees");
-  await db.shopFee.update({
-    where: { id },
+  await db.shopFee.updateMany({
+    where: { id, orgId },
     data: {
       name,
       description: String(fd.get("description") ?? "").trim() || null,
@@ -77,7 +82,8 @@ export async function updateShopFee(id: string, fd: FormData) {
 }
 
 export async function deleteShopFee(id: string) {
-  await db.shopFee.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.shopFee.deleteMany({ where: { id, orgId } });
   revalidatePath("/settings");
   revalidatePath("/repair-orders");
   redirect("/settings?deleted=1#shop-fees");
@@ -88,6 +94,12 @@ export async function deleteShopFee(id: string) {
  * If row exists, removing it = "Re-add fee". Otherwise, creating it = "Remove fee".
  */
 export async function excludeShopFeeFromRO(repairOrderId: string, shopFeeId: string) {
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
+    select: { id: true },
+  });
+  if (!ro) redirect("/repair-orders");
   await db.repairOrderShopFeeExclusion.upsert({
     where: { repairOrderId_shopFeeId: { repairOrderId, shopFeeId } },
     create: { repairOrderId, shopFeeId },
@@ -98,6 +110,12 @@ export async function excludeShopFeeFromRO(repairOrderId: string, shopFeeId: str
 }
 
 export async function readdShopFeeToRO(repairOrderId: string, shopFeeId: string) {
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
+    select: { id: true },
+  });
+  if (!ro) redirect("/repair-orders");
   await db.repairOrderShopFeeExclusion
     .delete({
       where: { repairOrderId_shopFeeId: { repairOrderId, shopFeeId } },

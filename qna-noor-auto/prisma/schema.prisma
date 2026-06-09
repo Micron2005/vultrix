@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Runtime uses the Neon -pooler endpoint (pgbouncer, transaction mode) so
   // serverless functions reuse pooled connections cleanly.
   url       = env("DATABASE_URL")
@@ -18,196 +18,212 @@ datasource db {
 }
 
 model Customer {
-  id            String         @id @default(cuid())
+  id          String  @id @default(cuid())
   // External id from a prior system (Identifix export Id). Lets a re-run of
   // CSV import update the existing record instead of creating a duplicate.
-  externalId    String?        @unique
+  externalId  String? @unique
   // INDIVIDUAL | BUSINESS — controls which tab the record lives in and how
   // A/R is split on the dashboard.
-  type          String         @default("INDIVIDUAL")
-  firstName     String
-  lastName      String
-  companyName   String?
-  email         String?
-  phone         String?
-  altPhone      String?
-  street        String?
-  city          String?
-  state         String?
-  zip           String?
-  notes         String?
+  type        String  @default("INDIVIDUAL")
+  firstName   String
+  lastName    String
+  companyName String?
+  email       String?
+  phone       String?
+  altPhone    String?
+  street      String?
+  city        String?
+  state       String?
+  zip         String?
+  notes       String?
 
   // Customer portal access. Token is a non-guessable random string; if null,
   // the public /p/[token] route doesn't exist for this customer.
-  portalToken   String?        @unique
+  portalToken String? @unique
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  vehicles      Vehicle[]
-  repairOrders  RepairOrder[]
-  appointments  Appointment[]
+  vehicles     Vehicle[]
+  repairOrders RepairOrder[]
+  appointments Appointment[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([lastName, firstName])
   @@index([type])
+  @@index([orgId])
 }
 
 model Vehicle {
-  id            String         @id @default(cuid())
+  id         String   @id @default(cuid())
   // External id from a prior system (Identifix vehicle Id). Lets a re-run of
   // CSV import update the existing record instead of creating a duplicate.
-  externalId    String?        @unique
-  customerId    String
-  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  externalId String?  @unique
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  serviceLogs   ServiceLog[]
+  serviceLogs ServiceLog[]
 
-  vin           String?
-  year          Int?
-  make          String?
-  model         String?
-  trim          String?
-  engine        String?
-  transmission  String?
-  drivetrain    String?
-  bodyStyle     String?
-  color         String?
-  licensePlate  String?
-  licenseState  String?
-  mileage       Int?
-  notes         String?
+  vin          String?
+  year         Int?
+  make         String?
+  model        String?
+  trim         String?
+  engine       String?
+  transmission String?
+  drivetrain   String?
+  bodyStyle    String?
+  color        String?
+  licensePlate String?
+  licenseState String?
+  mileage      Int?
+  notes        String?
 
   // NHTSA recall data cache. Raw JSON response; refreshed on demand.
-  recallsJson        String?
-  recallsFetchedAt   DateTime?
+  recallsJson      String?
+  recallsFetchedAt DateTime?
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  repairOrders  RepairOrder[]
-  appointments  Appointment[]
+  repairOrders RepairOrder[]
+  appointments Appointment[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([vin])
   @@index([licensePlate])
+  @@index([orgId])
 }
 
 model RepairOrder {
-  id            String         @id @default(cuid())
-  roNumber      Int            @unique
+  id       String @id @default(cuid())
+  roNumber Int    @unique
 
-  customerId    String
-  customer      Customer       @relation(fields: [customerId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
-  vehicleId     String
-  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id])
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
 
-  status        String         @default("ESTIMATE") // ESTIMATE | IN_PROGRESS | COMPLETED | INVOICED | PAID | CANCELLED
+  status String @default("ESTIMATE") // ESTIMATE | IN_PROGRESS | COMPLETED | INVOICED | PAID | CANCELLED
 
-  openedAt      DateTime       @default(now())
-  promisedAt    DateTime?
-  closedAt      DateTime?
+  openedAt   DateTime  @default(now())
+  promisedAt DateTime?
+  closedAt   DateTime?
 
   // Lifecycle timestamps (set by transitions)
-  approvedAt    DateTime?      // customer approved the estimate
-  startedAt     DateTime?      // work began (moved to IN_PROGRESS)
-  completedAt   DateTime?      // work finished
-  invoicedAt    DateTime?      // invoice generated
-  paidAt        DateTime?      // payment received
-  cancelledAt   DateTime?      // RO cancelled
-  clearedAt     DateTime?      // paid ticket cleared/closed out of active list
+  approvedAt  DateTime? // customer approved the estimate
+  startedAt   DateTime? // work began (moved to IN_PROGRESS)
+  completedAt DateTime? // work finished
+  invoicedAt  DateTime? // invoice generated
+  paidAt      DateTime? // payment received
+  cancelledAt DateTime? // RO cancelled
+  clearedAt   DateTime? // paid ticket cleared/closed out of active list
 
-  mileageIn     Int?
-  mileageOut    Int?
+  mileageIn  Int?
+  mileageOut Int?
 
-  complaint     String?        // customer complaint (3 C's)
-  cause         String?        // cause
-  correction    String?        // correction
-  notes         String?
+  complaint  String? // customer complaint (3 C's)
+  cause      String? // cause
+  correction String? // correction
+  notes      String?
 
-  taxRate       Float          @default(0)
-  discount      Float          @default(0)
+  taxRate  Float @default(0)
+  discount Float @default(0)
 
   // Shareable estimate link. Token is a non-guessable random string; if null,
   // the public /e/[token] route doesn't exist for this RO.
-  shareToken           String?  @unique
+  shareToken           String?   @unique
   estimateDeclinedAt   DateTime?
   customerResponseNote String?
 
-  jobs          Job[]
-  laborLines    LaborLine[]
-  partLines     PartLine[]
-  feeLines      FeeLine[]
-  appointments  Appointment[]
-  payments      Payment[]
+  jobs              Job[]
+  laborLines        LaborLine[]
+  partLines         PartLine[]
+  feeLines          FeeLine[]
+  appointments      Appointment[]
+  payments          Payment[]
   shopFeeExclusions RepairOrderShopFeeExclusion[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
   @@index([openedAt])
+  @@index([orgId])
 }
 
 model Job {
-  id              String         @id @default(cuid())
-  repairOrderId   String
-  repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
-  name            String
-  sortOrder       Int            @default(0)
+  name      String
+  sortOrder Int    @default(0)
 
   // Per-job approval on estimates: PENDING | APPROVED | DECLINED
-  approvalStatus  String         @default("PENDING")
-  approvedAt      DateTime?
-  declinedAt      DateTime?
-  customerNote    String?
+  approvalStatus String    @default("PENDING")
+  approvedAt     DateTime?
+  declinedAt     DateTime?
+  customerNote   String?
 
-  laborLines      LaborLine[]
-  partLines       PartLine[]
-  feeLines        FeeLine[]
+  laborLines LaborLine[]
+  partLines  PartLine[]
+  feeLines   FeeLine[]
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([repairOrderId])
 }
 
 model Payment {
-  id              String         @id @default(cuid())
-  repairOrderId   String
-  repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
-  amount          Float
-  method          String         // CASH | CARD | CHECK | TRANSFER | OTHER
-  reference       String?        // check # / auth # / last 4
-  note            String?
-  paidAt          DateTime       @default(now())
+  amount    Float
+  method    String // CASH | CARD | CHECK | TRANSFER | OTHER
+  reference String? // check # / auth # / last 4
+  note      String?
+  paidAt    DateTime @default(now())
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([repairOrderId])
   @@index([paidAt])
+  @@index([orgId])
 }
 
 model LaborLine {
-  id              String         @id @default(cuid())
-  repairOrderId   String
-  repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
-  jobId           String?
-  job             Job?           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  description     String
-  hours           Float          @default(0)
-  rate            Float          @default(0)
-  sortOrder       Int            @default(0)
+  description String
+  hours       Float  @default(0)
+  rate        Float  @default(0)
+  sortOrder   Int    @default(0)
 
-  technicianId    String?
-  technician      Technician?    @relation(fields: [technicianId], references: [id])
+  technicianId String?
+  technician   Technician? @relation(fields: [technicianId], references: [id])
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([repairOrderId])
   @@index([jobId])
@@ -215,44 +231,48 @@ model LaborLine {
 }
 
 model Technician {
-  id              String         @id @default(cuid())
-  name            String
-  initials        String?
-  defaultRate     Float?         // optional — used as default when adding labor lines for this tech
-  active          Boolean        @default(true)
-  notes           String?
+  id          String  @id @default(cuid())
+  name        String
+  initials    String?
+  defaultRate Float? // optional — used as default when adding labor lines for this tech
+  active      Boolean @default(true)
+  notes       String?
 
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  laborLines      LaborLine[]
+  laborLines LaborLine[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([active])
   @@index([name])
+  @@index([orgId])
 }
 
 model PartLine {
-  id              String         @id @default(cuid())
-  repairOrderId   String
-  repairOrder     RepairOrder    @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
-  jobId           String?
-  job             Job?           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  partNumber      String?
-  description     String
-  quantity        Float          @default(1)
-  unitPrice       Float          @default(0) // price charged to customer
-  costPrice       Float?                       // what the shop paid (internal, optional)
-  source          String?                      // where the part came from (supplier / vendor / store)
-  sortOrder       Int            @default(0)
+  partNumber  String?
+  description String
+  quantity    Float   @default(1)
+  unitPrice   Float   @default(0) // price charged to customer
+  costPrice   Float? // what the shop paid (internal, optional)
+  source      String? // where the part came from (supplier / vendor / store)
+  sortOrder   Int     @default(0)
 
   // Optional link to inventory catalog. Free-text part lines (no catalog match) keep these null.
-  partId          String?
-  part            Part?          @relation(fields: [partId], references: [id], onDelete: SetNull)
-  stockMoves      StockMove[]
+  partId     String?
+  part       Part?       @relation(fields: [partId], references: [id], onDelete: SetNull)
+  stockMoves StockMove[]
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([repairOrderId])
   @@index([jobId])
@@ -264,18 +284,18 @@ model PartLine {
 // Fee lines are flat pass-through charges: included in the subtotal/total but
 // NEVER taxed. Tax applies only to labor + parts (+ taxable shop fees).
 model FeeLine {
-  id              String      @id @default(cuid())
-  repairOrderId   String
-  repairOrder     RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
 
-  jobId           String?
-  job             Job?        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  description     String
-  amount          Float       @default(0)
-  sortOrder       Int         @default(0)
+  description String
+  amount      Float  @default(0)
+  sortOrder   Int    @default(0)
 
-  createdAt       DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@index([repairOrderId])
   @@index([jobId])
@@ -284,185 +304,206 @@ model FeeLine {
 // Inventory catalog — parts the shop actually stocks.
 // Free-form partLines (not tied to a Part) continue to work; the catalog is optional.
 model Part {
-  id              String         @id @default(cuid())
-  partNumber      String?        @unique
-  name            String
-  description     String?
-  source          String?        // default supplier / vendor
-  costPrice       Float?         // default cost (what shop pays)
-  unitPrice       Float?         // default price charged to customer
+  id          String  @id @default(cuid())
+  partNumber  String? @unique
+  name        String
+  description String?
+  source      String? // default supplier / vendor
+  costPrice   Float? // default cost (what shop pays)
+  unitPrice   Float? // default price charged to customer
 
-  qtyOnHand       Float          @default(0)
-  reorderLevel    Float          @default(0) // "low stock" if qtyOnHand <= reorderLevel
+  qtyOnHand    Float @default(0)
+  reorderLevel Float @default(0) // "low stock" if qtyOnHand <= reorderLevel
 
   // Optional fitment tags used by /vehicle-search. A part is shown for a given
   // picked vehicle when either (a) all fitment fields are null (universal), or
   // (b) the set fields match. Blank make/model = matches anything for that axis.
-  fitsMake        String?
-  fitsModel       String?
-  fitsYearMin     Int?
-  fitsYearMax     Int?
+  fitsMake    String?
+  fitsModel   String?
+  fitsYearMin Int?
+  fitsYearMax Int?
 
-  notes           String?
-  archived        Boolean        @default(false)
+  notes    String?
+  archived Boolean @default(false)
 
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  partLines       PartLine[]
-  stockMoves      StockMove[]
-  cannedJobParts  CannedJobPart[]
+  partLines      PartLine[]
+  stockMoves     StockMove[]
+  cannedJobParts CannedJobPart[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([name])
   @@index([archived])
+  @@index([orgId])
 }
 
 // Every +/- to qtyOnHand is logged so the user can see why stock changed.
 model StockMove {
-  id              String         @id @default(cuid())
-  partId          String
-  part            Part           @relation(fields: [partId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  partId String
+  part   Part   @relation(fields: [partId], references: [id], onDelete: Cascade)
 
   // Positive = received / adjustment up; negative = used on RO / adjustment down.
-  delta           Float
-  reason          String         // RECEIVE | USE_RO | RESTOCK_RO | ADJUST | INITIAL
-  note            String?
+  delta  Float
+  reason String // RECEIVE | USE_RO | RESTOCK_RO | ADJUST | INITIAL
+  note   String?
 
   // If the move was caused by a PartLine on an RO, link it here.
-  partLineId      String?
-  partLine        PartLine?      @relation(fields: [partLineId], references: [id], onDelete: SetNull)
+  partLineId String?
+  partLine   PartLine? @relation(fields: [partLineId], references: [id], onDelete: SetNull)
 
   // True after a compensating move has been created to reverse this one.
   // Used by the scan-undo flow so a double-click or form resubmission
   // can't apply the inverse delta twice.
-  undone          Boolean        @default(false)
+  undone Boolean @default(false)
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([partId])
   @@index([createdAt])
 }
 
 model Appointment {
-  id              String       @id @default(cuid())
+  id String @id @default(cuid())
 
   startsAt        DateTime
-  durationMinutes Int          @default(60)
+  durationMinutes Int      @default(60)
 
-  customerId      String
-  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  vehicleId       String?
-  vehicle         Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   // Once the appointment is converted into a repair order, link to it
-  repairOrderId   String?
-  repairOrder     RepairOrder? @relation(fields: [repairOrderId], references: [id], onDelete: SetNull)
+  repairOrderId String?
+  repairOrder   RepairOrder? @relation(fields: [repairOrderId], references: [id], onDelete: SetNull)
 
-  reason          String       // short label: "Oil change", "Brake inspection"
-  notes           String?
+  reason String // short label: "Oil change", "Brake inspection"
+  notes  String?
 
-  status          String       @default("SCHEDULED")
+  status String @default("SCHEDULED")
   // SCHEDULED | CONFIRMED | ARRIVED | COMPLETED | CANCELLED | NO_SHOW
 
   // Shareable reminder link. Non-guessable random string; /a/[token] route.
-  shareToken      String?      @unique
+  shareToken String? @unique
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([startsAt])
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
+  @@index([orgId])
 }
 
 model ShopSetting {
-  id            String   @id @default(cuid())
-  key           String   @unique
-  value         String
-  updatedAt     DateTime @updatedAt
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  key          String
+  value        String
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, key])
+  @@index([orgId])
 }
 
 // Knowledge base — your own repair notes keyed to year/make/model/engine.
 // Think of these as your institutional memory / "hotline archive."
 // Every field except title is optional so you can capture partial knowledge.
 model RepairNote {
-  id                 String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  title              String
+  title   String
   // Vehicle targeting — all optional so a note can be make-wide, model-wide, or a tight YMM match.
-  yearMin            Int?
-  yearMax            Int?
-  make               String?
-  model              String?
-  engine             String?  // free-form (e.g. "2.4L K24A4", "3.5L V6")
+  yearMin Int?
+  yearMax Int?
+  make    String?
+  model   String?
+  engine  String? // free-form (e.g. "2.4L K24A4", "3.5L V6")
 
-  symptom            String?  // "Squeal at low speed under light braking"
-  diagnosis          String?  // "Front brake pad backing glazed. Rotors in spec."
-  fix                String?  // "Replace front pads with ceramic. Clean & lube slide pins."
-  partsNotes         String?  // "Front pads — NAPA Adaptive One AD465. ~$42."
+  symptom            String? // "Squeal at low speed under light braking"
+  diagnosis          String? // "Front brake pad backing glazed. Rotors in spec."
+  fix                String? // "Replace front pads with ceramic. Clean & lube slide pins."
+  partsNotes         String? // "Front pads — NAPA Adaptive One AD465. ~$42."
   laborHoursEstimate Float?
 
-  tags               String?  // comma-separated: "brakes,noise,honda"
+  tags String? // comma-separated: "brakes,noise,honda"
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([make, model])
   @@index([yearMin])
   @@index([yearMax])
+  @@index([orgId])
 }
 
 // Reusable job presets the shop does often (e.g. "Front brake service",
 // "Oil change 5W-30"). Applying a preset to an RO copies its labor + parts
 // lines onto the RO. The preset itself is unchanged when later edited on the RO.
 model CannedJob {
-  id            String              @id @default(cuid())
-  name          String
-  description   String?
-  category      String?             // optional grouping: "Brakes", "Oil", "A/C"
-  notes         String?
-  archived      Boolean             @default(false)
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  category    String? // optional grouping: "Brakes", "Oil", "A/C"
+  notes       String?
+  archived    Boolean @default(false)
 
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  laborItems    CannedJobLabor[]
-  partItems     CannedJobPart[]
+  laborItems CannedJobLabor[]
+  partItems  CannedJobPart[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([name])
   @@index([category])
   @@index([archived])
+  @@index([orgId])
 }
 
 model CannedJobLabor {
-  id            String     @id @default(cuid())
-  cannedJobId   String
-  cannedJob     CannedJob  @relation(fields: [cannedJobId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  cannedJobId String
+  cannedJob   CannedJob @relation(fields: [cannedJobId], references: [id], onDelete: Cascade)
 
-  description   String
-  hours         Float      @default(0)
-  rate          Float?     // if null, falls back to shop default rate at apply time
-  sortOrder     Int        @default(0)
+  description String
+  hours       Float  @default(0)
+  rate        Float? // if null, falls back to shop default rate at apply time
+  sortOrder   Int    @default(0)
 
   @@index([cannedJobId])
 }
 
 model CannedJobPart {
-  id            String     @id @default(cuid())
-  cannedJobId   String
-  cannedJob     CannedJob  @relation(fields: [cannedJobId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  cannedJobId String
+  cannedJob   CannedJob @relation(fields: [cannedJobId], references: [id], onDelete: Cascade)
 
   // Either free-text (partNumber + description + unitPrice) or a link into inventory.
-  partNumber    String?
-  description   String
-  quantity      Float      @default(1)
-  unitPrice     Float?     // if null at apply time, 0 (or catalog price if partId set)
-  sortOrder     Int        @default(0)
+  partNumber  String?
+  description String
+  quantity    Float   @default(1)
+  unitPrice   Float? // if null at apply time, 0 (or catalog price if partId set)
+  sortOrder   Int     @default(0)
 
-  partId        String?
-  part          Part?      @relation(fields: [partId], references: [id], onDelete: SetNull)
+  partId String?
+  part   Part?   @relation(fields: [partId], references: [id], onDelete: SetNull)
 
   @@index([cannedJobId])
   @@index([partId])
@@ -472,18 +513,18 @@ model CannedJobPart {
 // Each interval is "due" after N miles and/or N months since the last time the
 // service was performed on a given vehicle.  Either field may be null.
 model ServiceInterval {
-  id            String        @id @default(cuid())
-  key           String        @unique   // stable slug: "oil", "tire_rotation", ...
-  label         String                    // display name: "Oil change"
-  everyMiles    Int?
-  everyMonths   Int?
-  sortOrder     Int           @default(0)
-  archived      Boolean       @default(false)
+  id          String  @id @default(cuid())
+  key         String  @unique // stable slug: "oil", "tire_rotation", ...
+  label       String // display name: "Oil change"
+  everyMiles  Int?
+  everyMonths Int?
+  sortOrder   Int     @default(0)
+  archived    Boolean @default(false)
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  logs          ServiceLog[]
+  logs ServiceLog[]
 
   @@index([archived])
 }
@@ -492,18 +533,18 @@ model ServiceInterval {
 // automatically when an RO is marked Completed/Paid (heuristic on labor line
 // descriptions) and manually via the "Mark service done" button.
 model ServiceLog {
-  id            String          @id @default(cuid())
-  vehicleId     String
-  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  intervalId    String
-  interval      ServiceInterval @relation(fields: [intervalId], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  intervalId String
+  interval   ServiceInterval @relation(fields: [intervalId], references: [id], onDelete: Cascade)
 
-  performedAt   DateTime        @default(now())
-  atMileage     Int?
-  source        String          @default("manual") // manual | auto | baseline
-  note          String?
+  performedAt DateTime @default(now())
+  atMileage   Int?
+  source      String   @default("manual") // manual | auto | baseline
+  note        String?
 
-  createdAt     DateTime        @default(now())
+  createdAt DateTime @default(now())
 
   @@index([vehicleId])
   @@index([intervalId])
@@ -513,21 +554,25 @@ model ServiceLog {
 // Shop overhead / non-RO costs: rent, utilities, supplies, tools, vendor bills.
 // Used by Reports for true P&L.
 model Expense {
-  id            String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  paidAt        DateTime @default(now())
-  amount        Float    // always positive; it's a cost (subtracted from revenue)
-  category      String   // RENT | UTILITIES | SUPPLIES | TOOLS | VEHICLE | INSURANCE | SOFTWARE | MISC
-  vendor        String?
-  reference     String?  // invoice # / check #
-  method        String?  // CASH | CARD | CHECK | TRANSFER | OTHER
-  note          String?
+  paidAt    DateTime @default(now())
+  amount    Float // always positive; it's a cost (subtracted from revenue)
+  category  String // RENT | UTILITIES | SUPPLIES | TOOLS | VEHICLE | INSURANCE | SOFTWARE | MISC
+  vendor    String?
+  reference String? // invoice # / check #
+  method    String? // CASH | CARD | CHECK | TRANSFER | OTHER
+  note      String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([paidAt])
   @@index([category])
+  @@index([orgId])
 }
 
 // Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
@@ -536,36 +581,40 @@ model Expense {
 // invoices. Individual ROs can exclude specific fees via
 // RepairOrderShopFeeExclusion (for waived fees on a given job).
 model ShopFee {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name            String
-  description     String?
-  partsPercent    Float    @default(0)
-  laborPercent    Float    @default(0)
-  maxCap          Float?   // null = no cap
-  taxable         Boolean  @default(false)
-  active          Boolean  @default(true)
-  sortOrder       Int      @default(0)
+  name         String
+  description  String?
+  partsPercent Float   @default(0)
+  laborPercent Float   @default(0)
+  maxCap       Float? // null = no cap
+  taxable      Boolean @default(false)
+  active       Boolean @default(true)
+  sortOrder    Int     @default(0)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  exclusions      RepairOrderShopFeeExclusion[]
+  exclusions RepairOrderShopFeeExclusion[]
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([active])
   @@index([sortOrder])
+  @@index([orgId])
 }
 
 // If a row exists here, that shop fee is EXCLUDED from that RO. Absent = fee
 // applies. Composite PK so each (RO, fee) pair is unique.
 model RepairOrderShopFeeExclusion {
-  repairOrderId   String
-  shopFeeId       String
+  repairOrderId String
+  shopFeeId     String
 
-  repairOrder     RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
-  shopFee         ShopFee     @relation(fields: [shopFeeId], references: [id], onDelete: Cascade)
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  shopFee     ShopFee     @relation(fields: [shopFeeId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@id([repairOrderId, shopFeeId])
   @@index([repairOrderId])
@@ -574,15 +623,15 @@ model RepairOrderShopFeeExclusion {
 
 // Landing-page content blocks (legacy – kept for migration history).
 model LandingBlock {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   type      String
-  content   String   @default("")
+  content   String  @default("")
   imageData String?
-  x         Float    @default(0)
-  y         Float    @default(0)
-  width     Float    @default(400)
-  height    Float    @default(100)
-  sortOrder Int      @default(0)
+  x         Float   @default(0)
+  y         Float   @default(0)
+  width     Float   @default(400)
+  height    Float   @default(100)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -613,7 +662,19 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
+  users            User[]
+  customers        Customer[]
+  vehicles         Vehicle[]
+  repairOrders     RepairOrder[]
+  payments         Payment[]
+  technicians      Technician[]
+  parts            Part[]
+  appointments     Appointment[]
+  repairNotes      RepairNote[]
+  cannedJobs       CannedJob[]
+  expenses         Expense[]
+  shopFees         ShopFee[]
+  shopSettings     ShopSetting[]
 
   @@index([status])
 }
@@ -624,14 +685,14 @@ model User {
   orgId        String?
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  username     String        @unique
+  username     String  @unique
   passwordHash String
   // SUPERADMIN | OWNER | ADMIN | STAFF
-  role         String        @default("STAFF")
-  isActive     Boolean       @default(true)
+  role         String  @default("STAFF")
+  isActive     Boolean @default(true)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orgId])
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -77,8 +78,9 @@ export default async function RepairOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     include: {
       customer: true,
       vehicle: true,
@@ -108,7 +110,7 @@ export default async function RepairOrderDetailPage({
   const filtered = excludeDeclinedJobLines(ro);
   // First pass of totals without shop fees, to get labor/parts subtotals.
   const preliminary = computeTotals(filtered);
-  const shopFeeStatus = await loadShopFeeStatus(ro.id, {
+  const shopFeeStatus = await loadShopFeeStatus(orgId, ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
   });
@@ -125,16 +127,16 @@ export default async function RepairOrderDetailPage({
   const partsProfit = computePartsProfit(filtered.partLines);
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
-  const defaultLaborRate = await getSetting("defaultLaborRate");
+  const defaultLaborRate = await getSetting(orgId, "defaultLaborRate");
 
   const activeTechs = await db.technician.findMany({
-    where: { active: true },
+    where: { active: true, orgId },
     orderBy: { name: "asc" },
     select: { id: true, name: true, initials: true },
   });
 
   const catalogParts = await db.part.findMany({
-    where: { archived: false },
+    where: { archived: false, orgId },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -145,11 +147,11 @@ export default async function RepairOrderDetailPage({
     },
   });
 
-  const shopSettings = await getAllSettings();
+  const shopSettings = await getAllSettings(orgId);
   const shopName = shopSettings.shopName || "QNA / Noor Auto Repair";
 
   const presets = await db.cannedJob.findMany({
-    where: { archived: false },
+    where: { archived: false, orgId },
     orderBy: [{ category: "asc" }, { name: "asc" }],
     include: {
       laborItems: { select: { id: true } },
@@ -212,14 +214,14 @@ export default async function RepairOrderDetailPage({
   // Possible-duplicate detection: only flag other OPEN ROs on the same
   // vehicle whose labor lines share a significant word with this RO's
   // labor lines. Empty labor lines → no flag (handled by the filter).
-  const otherOpen = await openROsForVehicle(ro.vehicleId, ro.id);
+  const otherOpen = await openROsForVehicle(orgId, ro.vehicleId, ro.id);
   const duplicates = filterDuplicatesByLabor(
     otherOpen,
     ro.laborLines.map((l) => l.description),
   );
   // Past (paid / invoiced / cancelled) tickets on this same vehicle, shown as
   // history so the shop can judge whether this RO duplicates earlier work.
-  const pastTickets = await pastROsForVehicle(ro.vehicleId, ro.id);
+  const pastTickets = await pastROsForVehicle(orgId, ro.vehicleId, ro.id);
 
   return (
     <>

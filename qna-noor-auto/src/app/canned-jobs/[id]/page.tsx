@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -18,8 +19,9 @@ export default async function CannedJobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const job = await db.cannedJob.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const job = await db.cannedJob.findFirst({
+    where: { id, orgId },
     include: {
       laborItems: { orderBy: { sortOrder: "asc" } },
       partItems: {

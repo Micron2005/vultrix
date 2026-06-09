@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 const NoteSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -79,22 +80,25 @@ function toData(fd: FormData) {
 }
 
 export async function createNote(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  const created = await db.repairNote.create({ data });
+  const created = await db.repairNote.create({ data: { ...data, orgId } });
   revalidatePath("/notes");
   redirect(`/notes/${created.id}`);
 }
 
 export async function updateNote(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
-  await db.repairNote.update({ where: { id }, data });
+  await db.repairNote.updateMany({ where: { id, orgId }, data });
   revalidatePath("/notes");
   revalidatePath(`/notes/${id}`);
   redirect(`/notes/${id}`);
 }
 
 export async function deleteNote(id: string) {
-  await db.repairNote.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.repairNote.deleteMany({ where: { id, orgId } });
   revalidatePath("/notes");
   redirect("/notes");
 }

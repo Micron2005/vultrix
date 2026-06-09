@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, formatDateTime, vehicleLabel } from "@/lib/utils";
 import {
@@ -25,8 +26,9 @@ export default async function AppointmentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const appt = await db.appointment.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const appt = await db.appointment.findFirst({
+    where: { id, orgId },
     include: {
       customer: true,
       vehicle: true,

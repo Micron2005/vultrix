@@ -25,11 +25,13 @@ export type OpenROSummary = {
  * vehicleId + status.
  */
 export async function openROsForVehicle(
+  orgId: string,
   vehicleId: string,
   excludeId?: string,
 ): Promise<OpenROSummary[]> {
   const rows = await db.repairOrder.findMany({
     where: {
+      orgId,
       vehicleId,
       status: { in: [...OPEN_RO_STATUSES] },
       ...(excludeId ? { id: { not: excludeId } } : {}),
@@ -71,12 +73,14 @@ export const CLOSED_RO_STATUSES = [
  * judge whether it duplicates a previous job.
  */
 export async function pastROsForVehicle(
+  orgId: string,
   vehicleId: string,
   excludeId?: string,
   limit = 10,
 ): Promise<OpenROSummary[]> {
   const rows = await db.repairOrder.findMany({
     where: {
+      orgId,
       vehicleId,
       status: { in: [...CLOSED_RO_STATUSES] },
       ...(excludeId ? { id: { not: excludeId } } : {}),

@@ -55,3 +55,20 @@ export async function requireUser(): Promise<CurrentUser> {
 export function canManageUsers(role: Role): boolean {
   return role === "OWNER" || role === "ADMIN" || role === "SUPERADMIN";
 }
+
+/**
+ * Resolve the current user's organization id, for data-isolation scoping.
+ *
+ * Every business only ever sees its own data, so all tenant queries are scoped
+ * by this orgId. Redirects to /login when there's no session. Platform
+ * SUPERADMINs have no organization and are sent to /settings/users (the only
+ * area they manage), since data pages are meaningless without an org.
+ */
+export async function requireOrgId(): Promise<string> {
+  const user = await requireUser();
+  if (!user.orgId) {
+    // SUPERADMIN (platform owner) — no business data to show.
+    redirect("/settings/users");
+  }
+  return user.orgId;
+}

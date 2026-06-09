@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 // Search existing vehicle records by license plate.
 // Match is case-insensitive. Optional state filter narrows to a single DMV
 // (plate numbers are only unique within a state, not nationally).
 export async function GET(req: Request) {
+  const orgId = await requireOrgId();
   const url = new URL(req.url);
   const plate = (url.searchParams.get("plate") ?? "").trim();
   const state = (url.searchParams.get("state") ?? "").trim().toUpperCase();
@@ -22,6 +24,7 @@ export async function GET(req: Request) {
 
   const vehicles = await db.vehicle.findMany({
     where: {
+      orgId,
       licensePlate: { not: null },
       ...(state ? { licenseState: state } : {}),
     },

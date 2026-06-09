@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -18,7 +19,9 @@ function startOfWeek(d: Date): Date {
 }
 
 export default async function TechniciansPage() {
+  const orgId = await requireOrgId();
   const techs = await db.technician.findMany({
+    where: { orgId },
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: {
       laborLines: {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   CardHeader,
@@ -26,6 +27,7 @@ export default async function RemindersPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const months = Math.max(1, Math.min(24, Number(sp.months) || DEFAULT_MONTHS));
 
@@ -35,6 +37,7 @@ export default async function RemindersPage({
 
   const [customers, shopName, shopPhone] = await Promise.all([
     db.customer.findMany({
+      where: { orgId },
       include: {
         vehicles: { orderBy: { updatedAt: "desc" } },
         repairOrders: {
@@ -44,8 +47,8 @@ export default async function RemindersPage({
         },
       },
     }),
-    getSetting("shopName"),
-    getSetting("shopPhone"),
+    getSetting(orgId, "shopName"),
+    getSetting(orgId, "shopPhone"),
   ]);
 
   type Row = {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import { prettyStatus } from "./AppointmentForm";
@@ -12,6 +13,7 @@ export default async function AppointmentsPage({
 }: {
   searchParams: Promise<{ week?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { week } = await searchParams;
 
   // Determine week start (Monday) either from ?week=YYYY-MM-DD or from today.
@@ -27,6 +29,7 @@ export default async function AppointmentsPage({
 
   const appointments = await db.appointment.findMany({
     where: {
+      orgId,
       startsAt: { gte: weekStart, lt: weekEnd },
     },
     orderBy: { startsAt: "asc" },

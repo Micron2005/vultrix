@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   parseCustomers,
   parseVehicles,
@@ -75,16 +76,17 @@ export async function resetImportedData(
       "Reset not executed. Confirmation text did not match 'DELETE EVERYTHING'.";
     return res;
   }
+  const orgId = await requireOrgId();
   try {
     // Order matters: RO first (has FK to customer/vehicle without cascade),
     // then appointments, then vehicles, then customers.
-    const ro = await db.repairOrder.deleteMany({});
+    const ro = await db.repairOrder.deleteMany({ where: { orgId } });
     res.stats.repairOrders = ro.count;
-    const ap = await db.appointment.deleteMany({});
+    const ap = await db.appointment.deleteMany({ where: { orgId } });
     res.stats.appointments = ap.count;
-    const vh = await db.vehicle.deleteMany({});
+    const vh = await db.vehicle.deleteMany({ where: { orgId } });
     res.stats.vehicles = vh.count;
-    const cu = await db.customer.deleteMany({});
+    const cu = await db.customer.deleteMany({ where: { orgId } });
     res.stats.customers = cu.count;
     res.message = `Wiped ${res.stats.customers} customers, ${res.stats.vehicles} vehicles, ${res.stats.repairOrders} repair orders, and ${res.stats.appointments} appointments. Database is now clean — run Step 1 next.`;
   } catch (e) {
@@ -116,10 +118,11 @@ export async function wipeOrphans(): Promise<StepResult> {
     stats: { healed: 0, deleted: 0 },
     errors: [],
   };
+  const orgId = await requireOrgId();
   try {
     // (1) Heal hex-ID-named customers
     const nullExt = await db.customer.findMany({
-      where: { externalId: null },
+      where: { orgId, externalId: null },
       select: { id: true, firstName: true, lastName: true },
     });
     const toHeal = nullExt.filter((c) =>
@@ -148,6 +151,7 @@ export async function wipeOrphans(): Promise<StepResult> {
     // (2) Delete truly-blank ghost rows
     const ghosts = await db.customer.findMany({
       where: {
+        orgId,
         externalId: null,
         OR: [
           { AND: [{ firstName: "" }, { lastName: "" }] },
@@ -200,9 +204,10 @@ export async function runCustomersImport(
     res.stats.parsed = parsed.customers.length;
     res.errors = parsed.errors.slice(0, 20);
 
+    const orgId = await requireOrgId();
     const externalIds = parsed.customers.map((c) => c.externalId);
     const existing = await db.customer.findMany({
-      where: { externalId: { in: externalIds } },
+      where: { orgId, externalId: { in: externalIds } },
       select: { id: true, externalId: true },
     });
     const existingByExt = new Map(
@@ -219,6 +224,7 @@ export async function runCustomersImport(
     if (toCreate.length > 0) {
       await db.customer.createMany({
         data: toCreate.map((c) => ({
+          orgId,
           externalId: c.externalId,
           type: c.type,
           firstName: c.firstName,
@@ -239,8 +245,8 @@ export async function runCustomersImport(
 
     if (toUpdate.length > 0) {
       await mapConcurrent(toUpdate, 10, async (c) => {
-        await db.customer.update({
-          where: { externalId: c.externalId },
+        await db.customer.updateMany({
+          where: { orgId, externalId: c.externalId },
           data: {
             type: c.type,
             firstName: c.firstName,
@@ -294,6 +300,7 @@ export async function runVehiclesImport(
       return res;
     }
 
+    const orgId = await requireOrgId();
     const parsed = parseVehicles(papa(raw));
     res.stats.parsed = parsed.vehicles.length;
     res.errors = parsed.errors.slice(0, 20);
@@ -302,7 +309,7 @@ export async function runVehiclesImport(
       new Set(parsed.vehicles.map((v) => v.customerExternalId)),
     );
     const custRows = await db.customer.findMany({
-      where: { externalId: { in: customerExternalIds } },
+      where: { orgId, externalId: { in: customerExternalIds } },
       select: { id: true, externalId: true },
     });
     const custByExt = new Map(
@@ -324,7 +331,7 @@ export async function runVehiclesImport(
 
     const vehExternalIds = linked.map((v) => v.externalId);
     const existing = await db.vehicle.findMany({
-      where: { externalId: { in: vehExternalIds } },
+      where: { orgId, externalId: { in: vehExternalIds } },
       select: { id: true, externalId: true },
     });
     const existingByExt = new Map(
@@ -337,6 +344,7 @@ export async function runVehiclesImport(
     if (toCreate.length > 0) {
       await db.vehicle.createMany({
         data: toCreate.map((v) => ({
+          orgId,
           externalId: v.externalId,
           customerId: v.customerId,
           vin: v.vin,
@@ -355,8 +363,8 @@ export async function runVehiclesImport(
 
     if (toUpdate.length > 0) {
       await mapConcurrent(toUpdate, 10, async (v) => {
-        await db.vehicle.update({
-          where: { externalId: v.externalId },
+        await db.vehicle.updateMany({
+          where: { orgId, externalId: v.externalId },
           data: {
             customerId: v.customerId,
             vin: v.vin,
@@ -413,12 +421,13 @@ export async function runInvoicesImport(
       return res;
     }
 
+    const orgId = await requireOrgId();
     const parsed = parseInvoices(raw);
     res.stats.parsed = parsed.invoices.length;
     res.errors = parsed.errors.slice(0, 20);
 
     const allVehicles = await db.vehicle.findMany({
-      where: { vin: { not: null } },
+      where: { orgId, vin: { not: null } },
       select: { id: true, vin: true, customerId: true },
     });
     const vinToVehicle = new Map(
@@ -426,6 +435,7 @@ export async function runInvoicesImport(
     );
 
     const existingROs = await db.repairOrder.findMany({
+      where: { orgId },
       select: { roNumber: true, notes: true },
     });
     const usedRoNumbers = new Set<number>(existingROs.map((r) => r.roNumber));
@@ -483,7 +493,7 @@ export async function runInvoicesImport(
     let imported = 0;
     await mapConcurrent(tasks, 8, async (t) => {
       try {
-        await createInvoiceRo(t.inv, t.vehicleId, t.customerId, t.roNumber);
+        await createInvoiceRo(orgId, t.inv, t.vehicleId, t.customerId, t.roNumber);
         imported++;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Unknown";
@@ -506,6 +516,7 @@ export async function runInvoicesImport(
 }
 
 async function createInvoiceRo(
+  orgId: string,
   inv: ParsedInvoice,
   vehicleId: string,
   customerId: string,
@@ -572,6 +583,7 @@ async function createInvoiceRo(
 
   await db.repairOrder.create({
     data: {
+      orgId,
       roNumber,
       customerId,
       vehicleId,
@@ -589,6 +601,7 @@ async function createInvoiceRo(
         paid > 0
           ? {
               create: {
+                orgId,
                 amount: paid,
                 method: "OTHER",
                 note: "Imported from Identifix invoice history",

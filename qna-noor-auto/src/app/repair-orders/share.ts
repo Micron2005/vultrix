@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 async function newToken(): Promise<string> {
   // ~22 chars, URL-safe, non-guessable. Retry if the (astronomically unlikely)
@@ -20,15 +21,16 @@ async function newToken(): Promise<string> {
 }
 
 export async function generateShareToken(id: string) {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     select: { shareToken: true },
   });
   if (!ro) return;
   if (!ro.shareToken) {
     const token = await newToken();
     await db.repairOrder.update({
-      where: { id },
+      where: { id, orgId },
       data: { shareToken: token },
     });
   }
@@ -36,17 +38,24 @@ export async function generateShareToken(id: string) {
 }
 
 export async function revokeShareToken(id: string) {
-  await db.repairOrder.update({
-    where: { id },
+  const orgId = await requireOrgId();
+  await db.repairOrder.updateMany({
+    where: { id, orgId },
     data: { shareToken: null },
   });
   revalidatePath(`/repair-orders/${id}`);
 }
 
 export async function regenerateShareToken(id: string) {
+  const orgId = await requireOrgId();
+  const owned = await db.repairOrder.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) return;
   const token = await newToken();
   await db.repairOrder.update({
-    where: { id },
+    where: { id, orgId },
     data: { shareToken: token },
   });
   revalidatePath(`/repair-orders/${id}`);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -24,9 +25,9 @@ export const dynamic = "force-dynamic";
 
 type ROWithLines = Awaited<ReturnType<typeof loadCustomer>>["repairOrders"][number];
 
-async function loadCustomer(id: string) {
-  const customer = await db.customer.findUnique({
-    where: { id },
+async function loadCustomer(orgId: string, id: string) {
+  const customer = await db.customer.findFirst({
+    where: { id, orgId },
     include: {
       vehicles: { orderBy: { createdAt: "desc" } },
       repairOrders: {
@@ -58,11 +59,13 @@ export default async function CustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { id } = await params;
-  const customer = await loadCustomer(id);
+  const customer = await loadCustomer(orgId, id);
   if (!customer) notFound();
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     customer.repairOrders.map((ro) => {
       const filtered = excludeDeclinedJobLines(ro);
       const t = computeTotals(filtered);

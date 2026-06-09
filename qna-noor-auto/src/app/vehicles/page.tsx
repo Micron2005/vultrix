@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -16,11 +17,14 @@ export default async function VehiclesPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
 
   const vehicles = await db.vehicle.findMany({
-    where: query
+    where: {
+      orgId,
+      ...(query
       ? {
           OR: [
             { vin: { contains: query, mode: "insensitive" } },
@@ -36,7 +40,8 @@ export default async function VehiclesPage({
             },
           ],
         }
-      : undefined,
+      : {}),
+    },
     include: { customer: true },
     orderBy: [{ year: "desc" }, { make: "asc" }],
     take: 200,

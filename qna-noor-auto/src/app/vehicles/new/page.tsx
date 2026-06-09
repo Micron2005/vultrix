@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, PageHeader, Select, Field, Button } from "@/components/ui";
 import { VehicleForm } from "../VehicleForm";
 import { createVehicle } from "../actions";
@@ -13,11 +14,12 @@ export default async function NewVehiclePage({
 }: {
   searchParams: Promise<{ customerId?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { customerId } = await searchParams;
 
   if (customerId) {
-    const customer = await db.customer.findUnique({
-      where: { id: customerId },
+    const customer = await db.customer.findFirst({
+      where: { id: customerId, orgId },
     });
     if (!customer) notFound();
 
@@ -40,6 +42,7 @@ export default async function NewVehiclePage({
 
   // No customerId — ask them to pick
   const customers = await db.customer.findMany({
+    where: { orgId },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 500,
   });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   LinkButton,
@@ -17,7 +18,8 @@ export default async function NotePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const note = await db.repairNote.findUnique({ where: { id } });
+  const orgId = await requireOrgId();
+  const note = await db.repairNote.findFirst({ where: { id, orgId } });
   if (!note) notFound();
 
   const del = deleteNote.bind(null, note.id);

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { CustomerList } from "./CustomerList";
 
@@ -9,11 +10,13 @@ export default async function CustomersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
 
   const customers = await db.customer.findMany({
     where: {
+      orgId,
       type: "INDIVIDUAL",
       ...(query
         ? {

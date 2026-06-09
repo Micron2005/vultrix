@@ -73,17 +73,18 @@ export async function fetchRecallsFromNhtsa(
 }
 
 export async function refreshVehicleRecalls(
+  orgId: string,
   vehicleId: string,
 ): Promise<CachedRecalls | null> {
-  const v = await db.vehicle.findUnique({
-    where: { id: vehicleId },
+  const v = await db.vehicle.findFirst({
+    where: { id: vehicleId, orgId },
     select: { year: true, make: true, model: true },
   });
   if (!v || !v.year || !v.make || !v.model) return null;
   const cached = await fetchRecallsFromNhtsa(v.year, v.make, v.model);
   if (!cached) return null;
   await db.vehicle.update({
-    where: { id: vehicleId },
+    where: { id: vehicleId, orgId },
     data: {
       recallsJson: JSON.stringify(cached),
       recallsFetchedAt: new Date(),

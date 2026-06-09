@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, PageHeader } from "@/components/ui";
 import { CustomerForm } from "../../CustomerForm";
 import { updateCustomer } from "../../actions";
@@ -9,8 +10,9 @@ export default async function EditCustomerPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { id } = await params;
-  const customer = await db.customer.findUnique({ where: { id } });
+  const customer = await db.customer.findFirst({ where: { id, orgId } });
   if (!customer) notFound();
 
   const action = updateCustomer.bind(null, customer.id);

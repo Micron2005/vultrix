@@ -34,7 +34,7 @@ async function main() {
   // 1. Starter organization from the existing shop name.
   let org = await db.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) {
-    const shopName = await db.shopSetting.findUnique({
+    const shopName = await db.shopSetting.findFirst({
       where: { key: "shopName" },
     });
     org = await db.organization.create({

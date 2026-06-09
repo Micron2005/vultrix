@@ -8,6 +8,7 @@ import { applyShopFees, type AppliedShopFee, type ShopFeeConfig } from "@/lib/to
  * Used by list/report pages so we don't do N+1 queries per row.
  */
 export async function loadAppliedShopFeesForROs(
+  orgId: string,
   ros: { id: string; partsSubtotal: number; laborSubtotal: number }[],
 ): Promise<Map<string, AppliedShopFee[]>> {
   const out = new Map<string, AppliedShopFee[]>();
@@ -15,7 +16,7 @@ export async function loadAppliedShopFeesForROs(
   const roIds = ros.map((r) => r.id);
   const [configs, exclusions] = await Promise.all([
     db.shopFee.findMany({
-      where: { active: true },
+      where: { active: true, orgId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     db.repairOrderShopFeeExclusion.findMany({
@@ -65,12 +66,13 @@ export async function loadAppliedShopFeesForROs(
  * otherwise we recompute from the RO's lines.
  */
 export async function loadAppliedShopFees(
+  orgId: string,
   repairOrderId: string,
   opts: { partsSubtotal: number; laborSubtotal: number },
 ): Promise<AppliedShopFee[]> {
   const [configs, exclusions] = await Promise.all([
     db.shopFee.findMany({
-      where: { active: true },
+      where: { active: true, orgId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     db.repairOrderShopFeeExclusion.findMany({
@@ -112,12 +114,13 @@ export type ShopFeeStatusRow = {
 };
 
 export async function loadShopFeeStatus(
+  orgId: string,
   repairOrderId: string,
   opts: { partsSubtotal: number; laborSubtotal: number },
 ): Promise<ShopFeeStatusRow[]> {
   const [configs, exclusions] = await Promise.all([
     db.shopFee.findMany({
-      where: { active: true },
+      where: { active: true, orgId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     db.repairOrderShopFeeExclusion.findMany({

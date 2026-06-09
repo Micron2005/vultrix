@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { getSetting } from "@/lib/shop";
 
 function cleanStr(s: FormDataEntryValue | null): string | null {
@@ -71,12 +72,14 @@ function extractPartRows(fd: FormData): PartRow[] {
 }
 
 export async function createCannedJob(fd: FormData) {
+  const orgId = await requireOrgId();
   const name = cleanStr(fd.get("name"));
   if (!name) throw new Error("Name is required");
   const labor = extractLaborRows(fd);
   const parts = extractPartRows(fd);
   const job = await db.cannedJob.create({
     data: {
+      orgId,
       name,
       description: cleanStr(fd.get("description")),
       category: cleanStr(fd.get("category")),
@@ -106,8 +109,14 @@ export async function createCannedJob(fd: FormData) {
 }
 
 export async function updateCannedJob(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const name = cleanStr(fd.get("name"));
   if (!name) throw new Error("Name is required");
+  const owned = await db.cannedJob.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) throw new Error("Preset not found");
   const labor = extractLaborRows(fd);
   const parts = extractPartRows(fd);
   await db.$transaction([
@@ -150,7 +159,8 @@ export async function updateCannedJob(id: string, fd: FormData) {
 }
 
 export async function deleteCannedJob(id: string) {
-  await db.cannedJob.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await db.cannedJob.deleteMany({ where: { id, orgId } });
   revalidatePath("/canned-jobs");
   redirect("/canned-jobs");
 }
@@ -161,8 +171,9 @@ export async function applyCannedJobToRepairOrder(
   roId: string,
   jobId: string,
 ) {
-  const job = await db.cannedJob.findUnique({
-    where: { id: jobId },
+  const orgId = await requireOrgId();
+  const job = await db.cannedJob.findFirst({
+    where: { id: jobId, orgId },
     include: {
       laborItems: { orderBy: { sortOrder: "asc" } },
       partItems: {
@@ -173,8 +184,8 @@ export async function applyCannedJobToRepairOrder(
   });
   if (!job) throw new Error("Preset not found");
 
-  const ro = await db.repairOrder.findUnique({
-    where: { id: roId },
+  const ro = await db.repairOrder.findFirst({
+    where: { id: roId, orgId },
     include: {
       jobs: { select: { sortOrder: true } },
       laborLines: { select: { sortOrder: true } },
@@ -183,7 +194,7 @@ export async function applyCannedJobToRepairOrder(
   });
   if (!ro) throw new Error("Repair order not found");
 
-  const defaultRate = parseFloat(await getSetting("defaultLaborRate")) || 0;
+  const defaultRate = parseFloat(await getSetting(orgId, "defaultLaborRate")) || 0;
   const nextJobSort =
     ro.jobs.reduce((max, j) => Math.max(max, j.sortOrder), -1) + 1;
   const nextLaborSort =

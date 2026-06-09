@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 const PartSchema = z.object({
   partNumber: z.string().optional().nullable(),
@@ -65,10 +66,11 @@ function toData(fd: FormData) {
 }
 
 export async function createPart(fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
 
   // Create part + initial StockMove together if an opening qty was given.
-  const part = await db.part.create({ data: { ...data, qtyOnHand: 0 } });
+  const part = await db.part.create({ data: { ...data, orgId, qtyOnHand: 0 } });
 
   if (data.qtyOnHand !== 0) {
     await db.part.update({
@@ -91,12 +93,13 @@ export async function createPart(fd: FormData) {
 }
 
 export async function updatePart(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const data = toData(fd);
 
   // qtyOnHand is managed via stock moves — don't clobber it from the form here.
   const { qtyOnHand: _ignore, ...rest } = data;
   void _ignore;
-  await db.part.update({ where: { id }, data: rest });
+  await db.part.updateMany({ where: { id, orgId }, data: rest });
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
@@ -105,6 +108,12 @@ export async function updatePart(id: string, fd: FormData) {
 }
 
 export async function deletePart(id: string) {
+  const orgId = await requireOrgId();
+  const owned = await db.part.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) redirect("/inventory");
   // Null out partId on any historical PartLines (preserve historical invoices).
   await db.partLine.updateMany({
     where: { partId: id },
@@ -117,7 +126,8 @@ export async function deletePart(id: string) {
 }
 
 export async function toggleArchived(id: string, archived: boolean) {
-  await db.part.update({ where: { id }, data: { archived } });
+  const orgId = await requireOrgId();
+  await db.part.updateMany({ where: { id, orgId }, data: { archived } });
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
 }
@@ -127,6 +137,7 @@ export async function toggleArchived(id: string, archived: boolean) {
  * Logs a StockMove row so the history is visible on the part page.
  */
 export async function adjustStock(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const deltaRaw = String(fd.get("delta") ?? "").trim();
   const reason = String(fd.get("reason") ?? "RECEIVE").trim() || "RECEIVE";
   const note = cleanStr(String(fd.get("note") ?? ""));
@@ -135,6 +146,12 @@ export async function adjustStock(id: string, fd: FormData) {
   if (!Number.isFinite(delta) || delta === 0) {
     return;
   }
+
+  const owned = await db.part.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) return;
 
   await db.part.update({
     where: { id },
@@ -164,10 +181,17 @@ export async function adjustStock(id: string, fd: FormData) {
  * leave the part at an unintended count.
  */
 export async function scanAdjustStock(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   const deltaRaw = String(fd.get("delta") ?? "").trim();
   const setToRaw = String(fd.get("setTo") ?? "").trim();
   const reason = String(fd.get("reason") ?? "ADJUST").trim() || "ADJUST";
   const note = cleanStr(String(fd.get("note") ?? ""));
+
+  const owned = await db.part.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) redirect("/inventory");
 
   const safeReason =
     reason === "USE_RO" ||
@@ -237,6 +261,10 @@ export async function scanAdjustStock(id: string, fd: FormData) {
  * compensating StockMove so the audit log shows the undo, and redirects
  * back to the inventory detail page.
  */
+// Public flow: reached from the no-login quick-scan confirmation page
+// (`/q/<id>/done`), so this is NOT org-scoped. The move is identified by the
+// signed quick-scan that created it; we only verify the move belongs to the
+// given part before reverting.
 export async function undoScanMove(fd: FormData) {
   const moveId = String(fd.get("moveId") ?? "").trim();
   const partId = String(fd.get("partId") ?? "").trim();

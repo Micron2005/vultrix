@@ -182,10 +182,11 @@ export interface VehicleWithReminders {
 }
 
 export async function computeVehicleReminders(
+  orgId: string,
   vehicleId: string,
   now: Date = new Date(),
 ): Promise<VehicleWithReminders | null> {
-  const vehicle = await db.vehicle.findUnique({ where: { id: vehicleId } });
+  const vehicle = await db.vehicle.findFirst({ where: { id: vehicleId, orgId } });
   if (!vehicle) return null;
 
   const [intervals, logs, ros] = await Promise.all([
@@ -198,7 +199,7 @@ export async function computeVehicleReminders(
       orderBy: { performedAt: "desc" },
     }),
     db.repairOrder.findMany({
-      where: { vehicleId },
+      where: { vehicleId, orgId },
       select: { mileageIn: true, mileageOut: true, openedAt: true, completedAt: true },
     }),
   ]);
@@ -237,6 +238,7 @@ export async function computeVehicleReminders(
 }
 
 export async function computeAllVehicleReminders(
+  orgId: string,
   now: Date = new Date(),
 ): Promise<VehicleWithReminders[]> {
   // Fetch everything we need in 4 queries total, then do the math in-memory.
@@ -245,13 +247,17 @@ export async function computeAllVehicleReminders(
   // sequential round-trips through the Neon pooler, which blows past
   // Vercel's function timeout and makes the dashboard feel hung.
   const [vehicles, intervals, allLogs, allROs] = await Promise.all([
-    db.vehicle.findMany({ orderBy: { createdAt: "asc" } }),
+    db.vehicle.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
     db.serviceInterval.findMany({
       where: { archived: false },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
-    db.serviceLog.findMany({ orderBy: { performedAt: "desc" } }),
+    db.serviceLog.findMany({
+      where: { vehicle: { orgId } },
+      orderBy: { performedAt: "desc" },
+    }),
     db.repairOrder.findMany({
+      where: { orgId },
       select: {
         vehicleId: true,
         mileageIn: true,

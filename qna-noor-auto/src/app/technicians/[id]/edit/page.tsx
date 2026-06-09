@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { TechForm } from "../../TechForm";
 import { updateTechnician } from "../../actions";
 
@@ -12,7 +13,8 @@ export default async function EditTechnicianPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tech = await db.technician.findUnique({ where: { id } });
+  const orgId = await requireOrgId();
+  const tech = await db.technician.findFirst({ where: { id, orgId } });
   if (!tech) return notFound();
 
   async function save(fd: FormData) {

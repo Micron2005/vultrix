@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
@@ -11,8 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     include: {
       customer: true,
       vehicle: true,
@@ -32,10 +34,10 @@ export async function GET(
   });
   if (!ro) notFound();
 
-  const settings = await getAllSettings();
+  const settings = await getAllSettings(orgId);
   const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals(filtered);
-  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+  const appliedShopFees = await loadAppliedShopFees(orgId, ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
   });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 // Returns catalog parts that fit a given vehicle + optional free-text filter.
 // A part matches when:
@@ -11,6 +12,7 @@ import { db } from "@/lib/db";
 //        - fitsYearMax >= year (if set)
 // Plus, if q is provided, the part's name/description/partNumber must contain q.
 export async function GET(req: Request) {
+  const orgId = await requireOrgId();
   const url = new URL(req.url);
   const year = parseInt(url.searchParams.get("year") ?? "", 10);
   const make = (url.searchParams.get("make") ?? "").trim();
@@ -27,6 +29,7 @@ export async function GET(req: Request) {
 
   const parts = await db.part.findMany({
     where: {
+      orgId,
       archived: false,
       ...(q
         ? {

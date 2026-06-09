@@ -44,7 +44,7 @@ export default async function CustomerPortalPage({
 
   if (!customer) notFound();
 
-  const shop = await getAllSettings();
+  const shop = await getAllSettings(customer.orgId);
 
   type ROWithDerived = (typeof customer.repairOrders)[number] & {
     total: number;
@@ -53,6 +53,7 @@ export default async function CustomerPortalPage({
   };
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    customer.orgId,
     customer.repairOrders.map((ro) => {
       const t = computeTotals(ro);
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
@@ -84,7 +85,7 @@ export default async function CustomerPortalPage({
   );
 
   const vehicleReminders = await Promise.all(
-    customer.vehicles.map((v) => computeVehicleReminders(v.id)),
+    customer.vehicles.map((v) => computeVehicleReminders(customer.orgId, v.id)),
   );
   const dueVehicles = vehicleReminders
     .filter((r): r is NonNullable<typeof r> => r != null)

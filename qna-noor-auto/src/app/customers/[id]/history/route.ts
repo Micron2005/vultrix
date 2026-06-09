@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
@@ -48,9 +49,10 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const orgId = await requireOrgId();
   const { id } = await params;
-  const customer = await db.customer.findUnique({
-    where: { id },
+  const customer = await db.customer.findFirst({
+    where: { id, orgId },
     include: {
       vehicles: { orderBy: { createdAt: "desc" } },
       repairOrders: {
@@ -68,13 +70,14 @@ export async function GET(
   if (!customer) notFound();
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     customer.repairOrders.map((ro) => {
       const t = computeTotals(ro);
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
     }),
   );
 
-  const settings = await getAllSettings();
+  const settings = await getAllSettings(orgId);
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -195,7 +198,7 @@ export async function GET(
 
   // Recommended next service, per vehicle
   const reminders = await Promise.all(
-    customer.vehicles.map((v) => computeVehicleReminders(v.id)),
+    customer.vehicles.map((v) => computeVehicleReminders(orgId, v.id)),
   );
   const dueRows = reminders
     .filter((r): r is NonNullable<typeof r> => r != null)

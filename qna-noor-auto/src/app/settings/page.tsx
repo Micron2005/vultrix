@@ -10,6 +10,7 @@ import {
 } from "@/components/ui";
 import { getAllSettings, setSetting } from "@/lib/shop";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   createShopFee,
   deleteShopFee,
@@ -23,14 +24,17 @@ export default async function SettingsPage({
 }: {
   searchParams?: Promise<{ saved?: string; deleted?: string; error?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const sp = (await searchParams) ?? {};
-  const settings = await getAllSettings();
+  const settings = await getAllSettings(orgId);
   const shopFees = await db.shopFee.findMany({
+    where: { orgId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
   async function save(fd: FormData) {
     "use server";
+    const saveOrgId = await requireOrgId();
     const keys = [
       "shopName",
       "shopAddress",
@@ -41,7 +45,7 @@ export default async function SettingsPage({
     ];
     for (const k of keys) {
       const v = fd.get(k);
-      if (typeof v === "string") await setSetting(k, v);
+      if (typeof v === "string") await setSetting(saveOrgId, k, v);
     }
     revalidatePath("/settings");
     revalidatePath("/");

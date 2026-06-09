@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
@@ -25,6 +26,7 @@ const CreateROSchema = z.object({
 });
 
 export async function createRepairOrder(fd: FormData) {
+  const orgId = await requireOrgId();
   const raw = Object.fromEntries(fd.entries()) as Record<string, string>;
   const parsed = CreateROSchema.parse({
     customerId: raw.customerId,
@@ -33,12 +35,20 @@ export async function createRepairOrder(fd: FormData) {
     mileageIn: raw.mileageIn || null,
   });
 
-  const roNumber = await getNextRoNumber();
-  const defaultTax = parseFloat(await getSetting("defaultTaxRate")) || 0;
+  // Ensure the customer and vehicle belong to this org before linking them.
+  const vehicle = await db.vehicle.findFirst({
+    where: { id: parsed.vehicleId, customerId: parsed.customerId, orgId },
+    select: { id: true },
+  });
+  if (!vehicle) throw new Error("Vehicle not found");
+
+  const roNumber = await getNextRoNumber(orgId);
+  const defaultTax = parseFloat(await getSetting(orgId, "defaultTaxRate")) || 0;
 
   const created = await db.repairOrder.create({
     data: {
       roNumber,
+      orgId,
       customerId: parsed.customerId,
       vehicleId: parsed.vehicleId,
       complaint: parsed.complaint,
@@ -52,7 +62,7 @@ export async function createRepairOrder(fd: FormData) {
   const createdMileageIn = parseMileage(parsed.mileageIn);
   if (createdMileageIn !== null) {
     await db.vehicle.update({
-      where: { id: parsed.vehicleId },
+      where: { id: parsed.vehicleId, orgId },
       data: { mileage: createdMileageIn },
     });
   }
@@ -77,6 +87,12 @@ const UpdateROSchema = z.object({
 });
 
 export async function updateRepairOrder(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
+  const owned = await db.repairOrder.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) redirect("/repair-orders");
   const raw = Object.fromEntries(fd.entries()) as Record<string, string>;
   const parsed = UpdateROSchema.parse({
     status: raw.status as (typeof RO_STATUSES)[number] | undefined,
@@ -116,7 +132,7 @@ export async function updateRepairOrder(id: string, fd: FormData) {
     if (parsed.status === "CANCELLED") data.cancelledAt = now;
   }
 
-  await db.repairOrder.update({ where: { id }, data });
+  await db.repairOrder.update({ where: { id, orgId }, data });
   if (parsed.status === "COMPLETED" || parsed.status === "PAID") {
     await autoLogServicesForRO(id);
   }
@@ -132,7 +148,13 @@ export async function updateRepairOrder(id: string, fd: FormData) {
 }
 
 export async function setRepairOrderStatus(id: string, status: string) {
+  const orgId = await requireOrgId();
   if (!(RO_STATUSES as readonly string[]).includes(status)) return;
+  const owned = await db.repairOrder.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!owned) return;
   const data: Record<string, unknown> = { status };
   const now = new Date();
   if (status === "IN_PROGRESS") data.startedAt = now;
@@ -146,7 +168,7 @@ export async function setRepairOrderStatus(id: string, status: string) {
     data.closedAt = now;
   }
   if (status === "CANCELLED") data.cancelledAt = now;
-  await db.repairOrder.update({ where: { id }, data });
+  await db.repairOrder.update({ where: { id, orgId }, data });
   if (status === "COMPLETED" || status === "PAID") {
     await autoLogServicesForRO(id);
   }
@@ -165,9 +187,10 @@ export async function transitionRepairOrder(id: string, target: string) {
 }
 
 export async function deleteRepairOrder(id: string) {
-  const ro = await db.repairOrder.findUnique({ where: { id } });
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({ where: { id, orgId } });
   if (!ro) return;
-  await db.repairOrder.delete({ where: { id } });
+  await db.repairOrder.delete({ where: { id, orgId } });
   revalidatePath("/repair-orders");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
@@ -179,7 +202,8 @@ export async function deleteRepairOrder(id: string) {
 
 // Jobs
 export async function addJob(repairOrderId: string, fd: FormData) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const name = String(fd.get("name") ?? "").trim();
   if (!name) return;
   const max = await db.job.findFirst({
@@ -198,18 +222,20 @@ export async function addJob(repairOrderId: string, fd: FormData) {
 }
 
 export async function updateJob(id: string, repairOrderId: string, fd: FormData) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const name = String(fd.get("name") ?? "").trim();
   if (!name) return;
-  await db.job.update({ where: { id }, data: { name } });
+  await db.job.updateMany({ where: { id, repairOrderId }, data: { name } });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
 export async function deleteJob(id: string, repairOrderId: string) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
 
   const catalogParts = await db.partLine.findMany({
-    where: { jobId: id, partId: { not: null } },
+    where: { jobId: id, repairOrderId, partId: { not: null } },
     select: { partId: true, quantity: true },
   });
 
@@ -229,7 +255,7 @@ export async function deleteJob(id: string, repairOrderId: string) {
         },
       });
     }
-    await tx.job.delete({ where: { id } });
+    await tx.job.deleteMany({ where: { id, repairOrderId } });
   });
 
   if (catalogParts.length > 0) {
@@ -240,7 +266,8 @@ export async function deleteJob(id: string, repairOrderId: string) {
 
 // Lines
 export async function addLaborLine(repairOrderId: string, fd: FormData) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
   const hours = parseFloat(String(fd.get("hours") ?? "0")) || 0;
@@ -250,14 +277,14 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
   // If no rate given, use tech's default rate; else shop default.
   let rate = parseFloat(String(fd.get("rate") ?? "0")) || 0;
   if (rate === 0 && technicianId) {
-    const tech = await db.technician.findUnique({
-      where: { id: technicianId },
+    const tech = await db.technician.findFirst({
+      where: { id: technicianId, orgId },
       select: { defaultRate: true },
     });
     if (tech?.defaultRate) rate = tech.defaultRate;
   }
   if (rate === 0) {
-    rate = parseFloat(await getSetting("defaultLaborRate")) || 0;
+    rate = parseFloat(await getSetting(orgId, "defaultLaborRate")) || 0;
   }
 
   const max = await db.laborLine.findFirst({
@@ -284,9 +311,18 @@ export async function updateLaborLineTech(
   repairOrderId: string,
   technicianId: string | null,
 ) {
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const clean = technicianId && technicianId.trim() !== "" ? technicianId : null;
-  await db.laborLine.update({
-    where: { id },
+  if (clean) {
+    const tech = await db.technician.findFirst({
+      where: { id: clean, orgId },
+      select: { id: true },
+    });
+    if (!tech) return;
+  }
+  await db.laborLine.updateMany({
+    where: { id, repairOrderId },
     data: { technicianId: clean },
   });
   revalidatePath(`/repair-orders/${repairOrderId}`);
@@ -297,9 +333,12 @@ export async function updateLaborLineTech(
 // desync the printed invoice from the stored record.
 const LOCKED_STATUSES = new Set(["INVOICED", "PAID", "CANCELLED"]);
 
-async function assertROEditable(repairOrderId: string): Promise<void> {
-  const ro = await db.repairOrder.findUnique({
-    where: { id: repairOrderId },
+async function assertROEditable(
+  orgId: string,
+  repairOrderId: string,
+): Promise<void> {
+  const ro = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
     select: { status: true },
   });
   if (!ro) throw new Error("Repair order not found");
@@ -315,7 +354,8 @@ export async function updateLaborLine(
   repairOrderId: string,
   fd: FormData,
 ) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   const hoursRaw = String(fd.get("hours") ?? "").trim();
   const rateRaw = String(fd.get("rate") ?? "").trim();
@@ -330,26 +370,28 @@ export async function updateLaborLine(
     if (!Number.isNaN(r) && r >= 0) data.rate = r;
   }
   if (Object.keys(data).length === 0) return;
-  await db.laborLine.update({ where: { id }, data });
+  await db.laborLine.updateMany({ where: { id, repairOrderId }, data });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
 export async function deleteLaborLine(id: string, repairOrderId: string) {
-  await assertROEditable(repairOrderId);
-  await db.laborLine.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
+  await db.laborLine.deleteMany({ where: { id, repairOrderId } });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
 export async function addPartLine(repairOrderId: string, fd: FormData) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const partId = String(fd.get("partId") ?? "").trim() || null;
   const jobId = String(fd.get("jobId") ?? "").trim() || null;
 
   // If picking from the catalog, copy that part's details forward and skip
   // the free-text fields.
-  let catalog: Awaited<ReturnType<typeof db.part.findUnique>> = null;
+  let catalog: Awaited<ReturnType<typeof db.part.findFirst>> = null;
   if (partId) {
-    catalog = await db.part.findUnique({ where: { id: partId } });
+    catalog = await db.part.findFirst({ where: { id: partId, orgId } });
     if (!catalog) return;
   }
 
@@ -422,7 +464,8 @@ export async function addPartLine(repairOrderId: string, fd: FormData) {
 
 // Fees
 export async function addFeeLine(repairOrderId: string, fd: FormData) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
   const amount = parseFloat(String(fd.get("amount") ?? "0")) || 0;
@@ -446,8 +489,9 @@ export async function addFeeLine(repairOrderId: string, fd: FormData) {
 }
 
 export async function deleteFeeLine(id: string, repairOrderId: string) {
-  await assertROEditable(repairOrderId);
-  await db.feeLine.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
+  await db.feeLine.deleteMany({ where: { id, repairOrderId } });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
@@ -456,7 +500,8 @@ export async function updatePartLine(
   repairOrderId: string,
   fd: FormData,
 ) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   const qtyRaw = String(fd.get("quantity") ?? "").trim();
   const priceRaw = String(fd.get("unitPrice") ?? "").trim();
@@ -480,7 +525,7 @@ export async function updatePartLine(
     }
   }
   if (Object.keys(data).length === 0) return;
-  await db.partLine.update({ where: { id }, data });
+  await db.partLine.updateMany({ where: { id, repairOrderId }, data });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
@@ -489,7 +534,8 @@ export async function updateFeeLine(
   repairOrderId: string,
   fd: FormData,
 ) {
-  await assertROEditable(repairOrderId);
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   const amountRaw = String(fd.get("amount") ?? "").trim();
   const data: Record<string, unknown> = {};
@@ -499,14 +545,15 @@ export async function updateFeeLine(
     if (!Number.isNaN(a) && a >= 0) data.amount = Math.round(a * 100) / 100;
   }
   if (Object.keys(data).length === 0) return;
-  await db.feeLine.update({ where: { id }, data });
+  await db.feeLine.updateMany({ where: { id, repairOrderId }, data });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 
 export async function deletePartLine(id: string, repairOrderId: string) {
-  await assertROEditable(repairOrderId);
-  const line = await db.partLine.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
+  const line = await db.partLine.findFirst({
+    where: { id, repairOrderId },
     select: { id: true, partId: true, quantity: true },
   });
   if (!line) return;
@@ -544,9 +591,9 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
  * lib/totals. Duplicated here to avoid importing a client-side util into a
  * server action module. Keep in sync with computeTotals().
  */
-async function computeRoTotal(id: string): Promise<number> {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+async function computeRoTotal(orgId: string, id: string): Promise<number> {
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     include: {
       jobs: { select: { id: true, approvalStatus: true } },
       laborLines: true,
@@ -566,7 +613,7 @@ async function computeRoTotal(id: string): Promise<number> {
   const parts = activeParts.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
   const fees = activeFees.reduce((s, f) => s + (f.amount || 0), 0);
   const { loadAppliedShopFees } = await import("@/lib/shopFees");
-  const appliedShopFees = await loadAppliedShopFees(id, {
+  const appliedShopFees = await loadAppliedShopFees(orgId, id, {
     partsSubtotal: parts,
     laborSubtotal: labor,
   });
@@ -586,6 +633,12 @@ async function computeRoTotal(id: string): Promise<number> {
 }
 
 export async function recordPayment(repairOrderId: string, fd: FormData) {
+  const orgId = await requireOrgId();
+  const ownedRO = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
+    select: { id: true },
+  });
+  if (!ownedRO) return;
   const amount = parseFloat(String(fd.get("amount") ?? "0"));
   if (!Number.isFinite(amount) || amount <= 0) return;
 
@@ -602,6 +655,7 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
 
   await db.payment.create({
     data: {
+      orgId,
       repairOrderId,
       amount: Math.round(amount * 100) / 100,
       method,
@@ -613,12 +667,12 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
 
   // If the running total of payments covers the RO total, auto-flip to PAID.
   const [ro, payments, total] = await Promise.all([
-    db.repairOrder.findUnique({ where: { id: repairOrderId } }),
+    db.repairOrder.findFirst({ where: { id: repairOrderId, orgId } }),
     db.payment.findMany({
       where: { repairOrderId },
       select: { amount: true },
     }),
-    computeRoTotal(repairOrderId),
+    computeRoTotal(orgId, repairOrderId),
   ]);
   if (ro) {
     const paid = payments.reduce((s, p) => s + p.amount, 0);
@@ -636,7 +690,7 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
       data.closedAt = new Date();
     }
     if (Object.keys(data).length > 0) {
-      await db.repairOrder.update({ where: { id: repairOrderId }, data });
+      await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
     }
   }
 
@@ -646,23 +700,29 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
 }
 
 export async function deletePayment(id: string, repairOrderId: string) {
-  await db.payment.delete({ where: { id } });
+  const orgId = await requireOrgId();
+  const ownedRO = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
+    select: { id: true },
+  });
+  if (!ownedRO) return;
+  await db.payment.deleteMany({ where: { id, repairOrderId } });
 
   // If deleting the payment drops us back below the total, reopen from PAID
   // to INVOICED so the user isn't left lying about having been paid.
   const [ro, payments, total] = await Promise.all([
-    db.repairOrder.findUnique({ where: { id: repairOrderId } }),
+    db.repairOrder.findFirst({ where: { id: repairOrderId, orgId } }),
     db.payment.findMany({
       where: { repairOrderId },
       select: { amount: true },
     }),
-    computeRoTotal(repairOrderId),
+    computeRoTotal(orgId, repairOrderId),
   ]);
   if (ro && ro.status === "PAID") {
     const paid = payments.reduce((s, p) => s + p.amount, 0);
     if (paid + 0.005 < total) {
       await db.repairOrder.update({
-        where: { id: repairOrderId },
+        where: { id: repairOrderId, orgId },
         data: { status: "INVOICED", paidAt: null },
       });
     }
@@ -679,8 +739,9 @@ export async function deletePayment(id: string, repairOrderId: string) {
  * full balance is owed again — i.e. the ticket is treated as never paid.
  */
 export async function undoPaid(id: string) {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     select: { id: true, status: true, customerId: true, clearedAt: true },
   });
   if (!ro || ro.status !== "PAID") return;
@@ -690,7 +751,7 @@ export async function undoPaid(id: string) {
   await db.$transaction(async (tx) => {
     await tx.payment.deleteMany({ where: { repairOrderId: id } });
     await tx.repairOrder.update({
-      where: { id },
+      where: { id, orgId },
       data: {
         status: "INVOICED",
         paidAt: null,
@@ -712,14 +773,15 @@ export async function undoPaid(id: string) {
  * in the system.
  */
 export async function clearRepairOrder(id: string) {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     select: { id: true, status: true, customerId: true },
   });
   if (!ro || ro.status !== "PAID") return;
 
   await db.repairOrder.update({
-    where: { id },
+    where: { id, orgId },
     data: { clearedAt: new Date() },
   });
 
@@ -736,14 +798,15 @@ export async function clearRepairOrder(id: string) {
  * Invoice" again — there is no further revert, so this is a single step back.
  */
 export async function revertInvoiceToRepairOrder(id: string) {
-  const ro = await db.repairOrder.findUnique({
-    where: { id },
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
     select: { id: true, status: true, customerId: true },
   });
   if (!ro || ro.status !== "INVOICED") return;
 
   await db.repairOrder.update({
-    where: { id },
+    where: { id, orgId },
     data: {
       status: "COMPLETED",
       invoicedAt: null,
@@ -773,6 +836,7 @@ const VehicleInlineSchema = z.object({
 });
 
 export async function updateROVehicleInfo(fd: FormData) {
+  const orgId = await requireOrgId();
   const raw = Object.fromEntries(fd.entries()) as Record<string, string>;
   const cleaned: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(raw)) cleaned[k] = v === "" ? null : v;
@@ -780,8 +844,8 @@ export async function updateROVehicleInfo(fd: FormData) {
 
   // Guard: ensure the vehicleId actually belongs to the RO so a crafted
   // form can't edit an unrelated vehicle via this endpoint.
-  const ro = await db.repairOrder.findUnique({
-    where: { id: parsed.repairOrderId },
+  const ro = await db.repairOrder.findFirst({
+    where: { id: parsed.repairOrderId, orgId },
     select: { id: true, vehicleId: true },
   });
   if (!ro || ro.vehicleId !== parsed.vehicleId) {
@@ -789,7 +853,7 @@ export async function updateROVehicleInfo(fd: FormData) {
   }
 
   await db.vehicle.update({
-    where: { id: parsed.vehicleId },
+    where: { id: parsed.vehicleId, orgId },
     data: {
       vin: parsed.vin?.toUpperCase() ?? null,
       licensePlate: parsed.licensePlate?.toUpperCase() ?? null,
@@ -806,8 +870,10 @@ export async function updateROVehicleInfo(fd: FormData) {
 // Admin approve/decline jobs
 
 export async function approveJobAdmin(jobId: string, roId: string) {
-  await db.job.update({
-    where: { id: jobId },
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, roId);
+  await db.job.updateMany({
+    where: { id: jobId, repairOrderId: roId },
     data: {
       approvalStatus: "APPROVED",
       approvedAt: new Date(),
@@ -817,8 +883,10 @@ export async function approveJobAdmin(jobId: string, roId: string) {
 }
 
 export async function declineJobAdmin(jobId: string, roId: string) {
-  await db.job.update({
-    where: { id: jobId },
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, roId);
+  await db.job.updateMany({
+    where: { id: jobId, repairOrderId: roId },
     data: {
       approvalStatus: "DECLINED",
       declinedAt: new Date(),
@@ -828,8 +896,10 @@ export async function declineJobAdmin(jobId: string, roId: string) {
 }
 
 export async function resetJobApproval(jobId: string, roId: string) {
-  await db.job.update({
-    where: { id: jobId },
+  const orgId = await requireOrgId();
+  await assertROEditable(orgId, roId);
+  await db.job.updateMany({
+    where: { id: jobId, repairOrderId: roId },
     data: {
       approvalStatus: "PENDING",
       approvedAt: null,

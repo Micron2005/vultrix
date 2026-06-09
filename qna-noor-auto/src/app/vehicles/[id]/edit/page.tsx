@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, PageHeader } from "@/components/ui";
 import { VehicleForm } from "../../VehicleForm";
 import { updateVehicle } from "../../actions";
@@ -10,8 +11,9 @@ export default async function EditVehiclePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { id } = await params;
-  const vehicle = await db.vehicle.findUnique({ where: { id } });
+  const vehicle = await db.vehicle.findFirst({ where: { id, orgId } });
   if (!vehicle) notFound();
 
   const action = updateVehicle.bind(null, vehicle.id);

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -43,6 +44,7 @@ export default async function RepairOrdersPage({
     sort?: string;
   }>;
 }) {
+  const orgId = await requireOrgId();
   const { q, status, view, sort } = await searchParams;
   const query = q?.trim() ?? "";
   const statusFilter = status?.trim();
@@ -57,6 +59,7 @@ export default async function RepairOrdersPage({
 
   const ros = await db.repairOrder.findMany({
     where: {
+      orgId,
       // Explicit status filter wins. Otherwise default to "open only" unless
       // the user picked view=all.
       ...(statusFilter && STATUSES.includes(statusFilter)
@@ -114,6 +117,7 @@ export default async function RepairOrdersPage({
   });
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     ros.map((ro) => {
       const t = computeTotals(excludeDeclinedJobLines(ro));
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };

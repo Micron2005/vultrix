@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -22,6 +23,7 @@ export default async function NewRepairOrderPage({
 }: {
   searchParams: Promise<{ customerId?: string; vehicleId?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { customerId: cIdFromQuery, vehicleId: vIdFromQuery } =
     await searchParams;
 
@@ -30,8 +32,8 @@ export default async function NewRepairOrderPage({
   const vehicleId = vIdFromQuery ?? undefined;
 
   if (vehicleId && !customerId) {
-    const v = await db.vehicle.findUnique({
-      where: { id: vehicleId },
+    const v = await db.vehicle.findFirst({
+      where: { id: vehicleId, orgId },
       select: { customerId: true },
     });
     if (!v) notFound();
@@ -41,6 +43,7 @@ export default async function NewRepairOrderPage({
   // Step 1: pick customer
   if (!customerId) {
     const customers = await db.customer.findMany({
+      where: { orgId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: {
         id: true,
@@ -77,8 +80,8 @@ export default async function NewRepairOrderPage({
     );
   }
 
-  const customer = await db.customer.findUnique({
-    where: { id: customerId },
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
     include: { vehicles: { orderBy: { createdAt: "desc" } } },
   });
   if (!customer) notFound();
@@ -87,8 +90,15 @@ export default async function NewRepairOrderPage({
   if (!vehicleId) {
     async function pickOrCreateVehicle(fd: FormData) {
       "use server";
+      const innerOrgId = await requireOrgId();
       const c = fd.get("customerId");
       if (typeof c !== "string" || !c) return;
+      // Ensure the customer belongs to this org before linking a vehicle.
+      const ownerCustomer = await db.customer.findFirst({
+        where: { id: c, orgId: innerOrgId },
+        select: { id: true },
+      });
+      if (!ownerCustomer) return;
       const mode = fd.get("mode");
 
       if (mode === "existing") {
@@ -108,6 +118,7 @@ export default async function NewRepairOrderPage({
       const state = get("licenseState");
       const created = await db.vehicle.create({
         data: {
+          orgId: innerOrgId,
           customerId: c,
           vin: get("vin")?.toUpperCase() ?? null,
           year: yearStr ? parseInt(yearStr, 10) || null : null,
@@ -146,12 +157,14 @@ export default async function NewRepairOrderPage({
     );
   }
 
-  const vehicle = await db.vehicle.findUnique({ where: { id: vehicleId } });
+  const vehicle = await db.vehicle.findFirst({
+    where: { id: vehicleId, orgId },
+  });
   if (!vehicle || vehicle.customerId !== customer.id) notFound();
 
   const [openROs, pastROs] = await Promise.all([
-    openROsForVehicle(vehicle.id),
-    pastROsForVehicle(vehicle.id),
+    openROsForVehicle(orgId, vehicle.id),
+    pastROsForVehicle(orgId, vehicle.id),
   ]);
 
   return (

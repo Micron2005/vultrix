@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import {
   Button,
   Card,
@@ -30,9 +31,10 @@ export default async function VehicleDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { id } = await params;
-  const vehicle = await db.vehicle.findUnique({
-    where: { id },
+  const vehicle = await db.vehicle.findFirst({
+    where: { id, orgId },
     include: {
       customer: true,
       repairOrders: {
@@ -44,6 +46,7 @@ export default async function VehicleDetailPage({
   if (!vehicle) notFound();
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     vehicle.repairOrders.map((ro) => {
       const t = computeTotals(ro);
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
@@ -51,8 +54,8 @@ export default async function VehicleDetailPage({
   );
 
   const del = deleteVehicle.bind(null, vehicle.id);
-  const relevantNotes = await findNotesForVehicle(vehicle);
-  const reminders = await computeVehicleReminders(vehicle.id);
+  const relevantNotes = await findNotesForVehicle(orgId, vehicle);
+  const reminders = await computeVehicleReminders(orgId, vehicle.id);
 
   return (
     <>

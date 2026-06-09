@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 
 /**
  * Delete an RO from the duplicates review page and stay on that page.
@@ -10,6 +11,7 @@ import { db } from "@/lib/db";
  * keep reviewing duplicates after each delete.
  */
 export async function deleteFromDuplicates(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
   // Require the "DELETE" confirmation string so a stray click can't
   // destroy work.
   const confirm = String(fd.get("confirm") ?? "").trim();
@@ -17,7 +19,7 @@ export async function deleteFromDuplicates(id: string, fd: FormData) {
     redirect("/repair-orders/duplicates?error=confirm_required");
   }
 
-  const ro = await db.repairOrder.findUnique({ where: { id } });
+  const ro = await db.repairOrder.findFirst({ where: { id, orgId } });
   if (!ro) {
     redirect("/repair-orders/duplicates?error=not_found");
   }
@@ -29,7 +31,7 @@ export async function deleteFromDuplicates(id: string, fd: FormData) {
     redirect("/repair-orders/duplicates?error=paid_locked");
   }
 
-  await db.repairOrder.delete({ where: { id } });
+  await db.repairOrder.delete({ where: { id, orgId } });
   revalidatePath("/repair-orders");
   revalidatePath("/repair-orders/duplicates");
   revalidatePath("/");

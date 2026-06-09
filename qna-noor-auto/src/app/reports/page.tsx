@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -86,6 +87,7 @@ export default async function ReportsPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const orgId = await requireOrgId();
   const sp = await searchParams;
   const { preset, from, to, label } = resolveRange(sp);
 
@@ -100,6 +102,7 @@ export default async function ReportsPage({
     expensesInRange,
   ] = await Promise.all([
     db.repairOrder.findMany({
+      where: { orgId },
       include: {
         customer: true,
         vehicle: true,
@@ -110,7 +113,7 @@ export default async function ReportsPage({
       },
     }),
     db.payment.findMany({
-      where: { paidAt: { gte: from, lte: to } },
+      where: { orgId, paidAt: { gte: from, lte: to } },
       include: {
         repairOrder: {
           include: {
@@ -124,17 +127,17 @@ export default async function ReportsPage({
       },
     }),
     db.repairOrder.count({
-      where: { status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] } },
+      where: { orgId, status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] } },
     }),
-    db.repairOrder.count({ where: { status: "INVOICED" } }),
-    db.technician.findMany({ orderBy: { name: "asc" } }),
+    db.repairOrder.count({ where: { orgId, status: "INVOICED" } }),
+    db.technician.findMany({ where: { orgId }, orderBy: { name: "asc" } }),
     db.partLine.findMany({
-      where: { repairOrder: { openedAt: { gte: from, lte: to } } },
+      where: { repairOrder: { orgId, openedAt: { gte: from, lte: to } } },
       include: { part: true, repairOrder: true },
     }),
-    db.part.count({ where: { archived: false } }),
+    db.part.count({ where: { orgId, archived: false } }),
     db.expense.findMany({
-      where: { paidAt: { gte: from, lte: to } },
+      where: { orgId, paidAt: { gte: from, lte: to } },
       orderBy: { paidAt: "desc" },
     }),
   ]);
@@ -142,6 +145,7 @@ export default async function ReportsPage({
   const revenueInRange = paymentsInRange.reduce((s, p) => s + p.amount, 0);
 
   const arShopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     allROs
       .filter((ro) => ro.status === "INVOICED")
       .map((ro) => {
@@ -202,6 +206,7 @@ export default async function ReportsPage({
     }
     const paymentsLast12 = await db.payment.findMany({
       where: {
+        orgId,
         paidAt: {
           gte: new Date(months[0].key + "-01"),
           lte: to,

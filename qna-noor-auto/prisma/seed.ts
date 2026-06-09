@@ -3,13 +3,29 @@ import { DEFAULT_SERVICE_INTERVALS } from "../src/lib/serviceReminders";
 
 const db = new PrismaClient();
 
+/**
+ * Phase 3: all demo data belongs to a single starter organization. Ensure it
+ * exists and return its id so every seeded record can be scoped to it.
+ */
+async function ensureSeedOrg(): Promise<string> {
+  let org = await db.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!org) {
+    org = await db.organization.create({
+      data: { name: "QNA / Noor Auto Repair", status: "ACTIVE" },
+    });
+    console.log(`Created starter organization "${org.name}" (${org.id}).`);
+  }
+  return org.id;
+}
+
 async function main() {
+  const orgId = await ensureSeedOrg();
   // One-time data migration for Phase 13: any existing customer that has a
   // companyName set and is still the default INDIVIDUAL type gets flipped to
   // BUSINESS so they land on the new Businesses tab. Idempotent — re-running
   // the seed on a shop that has already cleaned things up is a no-op.
   await db.customer.updateMany({
-    where: { type: "INDIVIDUAL", NOT: { companyName: null } },
+    where: { orgId, type: "INDIVIDUAL", NOT: { companyName: null } },
     data: { type: "BUSINESS" },
   });
 
@@ -28,14 +44,14 @@ async function main() {
     });
   }
 
-  const existing = await db.customer.count();
+  const existing = await db.customer.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping customer seed — ${existing} customers already exist.`);
-    await seedShopDefaults();
-    await seedNotesIfEmpty();
-    await seedAppointmentsIfEmpty();
-    await seedTechniciansIfEmpty();
-    await seedInventoryIfEmpty();
+    await seedShopDefaults(orgId);
+    await seedNotesIfEmpty(orgId);
+    await seedAppointmentsIfEmpty(orgId);
+    await seedTechniciansIfEmpty(orgId);
+    await seedInventoryIfEmpty(orgId);
     return;
   }
 
@@ -43,15 +59,16 @@ async function main() {
   // production DB is usable out of the box. Demo data (customers/vehicles/ROs)
   // only gets seeded when SEED_DEMO is not explicitly set to "false".
   if (process.env.SEED_DEMO === "false") {
-    await seedShopDefaults();
+    await seedShopDefaults(orgId);
     console.log("Seeded shop defaults only (SEED_DEMO=false). Skipping demo customers.");
     return;
   }
 
-  await seedShopDefaults();
+  await seedShopDefaults(orgId);
 
   const sarah = await db.customer.create({
     data: {
+      orgId,
       type: "INDIVIDUAL",
       firstName: "Sarah",
       lastName: "Johnson",
@@ -65,6 +82,7 @@ async function main() {
       vehicles: {
         create: [
           {
+            orgId,
             vin: "1HGCM82633A004352",
             year: 2003,
             make: "Honda",
@@ -83,6 +101,7 @@ async function main() {
 
   const mike = await db.customer.create({
     data: {
+      orgId,
       type: "INDIVIDUAL",
       firstName: "Mike",
       lastName: "Nguyen",
@@ -95,6 +114,7 @@ async function main() {
       vehicles: {
         create: [
           {
+            orgId,
             vin: "5YJ3E1EA7KF317000",
             year: 2019,
             make: "Tesla",
@@ -104,6 +124,7 @@ async function main() {
             mileage: 58200,
           },
           {
+            orgId,
             vin: "1FTFW1ET0EFC83927",
             year: 2014,
             make: "Ford",
@@ -120,6 +141,7 @@ async function main() {
 
   const acme = await db.customer.create({
     data: {
+      orgId,
       type: "BUSINESS",
       firstName: "Alex",
       lastName: "Rivera",
@@ -133,6 +155,7 @@ async function main() {
       vehicles: {
         create: [
           {
+            orgId,
             vin: "1GCCS14X8J8158801",
             year: 2018,
             make: "Chevrolet",
@@ -149,6 +172,7 @@ async function main() {
 
   const carlos = await db.technician.create({
     data: {
+      orgId,
       name: "Carlos Rivera",
       initials: "CR",
       defaultRate: 150,
@@ -157,6 +181,7 @@ async function main() {
   });
   await db.technician.create({
     data: {
+      orgId,
       name: "Dana Kim",
       initials: "DK",
       defaultRate: 135,
@@ -169,6 +194,7 @@ async function main() {
   // RO #1001 use without going negative.
   const brakePads = await db.part.create({
     data: {
+      orgId,
       name: "Front brake pad set (ceramic)",
       partNumber: "BP-HD-4352",
       description: "Ceramic front pads, fits 2003–2007 Honda Accord 2.4L",
@@ -190,6 +216,7 @@ async function main() {
 
   const caliperGrease = await db.part.create({
     data: {
+      orgId,
       name: "Brake caliper grease",
       partNumber: "LUB-CAL-01",
       description: "High-temp silicone caliper grease, 8oz tube",
@@ -212,6 +239,7 @@ async function main() {
   // A sample repair order
   const ro1001 = await db.repairOrder.create({
     data: {
+      orgId,
       roNumber: 1001,
       customerId: sarah.id,
       vehicleId: sarah.vehicles[0].id,
@@ -280,6 +308,7 @@ async function main() {
 
   await db.repairOrder.create({
     data: {
+      orgId,
       roNumber: 1002,
       customerId: mike.id,
       vehicleId: mike.vehicles[1].id, // F-150
@@ -300,38 +329,39 @@ async function main() {
     },
   });
 
-  await seedNotesIfEmpty();
-  await seedAppointmentsIfEmpty();
-  await seedPaymentsIfEmpty();
-  await seedTechniciansIfEmpty();
-  await seedInventoryIfEmpty();
+  await seedNotesIfEmpty(orgId);
+  await seedAppointmentsIfEmpty(orgId);
+  await seedPaymentsIfEmpty(orgId);
+  await seedTechniciansIfEmpty(orgId);
+  await seedInventoryIfEmpty(orgId);
   await seedShareTokensIfEmpty();
 
   console.log("Seed complete.");
 }
 
-async function seedShopDefaults() {
+async function seedShopDefaults(orgId: string) {
   await db.shopSetting.upsert({
-    where: { key: "shopName" },
-    create: { key: "shopName", value: "QNA / Noor Auto Repair" },
+    where: { orgId_key: { orgId, key: "shopName" } },
+    create: { orgId, key: "shopName", value: "QNA / Noor Auto Repair" },
     update: {},
   });
   await db.shopSetting.upsert({
-    where: { key: "defaultLaborRate" },
-    create: { key: "defaultLaborRate", value: "150" },
+    where: { orgId_key: { orgId, key: "defaultLaborRate" } },
+    create: { orgId, key: "defaultLaborRate", value: "150" },
     update: {},
   });
   await db.shopSetting.upsert({
-    where: { key: "defaultTaxRate" },
-    create: { key: "defaultTaxRate", value: "8.25" },
+    where: { orgId_key: { orgId, key: "defaultTaxRate" } },
+    create: { orgId, key: "defaultTaxRate", value: "8.25" },
     update: {},
   });
 
   // Phase 19: seed default Identifix-style shop fees if no fees exist yet.
-  const shopFeeCount = await db.shopFee.count();
+  const shopFeeCount = await db.shopFee.count({ where: { orgId } });
   if (shopFeeCount === 0) {
     await db.shopFee.create({
       data: {
+        orgId,
         name: "Shop Supplies",
         description: "Shop Supplies",
         partsPercent: 7.5,
@@ -344,6 +374,7 @@ async function seedShopDefaults() {
     });
     await db.shopFee.create({
       data: {
+        orgId,
         name: "Hazardous Materials",
         description: "Hazardous Materials",
         partsPercent: 6,
@@ -375,14 +406,15 @@ async function seedShareTokensIfEmpty() {
   console.log("Seeded share token on RO #1002.");
 }
 
-async function seedInventoryIfEmpty() {
-  const existing = await db.part.count();
+async function seedInventoryIfEmpty(orgId: string) {
+  const existing = await db.part.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping inventory seed — ${existing} catalog parts already exist.`);
     return;
   }
   const brakePads = await db.part.create({
     data: {
+      orgId,
       name: "Front brake pad set (ceramic)",
       partNumber: "BP-HD-4352",
       description: "Ceramic front pads, fits 2003–2007 Honda Accord 2.4L",
@@ -403,6 +435,7 @@ async function seedInventoryIfEmpty() {
   });
   const caliperGrease = await db.part.create({
     data: {
+      orgId,
       name: "Brake caliper grease",
       partNumber: "LUB-CAL-01",
       description: "High-temp silicone caliper grease, 8oz tube",
@@ -424,14 +457,15 @@ async function seedInventoryIfEmpty() {
   console.log("Seeded 2 catalog parts.");
 }
 
-async function seedTechniciansIfEmpty() {
-  const existing = await db.technician.count();
+async function seedTechniciansIfEmpty(orgId: string) {
+  const existing = await db.technician.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping technicians seed — ${existing} already exist.`);
     return;
   }
   const carlos = await db.technician.create({
     data: {
+      orgId,
       name: "Carlos Rivera",
       initials: "CR",
       defaultRate: 150,
@@ -440,6 +474,7 @@ async function seedTechniciansIfEmpty() {
   });
   await db.technician.create({
     data: {
+      orgId,
       name: "Dana Kim",
       initials: "DK",
       defaultRate: 135,
@@ -459,8 +494,8 @@ async function seedTechniciansIfEmpty() {
   console.log("Seeded 2 technicians.");
 }
 
-async function seedPaymentsIfEmpty() {
-  const existing = await db.payment.count();
+async function seedPaymentsIfEmpty(orgId: string) {
+  const existing = await db.payment.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping payments seed — ${existing} already exist.`);
     return;
@@ -483,6 +518,7 @@ async function seedPaymentsIfEmpty() {
 
   await db.payment.create({
     data: {
+      orgId,
       repairOrderId: ro1001.id,
       amount: 100,
       method: "CASH",
@@ -494,13 +530,14 @@ async function seedPaymentsIfEmpty() {
   console.log("Seeded 1 example payment + invoiced RO #1001.");
 }
 
-async function seedAppointmentsIfEmpty() {
-  const existing = await db.appointment.count();
+async function seedAppointmentsIfEmpty(orgId: string) {
+  const existing = await db.appointment.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping appointments seed — ${existing} already exist.`);
     return;
   }
   const customers = await db.customer.findMany({
+    where: { orgId },
     include: { vehicles: true },
     orderBy: { createdAt: "asc" },
   });
@@ -522,6 +559,7 @@ async function seedAppointmentsIfEmpty() {
 
   if (first) {
     data.push({
+      orgId,
       customerId: first.id,
       vehicleId: first.vehicles[0]?.id ?? null,
       startsAt: at(0, 9, 30),
@@ -532,6 +570,7 @@ async function seedAppointmentsIfEmpty() {
   }
   if (second) {
     data.push({
+      orgId,
       customerId: second.id,
       vehicleId: second.vehicles[0]?.id ?? null,
       startsAt: at(0, 13, 0),
@@ -541,6 +580,7 @@ async function seedAppointmentsIfEmpty() {
       status: "SCHEDULED",
     });
     data.push({
+      orgId,
       customerId: second.id,
       vehicleId: second.vehicles[1]?.id ?? second.vehicles[0]?.id ?? null,
       startsAt: at(1, 10, 0),
@@ -556,8 +596,8 @@ async function seedAppointmentsIfEmpty() {
   }
 }
 
-async function seedNotesIfEmpty() {
-  const existing = await db.repairNote.count();
+async function seedNotesIfEmpty(orgId: string) {
+  const existing = await db.repairNote.count({ where: { orgId } });
   if (existing > 0) {
     console.log(`Skipping notes seed — ${existing} notes already exist.`);
     return;
@@ -565,6 +605,7 @@ async function seedNotesIfEmpty() {
   await db.repairNote.createMany({
     data: [
       {
+        orgId,
         title: "2003–2007 Honda Accord — front brake squeal at low speed",
         yearMin: 2003,
         yearMax: 2007,
@@ -583,6 +624,7 @@ async function seedNotesIfEmpty() {
           "Front pads — NAPA Adaptive One AD465 (~$42 cost). Brake caliper grease — AutoZone Permatex Ultra (~$4).",
       },
       {
+        orgId,
         title: "Ford F-150 5.0L — rough idle + P0300 random misfire",
         make: "Ford",
         model: "F-150",
@@ -599,6 +641,7 @@ async function seedNotesIfEmpty() {
           "Coils — Motorcraft DG-521 ×8 (stay OEM, aftermarket fails early). Plugs — Motorcraft SP-534 ×8.",
       },
       {
+        orgId,
         title: "Tesla Model 3 — HV battery 12V aux battery failure",
         make: "Tesla",
         model: "Model 3",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader, StatusBadge } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -64,7 +65,7 @@ function tokenize(text: string): string[] {
 
 type ROWithRelations = Awaited<ReturnType<typeof loadROs>>[number];
 
-async function loadROs() {
+async function loadROs(orgId: string) {
   // Include PAID (and paid-then-cleared) ROs so the shop can see a vehicle's
   // past work history right next to a new/active ticket and judge whether the
   // new job duplicates one that was already done and paid for. Clusters that
@@ -72,7 +73,7 @@ async function loadROs() {
   // page stays focused on groups that still have an actionable ticket.
   // CANCELLED ROs remain hidden — they were never real work.
   return db.repairOrder.findMany({
-    where: { status: { not: "CANCELLED" } },
+    where: { orgId, status: { not: "CANCELLED" } },
     orderBy: { openedAt: "desc" },
     include: {
       customer: true,
@@ -215,10 +216,12 @@ export default async function DuplicatesPage({
 }: {
   searchParams: Promise<{ deleted?: string; error?: string }>;
 }) {
+  const orgId = await requireOrgId();
   const { deleted, error } = await searchParams;
-  const ros = await loadROs();
+  const ros = await loadROs(orgId);
   const clusters = clusterROs(ros);
   const shopFeesByRO = await loadAppliedShopFeesForROs(
+    orgId,
     ros.map((ro) => {
       const t = computeTotals(ro);
       return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };

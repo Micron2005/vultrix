@@ -44,7 +44,7 @@ export default async function PublicEstimatePage({
 
   if (!ro) notFound();
 
-  const shop = await getAllSettings();
+  const shop = await getAllSettings(ro.orgId);
   const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals({
     laborLines: filtered.laborLines,
@@ -53,7 +53,7 @@ export default async function PublicEstimatePage({
     taxRate: ro.taxRate,
     discount: ro.discount,
   });
-  const appliedShopFees = await loadAppliedShopFees(ro.id, {
+  const appliedShopFees = await loadAppliedShopFees(ro.orgId, ro.id, {
     partsSubtotal: preliminary.partsSubtotal,
     laborSubtotal: preliminary.laborSubtotal,
   });

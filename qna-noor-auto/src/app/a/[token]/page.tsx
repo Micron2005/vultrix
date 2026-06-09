@@ -24,7 +24,7 @@ export default async function PublicReminderPage({
   });
   if (!appt) notFound();
 
-  const shop = await getAllSettings();
+  const shop = await getAllSettings(appt.orgId);
 
   const startsAt = new Date(appt.startsAt);
   const endsAt = new Date(startsAt);
