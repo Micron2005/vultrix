@@ -70,7 +70,8 @@ export function Nav({
     pathname?.startsWith("/q/") ||
     pathname?.startsWith("/inventory/qr-sheet") ||
     pathname?.endsWith("/qr") ||
-    pathname === "/login"
+    pathname === "/login" ||
+    pathname === "/signup"
   )
     return null;
 
