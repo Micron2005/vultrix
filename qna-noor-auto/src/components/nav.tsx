@@ -52,7 +52,11 @@ export function Nav({
   const navItems = isSuperadmin
     ? [{ href: "/admin", label: "Manage businesses" }]
     : canManageUsers
-      ? [...items, { href: "/settings/users", label: "Logins" }]
+      ? [
+          ...items,
+          { href: "/settings/users", label: "Logins" },
+          { href: "/billing", label: "Billing" },
+        ]
       : items;
 
   // Hide the shop sidebar on public, customer-facing routes and on login.

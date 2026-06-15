@@ -208,6 +208,71 @@ If you want to test changes before deploying, push to a different branch
 
 ---
 
+## Billing (Stripe subscriptions)
+
+Self-serve sign-up and recurring billing are powered by Stripe. They stay
+dormant until the Stripe env vars below are set, so the app runs fine without
+them (businesses you create from the **Manage businesses** admin screen don't
+need a subscription).
+
+### Environment variables
+
+| Name | Value | Where to get it |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_…` to start, `sk_live_…` for real money) | https://dashboard.stripe.com/apikeys |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for the webhook endpoint (`whsec_…`) | created in step 2 below |
+| `CRON_SECRET` | A random string; protects the daily billing cron | you generate (e.g. https://generate-secret.vercel.app/32) |
+| `STRIPE_PRICE_ID` | *(optional)* an existing recurring Price id to use | Stripe → Products. If omitted, the app auto-creates a $`BILLING_PRICE_USD`/month price |
+| `BILLING_PRICE_USD` | *(optional)* monthly price in dollars (default `35`) | you pick |
+| `BILLING_TRIAL_DAYS` | *(optional)* free-trial length in days (default `14`) | you pick |
+| `BILLING_GRACE_DAYS` | *(optional)* days unpaid before auto-suspend (default `3`) | you pick |
+| `NEXT_PUBLIC_BASE_URL` | *(optional)* canonical site URL for Stripe redirects; auto-derived from the request if unset | e.g. `https://yourdomain.com` |
+
+### 1. Get your Stripe key
+
+Create a free account at https://dashboard.stripe.com/register, then copy your
+**Secret key** from https://dashboard.stripe.com/test/apikeys. Start in **test
+mode** (toggle top-right) to verify everything with Stripe's test cards before
+switching to live keys.
+
+### 2. Add the webhook
+
+1. Go to https://dashboard.stripe.com/test/webhooks → **Add endpoint**.
+2. Endpoint URL: `https://YOUR-DOMAIN/api/stripe/webhook`.
+3. Subscribe to these events: `checkout.session.completed`,
+   `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.paid`.
+4. After creating it, copy the **Signing secret** (`whsec_…`) into
+   `STRIPE_WEBHOOK_SECRET`.
+
+### 3. The daily grace-period check
+
+`vercel.json` defines a cron that hits `/api/cron/billing` once a day. It puts
+on hold any business whose payment has been failing for more than
+`BILLING_GRACE_DAYS` days (Stripe retries the card during that window; a
+successful payment auto-reactivates them). Set `CRON_SECRET` so only Vercel Cron
+can trigger it.
+
+### How it flows
+
+1. A new shop visits `/signup`, enters their details + card on Stripe's hosted
+   checkout, and starts a `BILLING_TRIAL_DAYS`-day free trial.
+2. On success they're signed in and their business is **ACTIVE**.
+3. If a renewal payment fails, the grace timer starts; after
+   `BILLING_GRACE_DAYS` days the business is **SUSPENDED** (its logins are
+   blocked) until they pay. Owners manage their card at `/billing` (Stripe
+   portal).
+4. You can always override status manually from the **Manage businesses** admin
+   screen.
+
+### Going live
+
+Swap the test keys for live keys (`sk_live_…`), recreate the webhook in live
+mode for the same URL, and update `STRIPE_WEBHOOK_SECRET`. Test cards stop
+working in live mode — use a real card.
+
+---
+
 ## Security notes
 
 - The **session cookie** is `httpOnly` and `secure` in production (only sent

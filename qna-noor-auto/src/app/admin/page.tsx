@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/db";
 import { requireSuperadmin } from "@/lib/session";
 import { APP_NAME } from "@/lib/branding";
+import { describeBilling } from "@/lib/billing";
 import {
   createBusiness,
   renameBusiness,
@@ -117,6 +118,9 @@ export default async function AdminPage({
                         <div className="text-xs text-zinc-500">
                           {org._count.users} logins · {org._count.customers}{" "}
                           customers · {org._count.repairOrders} tickets
+                        </div>
+                        <div className="text-xs text-zinc-400">
+                          {describeBilling(org)}
                         </div>
                       </div>
                       <form action={setBusinessStatus}>

@@ -8,6 +8,7 @@ type SearchParams = Promise<{
   next?: string;
   error?: string;
   suspended?: string;
+  pending?: string;
 }>;
 
 export default async function LoginPage({
@@ -15,7 +16,7 @@ export default async function LoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { next, error, suspended } = await searchParams;
+  const { next, error, suspended, pending } = await searchParams;
 
   if (await getCurrentUser()) {
     redirect(safeNext(next));
@@ -78,6 +79,11 @@ export default async function LoginPage({
                 This account is on hold. Please contact your administrator.
               </div>
             )}
+            {pending && (
+              <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+                Payment is processing. Sign in shortly to access your account.
+              </div>
+            )}
             <button
               type="submit"
               className="w-full rounded-md bg-zinc-900 text-white text-sm font-medium py-2 hover:bg-zinc-800"
@@ -85,6 +91,12 @@ export default async function LoginPage({
               Sign in
             </button>
           </form>
+        </div>
+        <div className="text-center text-xs text-zinc-500">
+          New here?{" "}
+          <a href="/signup" className="font-medium text-zinc-700 underline">
+            Start your shop
+          </a>
         </div>
         <div className="text-center text-[11px] text-zinc-400">
           {APP_OWNER_LINE}

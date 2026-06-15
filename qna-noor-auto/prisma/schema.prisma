@@ -663,6 +663,21 @@ model Organization {
   name      String // the business's own shop name, shown to its users
   // ACTIVE | SUSPENDED — a suspended org's users can't sign in (e.g. unpaid).
   status    String   @default("ACTIVE")
+
+  // --- Billing (Stripe subscription) ---------------------------------------
+  // Contact email used for the Stripe customer / receipts.
+  billingEmail         String?
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  // Mirrors the Stripe subscription status: trialing | active | past_due |
+  // canceled | unpaid | incomplete (null before checkout completes).
+  subscriptionStatus   String?
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  // First moment we saw the subscription go unpaid/past_due. Cleared on a
+  // successful payment. Drives the grace period before auto-suspension.
+  pastDueSince         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
