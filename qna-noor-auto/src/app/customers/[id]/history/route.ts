@@ -173,6 +173,7 @@ export async function GET(
   const cityLine = [customer.city, customer.state, customer.zip].filter(Boolean).join(" ");
   if (cityLine) lines.push(cityLine);
   for (const l of lines) {
+    ensureSpace(12);
     page.drawText(l, { x: MARGIN, y, size: 10, font, color: black });
     y -= 12;
   }
@@ -186,6 +187,7 @@ export async function GET(
     y -= 12;
   } else {
     for (const v of customer.vehicles) {
+      ensureSpace(12);
       const parts = [vehicleLabel(v)];
       if (v.vin) parts.push(`VIN ${v.vin}`);
       if (v.licensePlate) parts.push(`Plate ${v.licensePlate}`);

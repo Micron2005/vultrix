@@ -56,12 +56,29 @@ export async function GET(
   const docType = isEstimate ? "ESTIMATE" : "INVOICE";
 
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([612, 792]); // US Letter
+  let page = pdf.addPage([612, 792]); // US Letter
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   const margin = 48;
+  // Lowest y content may reach; leaves room for the footer / page number.
+  const contentFloor = margin + 24;
   let y = 792 - margin;
+
+  // Start a fresh page and move the cursor back to the top.
+  function newPage() {
+    page = pdf.addPage([612, 792]);
+    y = 792 - margin;
+  }
+  // Ensure `needed` vertical points remain before the footer; otherwise break to
+  // a new page. Returns true when a page break happened.
+  function ensureSpace(needed: number): boolean {
+    if (y - needed < contentFloor) {
+      newPage();
+      return true;
+    }
+    return false;
+  }
   const black = rgb(0, 0, 0);
   const gray = rgb(0.4, 0.4, 0.4);
   const lightGray = rgb(0.85, 0.85, 0.85);
@@ -186,6 +203,7 @@ export async function GET(
   ];
   for (const [label, text] of threeCs) {
     if (!text) continue;
+    ensureSpace(12 + 12);
     page.drawText(label.toUpperCase(), {
       x: margin,
       y,
@@ -196,6 +214,7 @@ export async function GET(
     y -= 12;
     const wrapped = wrapText(text, font, 10, 612 - margin * 2);
     for (const line of wrapped) {
+      ensureSpace(12);
       page.drawText(line, { x: margin, y, size: 10, font, color: black });
       y -= 12;
     }
@@ -215,39 +234,56 @@ export async function GET(
   type PartRow = (typeof ro.partLines)[number];
   type FeeRow = (typeof ro.feeLines)[number];
 
+  // Render one section (labor/parts/fees) with its column header, repeating the
+  // header whenever the section spills onto a new page so columns stay labeled.
+  function drawSection(
+    cols: { text: string; x: number; align?: "left" | "right" }[],
+    rows: (() => void)[],
+  ) {
+    if (rows.length === 0) return;
+    ensureSpace(12 + 14);
+    drawLineHeader(page, y, font, gray, cols);
+    y -= 12;
+    for (const drawRow of rows) {
+      if (ensureSpace(14)) {
+        drawLineHeader(page, y, font, gray, cols);
+        y -= 12;
+      }
+      drawRow();
+      y -= 14;
+    }
+    y -= 4;
+  }
+
   // Helper to render labor/parts/fees for a group
   function drawJobLines(
     laborLines: LaborRow[],
     partLines: PartRow[],
     feeLines: FeeRow[],
   ) {
-    if (laborLines.length > 0) {
-      drawLineHeader(page, y, font, gray, [
+    drawSection(
+      [
         { text: "Description", x: margin + 8 },
         { text: "Hours", x: 380, align: "right" },
         { text: "Rate", x: 460, align: "right" },
         { text: "Amount", x: 612 - margin, align: "right" },
-      ]);
-      y -= 12;
-      for (const l of laborLines) {
+      ],
+      laborLines.map((l) => () => {
         page.drawText(l.description, { x: margin + 8, y, size: 10, font, color: black });
         drawRight(page, l.hours.toString(), 380, y, font, 10, black);
         drawRight(page, formatMoney(l.rate), 460, y, font, 10, black);
         drawRight(page, formatMoney(l.hours * l.rate), 612 - margin, y, font, 10, black);
-        y -= 14;
-      }
-      y -= 4;
-    }
-    if (partLines.length > 0) {
-      drawLineHeader(page, y, font, gray, [
+      }),
+    );
+    drawSection(
+      [
         { text: "Description", x: margin + 8 },
         { text: "Part #", x: 300 },
         { text: "Qty", x: 420, align: "right" },
         { text: "Unit", x: 480, align: "right" },
         { text: "Amount", x: 612 - margin, align: "right" },
-      ]);
-      y -= 12;
-      for (const p of partLines) {
+      ],
+      partLines.map((p) => () => {
         page.drawText(p.description, { x: margin + 8, y, size: 10, font, color: black });
         if (p.partNumber) {
           page.drawText(p.partNumber, { x: 300, y, size: 9, font, color: gray });
@@ -255,23 +291,18 @@ export async function GET(
         drawRight(page, p.quantity.toString(), 420, y, font, 10, black);
         drawRight(page, formatMoney(p.unitPrice), 480, y, font, 10, black);
         drawRight(page, formatMoney(p.quantity * p.unitPrice), 612 - margin, y, font, 10, black);
-        y -= 14;
-      }
-      y -= 4;
-    }
-    if (feeLines.length > 0) {
-      drawLineHeader(page, y, font, gray, [
+      }),
+    );
+    drawSection(
+      [
         { text: "Description", x: margin + 8 },
         { text: "Amount", x: 612 - margin, align: "right" },
-      ]);
-      y -= 12;
-      for (const f of feeLines) {
+      ],
+      feeLines.map((f) => () => {
         page.drawText(f.description, { x: margin + 8, y, size: 10, font, color: black });
         drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
-        y -= 14;
-      }
-      y -= 4;
-    }
+      }),
+    );
   }
 
   // Render jobs with their line items
@@ -280,6 +311,7 @@ export async function GET(
   const ungroupedFees = ro.feeLines.filter((f) => !f.jobId);
 
   for (const job of ro.jobs) {
+    ensureSpace(14 + 12 + 14);
     page.drawText(job.name.toUpperCase(), {
       x: margin,
       y,
@@ -295,6 +327,7 @@ export async function GET(
   // Ungrouped lines (legacy data)
   if (ungroupedLabor.length > 0 || ungroupedParts.length > 0 || ungroupedFees.length > 0) {
     if (ro.jobs.length > 0) {
+      ensureSpace(14 + 12 + 14);
       page.drawText("OTHER ITEMS", {
         x: margin,
         y,
@@ -308,14 +341,6 @@ export async function GET(
   }
 
   // Totals (right side)
-  page.drawLine({
-    start: { x: 360, y },
-    end: { x: 612 - margin, y },
-    thickness: 1,
-    color: lightGray,
-  });
-  y -= 14;
-
   const totalsRows: [string, string][] = [
     ["Labor", formatMoney(totals.laborSubtotal)],
     ["Parts", formatMoney(totals.partsSubtotal)],
@@ -329,6 +354,16 @@ export async function GET(
   if (totals.discount > 0)
     totalsRows.push(["Discount", `- ${formatMoney(totals.discount)}`]);
   totalsRows.push([`Tax (${ro.taxRate}%)`, formatMoney(totals.tax)]);
+
+  // Keep the whole totals block (rows + grand total) together on one page.
+  ensureSpace(14 + totalsRows.length * 14 + 4 + 16 + 16);
+  page.drawLine({
+    start: { x: 360, y },
+    end: { x: 612 - margin, y },
+    thickness: 1,
+    color: lightGray,
+  });
+  y -= 14;
 
   for (const [label, val] of totalsRows) {
     page.drawText(label, { x: 360, y, size: 10, font, color: gray });
@@ -351,6 +386,7 @@ export async function GET(
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
   if (!isEstimate && ro.payments.length > 0) {
+    ensureSpace(22 + 14 + ro.payments.length * 12 + 4 + 16 + 16);
     y -= 22;
     page.drawText("PAYMENTS RECEIVED", {
       x: 360,
@@ -410,6 +446,22 @@ export async function GET(
     font,
     color: gray,
   });
+
+  // Page numbers — only meaningful once the invoice spans multiple pages.
+  const allPages = pdf.getPages();
+  if (allPages.length > 1) {
+    allPages.forEach((pg, i) => {
+      const label = `Page ${i + 1} of ${allPages.length}`;
+      const w = font.widthOfTextAtSize(label, 8);
+      pg.drawText(label, {
+        x: 612 - margin - w,
+        y: margin,
+        size: 8,
+        font,
+        color: gray,
+      });
+    });
+  }
 
   const prefix = isEstimate ? "Estimate" : "Invoice";
   const bytes = await pdf.save();
