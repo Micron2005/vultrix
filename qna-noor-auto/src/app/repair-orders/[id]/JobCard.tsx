@@ -11,6 +11,7 @@ import {
 } from "@/components/ui";
 import { TechLineSelect } from "./TechLineSelect";
 import { SaveButton } from "@/components/SaveButton";
+import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { formatMoney } from "@/lib/utils";
 
 type LaborLineData = {
@@ -303,7 +304,7 @@ export function JobCard({
                             action={updL}
                             className="contents"
                           />
-                          <Input
+                          <AutoGrowTextarea
                             form={`labor-${l.id}`}
                             name="description"
                             defaultValue={l.description}
@@ -416,7 +417,7 @@ export function JobCard({
                             action={updP}
                             className="contents"
                           />
-                          <Input
+                          <AutoGrowTextarea
                             form={`part-${p.id}`}
                             name="description"
                             defaultValue={p.description}
@@ -519,7 +520,7 @@ export function JobCard({
                             action={updF}
                             className="contents"
                           />
-                          <Input
+                          <AutoGrowTextarea
                             form={`fee-${f.id}`}
                             name="description"
                             defaultValue={f.description}
@@ -600,7 +601,7 @@ export function JobCard({
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-5">
                       <Field label="Description">
-                        <Input
+                        <AutoGrowTextarea
                           name="description"
                           placeholder="e.g. Replace brake pads"
                           required
@@ -684,7 +685,7 @@ export function JobCard({
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-3">
                       <Field label="Description">
-                        <Input
+                        <AutoGrowTextarea
                           name="description"
                           placeholder="e.g. Brake pad set"
                           autoFocus
@@ -757,7 +758,7 @@ export function JobCard({
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-7">
                       <Field label="Description">
-                        <Input
+                        <AutoGrowTextarea
                           name="description"
                           placeholder="e.g. Diagnostic fee"
                           required
