@@ -110,6 +110,9 @@ export async function startSignup(formData: FormData) {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customer.id,
+    // Card only: disables Stripe Link's one-click flow (the "confirm it's you"
+    // SMS step) so every customer just enters their card details directly.
+    payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
       trial_period_days: TRIAL_DAYS > 0 ? TRIAL_DAYS : undefined,
