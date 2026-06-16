@@ -1,4 +1,5 @@
-import { Button, Field, Input, Textarea } from "@/components/ui";
+import { Field, Input, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import type { Technician } from "@prisma/client";
 
 export function TechForm({
@@ -60,7 +61,7 @@ export function TechForm({
       </label>
 
       <div className="flex gap-2">
-        <Button type="submit">{submitLabel}</Button>
+        <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
   );

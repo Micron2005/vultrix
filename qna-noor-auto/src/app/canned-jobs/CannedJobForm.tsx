@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 
 type LaborDraft = {
   key: number;
@@ -345,7 +346,7 @@ export function CannedJobForm({
       </div>
 
       <div className="flex gap-2 pt-4 border-t border-zinc-200">
-        <Button type="submit">Save preset</Button>
+        <SaveButton>Save preset</SaveButton>
       </div>
     </form>
   );
