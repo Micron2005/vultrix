@@ -98,6 +98,15 @@ export default async function LoginPage({
             Start your shop
           </a>
         </div>
+        <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">
+          <a href="/terms" className="underline hover:text-zinc-600">
+            Terms
+          </a>
+          <span>·</span>
+          <a href="/privacy" className="underline hover:text-zinc-600">
+            Privacy
+          </a>
+        </div>
         <div className="text-center text-[11px] text-zinc-400">
           {APP_OWNER_LINE}
         </div>

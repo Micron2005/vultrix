@@ -10,3 +10,16 @@ export const APP_OWNER =
 
 /** e.g. "Vultrix is owned by M.S.A.M Industries" */
 export const APP_OWNER_LINE = `${APP_NAME} is owned by ${APP_OWNER}`;
+
+/** Contact address shown on the legal pages and used for legal notices. */
+export const LEGAL_CONTACT_EMAIL =
+  process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL?.trim() || "support@vultrix.net";
+
+/** Jurisdiction whose law governs the Terms (override per deploy). */
+export const LEGAL_GOVERNING_LAW =
+  process.env.NEXT_PUBLIC_LEGAL_GOVERNING_LAW?.trim() ||
+  "the State of Texas, United States";
+
+/** Last-updated date shown on the legal pages. */
+export const LEGAL_LAST_UPDATED =
+  process.env.NEXT_PUBLIC_LEGAL_LAST_UPDATED?.trim() || "June 16, 2026";

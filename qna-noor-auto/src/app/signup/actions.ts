@@ -41,7 +41,11 @@ export async function startSignup(formData: FormData) {
     .trim()
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const agreed = formData.get("agree") === "1";
 
+  if (!agreed) {
+    back({ error: "You must agree to the Terms of Service to continue." });
+  }
   if (!name) back({ error: "Business name is required." });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     back({ error: "Enter a valid billing email." });
