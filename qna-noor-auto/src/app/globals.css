@@ -112,3 +112,28 @@ body {
     display: none !important;
   }
 }
+
+/* Save button feedback: shrink into a spiral, then pop back up — visual proof
+   that a save succeeded. Used by the SaveButton component. */
+@keyframes save-pop {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  35% {
+    transform: scale(0.55) rotate(200deg);
+  }
+  70% {
+    transform: scale(1.18) rotate(360deg);
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+  }
+}
+.save-btn[data-state="saved"] {
+  animation: save-pop 0.7s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-btn[data-state="saved"] {
+    animation: none;
+  }
+}

@@ -224,9 +224,19 @@ export async function addJob(repairOrderId: string, fd: FormData) {
 export async function updateJob(id: string, repairOrderId: string, fd: FormData) {
   const orgId = await requireOrgId();
   await assertROEditable(orgId, repairOrderId);
-  const name = String(fd.get("name") ?? "").trim();
-  if (!name) return;
-  await db.job.updateMany({ where: { id, repairOrderId }, data: { name } });
+  // Only update the fields actually present on the submitted form, so the
+  // rename form (name) and the notes form (notes) don't clobber each other.
+  const data: { name?: string; notes?: string | null } = {};
+  if (fd.has("name")) {
+    const name = String(fd.get("name") ?? "").trim();
+    if (!name) return;
+    data.name = name;
+  }
+  if (fd.has("notes")) {
+    data.notes = String(fd.get("notes") ?? "").trim() || null;
+  }
+  if (Object.keys(data).length === 0) return;
+  await db.job.updateMany({ where: { id, repairOrderId }, data });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 

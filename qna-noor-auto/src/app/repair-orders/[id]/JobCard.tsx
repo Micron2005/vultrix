@@ -10,6 +10,7 @@ import {
   Select,
 } from "@/components/ui";
 import { TechLineSelect } from "./TechLineSelect";
+import { SaveButton } from "@/components/SaveButton";
 import { formatMoney } from "@/lib/utils";
 
 type LaborLineData = {
@@ -71,6 +72,7 @@ export function JobCard({
   job: {
     id: string;
     name: string;
+    notes?: string | null;
     approvalStatus?: string;
     laborLines: LaborLineData[];
     partLines: PartLineData[];
@@ -227,6 +229,35 @@ export function JobCard({
 
       {expanded && (
         <div className="divide-y divide-zinc-100">
+          {/* Job notes (internal — not shown to the customer) */}
+          {job.id && updateJobAction && !isLocked ? (
+            <div className="px-4 py-2">
+              <div className="text-xs uppercase tracking-wider text-zinc-400 mb-1">
+                Job notes
+              </div>
+              <form action={updateJobAction} className="space-y-2">
+                <textarea
+                  name="notes"
+                  rows={2}
+                  defaultValue={job.notes ?? ""}
+                  placeholder="Notes for this job (internal — not shown to the customer)"
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                />
+                <SaveButton>Save notes</SaveButton>
+              </form>
+            </div>
+          ) : (
+            job.notes && (
+              <div className="px-4 py-2">
+                <div className="text-xs uppercase tracking-wider text-zinc-400 mb-1">
+                  Job notes
+                </div>
+                <p className="text-sm text-zinc-700 whitespace-pre-wrap">
+                  {job.notes}
+                </p>
+              </div>
+            )
+          )}
           {/* Labor lines */}
           {job.laborLines.length > 0 && (
             <div className="px-4 py-2">

@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { MileageInput } from "@/components/MileageInput";
+import { SaveButton } from "@/components/SaveButton";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
@@ -412,9 +413,14 @@ export default async function RepairOrderDetailPage({
                 />
               </Field>
             </div>
-            <p className="text-xs text-zinc-500">
-              Save from the action bar at the bottom of the page.
-            </p>
+            {!isLocked && (
+              <div className="flex items-center gap-3 pt-1">
+                <SaveButton>Save details</SaveButton>
+                <span className="text-xs text-zinc-500">
+                  Saves the complaint, notes, tax rate &amp; discount above.
+                </span>
+              </div>
+            )}
           </form>
         </Card>
 
