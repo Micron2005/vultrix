@@ -1,4 +1,5 @@
-import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { Field, Input, Select, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_METHODS,
@@ -93,7 +94,7 @@ export function ExpenseForm({
         />
       </Field>
       <div className="flex gap-2 pt-2 border-t border-zinc-200">
-        <Button type="submit">Save expense</Button>
+        <SaveButton>Save expense</SaveButton>
       </div>
     </form>
   );

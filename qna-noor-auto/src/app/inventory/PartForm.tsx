@@ -1,4 +1,5 @@
-import { Button, Field, Input, Textarea } from "@/components/ui";
+import { Field, Input, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import type { Part } from "@prisma/client";
 
 export function PartForm({
@@ -154,7 +155,7 @@ export function PartForm({
       )}
 
       <div className="flex gap-2">
-        <Button type="submit">{submitLabel}</Button>
+        <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
   );

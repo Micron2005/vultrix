@@ -1,4 +1,5 @@
-import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { Field, Input, Select, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import type { Appointment, Customer, Vehicle } from "@prisma/client";
 import { APPOINTMENT_STATUSES } from "./constants";
@@ -111,7 +112,7 @@ export function AppointmentForm({
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit">{submitLabel}</Button>
+        <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
   );

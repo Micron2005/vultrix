@@ -1,4 +1,5 @@
-import { Button, Field, Input, Textarea } from "@/components/ui";
+import { Field, Input, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import type { Customer } from "@prisma/client";
 
 export function CustomerForm({
@@ -75,7 +76,7 @@ export function CustomerForm({
         </Field>
       </div>
       <div className="flex gap-2">
-        <Button type="submit">{submitLabel}</Button>
+        <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
   );

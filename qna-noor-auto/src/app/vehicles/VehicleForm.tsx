@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button, Field, Input, Textarea } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import { MileageInput } from "@/components/MileageInput";
 import { decodeVinAction } from "./actions";
 import type { VinDecodeResult } from "@/lib/vin";
@@ -202,7 +203,7 @@ export function VehicleForm({
       </Field>
 
       <div className="flex gap-2">
-        <Button type="submit">{submitLabel}</Button>
+        <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
   );

@@ -8,6 +8,7 @@ import {
   Input,
   PageHeader,
 } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import { getAllSettings, setSetting } from "@/lib/shop";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
@@ -92,7 +93,7 @@ export default async function SettingsPage({
               />
             </Field>
           </div>
-          <Button type="submit">Save settings</Button>
+          <SaveButton>Save settings</SaveButton>
         </form>
       </Card>
 
@@ -191,9 +192,7 @@ export default async function SettingsPage({
                     />
                   </div>
                   <div className="col-span-1 flex gap-1">
-                    <Button type="submit" variant="secondary" className="h-9">
-                      Save
-                    </Button>
+                    <SaveButton>Save</SaveButton>
                   </div>
                 </form>
                 <form
