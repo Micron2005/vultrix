@@ -111,6 +111,32 @@ body {
   .no-print {
     display: none !important;
   }
+  /* Long invoices and vehicle-history printouts were getting cut off after the
+     first page: browsers refuse to paginate content inside an element with a
+     clipping `overflow` (the app's scrollable <main> and the `overflow-hidden`
+     cards both trigger this). Force overflow visible for print so content flows
+     onto additional pages. */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  main,
+  [class*="overflow-"] {
+    overflow: visible !important;
+  }
+  /* Keep rows whole and repeat the header row on each printed page. */
+  table {
+    break-inside: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr,
+  td,
+  th {
+    break-inside: avoid;
+  }
 }
 
 /* Save button feedback: shrink into a spiral, then pop back up — visual proof
