@@ -91,6 +91,34 @@ export default async function SignupPage({
                   className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 />
               </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  name="agree"
+                  value="1"
+                  required
+                  className="mt-0.5 rounded border-zinc-300"
+                />
+                <span className="text-xs text-zinc-600">
+                  I agree to the{" "}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    className="font-medium text-zinc-700 underline"
+                  >
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    className="font-medium text-zinc-700 underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
               {canceled && (
                 <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
                   Checkout canceled. Your account isn&apos;t active yet — finish
