@@ -105,6 +105,10 @@ export async function destroySession(): Promise<void> {
 }
 
 export function isPublicPath(pathname: string): boolean {
+  // The homepage is the public Vultrix marketing landing page for logged-out
+  // visitors. src/app/page.tsx still renders the dashboard for signed-in users,
+  // so allowing "/" through the proxy only serves the landing page publicly.
+  if (pathname === "/") return true;
   if (pathname === "/login") return true;
   if (pathname === "/signup") return true;
   if (pathname === "/terms") return true;
