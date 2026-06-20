@@ -13,7 +13,22 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
-  const orgLabel = user?.orgName ?? APP_NAME;
+
+  // Logged-out visitors get full-bleed pages with no app chrome. This covers
+  // the marketing landing page (homepage), as well as /login, /signup, the
+  // legal pages, and the public customer portals — each of those already
+  // renders its own full-screen layout, so no sidebar/max-width wrapper here.
+  if (!user) {
+    return (
+      <html lang="en" className="h-full">
+        <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
+          {children}
+        </body>
+      </html>
+    );
+  }
+
+  const orgLabel = user.orgName ?? APP_NAME;
 
   return (
     <html lang="en" className="h-full">
@@ -21,9 +36,9 @@ export default async function RootLayout({
         <div className="flex min-h-screen">
           <Nav
             orgLabel={orgLabel}
-            username={user?.username ?? null}
-            canManageUsers={user ? canManageUsers(user.role) : false}
-            isSuperadmin={user?.role === "SUPERADMIN"}
+            username={user.username}
+            canManageUsers={canManageUsers(user.role)}
+            isSuperadmin={user.role === "SUPERADMIN"}
           />
           <main className="flex-1 overflow-auto">
             <div className="mx-auto max-w-6xl p-6">{children}</div>

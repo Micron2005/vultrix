@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Vultrix marketing landing fonts — Manrope (display) + Inter (body).
+   Must stay near the top: CSS @import rules are only honored before other
+   style rules. Falls back to the system stack if the network is unavailable. */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   --background: #fafafa;
@@ -161,5 +165,55 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .save-btn[data-state="saved"] {
     animation: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Vultrix marketing landing page styles
+   Used by src/components/marketing/VultrixLanding.jsx (the logged-out homepage).
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Display font for headings (body uses Inter via the @import at the top). */
+.font-display {
+  font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+}
+
+/* Sticky-nav offset so anchored sections aren't hidden under the fixed navbar. */
+.scroll-anchor {
+  scroll-margin-top: 88px;
+}
+
+/* Subtle dotted texture for the dark hero/CTA bands. */
+.vx-dots {
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.07) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/* Hero ambient glow (decorative, amber). */
+.vx-hero-glow {
+  background:
+    radial-gradient(
+      720px circle at 18% 8%,
+      rgba(245, 158, 11, 0.16),
+      transparent 55%
+    ),
+    radial-gradient(
+      620px circle at 86% 24%,
+      rgba(251, 191, 36, 0.09),
+      transparent 60%
+    );
+}
+
+/* Smooth in-page scrolling for the landing's anchor nav. */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
