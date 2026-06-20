@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import VultrixLanding from "@/components/marketing/VultrixLanding";
 import { Card, CardHeader, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -11,8 +13,17 @@ import { computeAllVehicleReminders } from "@/lib/serviceReminders";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const orgId = await requireOrgId();
+export default async function HomePage() {
+  // Logged-out visitors see the public Vultrix marketing site. Signed-in
+  // tenant users see their shop dashboard. Platform SUPERADMINs (no org) are
+  // sent to the admin console — there's no shop data to show them.
+  const user = await getCurrentUser();
+  if (!user) return <VultrixLanding />;
+  if (!user.orgId) redirect("/admin");
+  return <Dashboard orgId={user.orgId} />;
+}
+
+async function Dashboard({ orgId }: { orgId: string }) {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);

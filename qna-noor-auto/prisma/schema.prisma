@@ -718,3 +718,20 @@ model User {
 
   @@index([orgId])
 }
+
+// Contact / demo requests captured by the public marketing landing page
+// (src/components/marketing/VultrixLanding.jsx via /api/leads). Not tenant
+// data — these are prospective customers, so there is no orgId scoping.
+model MarketingLead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  shop      String   @default("")
+  phone     String   @default("")
+  message   String   @default("")
+  source    String   @default("contact")
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
