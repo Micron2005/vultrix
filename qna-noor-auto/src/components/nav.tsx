@@ -50,7 +50,10 @@ export function Nav({
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
   const navItems = isSuperadmin
-    ? [{ href: "/admin", label: "Manage businesses" }]
+    ? [
+        { href: "/admin", label: "Manage businesses" },
+        { href: "/admin/leads", label: "Leads" },
+      ]
     : canManageUsers
       ? [
           ...items,
