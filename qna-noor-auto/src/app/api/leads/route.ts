@@ -76,6 +76,47 @@ export async function POST(req: Request) {
 // Optional JSON read of leads, protected by MARKETING_ADMIN_TOKEN header.
 // (The owner-facing UI lives at /admin/leads.)
 export async function GET(req: Request) {
+  // TEMP diagnostic (remove after debugging): /api/leads?diag=vx-diag-7731
+  // Reports whether the email env vars are visible at runtime and attempts a
+  // live Resend send to the configured owner inbox, returning the API result.
+  const diagUrl = new URL(req.url);
+  if (diagUrl.searchParams.get("diag") === "vx-diag-7731") {
+    const hasKey = !!process.env.RESEND_API_KEY;
+    const hasTo = !!process.env.LEADS_NOTIFY_EMAIL;
+    let send: unknown = "skipped (env not set)";
+    if (hasKey && hasTo) {
+      try {
+        const r = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from:
+              process.env.LEADS_FROM_EMAIL ||
+              "Vultrix Leads <onboarding@resend.dev>",
+            to: [process.env.LEADS_NOTIFY_EMAIL],
+            subject: "Vultrix diagnostic email",
+            html: "<p>Diagnostic: your live lead-alert pipeline can send email.</p>",
+          }),
+        });
+        send = { status: r.status, body: (await r.text()).slice(0, 400) };
+      } catch (e) {
+        send = { error: String(e) };
+      }
+    }
+    return NextResponse.json({
+      env: {
+        RESEND_API_KEY: hasKey,
+        LEADS_NOTIFY_EMAIL: hasTo,
+        LEADS_FROM_EMAIL: !!process.env.LEADS_FROM_EMAIL,
+        BILLING_PRICE_USD: process.env.BILLING_PRICE_USD ?? null,
+      },
+      send,
+    });
+  }
+
   const token = req.headers.get("x-admin-token");
   if (
     !process.env.MARKETING_ADMIN_TOKEN ||
