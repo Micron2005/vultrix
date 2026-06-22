@@ -15,6 +15,7 @@ import {
   Menu, Mail, Phone, MapPin, RefreshCw, Send, CheckCircle2, LayoutDashboard,
   ScanLine, Plus,
 } from "lucide-react";
+import VultrixAssistant from "./VultrixAssistant";
 
 /* ----------------------------------------------------------------------------
    CONFIG — edit freely
@@ -1058,10 +1059,16 @@ export default function VultrixLanding() {
         <FinalCta />
       </main>
       <Footer />
-      <a href="#contact" className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 h-12 px-4 rounded-full bg-zinc-900 text-white shadow-lg hover:bg-zinc-800 transition-colors" aria-label="Contact us">
-        <MessageSquare className="h-5 w-5" />
-        <span className="hidden sm:inline text-sm font-semibold">Questions?</span>
-      </a>
+      <VultrixAssistant
+        brand={SITE.brand}
+        price={SITE.price}
+        trialDays={SITE.trialDays}
+        phone={SITE.phone}
+        phoneHref={SITE.phoneHref}
+        shopName={URLS.shopName}
+        shopUrl={URLS.shopUrl}
+        signupUrl={URLS.signup}
+      />
     </div>
   );
 }
