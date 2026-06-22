@@ -38,7 +38,7 @@ const URLS = {
   terms: "/terms",
   privacy: "/privacy",
   shopName: "QNA / Noor Auto Repair",
-  shopUrl: "", // add your shop website URL when ready; empty = "coming soon"
+  shopUrl: "https://qna-noorautorepair.com", 
 };
 
 const NAV_LINKS = [
