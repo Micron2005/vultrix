@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { syncSubscriptionToOrg } from "@/lib/billing";
+import { recordOnlinePayment } from "@/lib/connect";
 
 // Stripe needs the raw request body to verify the signature, so this handler
 // reads req.text() directly (no JSON parsing middleware in the App Router).
@@ -42,6 +43,13 @@ export async function POST(req: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      // A one-time payment (mode=payment) is a customer paying a shop's invoice
+      // on the shop's connected account — record it. Subscriptions are the
+      // platform's own $45/mo billing.
+      if (session.mode === "payment") {
+        await recordOnlinePayment(session);
+        break;
+      }
       const orgId = session.metadata?.orgId ?? (await orgIdForCustomer(
         typeof session.customer === "string" ? session.customer : null,
       ));
@@ -53,6 +61,20 @@ export async function POST(req: Request) {
         );
         await syncSubscriptionToOrg(orgId, sub);
       }
+      break;
+    }
+
+    case "account.updated": {
+      // A shop's connected account changed (e.g. finished onboarding) — mirror
+      // its capability status so the customer Pay button shows/hides correctly.
+      const account = event.data.object as Stripe.Account;
+      await db.organization.updateMany({
+        where: { stripeConnectAccountId: account.id },
+        data: {
+          stripeConnectChargesEnabled: Boolean(account.charges_enabled),
+          stripeConnectDetailsSubmitted: Boolean(account.details_submitted),
+        },
+      });
       break;
     }
 

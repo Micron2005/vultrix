@@ -681,6 +681,15 @@ model Organization {
   // successful payment. Drives the grace period before auto-suspension.
   pastDueSince         DateTime?
 
+  // --- Stripe Connect (let this shop's customers pay it online) ------------
+  // The shop's own connected Stripe account (acct_…). Funds from customer
+  // invoice payments land here and pay out to the shop's bank — never to the
+  // platform. chargesEnabled mirrors the connected account's charges_enabled;
+  // the Pay button only shows once it's true.
+  stripeConnectAccountId       String?  @unique
+  stripeConnectChargesEnabled  Boolean  @default(false)
+  stripeConnectDetailsSubmitted Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

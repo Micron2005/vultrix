@@ -15,6 +15,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ token: string; roId: string }>;
+type Search = Promise<{ paid?: string; payerror?: string }>;
 
 const METHOD_LABEL: Record<string, string> = {
   CASH: "Cash",
@@ -26,10 +27,13 @@ const METHOD_LABEL: Record<string, string> = {
 
 export default async function CustomerPortalROPage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams?: Search;
 }) {
   const { token, roId } = await params;
+  const sp = (await searchParams) ?? {};
 
   const customer = await db.customer.findUnique({
     where: { portalToken: token },
@@ -74,6 +78,13 @@ export default async function CustomerPortalROPage({
     ro.status === "INVOICED" ||
     ro.status === "PAID" ||
     ro.status === "COMPLETED";
+
+  const org = await db.organization.findUnique({
+    where: { id: ro.orgId },
+    select: { stripeConnectChargesEnabled: true },
+  });
+  const canPayOnline =
+    isInvoiced && balance > 0 && Boolean(org?.stripeConnectChargesEnabled);
 
   return (
     <div className="min-h-screen bg-zinc-100 py-10">
@@ -448,6 +459,18 @@ export default async function CustomerPortalROPage({
 
           {isInvoiced && (
             <section className="px-8 py-4">
+              {sp.paid && (
+                <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
+                  ✓ Thank you — your payment was received. It may take a moment
+                  to show below.
+                </div>
+              )}
+              {sp.payerror && (
+                <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  Sorry, we couldn&apos;t start the payment. Please try again or
+                  contact the shop.
+                </div>
+              )}
               <div className="flex justify-end">
                 <dl className="w-72 text-sm space-y-1">
                   <div className="flex justify-between text-zinc-600">
@@ -465,6 +488,18 @@ export default async function CustomerPortalROPage({
                   </div>
                 </dl>
               </div>
+              {canPayOnline && (
+                <div className="mt-4 flex justify-end">
+                  <form method="post" action={`/api/pay/${token}/${roId}`}>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    >
+                      Pay {formatMoney(balance)} online
+                    </button>
+                  </form>
+                </div>
+              )}
             </section>
           )}
         </div>
