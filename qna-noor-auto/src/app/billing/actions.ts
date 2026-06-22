@@ -65,17 +65,26 @@ export async function startConnectOnboarding() {
   if (!org) back({ error: "Business not found." });
 
   const root = await baseUrl();
-  const accountId = await getOrCreateConnectAccount({
-    id: org.id,
-    name: org.name,
-    billingEmail: org.billingEmail,
-    stripeConnectAccountId: org.stripeConnectAccountId,
-  });
-  const url = await createOnboardingLink(
-    accountId,
-    `${root}/billing?connect=refresh`,
-    `${root}/billing?connect=return`,
-  );
+  let url: string;
+  try {
+    const accountId = await getOrCreateConnectAccount({
+      id: org.id,
+      name: org.name,
+      billingEmail: org.billingEmail,
+      stripeConnectAccountId: org.stripeConnectAccountId,
+    });
+    url = await createOnboardingLink(
+      accountId,
+      `${root}/billing?connect=refresh`,
+      `${root}/billing?connect=return`,
+    );
+  } catch (err) {
+    console.error("Stripe Connect onboarding failed:", err);
+    back({
+      error:
+        "Couldn't start payment setup. Online payments may not be enabled on this account yet — please try again later or contact support.",
+    });
+  }
   redirect(url);
 }
 
@@ -94,6 +103,12 @@ export async function openConnectDashboard() {
     back({ error: "Set up payments first." });
   }
 
-  const url = await createDashboardLink(org.stripeConnectAccountId);
+  let url: string;
+  try {
+    url = await createDashboardLink(org.stripeConnectAccountId);
+  } catch (err) {
+    console.error("Stripe Connect dashboard link failed:", err);
+    back({ error: "Couldn't open your Stripe dashboard. Please try again." });
+  }
   redirect(url);
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { computeRoTotal, computeRoPaid } from "@/lib/roTotal";
@@ -67,7 +68,9 @@ export async function POST(
   }
 
   const stripe = getStripe();
-  const session = await stripe.checkout.sessions.create(
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(
     {
       mode: "payment",
       payment_method_types: ["card"],
@@ -89,7 +92,11 @@ export async function POST(
       cancel_url: portal,
     },
     { stripeAccount: org.stripeConnectAccountId },
-  );
+    );
+  } catch (err) {
+    console.error("Online payment checkout failed:", err);
+    return NextResponse.redirect(`${portal}?payerror=1`, { status: 303 });
+  }
 
   if (!session.url) {
     return NextResponse.redirect(`${portal}?payerror=1`, { status: 303 });
