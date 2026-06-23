@@ -15,13 +15,17 @@ import { computeVehicleReminders } from "@/lib/serviceReminders";
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ token: string }>;
+type Search = Promise<{ paid?: string; payerror?: string }>;
 
 export default async function CustomerPortalPage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams?: Search;
 }) {
   const { token } = await params;
+  const sp = (await searchParams) ?? {};
 
   const customer = await db.customer.findUnique({
     where: { portalToken: token },
@@ -45,6 +49,11 @@ export default async function CustomerPortalPage({
   if (!customer) notFound();
 
   const shop = await getAllSettings(customer.orgId);
+  const org = await db.organization.findUnique({
+    where: { id: customer.orgId },
+    select: { stripeConnectChargesEnabled: true },
+  });
+  const canPayOnline = Boolean(org?.stripeConnectChargesEnabled);
 
   type ROWithDerived = (typeof customer.repairOrders)[number] & {
     total: number;
@@ -131,6 +140,19 @@ export default async function CustomerPortalPage({
           </div>
         </header>
 
+        {sp.paid && (
+          <section className="rounded-lg bg-green-50 border border-green-200 px-6 py-3 text-sm text-green-800">
+            ✓ Thank you — your payment was received. It may take a moment
+            to update.
+          </section>
+        )}
+        {sp.payerror && (
+          <section className="rounded-lg bg-red-50 border border-red-200 px-6 py-3 text-sm text-red-700">
+            Sorry, we couldn&apos;t start the payment. Please try again or
+            contact the shop.
+          </section>
+        )}
+
         {totalOutstanding > 0 && (
           <section className="rounded-lg bg-amber-50 border border-amber-300 px-6 py-4">
             <div className="flex items-start justify-between gap-4">
@@ -146,6 +168,29 @@ export default async function CustomerPortalPage({
                   {outstanding.length === 1 ? "" : "s"}.
                 </div>
               </div>
+              {canPayOnline && outstanding.length > 1 && (
+                <form method="post" action={`/api/pay/${token}/all`}>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                  >
+                    Pay all {formatMoney(totalOutstanding)}
+                  </button>
+                </form>
+              )}
+              {canPayOnline && outstanding.length === 1 && (
+                <form
+                  method="post"
+                  action={`/api/pay/${token}/${outstanding[0].id}`}
+                >
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                  >
+                    Pay {formatMoney(totalOutstanding)} online
+                  </button>
+                </form>
+              )}
             </div>
           </section>
         )}
@@ -229,8 +274,8 @@ export default async function CustomerPortalPage({
               ))}
             </ul>
             <div className="px-6 py-2 text-[11px] text-zinc-500 border-t border-zinc-200">
-              Based on your vehicle's mileage and last known service. Contact
-              us to schedule.
+              Based on your vehicle&apos;s mileage and last known service.
+              Contact us to schedule.
             </div>
           </section>
         )}

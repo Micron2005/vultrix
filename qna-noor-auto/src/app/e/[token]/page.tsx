@@ -15,13 +15,17 @@ import { approveEstimate, declineEstimate, approveJob, declineJob } from "../../
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ token: string }>;
+type Search = Promise<{ paid?: string; payerror?: string }>;
 
 export default async function PublicEstimatePage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams?: Search;
 }) {
   const { token } = await params;
+  const sp = (await searchParams) ?? {};
 
   const ro = await db.repairOrder.findUnique({
     where: { shareToken: token },
@@ -39,6 +43,7 @@ export default async function PublicEstimatePage({
       laborLines: { orderBy: { sortOrder: "asc" } },
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
+      payments: { orderBy: { paidAt: "desc" } },
     },
   });
 
@@ -70,6 +75,19 @@ export default async function PublicEstimatePage({
   const declined = ro.estimateDeclinedAt != null;
   const responded = approved || declined;
 
+  const isInvoiced =
+    ro.status === "INVOICED" ||
+    ro.status === "PAID" ||
+    ro.status === "COMPLETED";
+  const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const balance = Math.max(0, Math.round((totals.total - paid) * 100) / 100);
+  const org = await db.organization.findUnique({
+    where: { id: ro.orgId },
+    select: { stripeConnectChargesEnabled: true },
+  });
+  const canPayOnline =
+    isInvoiced && balance > 0 && Boolean(org?.stripeConnectChargesEnabled);
+
   const approve = approveEstimate.bind(null, token);
   const decline = declineEstimate.bind(null, token);
 
@@ -96,7 +114,11 @@ export default async function PublicEstimatePage({
               </div>
               <div className="text-right">
                 <div className="text-xs uppercase tracking-wider text-zinc-500">
-                  Estimate
+                  {ro.status === "PAID"
+                    ? "Receipt"
+                    : isInvoiced
+                      ? "Invoice"
+                      : "Estimate"}
                 </div>
                 <div className="text-2xl font-semibold text-zinc-900 tabular-nums">
                   #{ro.roNumber}
@@ -316,7 +338,7 @@ export default async function PublicEstimatePage({
                   </div>
                 )}
 
-                {jobPending && !responded && (
+                {jobPending && !responded && !isInvoiced && (
                   <div className="mt-3 pt-3 border-t border-zinc-100">
                     <form action={boundApprove} className="space-y-2">
                       <textarea
@@ -492,8 +514,56 @@ export default async function PublicEstimatePage({
                 <span>Total</span>
                 <span className="tabular-nums">{formatMoney(totals.total)}</span>
               </div>
+              {isInvoiced && paid > 0 && (
+                <>
+                  <div className="flex justify-between text-zinc-600">
+                    <span>Paid</span>
+                    <span className="tabular-nums">{formatMoney(paid)}</span>
+                  </div>
+                  <div
+                    className={
+                      "flex justify-between border-t border-zinc-200 pt-2 mt-2 text-base font-semibold " +
+                      (balance <= 0 ? "text-green-700" : "text-amber-900")
+                    }
+                  >
+                    <span>{balance <= 0 ? "Paid in full" : "Balance due"}</span>
+                    <span className="tabular-nums">{formatMoney(balance)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </section>
+
+          {isInvoiced && (sp.paid || sp.payerror || canPayOnline) && (
+            <section className="px-8 py-6 border-b border-zinc-200">
+              {sp.paid && (
+                <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
+                  ✓ Thank you — your payment was received. It may take a moment
+                  to update.
+                </div>
+              )}
+              {sp.payerror && (
+                <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  Sorry, we couldn&apos;t start the payment. Please try again or
+                  contact the shop.
+                </div>
+              )}
+              {canPayOnline && (
+                <form
+                  method="post"
+                  action={`/api/pay/share/${token}`}
+                  className="flex justify-end"
+                >
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                  >
+                    Pay {formatMoney(balance)} online
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
 
           {approved && (
             <section className="px-8 py-6 bg-emerald-50 border-b border-emerald-200 text-sm">
@@ -539,7 +609,7 @@ export default async function PublicEstimatePage({
             </section>
           )}
 
-          {!responded && (
+          {!responded && !isInvoiced && (
             <section className="px-8 py-6 bg-zinc-50 text-sm">
               <div className="mb-3 text-zinc-700">
                 You can approve or decline individual jobs above, or approve /
