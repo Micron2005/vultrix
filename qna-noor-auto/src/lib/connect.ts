@@ -170,7 +170,9 @@ export async function recordOnlinePayment(
   if (!orgId) return;
 
   // A bulk payment covers several invoices at once; record each individually.
-  if (session.metadata?.bulk === "1") {
+  // `alloc` is the legacy metadata format kept for sessions created before this
+  // change deployed; `bulk` is the current format.
+  if (session.metadata?.bulk === "1" || session.metadata?.alloc) {
     await recordBulkOnlinePayment(session);
     return;
   }
@@ -202,13 +204,38 @@ export async function recordBulkOnlinePayment(
   if (session.payment_status !== "paid") return;
 
   const orgId = session.metadata?.orgId;
+  if (!orgId) return;
+
+  const paymentIntentId = paymentIntentIdOf(session);
+
+  // Legacy format: an explicit per-invoice allocation was stored in metadata.
+  // Kept so bulk sessions created before this change deployed still record.
+  const rawAlloc = session.metadata?.alloc;
+  if (rawAlloc) {
+    let alloc: { r?: string; a?: number }[];
+    try {
+      alloc = JSON.parse(rawAlloc);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(alloc)) return;
+    for (const entry of alloc) {
+      if (!entry?.r || typeof entry.a !== "number") continue;
+      await applyOnlinePayment(
+        orgId,
+        entry.r,
+        entry.a,
+        `${paymentIntentId}:${entry.r}`,
+      );
+    }
+    return;
+  }
+
   const customerId = session.metadata?.customerId;
-  if (!orgId || !customerId) return;
+  if (!customerId) return;
 
   let remaining = Math.round(session.amount_total ?? 0) / 100;
   if (remaining <= 0) return;
-
-  const paymentIntentId = paymentIntentIdOf(session);
 
   // Only invoices that existed when the customer started checkout are covered by
   // this charge, so a newer invoice can never be paid with this payment.
