@@ -154,20 +154,6 @@ function paymentIntentIdOf(session: Stripe.Checkout.Session): string {
     : (session.payment_intent?.id ?? session.id);
 }
 
-/** One entry of a bulk online payment: a repair order and the amount paid to it. */
-type BulkAllocation = { r: string; a: number };
-
-/** Encode a bulk allocation for storage in Stripe Checkout session metadata. */
-export function encodeBulkAllocation(
-  items: { repairOrderId: string; amount: number }[],
-): string {
-  const alloc: BulkAllocation[] = items.map((i) => ({
-    r: i.repairOrderId,
-    a: Math.round(i.amount * 100) / 100,
-  }));
-  return JSON.stringify(alloc);
-}
-
 /**
  * Record a successful online (Stripe Checkout) customer payment against its
  * repair order, idempotently. Safe to call from both the Stripe webhook and the
@@ -184,7 +170,9 @@ export async function recordOnlinePayment(
   if (!orgId) return;
 
   // A bulk payment covers several invoices at once; record each individually.
-  if (session.metadata?.alloc) {
+  // `alloc` is the legacy metadata format kept for sessions created before this
+  // change deployed; `bulk` is the current format.
+  if (session.metadata?.bulk === "1" || session.metadata?.alloc) {
     await recordBulkOnlinePayment(session);
     return;
   }
@@ -202,10 +190,12 @@ export async function recordOnlinePayment(
 }
 
 /**
- * Record a successful bulk online payment that covered several invoices in one
- * Checkout. The per-invoice allocation is read from the session metadata and
- * each invoice is paid its own amount; the dedupe key combines the PaymentIntent
- * id with the RO id so re-delivery (webhook + redirect) never double-records.
+ * Record a successful bulk online payment that covered every outstanding invoice
+ * for a customer in one Checkout. The amount paid is split across the customer's
+ * invoices (oldest first, capped at each balance) — recomputed here rather than
+ * carried in metadata so it works for any number of invoices. The dedupe key
+ * combines the PaymentIntent id with the RO id so re-delivery (webhook +
+ * redirect) never double-records, and the split self-heals on retry.
  */
 export async function recordBulkOnlinePayment(
   session: Stripe.Checkout.Session,
@@ -214,25 +204,63 @@ export async function recordBulkOnlinePayment(
   if (session.payment_status !== "paid") return;
 
   const orgId = session.metadata?.orgId;
-  const raw = session.metadata?.alloc;
-  if (!orgId || !raw) return;
-
-  let alloc: BulkAllocation[];
-  try {
-    alloc = JSON.parse(raw) as BulkAllocation[];
-  } catch {
-    return;
-  }
-  if (!Array.isArray(alloc)) return;
+  if (!orgId) return;
 
   const paymentIntentId = paymentIntentIdOf(session);
-  for (const entry of alloc) {
-    if (!entry?.r || typeof entry.a !== "number") continue;
-    await applyOnlinePayment(
+
+  // Legacy format: an explicit per-invoice allocation was stored in metadata.
+  // Kept so bulk sessions created before this change deployed still record.
+  const rawAlloc = session.metadata?.alloc;
+  if (rawAlloc) {
+    let alloc: { r?: string; a?: number }[];
+    try {
+      alloc = JSON.parse(rawAlloc);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(alloc)) return;
+    for (const entry of alloc) {
+      if (!entry?.r || typeof entry.a !== "number") continue;
+      await applyOnlinePayment(
+        orgId,
+        entry.r,
+        entry.a,
+        `${paymentIntentId}:${entry.r}`,
+      );
+    }
+    return;
+  }
+
+  const customerId = session.metadata?.customerId;
+  if (!customerId) return;
+
+  let remaining = Math.round(session.amount_total ?? 0) / 100;
+  if (remaining <= 0) return;
+
+  // Only invoices that existed when the customer started checkout are covered by
+  // this charge, so a newer invoice can never be paid with this payment.
+  const createdAt = session.created ? new Date(session.created * 1000) : new Date();
+  const ros = await db.repairOrder.findMany({
+    where: {
+      customerId,
       orgId,
-      entry.r,
-      entry.a,
-      `${paymentIntentId}:${entry.r}`,
-    );
+      status: "INVOICED",
+      invoicedAt: { lte: createdAt },
+    },
+    select: { id: true },
+    orderBy: { invoicedAt: "asc" },
+  });
+
+  for (const ro of ros) {
+    if (remaining <= 0.005) break;
+    const [total, paid] = await Promise.all([
+      computeRoTotal(orgId, ro.id),
+      computeRoPaid(ro.id),
+    ]);
+    const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
+    if (balance <= 0) continue;
+    const amount = Math.min(balance, remaining);
+    await applyOnlinePayment(orgId, ro.id, amount, `${paymentIntentId}:${ro.id}`);
+    remaining = Math.round((remaining - amount) * 100) / 100;
   }
 }

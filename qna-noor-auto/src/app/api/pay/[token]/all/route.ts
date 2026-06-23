@@ -3,7 +3,6 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { computeRoTotal, computeRoPaid } from "@/lib/roTotal";
-import { encodeBulkAllocation } from "@/lib/connect";
 
 function baseUrl(req: Request): string {
   const configured = process.env.NEXT_PUBLIC_BASE_URL?.trim();
@@ -57,23 +56,32 @@ export async function POST(
     orderBy: { invoicedAt: "asc" },
   });
 
-  const payable: { id: string; roNumber: number; balance: number }[] = [];
+  let payableCount = 0;
+  let totalBalance = 0;
   for (const ro of ros) {
     const [total, paid] = await Promise.all([
       computeRoTotal(customer.orgId, ro.id),
       computeRoPaid(ro.id),
     ]);
     const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
-    if (balance > 0) payable.push({ id: ro.id, roNumber: ro.roNumber, balance });
+    if (balance > 0) {
+      payableCount += 1;
+      totalBalance = Math.round((totalBalance + balance) * 100) / 100;
+    }
   }
 
-  if (payable.length === 0) {
+  if (payableCount === 0 || totalBalance <= 0) {
     return NextResponse.redirect(`${portal}?paid=1`, { status: 303 });
   }
 
-  const alloc = encodeBulkAllocation(
-    payable.map((p) => ({ repairOrderId: p.id, amount: p.balance })),
-  );
+  // The exact per-invoice split is recomputed at success time (see the bulk
+  // success route), so we charge one aggregate line item. This avoids Stripe's
+  // metadata size / line-item count limits when a customer has many invoices.
+  const label =
+    payableCount === 1
+      ? `Invoice payment — ${org.name}`
+      : `${payableCount} invoices — ${org.name}`;
+  const meta = { orgId: customer.orgId, bulk: "1", customerId: customer.id };
 
   const stripe = getStripe();
   let session: Stripe.Checkout.Session;
@@ -82,18 +90,18 @@ export async function POST(
       {
         mode: "payment",
         payment_method_types: ["card"],
-        line_items: payable.map((p) => ({
-          price_data: {
-            currency: "usd",
-            product_data: { name: `Invoice #${p.roNumber} — ${org.name}` },
-            unit_amount: Math.round(p.balance * 100),
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: { name: label },
+              unit_amount: Math.round(totalBalance * 100),
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        })),
-        metadata: { orgId: customer.orgId, alloc },
-        payment_intent_data: {
-          metadata: { orgId: customer.orgId, alloc },
-        },
+        ],
+        metadata: meta,
+        payment_intent_data: { metadata: meta },
         success_url: `${root}/api/pay/${token}/all/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: portal,
       },
