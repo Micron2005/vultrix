@@ -90,29 +90,22 @@ export async function refreshConnectStatus(
 }
 
 /**
- * Record a successful online (Stripe Checkout) customer payment against its
- * repair order, idempotently. Safe to call from both the Stripe webhook and the
- * post-checkout redirect — the PaymentIntent id is used as a dedupe key so a
- * payment is never double-recorded. Auto-flips the RO to PAID when covered.
+ * Apply a single online card payment to one repair order, idempotently. The
+ * `reference` is the dedupe key (the PaymentIntent id, optionally suffixed with
+ * the RO id for bulk payments) so a payment is never double-recorded. Auto-flips
+ * the RO to PAID once its balance is covered.
  */
-export async function recordOnlinePayment(
-  session: Stripe.Checkout.Session,
+async function applyOnlinePayment(
+  orgId: string,
+  repairOrderId: string,
+  amount: number,
+  reference: string,
 ): Promise<void> {
-  if (session.mode !== "payment") return;
-  if (session.payment_status !== "paid") return;
+  if (amount <= 0) return;
 
-  const repairOrderId = session.metadata?.repairOrderId;
-  const orgId = session.metadata?.orgId;
-  if (!repairOrderId || !orgId) return;
-
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : (session.payment_intent?.id ?? session.id);
-
-  // Dedupe: skip if this PaymentIntent was already recorded.
+  // Dedupe: skip if this payment was already recorded.
   const existing = await db.payment.findFirst({
-    where: { repairOrderId, reference: paymentIntentId },
+    where: { repairOrderId, reference },
     select: { id: true },
   });
   if (existing) return;
@@ -124,16 +117,13 @@ export async function recordOnlinePayment(
   });
   if (!ro) return;
 
-  const amount = Math.round((session.amount_total ?? 0)) / 100;
-  if (amount <= 0) return;
-
   await db.payment.create({
     data: {
       orgId,
       repairOrderId,
       amount,
       method: "CARD",
-      reference: paymentIntentId,
+      reference,
       note: "Online payment",
     },
   });
@@ -155,5 +145,94 @@ export async function recordOnlinePayment(
   }
   if (Object.keys(data).length > 0) {
     await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
+  }
+}
+
+function paymentIntentIdOf(session: Stripe.Checkout.Session): string {
+  return typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : (session.payment_intent?.id ?? session.id);
+}
+
+/** One entry of a bulk online payment: a repair order and the amount paid to it. */
+type BulkAllocation = { r: string; a: number };
+
+/** Encode a bulk allocation for storage in Stripe Checkout session metadata. */
+export function encodeBulkAllocation(
+  items: { repairOrderId: string; amount: number }[],
+): string {
+  const alloc: BulkAllocation[] = items.map((i) => ({
+    r: i.repairOrderId,
+    a: Math.round(i.amount * 100) / 100,
+  }));
+  return JSON.stringify(alloc);
+}
+
+/**
+ * Record a successful online (Stripe Checkout) customer payment against its
+ * repair order, idempotently. Safe to call from both the Stripe webhook and the
+ * post-checkout redirect — the PaymentIntent id is used as a dedupe key so a
+ * payment is never double-recorded. Auto-flips the RO to PAID when covered.
+ */
+export async function recordOnlinePayment(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.mode !== "payment") return;
+  if (session.payment_status !== "paid") return;
+
+  const orgId = session.metadata?.orgId;
+  if (!orgId) return;
+
+  // A bulk payment covers several invoices at once; record each individually.
+  if (session.metadata?.alloc) {
+    await recordBulkOnlinePayment(session);
+    return;
+  }
+
+  const repairOrderId = session.metadata?.repairOrderId;
+  if (!repairOrderId) return;
+
+  const amount = Math.round((session.amount_total ?? 0)) / 100;
+  await applyOnlinePayment(
+    orgId,
+    repairOrderId,
+    amount,
+    paymentIntentIdOf(session),
+  );
+}
+
+/**
+ * Record a successful bulk online payment that covered several invoices in one
+ * Checkout. The per-invoice allocation is read from the session metadata and
+ * each invoice is paid its own amount; the dedupe key combines the PaymentIntent
+ * id with the RO id so re-delivery (webhook + redirect) never double-records.
+ */
+export async function recordBulkOnlinePayment(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.mode !== "payment") return;
+  if (session.payment_status !== "paid") return;
+
+  const orgId = session.metadata?.orgId;
+  const raw = session.metadata?.alloc;
+  if (!orgId || !raw) return;
+
+  let alloc: BulkAllocation[];
+  try {
+    alloc = JSON.parse(raw) as BulkAllocation[];
+  } catch {
+    return;
+  }
+  if (!Array.isArray(alloc)) return;
+
+  const paymentIntentId = paymentIntentIdOf(session);
+  for (const entry of alloc) {
+    if (!entry?.r || typeof entry.a !== "number") continue;
+    await applyOnlinePayment(
+      orgId,
+      entry.r,
+      entry.a,
+      `${paymentIntentId}:${entry.r}`,
+    );
   }
 }
