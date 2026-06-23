@@ -7,6 +7,8 @@ import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -469,6 +471,9 @@ export async function GET(
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${prefix}-RO-${ro.roNumber}.pdf"`,
+      // Always regenerate: the PDF reflects live totals/payments, so a cached
+      // copy can show a payment that has since been removed or changed.
+      "Cache-Control": "no-store, max-age=0, must-revalidate",
     },
   });
 }

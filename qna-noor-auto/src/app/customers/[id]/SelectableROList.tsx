@@ -21,6 +21,7 @@ export type ROItem = {
   paid: number;
   balance: number;
   cleared: boolean;
+  clearedAt: string | null;
 };
 
 type Section = {
@@ -28,6 +29,7 @@ type Section = {
   title: string;
   items: ROItem[];
   showBalance?: boolean;
+  showCleared?: boolean;
   defaultCollapsed?: boolean;
 };
 
@@ -343,6 +345,9 @@ export function SelectableROList({
                     <th className="px-4 py-2 font-medium">Vehicle</th>
                     <th className="px-4 py-2 font-medium">Status</th>
                     <th className="px-4 py-2 font-medium">Opened</th>
+                    {section.showCleared && (
+                      <th className="px-4 py-2 font-medium">Cleared</th>
+                    )}
                     <th className="px-4 py-2 font-medium text-right">Total</th>
                     {section.showBalance && (
                       <>
@@ -383,6 +388,11 @@ export function SelectableROList({
                         <td className="px-4 py-2 text-zinc-500">
                           {formatDate(ro.openedAt)}
                         </td>
+                        {section.showCleared && (
+                          <td className="px-4 py-2 text-zinc-500">
+                            {ro.clearedAt ? formatDate(ro.clearedAt) : "—"}
+                          </td>
+                        )}
                         <td className="px-4 py-2 text-right">
                           {formatMoney(ro.total)}
                         </td>

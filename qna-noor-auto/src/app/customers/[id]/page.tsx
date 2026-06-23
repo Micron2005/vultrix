@@ -128,6 +128,12 @@ export default async function CustomerDetailPage({
     paid: d.paid,
     balance: d.balance,
     cleared: d.ro.clearedAt != null,
+    clearedAt:
+      d.ro.clearedAt == null
+        ? null
+        : d.ro.clearedAt instanceof Date
+          ? d.ro.clearedAt.toISOString()
+          : String(d.ro.clearedAt),
   });
 
   const ticketSections = [
@@ -153,6 +159,7 @@ export default async function CustomerDetailPage({
             key: "cleared",
             title: `Cleared (${clearedROs.length})`,
             items: clearedROs.map(toItem),
+            showCleared: true,
             defaultCollapsed: true,
           },
         ]
