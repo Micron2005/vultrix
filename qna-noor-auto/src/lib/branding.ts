@@ -6,9 +6,9 @@
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Vultrix";
 
 export const APP_OWNER =
-  process.env.NEXT_PUBLIC_APP_OWNER?.trim() || "M.S.A.M Industries";
+  process.env.NEXT_PUBLIC_APP_OWNER?.trim() || "M.S.A.M Enterprise";
 
-/** e.g. "Vultrix is owned by M.S.A.M Industries" */
+/** e.g. "Vultrix is owned by M.S.A.M Enterprise" */
 export const APP_OWNER_LINE = `${APP_NAME} is owned by ${APP_OWNER}`;
 
 /** Contact address shown on the legal pages and used for legal notices. */

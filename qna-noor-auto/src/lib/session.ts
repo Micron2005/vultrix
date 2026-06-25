@@ -74,7 +74,7 @@ export async function requireOrgId(): Promise<string> {
 }
 
 /**
- * Require a platform SUPERADMIN (M.S.A.M Industries staff who manage the whole
+ * Require a platform SUPERADMIN (M.S.A.M Enterprise staff who manage the whole
  * platform). Anyone with an organization is a tenant user and is sent back to
  * their own dashboard, since the platform controls aren't theirs to see.
  */

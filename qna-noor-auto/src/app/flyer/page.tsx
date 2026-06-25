@@ -27,7 +27,7 @@ const CONTACT_PHONE = "571-320-9425";
 
 const FEATURES = [
   { icon: Wrench, text: "Repair orders, estimates & invoices" },
-  { icon: ScanLine, text: "QR lobby check-in — customers self check-in" },
+  { icon: ScanLine, text: "On-the-go ticket intake — techs start tickets from their phone" },
   { icon: CreditCard, text: "Customers approve & pay from their phone" },
   { icon: Boxes, text: "Inventory with QR shelf labels" },
   { icon: Car, text: "VIN / plate lookup + recalls" },

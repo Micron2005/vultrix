@@ -4,7 +4,7 @@
  * Safe to run multiple times — it only creates what's missing:
  *   1. A starter Organization (named from the shop's current shopName setting).
  *   2. An OWNER login for that organization.
- *   3. A platform SUPERADMIN login (no organization) for M.S.A.M Industries.
+ *   3. A platform SUPERADMIN login (no organization) for M.S.A.M Enterprise.
  *
  * Credentials come from env vars, with dev-only defaults you MUST change:
  *   OWNER_USERNAME / OWNER_PASSWORD

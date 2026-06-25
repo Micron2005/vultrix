@@ -712,7 +712,7 @@ model Organization {
 
 model User {
   id           String        @id @default(cuid())
-  // Null only for a platform SUPERADMIN (M.S.A.M Industries staff).
+  // Null only for a platform SUPERADMIN (M.S.A.M Enterprise staff).
   orgId        String?
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 

@@ -22,7 +22,7 @@ import VultrixAssistant from "./VultrixAssistant";
 ---------------------------------------------------------------------------- */
 const SITE = {
   brand: "Vultrix",
-  owner: "M.S.A.M Industries",
+  owner: "M.S.A.M Enterprise",
   tagline: "Shop management powered by Vultrix",
   price: 45,
   trialDays: 14,
@@ -66,7 +66,8 @@ const WHAT_IS = [
 const FEATURES = [
   { icon: Wrench, title: "Repair & work orders", desc: "Full lifecycle from estimate to paid, with labor and parts lines and technician assignment." },
   { icon: FileText, title: "Invoices & estimates", desc: "Clean, professional PDFs and shareable links your customers can approve from their phone." },
-  { icon: ScanLine, title: "QR customer check-in", desc: "Post a QR code in your lobby. Customers scan it, enter their details and what's wrong, and a repair order drops into your queue — no login, no front-desk bottleneck." },
+  { icon: ScanLine, title: "On-the-go ticket intake", desc: "Techs scan a QR to start a ticket from their phone — out on a road call or busy in the bay. Capture the customer, vehicle, and what's wrong, and it lands in the office's queue to price, order parts, and invoice. No login, no trip to the desk." },
+  { icon: CreditCard, title: "Online payments", desc: "Customers pay their invoice right from their phone or a shared link — get paid faster with a lot less chasing." },
   { icon: Car, title: "Customers & vehicles", desc: "A searchable history of every customer, vehicle, and job you've ever done." },
   { icon: Search, title: "VIN & plate lookup", desc: "Decode a VIN or look up a license plate in seconds — vehicle recalls included." },
   { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the vehicle and jump straight to your suppliers in one click." },
@@ -104,23 +105,22 @@ const COMPARISON = {
     "One flat $45 / month",
     "A fast, clean, modern interface",
     "Export your data whenever you want",
-    "Customers approve from their phone",
+    "Customers approve and pay from their phone",
     "Up and running the same day",
   ],
 };
 
 const ROADMAP = [
-  { icon: Bot, status: "Coming soon", title: "AI shop & customer assistant", note: "A built-in assistant that answers customer questions, helps with support, and loops you in the moment a real human is needed." },
+  { icon: Bot, status: "Exploring", title: "AI shop assistant", note: "We're exploring a built-in assistant to help with day-to-day shop tasks. An early customer-support assistant is already live on the site." },
   { icon: Globe, status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
   { icon: Store, status: "Planned", title: "Customer-facing shop websites", note: "Give every shop a clean public website tied right to their Vultrix account." },
   { icon: Boxes, status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
   { icon: MessageSquare, status: "Planned", title: "Two-way customer texting", note: "Message customers and collect approvals right inside Vultrix." },
-  { icon: CreditCard, status: "Planned", title: "In-app payments & text-to-pay", note: "Let customers pay an invoice straight from a link." },
 ];
 
 const DEEP_DIVES = [
   { id: "deep-dive-repair-orders", eyebrow: "Repair orders", title: "From estimate to paid — without the paperwork pile", points: ["Walk a job through estimate → approved → in progress → done → paid", "Add labor and parts lines and assign the right technician", "Send a clean PDF or a link the customer approves from their phone"], mock: "workorder" },
-  { id: "deep-dive-intake", eyebrow: "Customer check-in", title: "Customers check themselves in — straight to a repair order", points: ["Post a QR code in your lobby — no app to download, no login for the customer", "They enter their info, their vehicle, and what's wrong right from their phone", "A repair order lands in your queue automatically, ready for you to price"], mock: "intake" },
+  { id: "deep-dive-intake", eyebrow: "Field intake", title: "Start the ticket from the bay or the road — not the office", points: ["Techs scan a QR and create a ticket from their phone — no login, no walk to the office", "Capture the customer, vehicle, mileage, and what's wrong while it's fresh", "It drops into the office's queue to price, order parts, and invoice"], mock: "intake" },
   { id: "deep-dive-vin-parts", eyebrow: "Lookup", title: "Decode the VIN, see what fits, order in one click", points: ["Decode a VIN or plate in seconds and surface open recalls", "See parts tagged to that exact vehicle, plus universal parts", "A companion browser helper fills the VIN into your supplier's site"], mock: "lookup" },
   { id: "deep-dive-inventory", eyebrow: "Inventory", title: "Stock you can actually trust", points: ["Track cost, price, on-hand counts and reorder thresholds", "Stock auto-deducts the moment a part hits a repair order", "Print QR shelf labels and scan to find a part instantly"], mock: "inventory" },
   { id: "deep-dive-reminders", eyebrow: "Retention", title: "Keep the bays full with win-back reminders", points: ["Automatically surface customers who haven't been in for months", "One tap to text or email an invite back for service", "Bring in repeat work without blasting discounts"], mock: "reminder" },
@@ -128,14 +128,9 @@ const DEEP_DIVES = [
 
 const TIERS = [
   {
-    id: "starter", name: "Starter", monthly: 45, available: true, highlight: true, badge: "Most popular",
-    tagline: "Everything you need to run the shop today.", cta: "Start free trial", href: URLS.signup,
-    features: ["Unlimited repair orders & invoices", "Customers, vehicles & full history", "VIN / plate lookup + recalls", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
-  },
-  {
-    id: "pro", name: "Pro", monthly: 69, available: false, highlight: false, badge: "Coming soon",
-    tagline: "Everything in Starter, plus worldwide vehicle data.", cta: "Get notified", href: "#contact",
-    features: ["Everything in Starter", "Worldwide vehicle data", "In-depth repair information & guides", "Deeper recall & spec coverage", "Priority support"],
+    id: "all", name: "Full access", monthly: 45, available: true, highlight: true, badge: "Everything included",
+    tagline: "Every tool your shop runs on — one flat price.", cta: "Start free trial", href: URLS.signup,
+    features: ["Unlimited repair orders & invoices", "On-the-go ticket intake", "Online payments from a phone or link", "Customers, vehicles & full history", "VIN / plate lookup + recalls", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
   },
 ];
 
@@ -146,7 +141,9 @@ const FAQS = [
   { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on the shop computer, your phone, or a tablet out in the bay." },
   { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, admins, and technicians." },
   { q: "Is my payment secure?", a: "Billing is handled by Stripe, an industry-leading payment processor. We never see or store your card details." },
-  { q: "What does it cost?", a: "Starter is a flat $45 per month with every feature included. Pro (coming soon) adds worldwide vehicle data." },
+  { q: "Can my customers pay online?", a: "Yes. Customers can pay their invoice right from their phone or a shared link — no extra setup on your end." },
+  { q: "Do you offer discounts?", a: "From time to time, yes. When we're running a promotion you'll get a code to enter at checkout, and the discount applies automatically." },
+  { q: "What does it cost?", a: "A flat $45 per month with every feature included — no tiers and no per-feature upsells." },
 ];
 
 const TRUST_BADGES = [
@@ -499,18 +496,18 @@ const IntakeMock = () => (
     <div className="p-4 text-left">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-display text-base font-extrabold text-zinc-900">Customer check-in</div>
+          <div className="font-display text-base font-extrabold text-zinc-900">Ticket intake</div>
           <div className="text-[10px] text-zinc-500">No login · scan, fill, done</div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[9px] font-semibold"><ScanLine className="h-3 w-3" /> Public QR</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[9px] font-semibold"><ScanLine className="h-3 w-3" /> No login</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-center">
-          <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Scan to check in</div>
+          <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Scan to start</div>
           <div className="mx-auto mt-2 grid h-16 w-16 place-items-center rounded-lg bg-white border border-zinc-200">
             <QrCode className="h-10 w-10 text-zinc-900" />
           </div>
-          <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-zinc-500"><Smartphone className="h-3 w-3" /> Posted in the lobby</div>
+          <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-zinc-500"><Smartphone className="h-3 w-3" /> From the bay or road</div>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-3">
           <div className="text-[9px] font-semibold text-zinc-800">New service ticket</div>
@@ -524,7 +521,7 @@ const IntakeMock = () => (
         </div>
       </div>
       <div className="mt-3 flex items-center gap-2 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-        <CheckCircle2 className="h-3.5 w-3.5" /> Ticket #1043 created — waiting in your queue
+        <CheckCircle2 className="h-3.5 w-3.5" /> Ticket #1043 created — sent to the office queue
       </div>
     </div>
   </WindowChrome>
@@ -847,8 +844,8 @@ const Pricing = () => {
         <Reveal>
           <div className="text-center">
             <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, affordable pricing</div>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">Start affordable. Grow when you're ready.</h2>
-            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No per-feature upsells or surprises. Begin with everything Vultrix does today, and step up to Pro when worldwide vehicle data lands.</p>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One plan. Everything included.</h2>
+            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No tiers to decode, no per-feature upsells. One flat price with every tool Vultrix has — and a free trial to start.</p>
             <div className="flex justify-center">
               <div className="mt-7 inline-flex items-center rounded-full border border-zinc-200 bg-white p-1 shadow-sm">
                 <button onClick={() => setBilling("monthly")} className={`px-4 h-9 rounded-full text-sm font-semibold transition-colors ${!annual ? "bg-zinc-900 text-white" : "text-zinc-600 hover:text-zinc-900"}`}>Monthly</button>
@@ -858,7 +855,7 @@ const Pricing = () => {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          <div className="mt-10 grid grid-cols-1 gap-6 max-w-md mx-auto">
             {TIERS.map((t) => (
               <div key={t.id} className={`relative flex flex-col rounded-[20px] p-7 sm:p-8 bg-white ${t.highlight ? "border-2 border-amber-400 shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}>
                 <div className="flex items-center justify-between gap-2">
@@ -886,7 +883,7 @@ const Pricing = () => {
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {TRUST_BADGES.map((b) => (<span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><b.icon className="h-4 w-4 text-amber-500" /> {b.label}</span>))}
             </div>
-            <p className="text-xs text-zinc-500 text-center max-w-md">{SITE.trialDays}-day free trial on Starter. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
+            <p className="text-xs text-zinc-500 text-center max-w-md">{SITE.trialDays}-day free trial. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
           </div>
         </Reveal>
       </div>
