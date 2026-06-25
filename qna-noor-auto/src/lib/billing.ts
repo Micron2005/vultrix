@@ -23,7 +23,7 @@ export const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS ?? 14);
 export const GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS ?? 3);
 
 /** Monthly price in whole dollars, for display only (Stripe is the source of truth). */
-export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 35);
+export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 45);
 
 /**
  * Resolve the recurring Price id to subscribe new businesses to.

@@ -114,6 +114,10 @@ export async function startSignup(formData: FormData) {
     // SMS step) so every customer just enters their card details directly.
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
+    // Let customers enter a discount/promo code at checkout. Create coupons +
+    // promotion codes in the Stripe dashboard whenever you want to run a deal —
+    // no code change needed per discount.
+    allow_promotion_codes: true,
     subscription_data: {
       trial_period_days: TRIAL_DAYS > 0 ? TRIAL_DAYS : undefined,
       metadata: { orgId: org.id },
