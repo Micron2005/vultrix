@@ -15,8 +15,11 @@ import {
   Phone,
   Globe,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { PRICE_USD, TRIAL_DAYS } from "@/lib/billing";
+import { requireUser } from "@/lib/session";
+import { isMarketingOwnerOrg } from "@/lib/marketing";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -49,11 +52,16 @@ async function resolveOrigin(): Promise<string> {
 }
 
 /**
- * Printable marketing flyer / sell-sheet for shop owners. Public (no login) so
- * it can be shared, posted, or left at a parts counter. Includes a QR code that
- * links straight to the free-trial signup.
+ * Printable marketing flyer / sell-sheet for selling Vultrix to other shops.
+ * Restricted to the platform owner (SUPERADMIN) and the owner's own shop org —
+ * tenant shops must never see it. Includes a QR code to the free-trial signup.
  */
 export default async function FlyerPage() {
+  const user = await requireUser();
+  const allowed =
+    user.role === "SUPERADMIN" || (await isMarketingOwnerOrg(user.orgId));
+  if (!allowed) redirect("/");
+
   const origin = await resolveOrigin();
   const base = origin || "https://vultrix.net";
   const signupUrl = `${base}/signup`;
