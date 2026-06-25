@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  Button,
   Card,
   CardHeader,
   Field,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui";
 import { TechLineSelect } from "./TechLineSelect";
 import { SaveButton } from "@/components/SaveButton";
+import { RemoteSaveButton } from "@/components/RemoteSaveButton";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { formatMoney } from "@/lib/utils";
 
@@ -133,9 +133,9 @@ export function JobCard({
           </button>
           {editingName && updateJobAction ? (
             <form
-              action={(fd) => {
-                updateJobAction(fd);
-                setEditingName(false);
+              action={async (fd) => {
+                await updateJobAction(fd);
+                setTimeout(() => setEditingName(false), 900);
               }}
               className="flex items-center gap-2"
             >
@@ -145,9 +145,7 @@ export function JobCard({
                 className="w-64"
                 autoFocus
               />
-              <Button type="submit" size="sm" variant="secondary">
-                Save
-              </Button>
+              <SaveButton size="sm">Save</SaveButton>
               <button
                 type="button"
                 onClick={() => setEditingName(false)}
@@ -342,13 +340,15 @@ export function JobCard({
                           {formatMoney(l.hours * l.rate)}
                         </td>
                         <td className="py-1 whitespace-nowrap text-right">
-                          <button
-                            type="submit"
-                            form={`labor-${l.id}`}
-                            className="mr-1 h-6 px-1.5 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                          <RemoteSaveButton
+                            formId={`labor-${l.id}`}
+                            action={updL}
+                            variant="subtle"
+                            size="sm"
+                            className="mr-1 h-7 px-2 text-xs"
                           >
                             Save
-                          </button>
+                          </RemoteSaveButton>
                           <form action={delL} className="inline">
                             <button
                               type="submit"
@@ -459,13 +459,15 @@ export function JobCard({
                           {formatMoney(p.quantity * p.unitPrice)}
                         </td>
                         <td className="py-1 whitespace-nowrap text-right">
-                          <button
-                            type="submit"
-                            form={`part-${p.id}`}
-                            className="mr-1 h-6 px-1.5 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                          <RemoteSaveButton
+                            formId={`part-${p.id}`}
+                            action={updP}
+                            variant="subtle"
+                            size="sm"
+                            className="mr-1 h-7 px-2 text-xs"
                           >
                             Save
-                          </button>
+                          </RemoteSaveButton>
                           <form action={delP} className="inline">
                             <button
                               type="submit"
@@ -537,13 +539,15 @@ export function JobCard({
                           />
                         </td>
                         <td className="py-1 whitespace-nowrap text-right">
-                          <button
-                            type="submit"
-                            form={`fee-${f.id}`}
-                            className="mr-1 h-6 px-1.5 rounded text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                          <RemoteSaveButton
+                            formId={`fee-${f.id}`}
+                            action={updF}
+                            variant="subtle"
+                            size="sm"
+                            className="mr-1 h-7 px-2 text-xs"
                           >
                             Save
-                          </button>
+                          </RemoteSaveButton>
                           <form action={delF} className="inline">
                             <button
                               type="submit"
@@ -588,10 +592,10 @@ export function JobCard({
                 </div>
               ) : addingType === "labor" ? (
                 <form
-                  action={(fd) => {
+                  action={async (fd) => {
                     fd.set("jobId", job.id);
-                    addLaborAction(fd);
-                    setAddingType(null);
+                    await addLaborAction(fd);
+                    setTimeout(() => setAddingType(null), 900);
                   }}
                   className="space-y-2"
                 >
@@ -640,9 +644,7 @@ export function JobCard({
                       </Field>
                     </div>
                     <div className="col-span-2 flex gap-1">
-                      <Button type="submit" variant="secondary" size="sm">
-                        Add
-                      </Button>
+                      <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"
                         onClick={() => setAddingType(null)}
@@ -655,10 +657,10 @@ export function JobCard({
                 </form>
               ) : addingType === "parts" ? (
                 <form
-                  action={(fd) => {
+                  action={async (fd) => {
                     fd.set("jobId", job.id);
-                    addPartAction(fd);
-                    setAddingType(null);
+                    await addPartAction(fd);
+                    setTimeout(() => setAddingType(null), 900);
                   }}
                   className="space-y-2"
                 >
@@ -730,9 +732,7 @@ export function JobCard({
                       </Field>
                     </div>
                     <div className="col-span-2 flex gap-1">
-                      <Button type="submit" variant="secondary" size="sm">
-                        Add
-                      </Button>
+                      <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"
                         onClick={() => setAddingType(null)}
@@ -745,10 +745,10 @@ export function JobCard({
                 </form>
               ) : (
                 <form
-                  action={(fd) => {
+                  action={async (fd) => {
                     fd.set("jobId", job.id);
-                    addFeeAction(fd);
-                    setAddingType(null);
+                    await addFeeAction(fd);
+                    setTimeout(() => setAddingType(null), 900);
                   }}
                   className="space-y-2"
                 >
@@ -777,9 +777,7 @@ export function JobCard({
                       </Field>
                     </div>
                     <div className="col-span-3 flex gap-1">
-                      <Button type="submit" variant="secondary" size="sm">
-                        Add
-                      </Button>
+                      <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"
                         onClick={() => setAddingType(null)}

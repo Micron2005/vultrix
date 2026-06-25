@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { MileageInput } from "@/components/MileageInput";
 import { SaveButton } from "@/components/SaveButton";
+import { RemoteSaveButton } from "@/components/RemoteSaveButton";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
@@ -352,9 +353,7 @@ export default async function RepairOrderDetailPage({
             </Field>
           </div>
           <div className="md:col-span-1">
-            <Button type="submit" variant="secondary" className="w-full">
-              Save
-            </Button>
+            <SaveButton fullWidth>Save</SaveButton>
           </div>
         </form>
       </Card>
@@ -669,9 +668,7 @@ export default async function RepairOrderDetailPage({
                     />
                   </Field>
                 </div>
-                <Button type="submit" variant="secondary">
-                  + Add job
-                </Button>
+                <SaveButton savedLabel="Added">+ Add job</SaveButton>
               </form>
               {presetList.length > 0 && (
                 <div className="flex-1">
@@ -939,13 +936,9 @@ export default async function RepairOrderDetailPage({
           server action uses to redirect back to the RO list. */}
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-6">
         <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            form="ro-details-form"
-            className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-          >
+          <RemoteSaveButton formId="ro-details-form" action={updateAction}>
             Save
-          </button>
+          </RemoteSaveButton>
           <button
             type="submit"
             form="ro-details-form"

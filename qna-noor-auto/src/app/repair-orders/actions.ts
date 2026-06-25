@@ -145,7 +145,9 @@ export async function updateRepairOrder(id: string, fd: FormData) {
   if (fd.get("exit") === "1") {
     redirect(`/`);
   }
-  redirect(`/repair-orders/${id}`);
+  // Plain inline "Save": stay on the page. revalidatePath above refreshes the
+  // server-rendered data in place, so the SaveButton can show its success
+  // animation without a full page reload interrupting it.
 }
 
 export async function setRepairOrderStatus(id: string, status: string) {
@@ -829,7 +831,8 @@ export async function updateROVehicleInfo(fd: FormData) {
 
   revalidatePath(`/repair-orders/${parsed.repairOrderId}`);
   revalidatePath(`/vehicles/${parsed.vehicleId}`);
-  redirect(`/repair-orders/${parsed.repairOrderId}`);
+  // Stay on the RO page so the inline vehicle-info SaveButton can complete its
+  // success animation; revalidatePath above refreshes the displayed values.
 }
 
 // Admin approve/decline jobs

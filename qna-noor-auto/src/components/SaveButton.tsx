@@ -18,11 +18,13 @@ export function SaveButton({
   className = "",
   size = "md",
   fullWidth = false,
+  savedLabel = "Saved",
 }: {
   children?: React.ReactNode;
   className?: string;
   size?: "sm" | "md";
   fullWidth?: boolean;
+  savedLabel?: string;
 }) {
   const { pending } = useFormStatus();
   const wasPending = useRef(false);
@@ -59,7 +61,7 @@ export function SaveButton({
     >
       {saved ? (
         <>
-          <span aria-hidden>✓</span> Saved
+          <span aria-hidden>✓</span> {savedLabel}
         </>
       ) : pending ? (
         "Saving…"
