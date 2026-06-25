@@ -314,6 +314,27 @@ export default async function SettingsPage({
           )}
         </div>
       </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader title="Marketing flyer" />
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-zinc-600">
+            A print-ready, one-page flyer for selling Vultrix to other shops —
+            features, price, and a QR code that takes them straight to a free
+            trial, with your contact info on it. Open it, then print it or save
+            it as a PDF to text or email.
+          </p>
+          <Link
+            href="/flyer"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            data-testid="open-flyer"
+          >
+            Open printable flyer →
+          </Link>
+        </div>
+      </Card>
     </>
   );
 }
