@@ -67,6 +67,7 @@ const FEATURES = [
   { icon: Wrench, title: "Repair & work orders", desc: "Full lifecycle from estimate to paid, with labor and parts lines and technician assignment." },
   { icon: FileText, title: "Invoices & estimates", desc: "Clean, professional PDFs and shareable links your customers can approve from their phone." },
   { icon: ScanLine, title: "QR customer check-in", desc: "Post a QR code in your lobby. Customers scan it, enter their details and what's wrong, and a repair order drops into your queue — no login, no front-desk bottleneck." },
+  { icon: CreditCard, title: "Online payments", desc: "Customers pay their invoice right from their phone or a shared link — get paid faster with a lot less chasing." },
   { icon: Car, title: "Customers & vehicles", desc: "A searchable history of every customer, vehicle, and job you've ever done." },
   { icon: Search, title: "VIN & plate lookup", desc: "Decode a VIN or look up a license plate in seconds — vehicle recalls included." },
   { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the vehicle and jump straight to your suppliers in one click." },
@@ -104,18 +105,17 @@ const COMPARISON = {
     "One flat $45 / month",
     "A fast, clean, modern interface",
     "Export your data whenever you want",
-    "Customers approve from their phone",
+    "Customers approve and pay from their phone",
     "Up and running the same day",
   ],
 };
 
 const ROADMAP = [
-  { icon: Bot, status: "Coming soon", title: "AI shop & customer assistant", note: "A built-in assistant that answers customer questions, helps with support, and loops you in the moment a real human is needed." },
+  { icon: Bot, status: "Exploring", title: "AI shop assistant", note: "We're exploring a built-in assistant to help with day-to-day shop tasks. An early customer-support assistant is already live on the site." },
   { icon: Globe, status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
   { icon: Store, status: "Planned", title: "Customer-facing shop websites", note: "Give every shop a clean public website tied right to their Vultrix account." },
   { icon: Boxes, status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
   { icon: MessageSquare, status: "Planned", title: "Two-way customer texting", note: "Message customers and collect approvals right inside Vultrix." },
-  { icon: CreditCard, status: "Planned", title: "In-app payments & text-to-pay", note: "Let customers pay an invoice straight from a link." },
 ];
 
 const DEEP_DIVES = [
@@ -128,14 +128,9 @@ const DEEP_DIVES = [
 
 const TIERS = [
   {
-    id: "starter", name: "Starter", monthly: 45, available: true, highlight: true, badge: "Most popular",
-    tagline: "Everything you need to run the shop today.", cta: "Start free trial", href: URLS.signup,
-    features: ["Unlimited repair orders & invoices", "Customers, vehicles & full history", "VIN / plate lookup + recalls", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
-  },
-  {
-    id: "pro", name: "Pro", monthly: 69, available: false, highlight: false, badge: "Coming soon",
-    tagline: "Everything in Starter, plus worldwide vehicle data.", cta: "Get notified", href: "#contact",
-    features: ["Everything in Starter", "Worldwide vehicle data", "In-depth repair information & guides", "Deeper recall & spec coverage", "Priority support"],
+    id: "all", name: "Full access", monthly: 45, available: true, highlight: true, badge: "Everything included",
+    tagline: "Every tool your shop runs on — one flat price.", cta: "Start free trial", href: URLS.signup,
+    features: ["Unlimited repair orders & invoices", "QR customer check-in", "Online payments from a phone or link", "Customers, vehicles & full history", "VIN / plate lookup + recalls", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
   },
 ];
 
@@ -146,7 +141,9 @@ const FAQS = [
   { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on the shop computer, your phone, or a tablet out in the bay." },
   { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, admins, and technicians." },
   { q: "Is my payment secure?", a: "Billing is handled by Stripe, an industry-leading payment processor. We never see or store your card details." },
-  { q: "What does it cost?", a: "Starter is a flat $45 per month with every feature included. Pro (coming soon) adds worldwide vehicle data." },
+  { q: "Can my customers pay online?", a: "Yes. Customers can pay their invoice right from their phone or a shared link — no extra setup on your end." },
+  { q: "Do you offer discounts?", a: "From time to time, yes. When we're running a promotion you'll get a code to enter at checkout, and the discount applies automatically." },
+  { q: "What does it cost?", a: "A flat $45 per month with every feature included — no tiers and no per-feature upsells." },
 ];
 
 const TRUST_BADGES = [
@@ -847,8 +844,8 @@ const Pricing = () => {
         <Reveal>
           <div className="text-center">
             <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, affordable pricing</div>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">Start affordable. Grow when you're ready.</h2>
-            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No per-feature upsells or surprises. Begin with everything Vultrix does today, and step up to Pro when worldwide vehicle data lands.</p>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One plan. Everything included.</h2>
+            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No tiers to decode, no per-feature upsells. One flat price with every tool Vultrix has — and a free trial to start.</p>
             <div className="flex justify-center">
               <div className="mt-7 inline-flex items-center rounded-full border border-zinc-200 bg-white p-1 shadow-sm">
                 <button onClick={() => setBilling("monthly")} className={`px-4 h-9 rounded-full text-sm font-semibold transition-colors ${!annual ? "bg-zinc-900 text-white" : "text-zinc-600 hover:text-zinc-900"}`}>Monthly</button>
@@ -858,7 +855,7 @@ const Pricing = () => {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          <div className="mt-10 grid grid-cols-1 gap-6 max-w-md mx-auto">
             {TIERS.map((t) => (
               <div key={t.id} className={`relative flex flex-col rounded-[20px] p-7 sm:p-8 bg-white ${t.highlight ? "border-2 border-amber-400 shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}>
                 <div className="flex items-center justify-between gap-2">
@@ -886,7 +883,7 @@ const Pricing = () => {
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {TRUST_BADGES.map((b) => (<span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><b.icon className="h-4 w-4 text-amber-500" /> {b.label}</span>))}
             </div>
-            <p className="text-xs text-zinc-500 text-center max-w-md">{SITE.trialDays}-day free trial on Starter. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
+            <p className="text-xs text-zinc-500 text-center max-w-md">{SITE.trialDays}-day free trial. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
           </div>
         </Reveal>
       </div>
