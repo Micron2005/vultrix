@@ -119,10 +119,6 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/p/")) return true;
   if (pathname.startsWith("/a/")) return true;
   if (pathname.startsWith("/q/")) return true;
-  // Public no-login shop-intake QR flow (/i/<orgId>?k=<signed token>). The page
-  // itself validates the org + HMAC token before showing the form, and the
-  // intake server actions re-verify the token, so it's safe to expose here.
-  if (pathname.startsWith("/i/")) return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/favicon")) return true;
   return false;
