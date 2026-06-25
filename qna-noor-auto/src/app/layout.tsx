@@ -40,8 +40,8 @@ export default async function RootLayout({
             canManageUsers={canManageUsers(user.role)}
             isSuperadmin={user.role === "SUPERADMIN"}
           />
-          <main className="flex-1 overflow-auto">
-            <div className="mx-auto max-w-6xl p-6">{children}</div>
+          <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
+            <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
           </main>
         </div>
       </body>

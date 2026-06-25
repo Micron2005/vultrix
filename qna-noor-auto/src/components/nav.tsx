@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Menu, X } from "lucide-react";
 
 type NavProps = {
   orgLabel: string;
@@ -46,6 +47,8 @@ export function Nav({
   const pathname = usePathname();
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = () => setMobileOpen(false);
 
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
@@ -76,7 +79,8 @@ export function Nav({
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/terms" ||
-    pathname === "/privacy"
+    pathname === "/privacy" ||
+    pathname === "/flyer"
   )
     return null;
 
@@ -87,17 +91,26 @@ export function Nav({
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
-  return (
-    <aside className="no-print w-56 shrink-0 border-r border-zinc-200 bg-white">
-      <div className="p-5 border-b border-zinc-200">
-        <Link href="/" className="block">
-          <div className="text-sm font-semibold tracking-tight text-zinc-900">
+  const sidebarBody = (
+    <>
+      <div className="p-5 border-b border-zinc-200 flex items-center justify-between gap-2">
+        <Link href="/" className="block min-w-0" onClick={closeMobile}>
+          <div className="text-sm font-semibold tracking-tight text-zinc-900 truncate">
             {orgLabel}
           </div>
           {username && (
-            <div className="text-xs text-zinc-500">{username}</div>
+            <div className="text-xs text-zinc-500 truncate">{username}</div>
           )}
         </Link>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden -mr-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100"
+          aria-label="Close menu"
+          data-testid="nav-close-button"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
       {!isSuperadmin && (
         <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
@@ -118,6 +131,7 @@ export function Nav({
             <Link
               key={item.href}
               href={item.href}
+              onClick={closeMobile}
               aria-current={active ? "page" : undefined}
               className={
                 "rounded-md px-3 py-2 text-sm transition-colors " +
@@ -139,6 +153,53 @@ export function Nav({
           </button>
         </form>
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar — only on small screens. */}
+      <header className="no-print lg:hidden fixed top-0 inset-x-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-200 bg-white px-4">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 text-zinc-700 hover:bg-zinc-100 active:bg-zinc-200"
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          data-testid="nav-open-button"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <Link
+          href="/"
+          className="min-w-0 truncate text-sm font-semibold tracking-tight text-zinc-900"
+        >
+          {orgLabel}
+        </Link>
+      </header>
+
+      {/* Backdrop behind the open drawer (mobile only). */}
+      {mobileOpen && (
+        <div
+          className="no-print lg:hidden fixed inset-0 z-40 bg-zinc-900/40 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+          data-testid="nav-backdrop"
+        />
+      )}
+
+      {/* Sidebar: static column on desktop, slide-in drawer on mobile. */}
+      <aside
+        className={
+          "no-print bg-white border-r border-zinc-200 overflow-y-auto " +
+          "fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-out " +
+          "lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 " +
+          (mobileOpen ? "translate-x-0" : "-translate-x-full")
+        }
+        data-testid="app-sidebar"
+      >
+        {sidebarBody}
+      </aside>
+    </>
   );
 }

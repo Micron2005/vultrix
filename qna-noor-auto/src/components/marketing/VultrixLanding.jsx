@@ -27,7 +27,7 @@ const SITE = {
   price: 45,
   trialDays: 14,
   annualMonthsFree: 2,
-  supportEmail: "", // empty = hide email, route to the form
+  supportEmail: "micron.alam18@gmail.com", // empty = hide email, route to the form
   phone: "571-320-9425",
   phoneHref: "+15713209425",
 };
@@ -66,6 +66,7 @@ const WHAT_IS = [
 const FEATURES = [
   { icon: Wrench, title: "Repair & work orders", desc: "Full lifecycle from estimate to paid, with labor and parts lines and technician assignment." },
   { icon: FileText, title: "Invoices & estimates", desc: "Clean, professional PDFs and shareable links your customers can approve from their phone." },
+  { icon: ScanLine, title: "QR customer check-in", desc: "Post a QR code in your lobby. Customers scan it, enter their details and what's wrong, and a repair order drops into your queue — no login, no front-desk bottleneck." },
   { icon: Car, title: "Customers & vehicles", desc: "A searchable history of every customer, vehicle, and job you've ever done." },
   { icon: Search, title: "VIN & plate lookup", desc: "Decode a VIN or look up a license plate in seconds — vehicle recalls included." },
   { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the vehicle and jump straight to your suppliers in one click." },
@@ -119,6 +120,7 @@ const ROADMAP = [
 
 const DEEP_DIVES = [
   { id: "deep-dive-repair-orders", eyebrow: "Repair orders", title: "From estimate to paid — without the paperwork pile", points: ["Walk a job through estimate → approved → in progress → done → paid", "Add labor and parts lines and assign the right technician", "Send a clean PDF or a link the customer approves from their phone"], mock: "workorder" },
+  { id: "deep-dive-intake", eyebrow: "Customer check-in", title: "Customers check themselves in — straight to a repair order", points: ["Post a QR code in your lobby — no app to download, no login for the customer", "They enter their info, their vehicle, and what's wrong right from their phone", "A repair order lands in your queue automatically, ready for you to price"], mock: "intake" },
   { id: "deep-dive-vin-parts", eyebrow: "Lookup", title: "Decode the VIN, see what fits, order in one click", points: ["Decode a VIN or plate in seconds and surface open recalls", "See parts tagged to that exact vehicle, plus universal parts", "A companion browser helper fills the VIN into your supplier's site"], mock: "lookup" },
   { id: "deep-dive-inventory", eyebrow: "Inventory", title: "Stock you can actually trust", points: ["Track cost, price, on-hand counts and reorder thresholds", "Stock auto-deducts the moment a part hits a repair order", "Print QR shelf labels and scan to find a part instantly"], mock: "inventory" },
   { id: "deep-dive-reminders", eyebrow: "Retention", title: "Keep the bays full with win-back reminders", points: ["Automatically surface customers who haven't been in for months", "One tap to text or email an invite back for service", "Bring in repeat work without blasting discounts"], mock: "reminder" },
@@ -492,7 +494,43 @@ const ReminderMock = () => (
   </WindowChrome>
 );
 
-const MOCKS = { workorder: WorkOrderMock, lookup: LookupMock, inventory: InventoryMock, reminder: ReminderMock };
+const IntakeMock = () => (
+  <WindowChrome label="vultrix.net/i/your-shop">
+    <div className="p-4 text-left">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-display text-base font-extrabold text-zinc-900">Customer check-in</div>
+          <div className="text-[10px] text-zinc-500">No login · scan, fill, done</div>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[9px] font-semibold"><ScanLine className="h-3 w-3" /> Public QR</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-center">
+          <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Scan to check in</div>
+          <div className="mx-auto mt-2 grid h-16 w-16 place-items-center rounded-lg bg-white border border-zinc-200">
+            <QrCode className="h-10 w-10 text-zinc-900" />
+          </div>
+          <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-zinc-500"><Smartphone className="h-3 w-3" /> Posted in the lobby</div>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white p-3">
+          <div className="text-[9px] font-semibold text-zinc-800">New service ticket</div>
+          <div className="mt-2 space-y-1.5">
+            <div className="h-4 rounded-md bg-zinc-100" />
+            <div className="h-4 rounded-md bg-zinc-100" />
+            <div className="flex items-center gap-1.5 text-[9px] text-zinc-600"><Car className="h-3 w-3" /> 2018 Honda Civic</div>
+            <div className="h-8 rounded-md bg-zinc-100" />
+          </div>
+          <div className="mt-2 h-6 rounded-md bg-zinc-900 text-white text-[9px] font-semibold flex items-center justify-center">Create ticket</div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+        <CheckCircle2 className="h-3.5 w-3.5" /> Ticket #1043 created — waiting in your queue
+      </div>
+    </div>
+  </WindowChrome>
+);
+
+const MOCKS = { workorder: WorkOrderMock, lookup: LookupMock, inventory: InventoryMock, reminder: ReminderMock, intake: IntakeMock };
 
 /* ----------------------------------------------------------------------------
    NAVBAR

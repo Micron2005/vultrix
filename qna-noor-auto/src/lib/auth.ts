@@ -113,6 +113,7 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname === "/signup") return true;
   if (pathname === "/terms") return true;
   if (pathname === "/privacy") return true;
+  if (pathname === "/flyer") return true;
   if (pathname === "/api/login") return true;
   if (pathname === "/logout") return true;
   if (pathname.startsWith("/e/")) return true;
