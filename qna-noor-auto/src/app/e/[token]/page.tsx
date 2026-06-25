@@ -226,6 +226,11 @@ export default async function PublicEstimatePage({
                     {formatMoney(jobTotal)}
                   </span>
                 </div>
+                {job.notes && (
+                  <p className="mb-3 whitespace-pre-wrap text-sm text-zinc-600">
+                    {job.notes}
+                  </p>
+                )}
                 {job.laborLines.length > 0 && (
                   <div className="mb-3">
                     <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">

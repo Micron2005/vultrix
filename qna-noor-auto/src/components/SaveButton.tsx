@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * Submit button that gives clear visual proof a save happened: while the form
- * action runs it shows "Saving…", then on completion it spins/pops and turns
- * green with "Saved ✓" for about a second before fading back to its idle label.
+ * action runs it shows "Saving…", then on completion it pops and turns green
+ * with "✓ Saved" for about a second before fading back to its idle label.
  *
  * Styled to match the primary `Button` so it's a drop-in replacement for any
  * `<Button type="submit">`. Must be rendered inside the <form> it submits (it
@@ -27,22 +27,40 @@ export function SaveButton({
   savedLabel?: string;
 }) {
   const { pending } = useFormStatus();
-  const wasPending = useRef(false);
+  const prevPending = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (pending) {
-      wasPending.current = true;
-      return;
-    }
-    if (wasPending.current) {
-      wasPending.current = false;
+    if (pending && !prevPending.current) {
+      // A fresh submit started — drop any lingering "saved" badge.
+      setSaved(false);
+      if (resetTimer.current) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+    } else if (!pending && prevPending.current) {
+      // The submit just finished — flash the success state, then auto-reset.
+      // The timer lives in a ref (NOT the effect cleanup) so unrelated
+      // re-renders or extra revalidation passes can't cancel the reset and
+      // leave the button stuck green. It only gets cleared by a new submit
+      // (above) or when the button unmounts (below).
       setSaved(true);
-      // ~0.6s spin/pop animation, then hold the green state ~1s, then reset.
-      const t = setTimeout(() => setSaved(false), 1600);
-      return () => clearTimeout(t);
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => {
+        setSaved(false);
+        resetTimer.current = null;
+      }, 1600);
     }
+    prevPending.current = pending;
   }, [pending]);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
 
   const state = pending ? "saving" : saved ? "saved" : "idle";
 

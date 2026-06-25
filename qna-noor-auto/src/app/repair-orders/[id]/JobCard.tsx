@@ -228,7 +228,7 @@ export function JobCard({
 
       {expanded && (
         <div className="divide-y divide-zinc-100">
-          {/* Job notes (internal — not shown to the customer) */}
+          {/* Job notes — shown to the customer on the estimate/invoice */}
           {job.id && updateJobAction && !isLocked ? (
             <div className="px-4 py-2">
               <div className="text-xs uppercase tracking-wider text-zinc-400 mb-1">
@@ -239,7 +239,7 @@ export function JobCard({
                   name="notes"
                   rows={2}
                   defaultValue={job.notes ?? ""}
-                  placeholder="Notes for this job (internal — not shown to the customer)"
+                  placeholder="Notes for this job (shown to the customer)"
                   className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 />
                 <SaveButton>Save notes</SaveButton>

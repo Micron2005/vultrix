@@ -320,6 +320,15 @@ export async function GET(
       color: black,
     });
     y -= 14;
+    if (job.notes) {
+      const noteLines = wrapText(job.notes, font, 9, 612 - margin * 2 - 8);
+      for (const line of noteLines) {
+        ensureSpace(11);
+        page.drawText(line, { x: margin + 8, y, size: 9, font, color: gray });
+        y -= 11;
+      }
+      y -= 2;
+    }
     drawJobLines(job.laborLines, job.partLines, job.feeLines);
     y -= 4;
   }
