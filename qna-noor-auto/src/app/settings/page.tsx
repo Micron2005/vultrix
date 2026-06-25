@@ -10,8 +10,11 @@ import {
 } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import { getAllSettings, setSetting } from "@/lib/shop";
+import { headers } from "next/headers";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { intakeUrl } from "@/lib/intakeTokens";
 import {
   createShopFee,
   deleteShopFee,
@@ -19,6 +22,18 @@ import {
 } from "./shop-fees-actions";
 
 export const dynamic = "force-dynamic";
+
+async function resolveOrigin(): Promise<string> {
+  const hdrs = await headers();
+  const forwardedHost = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const forwardedProto =
+    hdrs.get("x-forwarded-proto") ??
+    (forwardedHost.startsWith("localhost") ? "http" : "https");
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "";
+}
 
 export default async function SettingsPage({
   searchParams,
@@ -28,6 +43,8 @@ export default async function SettingsPage({
   const orgId = await requireOrgId();
   const sp = (await searchParams) ?? {};
   const settings = await getAllSettings(orgId);
+  const origin = await resolveOrigin();
+  const intakeLink = intakeUrl(origin, orgId);
   const shopFees = await db.shopFee.findMany({
     where: { orgId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -260,6 +277,41 @@ export default async function SettingsPage({
               </Button>
             </div>
           </form>
+        </div>
+      </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader title="Shop intake QR" />
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-zinc-600">
+            Print a QR code and post it in your shop. Techs (or customers) scan
+            it with a phone to start a new ticket — pick or add the customer,
+            add the vehicle, and describe the work. No login needed.
+          </p>
+          {intakeLink ? (
+            <>
+              <div
+                className="break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700"
+                data-testid="intake-url"
+              >
+                {intakeLink}
+              </div>
+              <Link
+                href="/settings/intake-qr"
+                className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                data-testid="open-intake-qr"
+              >
+                Open printable QR →
+              </Link>
+            </>
+          ) : (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              To enable the public intake QR, set an{" "}
+              <code className="font-mono">INTAKE_SIGNING_SECRET</code>{" "}
+              environment variable (any long random string) in your Vercel
+              project, then redeploy.
+            </div>
+          )}
         </div>
       </Card>
     </>
