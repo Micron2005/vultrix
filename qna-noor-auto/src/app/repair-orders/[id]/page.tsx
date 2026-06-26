@@ -573,6 +573,19 @@ export default async function RepairOrderDetailPage({
                       &ldquo;{ro.customerResponseNote}&rdquo;
                     </div>
                   )}
+                  {ro.signatureDataUrl && (
+                    <div
+                      className="mt-1 text-xs text-emerald-800"
+                      data-testid="ro-signature-note"
+                    >
+                      ✍ Signed by{" "}
+                      <span className="font-medium">
+                        {ro.signatureName?.trim() || fullName(ro.customer)}
+                      </span>
+                      {ro.signedAt && <> · {formatDateTime(ro.signedAt)}</>}
+                      {" — appears on the printed / emailed PDF and the shared link."}
+                    </div>
+                  )}
                 </div>
               ) : ro.estimateDeclinedAt ? (
                 <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-red-900">

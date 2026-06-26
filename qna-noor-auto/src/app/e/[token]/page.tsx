@@ -591,6 +591,26 @@ export default async function PublicEstimatePage({
                   </div>
                 </div>
               )}
+              {ro.signatureDataUrl && (
+                <div className="mt-4" data-testid="estimate-signature">
+                  <div className="text-xs uppercase tracking-wider text-emerald-700 mb-1">
+                    Signature on file
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={ro.signatureDataUrl}
+                    alt="Customer signature"
+                    className="h-20 w-auto max-w-full rounded-md border border-emerald-200 bg-white p-2"
+                  />
+                  <div className="mt-1 text-xs text-emerald-800">
+                    Signed by{" "}
+                    <span className="font-medium">
+                      {ro.signatureName?.trim() || fullName(ro.customer)}
+                    </span>
+                    {ro.signedAt && <> on {formatDateTime(ro.signedAt)}</>}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 

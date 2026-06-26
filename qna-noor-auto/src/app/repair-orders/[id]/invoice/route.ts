@@ -444,6 +444,60 @@ export async function GET(
     }
   }
 
+  // Customer signature (captured when the customer approved the estimate).
+  // Important for insurance claims — only drawn when a signature is on file.
+  if (ro.signatureDataUrl && ro.signatureDataUrl.startsWith("data:image/")) {
+    try {
+      const sigImg = await pdf.embedPng(ro.signatureDataUrl);
+      const sig = sigImg.scaleToFit(220, 70);
+      // heading + gap + image + line + caption — keep together on one page.
+      ensureSpace(24 + sig.height + 8 + 16);
+      y -= 24;
+      page.drawText("CUSTOMER AUTHORIZATION", {
+        x: margin,
+        y,
+        size: 9,
+        font: bold,
+        color: gray,
+      });
+      y -= 6 + sig.height;
+      page.drawImage(sigImg, {
+        x: margin,
+        y,
+        width: sig.width,
+        height: sig.height,
+      });
+      y -= 6;
+      page.drawLine({
+        start: { x: margin, y },
+        end: { x: margin + 240, y },
+        thickness: 0.75,
+        color: lightGray,
+      });
+      y -= 12;
+      const signedName = ro.signatureName?.trim() || fullName(ro.customer);
+      page.drawText(`Signed by: ${signedName}`, {
+        x: margin,
+        y,
+        size: 9,
+        font,
+        color: black,
+      });
+      if (ro.signedAt) {
+        page.drawText(`Date: ${formatDate(ro.signedAt)}`, {
+          x: margin + 200,
+          y,
+          size: 9,
+          font,
+          color: gray,
+        });
+      }
+    } catch {
+      // Malformed/oversized PNG — skip the signature rather than failing
+      // the whole PDF render.
+    }
+  }
+
   // Footer
   const footer = isEstimate
     ? "Estimate only. Not an invoice. Prices and labor times may change once work is performed."
