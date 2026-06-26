@@ -3,12 +3,13 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, makeToken } from "@/lib/auth";
 import { getStripe, billingConfigured } from "@/lib/stripe";
-import { syncSubscriptionToOrg } from "@/lib/billing";
+import { ensureAccountFromCheckout } from "@/lib/signup";
 
 /**
- * Stripe Checkout success_url lands here. We confirm the subscription, activate
- * the business, and sign the new owner in so they land straight on their
- * dashboard. The Stripe webhook is the authoritative backstop if this misses.
+ * Stripe Checkout success_url lands here. The account is materialized now that
+ * the customer got past payment (idempotent — the webhook is the authoritative
+ * backstop if this request is missed), then the new owner is signed in so they
+ * land straight on their dashboard.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -23,30 +24,32 @@ export async function GET(req: Request) {
     expand: ["subscription"],
   });
 
-  const orgId = session.metadata?.orgId;
-  const ownerId = session.metadata?.ownerId;
-  if (!orgId) {
-    return NextResponse.redirect(new URL("/login", url), { status: 303 });
-  }
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : (session.customer?.id ?? null);
+  const subscription = (session.subscription as Stripe.Subscription | null) ?? null;
 
-  const subscription = session.subscription as Stripe.Subscription | null;
-  if (subscription) {
-    await syncSubscriptionToOrg(orgId, subscription);
-  }
+  const result = await ensureAccountFromCheckout({ customerId, subscription });
 
-  // Sign the owner in if the subscription granted access; otherwise send them to
-  // login with a note (e.g. payment still processing).
-  const org = await db.organization.findUnique({ where: { id: orgId } });
-  if (ownerId && org && org.status === "ACTIVE") {
-    const res = NextResponse.redirect(new URL("/", url), { status: 303 });
-    res.cookies.set(SESSION_COOKIE, makeToken(ownerId), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+  // Sign the owner in if access was granted; otherwise send them to login with
+  // a note (e.g. payment still processing).
+  if (result) {
+    const org = await db.organization.findUnique({
+      where: { id: result.orgId },
+      select: { status: true },
     });
-    return res;
+    if (org && org.status === "ACTIVE") {
+      const res = NextResponse.redirect(new URL("/", url), { status: 303 });
+      res.cookies.set(SESSION_COOKIE, makeToken(result.ownerId), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+      return res;
+    }
   }
 
   const loginUrl = new URL("/login", url);

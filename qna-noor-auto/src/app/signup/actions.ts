@@ -22,11 +22,13 @@ async function baseUrl(): Promise<string> {
 }
 
 /**
- * Public self-serve sign-up. Creates the business (Organization) plus its OWNER
- * login up front in a SUSPENDED/incomplete state, then sends the owner to
- * Stripe Checkout to start their subscription (with a free trial). Access is
- * granted once payment/trial is confirmed (see /api/signup/complete and the
- * Stripe webhook), so an abandoned checkout never yields a usable account.
+ * Public self-serve sign-up. Validates the form, then sends the prospect to
+ * Stripe Checkout to start their subscription (with a free trial). NO account
+ * is created yet — the pending signup details ride along on the Stripe
+ * customer's metadata and the Organization + OWNER login are materialized only
+ * once checkout completes (see ensureAccountFromCheckout in @/lib/signup, hit
+ * by both /api/signup/complete and the Stripe webhook). An abandoned checkout
+ * therefore never yields a half-finished account or ties up a username.
  */
 export async function startSignup(formData: FormData) {
   if (!billingConfigured()) {
@@ -60,50 +62,23 @@ export async function startSignup(formData: FormData) {
   const existing = await db.user.findUnique({ where: { username } });
   if (existing) back({ error: "That username is already taken." });
 
-  const org = await db.organization.create({
-    data: {
-      name,
-      status: "SUSPENDED",
-      subscriptionStatus: "incomplete",
-      billingEmail: email,
-    },
-  });
-
-  let ownerId: string;
-  try {
-    const owner = await db.user.create({
-      data: {
-        username,
-        passwordHash: hashPassword(password),
-        role: "OWNER",
-        orgId: org.id,
-      },
-    });
-    ownerId = owner.id;
-  } catch (e: unknown) {
-    await db.organization.delete({ where: { id: org.id } });
-    if (
-      e &&
-      typeof e === "object" &&
-      "code" in e &&
-      (e as { code?: string }).code === "P2002"
-    ) {
-      back({ error: "That username is already taken." });
-    }
-    throw e;
-  }
-
+  // NOTE: we deliberately do NOT create the Organization / OWNER user here.
+  // The account is materialized only once Stripe Checkout completes (see
+  // ensureAccountFromCheckout in @/lib/signup), so an abandoned checkout never
+  // leaves a half-finished account behind. The pending signup details ride
+  // along on the Stripe customer's metadata (password stored hashed).
   const stripe = getStripe();
   const priceId = await resolvePriceId();
 
   const customer = await stripe.customers.create({
     email,
     name,
-    metadata: { orgId: org.id },
-  });
-  await db.organization.update({
-    where: { id: org.id },
-    data: { stripeCustomerId: customer.id },
+    metadata: {
+      signupName: name,
+      signupEmail: email,
+      signupUsername: username,
+      signupPasswordHash: hashPassword(password),
+    },
   });
 
   const root = await baseUrl();
@@ -120,9 +95,9 @@ export async function startSignup(formData: FormData) {
     allow_promotion_codes: true,
     subscription_data: {
       trial_period_days: TRIAL_DAYS > 0 ? TRIAL_DAYS : undefined,
-      metadata: { orgId: org.id },
+      metadata: { pendingSignup: "1" },
     },
-    metadata: { orgId: org.id, ownerId },
+    metadata: { pendingSignup: "1" },
     success_url: `${root}/api/signup/complete?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${root}/signup?canceled=1`,
   });

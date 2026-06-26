@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { syncSubscriptionToOrg } from "@/lib/billing";
+import { ensureAccountFromCheckout } from "@/lib/signup";
 import { recordOnlinePayment } from "@/lib/connect";
 
 // Stripe needs the raw request body to verify the signature, so this handler
@@ -50,17 +51,19 @@ export async function POST(req: Request) {
         await recordOnlinePayment(session);
         break;
       }
-      const orgId = session.metadata?.orgId ?? (await orgIdForCustomer(
-        typeof session.customer === "string" ? session.customer : null,
-      ));
-      if (orgId && session.subscription) {
-        const sub = await stripe.subscriptions.retrieve(
+      const customerId =
+        typeof session.customer === "string" ? session.customer : null;
+      let sub: Stripe.Subscription | null = null;
+      if (session.subscription) {
+        sub = await stripe.subscriptions.retrieve(
           typeof session.subscription === "string"
             ? session.subscription
             : session.subscription.id,
         );
-        await syncSubscriptionToOrg(orgId, sub);
       }
+      // Materialize the account now that the customer got through payment.
+      // Idempotent — safe even if /api/signup/complete already ran.
+      await ensureAccountFromCheckout({ customerId, subscription: sub });
       break;
     }
 
@@ -82,12 +85,17 @@ export async function POST(req: Request) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-      const orgId =
-        sub.metadata?.orgId ??
-        (await orgIdForCustomer(
-          typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-        ));
-      if (orgId) await syncSubscriptionToOrg(orgId, sub);
+      const customerId =
+        typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+      const orgId = sub.metadata?.orgId ?? (await orgIdForCustomer(customerId));
+      if (orgId) {
+        await syncSubscriptionToOrg(orgId, sub);
+      } else {
+        // Brand-new signup not yet materialized — create it from the pending
+        // checkout metadata. No-ops unless the subscription grants access, so
+        // an abandoned/expired checkout still never yields an account.
+        await ensureAccountFromCheckout({ customerId, subscription: sub });
+      }
       break;
     }
 
