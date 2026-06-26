@@ -69,7 +69,7 @@ const FEATURES = [
   { icon: ScanLine, title: "On-the-go ticket intake", desc: "Techs scan a QR to start a ticket from their phone — out on a road call or busy in the bay. Capture the customer, vehicle, and what's wrong, and it lands in the office's queue to price, order parts, and invoice. No login, no trip to the desk." },
   { icon: CreditCard, title: "Online payments", desc: "Customers pay their invoice right from their phone or a shared link — get paid faster with a lot less chasing." },
   { icon: Car, title: "Customers & vehicles", desc: "A searchable history of every customer, vehicle, and job you've ever done." },
-  { icon: Search, title: "VIN & plate lookup", desc: "Decode a VIN or look up a license plate in seconds — vehicle recalls included." },
+  { icon: Search, title: "VIN decode & plate search", desc: "Decode any VIN in seconds with open recalls included, or pull up a vehicle that's already in your records by its plate." },
   { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the vehicle and jump straight to your suppliers in one click." },
   { icon: Package, title: "Inventory", desc: "Track cost, price, and on-hand stock. It auto-deducts when a part is used on a repair order." },
   { icon: QrCode, title: "QR part labels", desc: "Print QR stickers for your shelves and scan to pull up a part instantly." },
@@ -121,7 +121,7 @@ const ROADMAP = [
 const DEEP_DIVES = [
   { id: "deep-dive-repair-orders", eyebrow: "Repair orders", title: "From estimate to paid — without the paperwork pile", points: ["Walk a job through estimate → approved → in progress → done → paid", "Add labor and parts lines and assign the right technician", "Send a clean PDF or a link the customer approves from their phone"], mock: "workorder" },
   { id: "deep-dive-intake", eyebrow: "Field intake", title: "Start the ticket from the bay or the road — not the office", points: ["Techs scan a QR and create a ticket from their phone — no login, no walk to the office", "Capture the customer, vehicle, mileage, and what's wrong while it's fresh", "It drops into the office's queue to price, order parts, and invoice"], mock: "intake" },
-  { id: "deep-dive-vin-parts", eyebrow: "Lookup", title: "Decode the VIN, see what fits, order in one click", points: ["Decode a VIN or plate in seconds and surface open recalls", "See parts tagged to that exact vehicle, plus universal parts", "A companion browser helper fills the VIN into your supplier's site"], mock: "lookup" },
+  { id: "deep-dive-vin-parts", eyebrow: "Lookup", title: "Decode the VIN, see what fits, order in one click", points: ["Decode any VIN in seconds and surface open recalls", "See parts tagged to that exact vehicle, plus universal parts", "A companion browser helper fills the VIN into your supplier's site"], mock: "lookup" },
   { id: "deep-dive-inventory", eyebrow: "Inventory", title: "Stock you can actually trust", points: ["Track cost, price, on-hand counts and reorder thresholds", "Stock auto-deducts the moment a part hits a repair order", "Print QR shelf labels and scan to find a part instantly"], mock: "inventory" },
   { id: "deep-dive-reminders", eyebrow: "Retention", title: "Keep the bays full with win-back reminders", points: ["Automatically surface customers who haven't been in for months", "One tap to text or email an invite back for service", "Bring in repeat work without blasting discounts"], mock: "reminder" },
 ];
@@ -130,7 +130,7 @@ const TIERS = [
   {
     id: "all", name: "Full access", monthly: 45, available: true, highlight: true, badge: "Everything included",
     tagline: "Every tool your shop runs on — one flat price.", cta: "Start free trial", href: URLS.signup,
-    features: ["Unlimited repair orders & invoices", "On-the-go ticket intake", "Online payments from a phone or link", "Customers, vehicles & full history", "VIN / plate lookup + recalls", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
+    features: ["Unlimited repair orders & invoices", "On-the-go ticket intake", "Online payments from a phone or link", "Customers, vehicles & full history", "VIN decode + recalls, find saved by plate", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
   },
 ];
 
@@ -381,7 +381,7 @@ const LookupMock = () => (
   <WindowChrome label="vultrix.net/lookup">
     <div className="p-4 text-left">
       <div className="font-display text-base font-extrabold text-zinc-900">Vehicle lookup</div>
-      <div className="text-[10px] text-zinc-500">Decode a VIN or plate — recalls included</div>
+      <div className="text-[10px] text-zinc-500">Decode any VIN — recalls included</div>
       <div className="mt-3 flex items-center gap-2">
         <div className="flex-1 h-9 rounded-lg border border-zinc-200 flex items-center px-3 gap-2">
           <ScanLine className="h-3.5 w-3.5 text-zinc-400" />

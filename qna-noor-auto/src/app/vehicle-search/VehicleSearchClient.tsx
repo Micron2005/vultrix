@@ -215,8 +215,9 @@ export function VehicleSearchClient() {
       <Card>
         <CardHeader title="Pick a vehicle">
           <span className="text-xs text-zinc-500 font-normal">
-            Decode a VIN via NHTSA or look up an existing vehicle by plate —
-            no customer add required.
+            Decode any VIN via NHTSA, or find a vehicle that&apos;s already in
+            your records by its plate. Plate search only checks your saved
+            customers — it&apos;s not a DMV or registration lookup.
           </span>
         </CardHeader>
         <div className="p-4 space-y-3">
@@ -241,7 +242,7 @@ export function VehicleSearchClient() {
               }`}
               onClick={() => setMode("plate")}
             >
-              License plate
+              Find by plate
             </button>
           </div>
 
@@ -259,34 +260,40 @@ export function VehicleSearchClient() {
                 />
               </Field>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <Field label="Plate">
-                    <Input
-                      name="plate"
-                      placeholder="e.g. ABC1234"
-                      value={plateInput}
-                      onChange={(e) =>
-                        setPlateInput(e.target.value.toUpperCase())
-                      }
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                  </Field>
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Field label="Plate">
+                      <Input
+                        name="plate"
+                        placeholder="e.g. ABC1234"
+                        value={plateInput}
+                        onChange={(e) =>
+                          setPlateInput(e.target.value.toUpperCase())
+                        }
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </Field>
+                  </div>
+                  <div>
+                    <Field label="State (optional)">
+                      <Input
+                        name="state"
+                        placeholder="TX"
+                        maxLength={2}
+                        value={stateInput}
+                        onChange={(e) =>
+                          setStateInput(e.target.value.toUpperCase())
+                        }
+                      />
+                    </Field>
+                  </div>
                 </div>
-                <div>
-                  <Field label="State (optional)">
-                    <Input
-                      name="state"
-                      placeholder="TX"
-                      maxLength={2}
-                      value={stateInput}
-                      onChange={(e) =>
-                        setStateInput(e.target.value.toUpperCase())
-                      }
-                    />
-                  </Field>
-                </div>
+                <p className="text-xs text-zinc-500">
+                  Searches plates already saved to your customers — not a DMV
+                  lookup. New vehicle? Switch to VIN to decode it.
+                </p>
               </div>
             )}
             <div className="flex items-center gap-3">

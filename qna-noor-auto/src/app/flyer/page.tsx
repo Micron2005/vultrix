@@ -33,7 +33,7 @@ const FEATURES = [
   { icon: ScanLine, text: "On-the-go ticket intake — techs start tickets from their phone" },
   { icon: CreditCard, text: "Customers approve & pay from their phone" },
   { icon: Boxes, text: "Inventory with QR shelf labels" },
-  { icon: Car, text: "VIN / plate lookup + recalls" },
+  { icon: Car, text: "VIN decode + recalls · find a saved vehicle by plate" },
   { icon: Users, text: "Customer & vehicle history" },
   { icon: Bell, text: "Service reminders to win back customers" },
   { icon: FileText, text: "Unlimited repair orders — price never changes" },
