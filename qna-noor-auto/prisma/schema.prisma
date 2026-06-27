@@ -156,6 +156,7 @@ model RepairOrder {
   appointments      Appointment[]
   payments          Payment[]
   shopFeeExclusions RepairOrderShopFeeExclusion[]
+  photos            RepairOrderPhoto[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -722,6 +723,10 @@ model User {
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   username     String  @unique
+  // Optional contact email. Captured for OWNERs at signup (the billing email)
+  // so they can self-serve a password reset. Not unique: staff logins may share
+  // a shop inbox, and it's only used to deliver reset links.
+  email        String?
   passwordHash String
   // SUPERADMIN | OWNER | ADMIN | STAFF
   role         String  @default("STAFF")
@@ -729,6 +734,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
 
   @@index([orgId])
 }
@@ -748,4 +755,38 @@ model MarketingLead {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// Single-use, time-limited password reset tokens. We store only a SHA-256 hash
+// of the token; the raw token lives solely in the emailed reset link. A token
+// is valid until expiresAt and only while usedAt is null.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Photos attached to a repair order (before/after shots for insurance claims
+// and documentation). The image is stored as a client-resized JPEG data URL —
+// same lightweight approach as the customer signature — so there's no external
+// object storage dependency. Cascades away with its repair order.
+model RepairOrderPhoto {
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  // Denormalized org id for fast, safe tenant-scoped queries.
+  orgId         String
+  dataUrl       String      // base64 data URL (resized/compressed JPEG)
+  caption       String?
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([repairOrderId])
+  @@index([orgId])
 }

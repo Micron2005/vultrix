@@ -10,6 +10,7 @@ type SearchParams = Promise<{
   error?: string;
   suspended?: string;
   pending?: string;
+  reset?: string;
 }>;
 
 export default async function LoginPage({
@@ -17,7 +18,7 @@ export default async function LoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { next, error, suspended, pending } = await searchParams;
+  const { next, error, suspended, pending, reset } = await searchParams;
 
   if (await getCurrentUser()) {
     redirect(safeNext(next));
@@ -38,12 +39,17 @@ export default async function LoginPage({
             error={!!error}
             suspended={!!suspended}
             pending={!!pending}
+            reset={!!reset}
           />
         </div>
         <div className="text-center text-xs text-zinc-500">
           New here?{" "}
           <a href="/signup" className="font-medium text-zinc-700 underline">
             Start your shop
+          </a>
+          <span className="mx-2 text-zinc-300">·</span>
+          <a href="/" className="font-medium text-zinc-700 underline" data-testid="login-back-home">
+            Back to home
           </a>
         </div>
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">

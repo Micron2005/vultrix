@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ExternalLink } from "lucide-react";
 
 type NavProps = {
   orgLabel: string;
@@ -78,6 +78,7 @@ export function Nav({
     pathname?.endsWith("/qr") ||
     pathname === "/login" ||
     pathname === "/signup" ||
+    pathname === "/home" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/flyer"
@@ -144,10 +145,22 @@ export function Nav({
             </Link>
           );
         })}
-        <form action="/logout" method="post" className="mt-2 border-t border-zinc-200 pt-2">
+        <a
+          href="/home"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={closeMobile}
+          className="mt-2 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+          data-testid="nav-view-landing"
+        >
+          <ExternalLink className="h-4 w-4" />
+          View landing page
+        </a>
+        <form action="/logout" method="post" className="mt-1 border-t border-zinc-200 pt-2">
           <button
             type="submit"
             className="w-full text-left rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            data-testid="nav-sign-out"
           >
             Sign out
           </button>

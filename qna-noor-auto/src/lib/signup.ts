@@ -167,6 +167,8 @@ export async function materializeAccount(
       const owner = await db.user.create({
         data: {
           username: candidate,
+          // Store the signup email so the owner can reset their own password.
+          email: pending.email,
           passwordHash: pending.passwordHash,
           role: "OWNER",
           orgId,

@@ -29,10 +29,18 @@ function verifyToken(token: string | undefined | null): boolean {
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (isPublicPath(pathname)) return NextResponse.next();
+
+  // Expose the current path to Server Components (the root layout reads this to
+  // render the public /home landing full-bleed even for signed-in users).
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+  const pass = () =>
+    NextResponse.next({ request: { headers: requestHeaders } });
+
+  if (isPublicPath(pathname)) return pass();
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (verifyToken(token)) return NextResponse.next();
+  if (verifyToken(token)) return pass();
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";

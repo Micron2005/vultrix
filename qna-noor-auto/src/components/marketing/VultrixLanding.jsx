@@ -35,6 +35,7 @@ const SITE = {
 const URLS = {
   signup: "/signup", // internal Next routes (this runs ON vultrix.net)
   login: "/login",
+  demo: "/demo", // live, self-resetting demo sandbox
   terms: "/terms",
   privacy: "/privacy",
   shopName: "QNA / Noor Auto Repair",
@@ -554,6 +555,7 @@ const Navbar = () => {
           ))}
         </div>
         <div className="hidden md:flex items-center gap-2">
+          <a href={URLS.demo} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>Live demo</a>
           <a href={URLS.login} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>Log in</a>
           <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up <ArrowRight className="ml-1.5 h-4 w-4" /></a>
         </div>
@@ -570,6 +572,7 @@ const Navbar = () => {
           </div>
           <div className="mt-4 flex flex-col gap-2">
             <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up</a>
+            <a href={URLS.demo} className={`${btnBase} w-full h-11 border border-amber-300 bg-amber-50 text-zinc-900 hover:bg-amber-100`}>Try the live demo</a>
             <a href={URLS.login} className={`${btnBase} w-full h-11 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>Log in</a>
           </div>
         </div>
@@ -581,7 +584,7 @@ const Navbar = () => {
 /* ----------------------------------------------------------------------------
    SECTIONS
 ---------------------------------------------------------------------------- */
-const Hero = () => (
+const Hero = ({ trialDays }) => (
   <section id="top" className="relative overflow-hidden bg-zinc-950 text-white">
     <div className="absolute inset-0 vx-hero-glow" aria-hidden="true" />
     <div className="absolute inset-0 vx-dots opacity-60" aria-hidden="true" />
@@ -598,8 +601,8 @@ const Hero = () => (
             Repair orders, invoices, the parts that fit, inventory, reminders, and reporting — all in one place. {SITE.brand} replaces the clunky, overpriced legacy tools with something fast, clean, and made for the bay.
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
-            <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {SITE.trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
-            <a href="#features" className={`${btnBase} h-12 px-6 border border-zinc-700 text-white hover:bg-white/10 text-base`}>See everything it does</a>
+            <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
+            <a href={URLS.demo} className={`${btnBase} h-12 px-6 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-zinc-400">
             <span className="font-semibold text-white">${SITE.price}/mo</span>
@@ -729,20 +732,25 @@ const DeepDives = () => (
   </section>
 );
 
-const Stats = () => (
-  <section className="bg-zinc-950 text-white">
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-        {STATS.map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-amber-400"><Counter value={s.value} prefix={s.prefix || ""} suffix={s.suffix || ""} /></div>
-            <div className="mt-2 text-sm text-zinc-400">{s.label}</div>
-          </div>
-        ))}
+const Stats = ({ trialDays }) => {
+  const stats = STATS.map((s) =>
+    s.label === "Days free to try" ? { ...s, value: trialDays } : s,
+  );
+  return (
+    <section className="bg-zinc-950 text-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-amber-400"><Counter value={s.value} prefix={s.prefix || ""} suffix={s.suffix || ""} /></div>
+              <div className="mt-2 text-sm text-zinc-400">{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const ImportSection = () => {
   const STEPS = [
@@ -833,11 +841,7 @@ const Roadmap = () => (
 );
 
 const money = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
-const Pricing = () => {
-  const [billing, setBilling] = useState("monthly");
-  const annual = billing === "annual";
-  const annualTotal = (m) => m * (12 - SITE.annualMonthsFree);
-  const perMo = (m) => annualTotal(m) / 12;
+const Pricing = ({ trialDays }) => {
   return (
     <section id="pricing" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -845,13 +849,7 @@ const Pricing = () => {
           <div className="text-center">
             <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, affordable pricing</div>
             <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One plan. Everything included.</h2>
-            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No tiers to decode, no per-feature upsells. One flat price with every tool Vultrix has — and a free trial to start.</p>
-            <div className="flex justify-center">
-              <div className="mt-7 inline-flex items-center rounded-full border border-zinc-200 bg-white p-1 shadow-sm">
-                <button onClick={() => setBilling("monthly")} className={`px-4 h-9 rounded-full text-sm font-semibold transition-colors ${!annual ? "bg-zinc-900 text-white" : "text-zinc-600 hover:text-zinc-900"}`}>Monthly</button>
-                <button onClick={() => setBilling("annual")} className={`px-4 h-9 rounded-full text-sm font-semibold transition-colors inline-flex items-center gap-2 ${annual ? "bg-zinc-900 text-white" : "text-zinc-600 hover:text-zinc-900"}`}>Annual <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${annual ? "bg-amber-400 text-zinc-950" : "bg-amber-100 text-amber-700"}`}>{SITE.annualMonthsFree} months free</span></button>
-              </div>
-            </div>
+            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No tiers to decode, no per-feature upsells. One flat monthly price with every tool Vultrix has — and a {trialDays}-day free trial to start.</p>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -864,11 +862,12 @@ const Pricing = () => {
                 </div>
                 <p className="mt-1.5 text-sm text-zinc-600">{t.tagline}</p>
                 <div className="mt-5 flex items-end gap-1">
-                  <span className="font-display text-5xl font-extrabold tracking-tight text-zinc-900">{annual ? money(annualTotal(t.monthly)) : money(t.monthly)}</span>
-                  <span className="mb-1.5 text-zinc-500">{annual ? "/yr" : "/mo"}</span>
+                  <span className="font-display text-5xl font-extrabold tracking-tight text-zinc-900">{money(t.monthly)}</span>
+                  <span className="mb-1.5 text-zinc-500">/mo</span>
                 </div>
-                <div className="mt-1 h-5 text-xs text-zinc-500">{annual ? `Just ${money(perMo(t.monthly))}/mo — ${SITE.annualMonthsFree} months free` : "Billed monthly"}</div>
+                <div className="mt-1 h-5 text-xs text-zinc-500">Billed monthly · cancel anytime</div>
                 <a href={t.href} {...(t.available ? { target: "_blank", rel: "noopener noreferrer" } : {})} className={`${btnBase} mt-6 w-full h-12 ${t.available ? "bg-zinc-900 text-white hover:bg-zinc-800" : "border border-zinc-300 text-zinc-800 hover:bg-zinc-50"}`}>{t.cta}{t.available && <ArrowRight className="ml-2 h-4 w-4" />}</a>
+                <a href={URLS.demo} className="mt-3 text-center text-sm font-medium text-zinc-600 underline underline-offset-4 decoration-zinc-300 hover:text-zinc-900 hover:decoration-zinc-500">or try the live demo first</a>
                 <ul className="mt-7 space-y-3">
                   {t.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 shrink-0"><Check className="h-3.5 w-3.5" /></span><span className="text-sm text-zinc-700">{f}</span></li>
@@ -883,7 +882,7 @@ const Pricing = () => {
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {TRUST_BADGES.map((b) => (<span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><b.icon className="h-4 w-4 text-amber-500" /> {b.label}</span>))}
             </div>
-            <p className="text-xs text-zinc-500 text-center max-w-md">{SITE.trialDays}-day free trial. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
+            <p className="text-xs text-zinc-500 text-center max-w-md">{trialDays}-day free trial. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
           </div>
         </Reveal>
       </div>
@@ -913,8 +912,13 @@ const Comparison = () => (
   </section>
 );
 
-const Faq = () => {
+const Faq = ({ trialDays }) => {
   const [openIdx, setOpenIdx] = useState(0);
+  const faqs = FAQS.map((f) =>
+    f.q === "How does the free trial work?"
+      ? { ...f, a: `You get ${trialDays} days free. You won't be charged until the trial ends, and you can cancel before then at no cost.` }
+      : f,
+  );
   return (
     <section id="faq" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -924,7 +928,7 @@ const Faq = () => {
         </Reveal>
         <Reveal delay={0.1}>
           <div className="mt-8 divide-y divide-zinc-200 border-y border-zinc-200">
-            {FAQS.map((f, i) => (
+            {faqs.map((f, i) => (
               <div key={f.q}>
                 <button onClick={() => setOpenIdx(openIdx === i ? -1 : i)} className="w-full flex items-center justify-between gap-4 py-4 text-left font-display text-base font-semibold text-zinc-900">
                   {f.q}
@@ -986,7 +990,7 @@ const ContactForm = () => {
   );
 };
 
-const Contact = () => (
+const Contact = ({ trialDays }) => (
   <section id="contact" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
@@ -1005,7 +1009,7 @@ const Contact = () => (
           </ul>
           <div className="mt-8 rounded-[14px] bg-[#fafafa] border border-zinc-200 p-5">
             <div className="text-sm font-semibold text-zinc-900">Ready to jump in?</div>
-            <p className="mt-1 text-sm text-zinc-600">Start your {SITE.trialDays}-day free trial — no card charged until it ends.</p>
+            <p className="mt-1 text-sm text-zinc-600">Start your {trialDays}-day free trial — no card charged until it ends.</p>
             <a href={URLS.signup} className={`${btnBase} mt-3 h-11 px-4 bg-zinc-900 text-white hover:bg-zinc-800`}>Start free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
         </Reveal>
@@ -1015,17 +1019,17 @@ const Contact = () => (
   </section>
 );
 
-const FinalCta = () => (
+const FinalCta = ({ trialDays }) => (
   <section className="bg-zinc-950 text-white relative overflow-hidden">
     <div className="absolute inset-0 vx-hero-glow" aria-hidden="true" />
     <div className="absolute inset-0 vx-dots opacity-50" aria-hidden="true" />
     <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
       <Reveal>
         <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight">Run your shop like a system.</h2>
-        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {SITE.trialDays} days. ${SITE.price}/month after that. Cancel anytime.</p>
+        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {trialDays} days. ${SITE.price}/month after that. Cancel anytime.</p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <a href={URLS.signup} className={`${btnBase} h-12 px-7 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
-          <a href={URLS.login} className={`${btnBase} h-12 px-7 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Log in</a>
+          <a href={URLS.demo} className={`${btnBase} h-12 px-7 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
         </div>
       </Reveal>
     </div>
@@ -1050,6 +1054,7 @@ const Footer = () => {
             <div className="text-sm font-semibold text-white">Get started</div>
             <ul className="mt-4 space-y-3 text-sm">
               <li><a href={URLS.signup} className="text-zinc-400 hover:text-white transition-colors">Start free trial</a></li>
+              <li><a href={URLS.demo} className="text-zinc-400 hover:text-white transition-colors">Live demo</a></li>
               <li><a href={URLS.login} className="text-zinc-400 hover:text-white transition-colors">Log in</a></li>
               <li><a href="#contact" className="text-zinc-400 hover:text-white transition-colors">Contact us</a></li>
               <li><a href={`tel:${SITE.phoneHref}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Phone className="h-4 w-4" /> {SITE.phone}</a></li>
@@ -1072,32 +1077,32 @@ const Footer = () => {
 /* ----------------------------------------------------------------------------
    PAGE
 ---------------------------------------------------------------------------- */
-export default function VultrixLanding() {
+export default function VultrixLanding({ trialDays = SITE.trialDays }) {
   return (
     <div className="min-h-screen bg-[#fafafa] overflow-x-hidden">
       <Navbar />
       <main>
-        <Hero />
+        <Hero trialDays={trialDays} />
         <CredibilityStrip />
         <WhatIs />
         <FounderStory />
         <Features />
         <DeepDives />
-        <Stats />
+        <Stats trialDays={trialDays} />
         <ImportSection />
         <ShopRecommendation />
         <Roadmap />
-        <Pricing />
+        <Pricing trialDays={trialDays} />
         <Comparison />
-        <Faq />
-        <Contact />
-        <FinalCta />
+        <Faq trialDays={trialDays} />
+        <Contact trialDays={trialDays} />
+        <FinalCta trialDays={trialDays} />
       </main>
       <Footer />
       <VultrixAssistant
         brand={SITE.brand}
         price={SITE.price}
-        trialDays={SITE.trialDays}
+        trialDays={trialDays}
         phone={SITE.phone}
         phoneHref={SITE.phoneHref}
         shopName={URLS.shopName}

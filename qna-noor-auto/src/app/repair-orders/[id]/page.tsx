@@ -19,6 +19,7 @@ import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { ShareActions } from "./ShareActions";
+import { RoPhotos } from "./RoPhotos";
 import { getAllSettings } from "@/lib/shop";
 import { ApplyPresetForm } from "./ApplyPresetForm";
 import { applyCannedJobFormAction } from "@/app/canned-jobs/actions";
@@ -104,6 +105,7 @@ export default async function RepairOrderDetailPage({
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
+      photos: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!ro) notFound();
@@ -356,6 +358,15 @@ export default async function RepairOrderDetailPage({
             <SaveButton fullWidth>Save</SaveButton>
           </div>
         </form>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader title="Photos">
+          <span className="text-xs font-normal text-zinc-500">
+            Before/after &amp; damage shots — included for your records and insurance.
+          </span>
+        </CardHeader>
+        <RoPhotos repairOrderId={ro.id} photos={ro.photos} />
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">

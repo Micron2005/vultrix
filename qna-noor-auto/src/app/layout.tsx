@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { DemoBanner } from "@/components/DemoBanner";
 import { getCurrentUser, canManageUsers } from "@/lib/session";
+import { isDemoOrg } from "@/lib/demo";
 import { APP_NAME } from "@/lib/branding";
 
 export const metadata: Metadata = {
@@ -13,12 +16,14 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
+  const pathname = (await headers()).get("x-pathname") ?? "";
 
-  // Logged-out visitors get full-bleed pages with no app chrome. This covers
-  // the marketing landing page (homepage), as well as /login, /signup, the
-  // legal pages, and the public customer portals — each of those already
-  // renders its own full-screen layout, so no sidebar/max-width wrapper here.
-  if (!user) {
+  // Logged-out visitors — and anyone viewing the public /home landing page,
+  // even while signed in — get full-bleed pages with no app chrome. This covers
+  // the marketing landing page (homepage + /home), /login, /signup, the legal
+  // pages, and the public customer portals — each renders its own full-screen
+  // layout, so no sidebar/max-width wrapper here.
+  if (!user || pathname === "/home") {
     return (
       <html lang="en" className="h-full">
         <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
@@ -41,6 +46,7 @@ export default async function RootLayout({
             isSuperadmin={user.role === "SUPERADMIN"}
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
+            {isDemoOrg(user.orgId) && <DemoBanner />}
             <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
           </main>
         </div>

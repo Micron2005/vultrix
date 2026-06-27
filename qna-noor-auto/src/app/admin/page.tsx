@@ -12,6 +12,7 @@ import { APP_NAME } from "@/lib/branding";
 import { describeBilling } from "@/lib/billing";
 import {
   createBusiness,
+  extendTrial,
   renameBusiness,
   setBusinessStatus,
 } from "./actions";
@@ -25,6 +26,7 @@ const NOTICES: Record<string, string> = {
   reactivated: "Business reactivated.",
   renamed: "Business renamed.",
   deleted: "Business deleted.",
+  "trial-extended": "Free trial extended.",
 };
 
 export default async function AdminPage({
@@ -160,6 +162,40 @@ export default async function AdminPage({
                         className="inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm bg-white text-zinc-900 border border-zinc-300 hover:bg-zinc-50"
                       >
                         Rename
+                      </button>
+                    </form>
+
+                    <form
+                      action={extendTrial}
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50/60 p-2"
+                    >
+                      <input type="hidden" name="orgId" value={org.id} />
+                      <span className="text-xs font-medium text-amber-800">
+                        Extend free trial
+                      </span>
+                      <input
+                        name="days"
+                        type="number"
+                        min={1}
+                        defaultValue={60}
+                        aria-label="Trial days"
+                        className="w-16 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <span className="text-xs text-amber-800">days from</span>
+                      <select
+                        name="from"
+                        defaultValue="signup"
+                        aria-label="Extend trial from"
+                        className="rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="signup">signup date</option>
+                        <option value="today">today</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                      >
+                        Apply
                       </button>
                     </form>
 

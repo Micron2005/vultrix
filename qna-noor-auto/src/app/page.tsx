@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import VultrixLanding from "@/components/marketing/VultrixLanding";
 import { Card, CardHeader, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
+import { TRIAL_DAYS } from "@/lib/billing";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
@@ -18,7 +19,7 @@ export default async function HomePage() {
   // tenant users see their shop dashboard. Platform SUPERADMINs (no org) are
   // sent to the admin console — there's no shop data to show them.
   const user = await getCurrentUser();
-  if (!user) return <VultrixLanding />;
+  if (!user) return <VultrixLanding trialDays={TRIAL_DAYS} />;
   if (!user.orgId) redirect("/admin");
   return <Dashboard orgId={user.orgId} />;
 }

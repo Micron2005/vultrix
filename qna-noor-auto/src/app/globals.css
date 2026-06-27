@@ -1,8 +1,12 @@
-@import "tailwindcss";
 /* Vultrix marketing landing fonts — Manrope (display) + Inter (body).
-   Must stay near the top: CSS @import rules are only honored before other
-   style rules. Falls back to the system stack if the network is unavailable. */
+   MUST come before `@import "tailwindcss"`: Tailwind v4 inlines its import into
+   real CSS rules at build time, and CSS only honors `@import` rules that appear
+   before any other rule. Keeping the Google Fonts import on the very first line
+   guarantees it stays valid after Tailwind expands — otherwise Turbopack throws
+   an HTTP 500 and `next dev` breaks. Falls back to the system stack if the
+   network is unavailable. */
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
 
 :root {
   --background: #fafafa;

@@ -14,11 +14,13 @@ export function LoginForm({
   error,
   suspended,
   pending,
+  reset,
 }: {
   next: string;
   error?: boolean;
   suspended?: boolean;
   pending?: boolean;
+  reset?: boolean;
 }) {
   const [username, setUsername] = useState("");
   const [remember, setRemember] = useState(true);
@@ -87,18 +89,35 @@ export function LoginForm({
           data-testid="login-password"
         />
       </label>
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          name="remember"
-          value="1"
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-          className="rounded border-zinc-300"
-          data-testid="login-remember"
-        />
-        <span className="text-sm text-zinc-600">Remember me</span>
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="remember"
+            value="1"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="rounded border-zinc-300"
+            data-testid="login-remember"
+          />
+          <span className="text-sm text-zinc-600">Remember me</span>
+        </label>
+        <a
+          href="/forgot-password"
+          className="text-sm font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900"
+          data-testid="login-forgot-password"
+        >
+          Forgot password?
+        </a>
+      </div>
+      {reset && (
+        <div
+          className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700"
+          data-testid="login-reset-success"
+        >
+          Your password has been updated. Sign in with your new password.
+        </div>
+      )}
       {error && (
         <div
           className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700"

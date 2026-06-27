@@ -13,8 +13,14 @@ export function planPriceId(): string | undefined {
   return process.env.STRIPE_PRICE_ID?.trim() || undefined;
 }
 
-/** Free-trial length, in days, applied to new subscriptions. */
-export const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS ?? 14);
+/**
+ * Free-trial length, in days, applied to new subscriptions.
+ *
+ * LIMITED-TIME PROMO: defaults to 60 days (≈2 months). To change or end the
+ * promo without a code change, set BILLING_TRIAL_DAYS in the environment
+ * (e.g. BILLING_TRIAL_DAYS=14 to return to the standard 2-week trial).
+ */
+export const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS ?? 60);
 
 /**
  * Days a subscription may stay unpaid (past_due/unpaid) before the business is

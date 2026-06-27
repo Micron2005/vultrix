@@ -109,12 +109,17 @@ export function isPublicPath(pathname: string): boolean {
   // visitors. src/app/page.tsx still renders the dashboard for signed-in users,
   // so allowing "/" through the proxy only serves the landing page publicly.
   if (pathname === "/") return true;
+  if (pathname === "/home") return true;
   if (pathname === "/login") return true;
   if (pathname === "/signup") return true;
+  if (pathname === "/forgot-password") return true;
+  if (pathname === "/reset-password") return true;
   if (pathname === "/terms") return true;
   if (pathname === "/privacy") return true;
   if (pathname === "/api/login") return true;
   if (pathname === "/logout") return true;
+  // Public live-demo entry/exit (seeds + signs in as the demo owner).
+  if (pathname === "/demo" || pathname.startsWith("/demo/")) return true;
   if (pathname.startsWith("/e/")) return true;
   if (pathname.startsWith("/p/")) return true;
   if (pathname.startsWith("/a/")) return true;

@@ -32,6 +32,7 @@ export async function GET(
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
+      photos: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!ro) notFound();
@@ -497,6 +498,69 @@ export async function GET(
     } catch {
       // Malformed/oversized PNG — skip the signature rather than failing
       // the whole PDF render.
+    }
+  }
+
+  // Photos (before/after & damage shots) — documentation for the customer and
+  // insurance claims. Rendered on their own page(s) for a clean record.
+  if (ro.photos.length > 0) {
+    newPage();
+    page.drawText("PHOTOS", { x: margin, y, size: 12, font: bold, color: black });
+    y -= 6;
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: 612 - margin, y },
+      thickness: 0.75,
+      color: lightGray,
+    });
+    y -= 18;
+
+    const contentWidth = 612 - margin * 2;
+    const gap = 16;
+    const cellW = (contentWidth - gap) / 2;
+    const imgMaxH = 150;
+    const captionH = 14;
+
+    let col = 0;
+    let rowTopY = y;
+    let rowMaxH = 0;
+
+    for (const photo of ro.photos) {
+      if (!photo.dataUrl.startsWith("data:image/")) continue;
+      let img;
+      try {
+        img = photo.dataUrl.startsWith("data:image/png")
+          ? await pdf.embedPng(photo.dataUrl)
+          : await pdf.embedJpg(photo.dataUrl);
+      } catch {
+        continue; // skip an unreadable image rather than failing the PDF
+      }
+      const dim = img.scaleToFit(cellW, imgMaxH);
+
+      if (col === 0) {
+        ensureSpace(imgMaxH + captionH + 12);
+        rowTopY = y;
+        rowMaxH = 0;
+      }
+
+      const x = margin + col * (cellW + gap);
+      const imgY = rowTopY - dim.height;
+      page.drawImage(img, { x, y: imgY, width: dim.width, height: dim.height });
+      rowMaxH = Math.max(rowMaxH, dim.height);
+
+      if (photo.caption) {
+        const cap =
+          photo.caption.length > 64
+            ? photo.caption.slice(0, 61) + "…"
+            : photo.caption;
+        page.drawText(cap, { x, y: imgY - 11, size: 8, font, color: gray });
+      }
+
+      col += 1;
+      if (col === 2) {
+        col = 0;
+        y = rowTopY - rowMaxH - captionH - 12;
+      }
     }
   }
 
