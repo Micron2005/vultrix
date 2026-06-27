@@ -40,13 +40,17 @@ export function DemoBanner() {
           >
             Start free trial
           </Link>
-          <Link
-            href="/demo/exit"
-            data-testid="demo-banner-exit-demo-link"
-            className="rounded text-sm font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-900 hover:decoration-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50"
-          >
-            Exit demo
-          </Link>
+          {/* POST (not a prefetchable GET link) so Next.js prefetching can't
+              silently end the demo session and bounce the visitor to /login. */}
+          <form action="/demo/exit" method="post" className="contents">
+            <button
+              type="submit"
+              data-testid="demo-banner-exit-demo-link"
+              className="rounded text-sm font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-900 hover:decoration-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50"
+            >
+              Exit demo
+            </button>
+          </form>
         </div>
       </div>
     </div>
