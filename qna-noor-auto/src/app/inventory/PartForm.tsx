@@ -2,14 +2,30 @@ import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import type { Part } from "@prisma/client";
 
+const COMMON_UNITS = [
+  "each",
+  "set",
+  "pair",
+  "qt",
+  "L",
+  "gal",
+  "oz",
+  "ml",
+  "can",
+  "bottle",
+  "ft",
+];
+
 export function PartForm({
   action,
   part,
+  categories = [],
   submitLabel = "Save part",
   isNew = false,
 }: {
   action: (fd: FormData) => void | Promise<void>;
   part?: Partial<Part>;
+  categories?: string[];
   submitLabel?: string;
   isNew?: boolean;
 }) {
@@ -41,6 +57,35 @@ export function PartForm({
           placeholder="Fitment, grade, size, etc."
         />
       </Field>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="Category">
+          <Input
+            name="category"
+            list="part-category-options"
+            defaultValue={part?.category ?? ""}
+            placeholder="e.g. Brakes, Filters, Oils & Fluids, Cleaners"
+          />
+          <datalist id="part-category-options">
+            {categories.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="Unit of measure">
+          <Input
+            name="unit"
+            list="part-unit-options"
+            defaultValue={part?.unit ?? ""}
+            placeholder="e.g. each, qt, L, can"
+          />
+          <datalist id="part-unit-options">
+            {COMMON_UNITS.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </Field>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field label="Default supplier">
