@@ -480,6 +480,7 @@ model CannedJob {
 
   laborItems CannedJobLabor[]
   partItems  CannedJobPart[]
+  feeItems   CannedJobFee[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -488,6 +489,18 @@ model CannedJob {
   @@index([category])
   @@index([archived])
   @@index([orgId])
+}
+
+model CannedJobFee {
+  id          String    @id @default(cuid())
+  cannedJobId String
+  cannedJob   CannedJob @relation(fields: [cannedJobId], references: [id], onDelete: Cascade)
+
+  description String
+  amount      Float  @default(0)
+  sortOrder   Int    @default(0)
+
+  @@index([cannedJobId])
 }
 
 model CannedJobLabor {

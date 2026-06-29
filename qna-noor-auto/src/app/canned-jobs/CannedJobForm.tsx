@@ -18,6 +18,11 @@ type PartDraft = {
   quantity: string;
   unitPrice: string;
 };
+type FeeDraft = {
+  key: number;
+  description: string;
+  amount: string;
+};
 
 type CatalogPart = {
   id: string;
@@ -52,6 +57,10 @@ export function CannedJobForm({
       quantity: number;
       unitPrice: number | null;
     }[];
+    feeItems?: {
+      description: string;
+      amount: number;
+    }[];
   };
 }) {
   let keyCounter = 0;
@@ -73,6 +82,13 @@ export function CannedJobForm({
       description: p.description,
       quantity: String(p.quantity ?? 1),
       unitPrice: p.unitPrice == null ? "" : String(p.unitPrice),
+    })),
+  );
+  const [fees, setFees] = useState<FeeDraft[]>(
+    (initial?.feeItems ?? []).map((f) => ({
+      key: keyCounter++,
+      description: f.description,
+      amount: f.amount == null ? "" : String(f.amount),
     })),
   );
 
@@ -108,6 +124,20 @@ export function CannedJobForm({
   }
   function updatePart(key: number, patch: Partial<PartDraft>) {
     setParts((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, ...patch } : r)),
+    );
+  }
+  function addFee() {
+    setFees((rows) => [
+      ...rows,
+      { key: keyCounter++, description: "", amount: "" },
+    ]);
+  }
+  function removeFee(key: number) {
+    setFees((rows) => rows.filter((r) => r.key !== key));
+  }
+  function updateFee(key: number, patch: Partial<FeeDraft>) {
+    setFees((rows) =>
       rows.map((r) => (r.key === key ? { ...r, ...patch } : r)),
     );
   }
@@ -338,6 +368,61 @@ export function CannedJobForm({
                       />
                     </Field>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-zinc-900">Fees</h3>
+          <Button type="button" variant="ghost" size="sm" onClick={addFee}>
+            + Add fee
+          </Button>
+        </div>
+        {fees.length === 0 ? (
+          <p className="text-sm text-zinc-500">No fees.</p>
+        ) : (
+          <div className="space-y-2">
+            {fees.map((row) => (
+              <div
+                key={row.key}
+                className="grid grid-cols-12 gap-2 items-end"
+              >
+                <div className="col-span-9">
+                  <Input
+                    name="feeDescription[]"
+                    placeholder="Shop supplies, disposal fee, diagnostic fee"
+                    value={row.description}
+                    onChange={(e) =>
+                      updateFee(row.key, { description: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    name="feeAmount[]"
+                    type="number"
+                    step="0.01"
+                    placeholder="Amount"
+                    value={row.amount}
+                    onChange={(e) =>
+                      updateFee(row.key, { amount: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFee(row.key)}
+                    aria-label="Remove fee"
+                  >
+                    ✕
+                  </Button>
                 </div>
               </div>
             ))}

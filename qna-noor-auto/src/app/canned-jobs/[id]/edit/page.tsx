@@ -19,6 +19,7 @@ export default async function EditCannedJobPage({
     include: {
       laborItems: { orderBy: { sortOrder: "asc" } },
       partItems: { orderBy: { sortOrder: "asc" } },
+      feeItems: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!job) notFound();
@@ -61,6 +62,10 @@ export default async function EditCannedJobPage({
               description: p.description,
               quantity: p.quantity,
               unitPrice: p.unitPrice,
+            })),
+            feeItems: job.feeItems.map((f) => ({
+              description: f.description,
+              amount: f.amount,
             })),
           }}
         />

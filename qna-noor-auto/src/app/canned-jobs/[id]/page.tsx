@@ -28,11 +28,13 @@ export default async function CannedJobDetailPage({
         orderBy: { sortOrder: "asc" },
         include: { part: { select: { name: true, qtyOnHand: true } } },
       },
+      feeItems: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!job) notFound();
 
   const hours = job.laborItems.reduce((s, l) => s + l.hours, 0);
+  const feeTotal = job.feeItems.reduce((s, f) => s + f.amount, 0);
   const del = deleteCannedJob.bind(null, job.id);
 
   return (
@@ -151,6 +153,40 @@ export default async function CannedJobDetailPage({
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader title={`Fees (${job.feeItems.length})`} />
+        {job.feeItems.length === 0 ? (
+          <div className="p-6 text-sm text-zinc-500 text-center">
+            No fees.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-2 font-medium">Description</th>
+                <th className="px-4 py-2 font-medium text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200">
+              {job.feeItems.map((f) => (
+                <tr key={f.id}>
+                  <td className="px-4 py-2 text-zinc-900">{f.description}</td>
+                  <td className="px-4 py-2 text-right text-zinc-600">
+                    {formatMoney(f.amount)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-zinc-50">
+                <td className="px-4 py-2 font-medium text-zinc-900">Total</td>
+                <td className="px-4 py-2 text-right font-medium text-zinc-900">
+                  {formatMoney(feeTotal)}
+                </td>
+              </tr>
             </tbody>
           </table>
         )}

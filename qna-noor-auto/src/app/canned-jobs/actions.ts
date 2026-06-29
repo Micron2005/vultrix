@@ -32,6 +32,10 @@ type PartRow = {
   quantity: number;
   unitPrice: number | null;
 };
+type FeeRow = {
+  description: string;
+  amount: number;
+};
 
 function extractLaborRows(fd: FormData): LaborRow[] {
   const descs = fd.getAll("laborDescription[]");
@@ -45,6 +49,21 @@ function extractLaborRows(fd: FormData): LaborRow[] {
       description: d,
       hours: parseNum(hours[i]) ?? 0,
       rate: parseNum(rates[i]),
+    });
+  }
+  return rows;
+}
+
+function extractFeeRows(fd: FormData): FeeRow[] {
+  const descs = fd.getAll("feeDescription[]");
+  const amounts = fd.getAll("feeAmount[]");
+  const rows: FeeRow[] = [];
+  for (let i = 0; i < descs.length; i++) {
+    const d = cleanStr(descs[i]);
+    if (!d) continue;
+    rows.push({
+      description: d,
+      amount: parseNum(amounts[i]) ?? 0,
     });
   }
   return rows;
@@ -77,6 +96,7 @@ export async function createCannedJob(fd: FormData) {
   if (!name) throw new Error("Name is required");
   const labor = extractLaborRows(fd);
   const parts = extractPartRows(fd);
+  const fees = extractFeeRows(fd);
   const job = await db.cannedJob.create({
     data: {
       orgId,
@@ -102,6 +122,13 @@ export async function createCannedJob(fd: FormData) {
           sortOrder: i,
         })),
       },
+      feeItems: {
+        create: fees.map((f, i) => ({
+          description: f.description,
+          amount: f.amount,
+          sortOrder: i,
+        })),
+      },
     },
   });
   revalidatePath("/canned-jobs");
@@ -119,6 +146,7 @@ export async function updateCannedJob(id: string, fd: FormData) {
   if (!owned) throw new Error("Preset not found");
   const labor = extractLaborRows(fd);
   const parts = extractPartRows(fd);
+  const fees = extractFeeRows(fd);
   await db.$transaction([
     db.cannedJob.update({
       where: { id },
@@ -132,6 +160,7 @@ export async function updateCannedJob(id: string, fd: FormData) {
     }),
     db.cannedJobLabor.deleteMany({ where: { cannedJobId: id } }),
     db.cannedJobPart.deleteMany({ where: { cannedJobId: id } }),
+    db.cannedJobFee.deleteMany({ where: { cannedJobId: id } }),
     db.cannedJobLabor.createMany({
       data: labor.map((l, i) => ({
         cannedJobId: id,
@@ -149,6 +178,14 @@ export async function updateCannedJob(id: string, fd: FormData) {
         description: p.description,
         quantity: p.quantity,
         unitPrice: p.unitPrice,
+        sortOrder: i,
+      })),
+    }),
+    db.cannedJobFee.createMany({
+      data: fees.map((f, i) => ({
+        cannedJobId: id,
+        description: f.description,
+        amount: f.amount,
         sortOrder: i,
       })),
     }),
@@ -180,6 +217,7 @@ export async function applyCannedJobToRepairOrder(
         orderBy: { sortOrder: "asc" },
         include: { part: true },
       },
+      feeItems: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!job) throw new Error("Preset not found");
@@ -190,6 +228,7 @@ export async function applyCannedJobToRepairOrder(
       jobs: { select: { sortOrder: true } },
       laborLines: { select: { sortOrder: true } },
       partLines: { select: { sortOrder: true } },
+      feeLines: { select: { sortOrder: true } },
     },
   });
   if (!ro) throw new Error("Repair order not found");
@@ -201,6 +240,8 @@ export async function applyCannedJobToRepairOrder(
     ro.laborLines.reduce((max, l) => Math.max(max, l.sortOrder), -1) + 1;
   const nextPartSort =
     ro.partLines.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1;
+  const nextFeeSort =
+    ro.feeLines.reduce((max, f) => Math.max(max, f.sortOrder), -1) + 1;
 
   await db.$transaction(async (tx) => {
     const roJob = await tx.job.create({
@@ -256,6 +297,18 @@ export async function applyCannedJobToRepairOrder(
           },
         });
       }
+    }
+    for (let i = 0; i < job.feeItems.length; i++) {
+      const f = job.feeItems[i];
+      await tx.feeLine.create({
+        data: {
+          repairOrderId: roId,
+          jobId: roJob.id,
+          description: f.description,
+          amount: f.amount,
+          sortOrder: nextFeeSort + i,
+        },
+      });
     }
   });
 
