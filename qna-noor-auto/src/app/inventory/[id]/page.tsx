@@ -91,7 +91,18 @@ export default async function PartDetailPage({
     <>
       <PageHeader
         title={part.name}
-        description={part.description ?? undefined}
+        description={
+          part.category || part.description ? (
+            <>
+              {part.category && (
+                <span className="mr-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                  {part.category}
+                </span>
+              )}
+              {part.description}
+            </>
+          ) : undefined
+        }
         actions={
           <div className="flex gap-2">
             <LinkButton href={`/inventory/${id}/qr`} variant="secondary">
@@ -133,6 +144,11 @@ export default async function PartDetailPage({
               }`}
             >
               {part.qtyOnHand}
+              {part.unit && (
+                <span className="ml-1.5 text-base font-normal text-zinc-400">
+                  {part.unit}
+                </span>
+              )}
             </div>
             <div className="text-xs text-zinc-500 mt-1">
               Reorder at or below {part.reorderLevel}

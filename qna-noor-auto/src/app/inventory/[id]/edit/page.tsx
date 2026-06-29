@@ -15,12 +15,27 @@ export default async function EditPartPage({
   const part = await db.part.findFirst({ where: { id, orgId } });
   if (!part) notFound();
 
+  const cats = await db.part.findMany({
+    where: { orgId, category: { not: null } },
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
+  const categories = cats
+    .map((c) => c.category)
+    .filter((c): c is string => Boolean(c));
+
   const boundUpdate = updatePart.bind(null, id);
 
   return (
     <>
       <PageHeader title={`Edit ${part.name}`} />
-      <PartForm action={boundUpdate} part={part} submitLabel="Save changes" />
+      <PartForm
+        action={boundUpdate}
+        part={part}
+        categories={categories}
+        submitLabel="Save changes"
+      />
     </>
   );
 }
