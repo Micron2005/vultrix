@@ -43,6 +43,9 @@ export default async function ScanPartPage({
 
   const lowStock = part.qtyOnHand <= part.reorderLevel;
   const outOfStock = part.qtyOnHand <= 0;
+  // Unit suffix (e.g. " qt") so a barrel of oil reads/deducts in quarts, a
+  // box of filters in "each", etc. Empty string when no unit is set.
+  const unit = part.unit ? ` ${part.unit}` : "";
 
   const bound = scanAdjustStock.bind(null, id);
 
@@ -99,7 +102,9 @@ export default async function ScanPartPage({
           >
             {part.qtyOnHand}
           </span>
-          <span className="text-sm text-zinc-600">on hand</span>
+          <span className="text-sm text-zinc-600">
+            {part.unit ? `${part.unit} on hand` : "on hand"}
+          </span>
         </div>
         <div className="mt-1 text-xs text-zinc-500">
           Reorder at or below {part.reorderLevel}
@@ -118,7 +123,7 @@ export default async function ScanPartPage({
           disabled={outOfStock}
           className="w-full h-16 rounded-xl bg-zinc-900 text-white text-lg font-semibold shadow-sm hover:bg-zinc-800 active:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Used 1 &nbsp;→&nbsp; {Math.max(0, part.qtyOnHand - 1)} left
+          Used 1{unit} &nbsp;→&nbsp; {Math.max(0, part.qtyOnHand - 1)} left
         </button>
       </form>
 
@@ -133,11 +138,38 @@ export default async function ScanPartPage({
               disabled={part.qtyOnHand < n}
               className="w-full h-12 rounded-lg border border-zinc-300 bg-white text-sm font-medium hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Used {n}
+              Used {n}{unit}
             </button>
           </form>
         ))}
       </div>
+
+      {/* Free-amount usage — the key flow for bulk liquids (e.g. pull 5 qt from
+          an oil barrel). `useQty` is converted to a negative delta server-side. */}
+      <form action={bound} className="mb-5">
+        <input type="hidden" name="reason" value="ADJUST" />
+        <input type="hidden" name="note" value="Scan: used (amount)" />
+        <label className="block text-xs font-medium text-zinc-500 mb-1">
+          Used a specific amount{part.unit ? ` (${part.unit})` : ""}
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            name="useQty"
+            inputMode="decimal"
+            placeholder="e.g. 5"
+            min="0"
+            step="any"
+            className="w-28 h-12 rounded-lg border border-zinc-300 px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          />
+          <button
+            type="submit"
+            className="flex-1 h-12 rounded-lg bg-zinc-900 text-white text-base font-semibold hover:bg-zinc-800 active:bg-zinc-700"
+          >
+            Subtract{unit ? ` ${part.unit}` : ""}
+          </button>
+        </div>
+      </form>
 
       <form action={bound} className="mb-3">
         <input type="hidden" name="reason" value="RECEIVE" />
@@ -149,14 +181,14 @@ export default async function ScanPartPage({
             inputMode="decimal"
             defaultValue="1"
             min="1"
-            step="1"
+            step="any"
             className="w-24 h-12 rounded-lg border border-zinc-300 px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
           <button
             type="submit"
             className="flex-1 h-12 rounded-lg bg-emerald-600 text-white text-base font-semibold hover:bg-emerald-700 active:bg-emerald-800"
           >
-            Received
+            Received{unit ? ` ${part.unit}` : ""}
           </button>
         </div>
       </form>

@@ -15,15 +15,26 @@ export default async function EditPartPage({
   const part = await db.part.findFirst({ where: { id, orgId } });
   if (!part) notFound();
 
-  const cats = await db.part.findMany({
-    where: { orgId, category: { not: null } },
-    select: { category: true },
-    distinct: ["category"],
-    orderBy: { category: "asc" },
-  });
+  const [cats, locs] = await Promise.all([
+    db.part.findMany({
+      where: { orgId, category: { not: null } },
+      select: { category: true },
+      distinct: ["category"],
+      orderBy: { category: "asc" },
+    }),
+    db.part.findMany({
+      where: { orgId, location: { not: null } },
+      select: { location: true },
+      distinct: ["location"],
+      orderBy: { location: "asc" },
+    }),
+  ]);
   const categories = cats
     .map((c) => c.category)
     .filter((c): c is string => Boolean(c));
+  const locations = locs
+    .map((l) => l.location)
+    .filter((l): l is string => Boolean(l));
 
   const boundUpdate = updatePart.bind(null, id);
 
@@ -34,6 +45,7 @@ export default async function EditPartPage({
         action={boundUpdate}
         part={part}
         categories={categories}
+        locations={locations}
         submitLabel="Save changes"
       />
     </>

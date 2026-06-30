@@ -20,12 +20,14 @@ export function PartForm({
   action,
   part,
   categories = [],
+  locations = [],
   submitLabel = "Save part",
   isNew = false,
 }: {
   action: (fd: FormData) => void | Promise<void>;
   part?: Partial<Part>;
   categories?: string[];
+  locations?: string[];
   submitLabel?: string;
   isNew?: boolean;
 }) {
@@ -58,13 +60,13 @@ export function PartForm({
         />
       </Field>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field label="Category">
           <Input
             name="category"
             list="part-category-options"
             defaultValue={part?.category ?? ""}
-            placeholder="e.g. Brakes, Filters, Oils & Fluids, Cleaners"
+            placeholder="e.g. Brakes, Filters, Oils"
           />
           <datalist id="part-category-options">
             {categories.map((c) => (
@@ -82,6 +84,19 @@ export function PartForm({
           <datalist id="part-unit-options">
             {COMMON_UNITS.map((u) => (
               <option key={u} value={u} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="Location / bin">
+          <Input
+            name="location"
+            list="part-location-options"
+            defaultValue={part?.location ?? ""}
+            placeholder="e.g. Shelf B3, Oil rack"
+          />
+          <datalist id="part-location-options">
+            {locations.map((l) => (
+              <option key={l} value={l} />
             ))}
           </datalist>
         </Field>

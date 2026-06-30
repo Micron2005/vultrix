@@ -187,6 +187,12 @@ export default async function PartDetailPage({
                 {part.partNumber ?? "—"}
               </div>
             </div>
+            {part.location && (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                <span className="text-zinc-400">Location</span>
+                {part.location}
+              </div>
+            )}
           </div>
         </Card>
       </div>

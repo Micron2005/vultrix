@@ -45,3 +45,14 @@ export function stickerScanUrl(origin: string, id: string): string {
   if (k) return `${base}/q/${id}?k=${k}`;
   return `${base}/s/${id}`;
 }
+
+/**
+ * URL for a shelf/bin QR sticker. Scanning it opens the login-gated `/sl/<loc>`
+ * page, which lists every part stored at that location so the tech can tap the
+ * one they used. No signing token is needed because the page itself requires a
+ * session and scopes results to the signed-in org.
+ */
+export function locationScanUrl(origin: string, location: string): string {
+  const base = origin || "";
+  return `${base}/sl/${encodeURIComponent(location)}`;
+}

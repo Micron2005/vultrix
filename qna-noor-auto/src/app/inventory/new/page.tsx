@@ -8,15 +8,26 @@ export const dynamic = "force-dynamic";
 
 export default async function NewPartPage() {
   const orgId = await requireOrgId();
-  const cats = await db.part.findMany({
-    where: { orgId, category: { not: null } },
-    select: { category: true },
-    distinct: ["category"],
-    orderBy: { category: "asc" },
-  });
+  const [cats, locs] = await Promise.all([
+    db.part.findMany({
+      where: { orgId, category: { not: null } },
+      select: { category: true },
+      distinct: ["category"],
+      orderBy: { category: "asc" },
+    }),
+    db.part.findMany({
+      where: { orgId, location: { not: null } },
+      select: { location: true },
+      distinct: ["location"],
+      orderBy: { location: "asc" },
+    }),
+  ]);
   const categories = cats
     .map((c) => c.category)
     .filter((c): c is string => Boolean(c));
+  const locations = locs
+    .map((l) => l.location)
+    .filter((l): l is string => Boolean(l));
 
   return (
     <>
@@ -27,6 +38,7 @@ export default async function NewPartPage() {
       <PartForm
         action={createPart}
         categories={categories}
+        locations={locations}
         submitLabel="Create part"
         isNew
       />

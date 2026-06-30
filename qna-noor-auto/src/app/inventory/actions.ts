@@ -12,6 +12,7 @@ const PartSchema = z.object({
   description: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
   unit: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
   source: z.string().optional().nullable(),
   costPrice: z.string().optional().nullable(),
   unitPrice: z.string().optional().nullable(),
@@ -55,6 +56,7 @@ function toData(fd: FormData) {
     description: cleanStr(raw.description),
     category: cleanStr(raw.category),
     unit: cleanStr(raw.unit),
+    location: cleanStr(raw.location),
     source: cleanStr(raw.source),
     costPrice: parseFloatOrNull(raw.costPrice),
     unitPrice: parseFloatOrNull(raw.unitPrice),
@@ -186,10 +188,22 @@ export async function adjustStock(id: string, fd: FormData) {
  */
 export async function scanAdjustStock(id: string, fd: FormData) {
   const orgId = await requireOrgId();
-  const deltaRaw = String(fd.get("delta") ?? "").trim();
+  let deltaRaw = String(fd.get("delta") ?? "").trim();
   const setToRaw = String(fd.get("setTo") ?? "").trim();
   const reason = String(fd.get("reason") ?? "ADJUST").trim() || "ADJUST";
   const note = cleanStr(String(fd.get("note") ?? ""));
+
+  // "Used a specific amount" enters a positive quantity (e.g. 5 qt from a
+  // barrel); convert it to a negative delta. Ignored when blank/<=0.
+  const useQtyRaw = String(fd.get("useQty") ?? "").trim();
+  if (deltaRaw === "" && useQtyRaw !== "") {
+    const used = parseFloat(useQtyRaw);
+    if (Number.isFinite(used) && used > 0) {
+      deltaRaw = String(-used);
+    } else {
+      redirect(`/s/${id}`);
+    }
+  }
 
   const owned = await db.part.findFirst({
     where: { id, orgId },

@@ -322,6 +322,7 @@ model Part {
   description String?
   category    String? // free-form grouping: "Brakes", "Filters", "Oils & Fluids", "Cleaners"
   unit        String? // unit of measure: "each", "qt", "L", "oz", "can", "set"
+  location    String? // physical bin/shelf, e.g. "Shelf B3" — also drives bin-QR scanning
   source      String? // default supplier / vendor
   costPrice   Float? // default cost (what shop pays)
   unitPrice   Float? // default price charged to customer
@@ -353,6 +354,7 @@ model Part {
   @@unique([orgId, partNumber])
   @@index([name])
   @@index([category])
+  @@index([location])
   @@index([archived])
   @@index([orgId])
 }
