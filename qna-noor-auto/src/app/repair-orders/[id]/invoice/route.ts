@@ -239,23 +239,45 @@ export async function GET(
 
   // Render one section (labor/parts/fees) with its column header, repeating the
   // header whenever the section spills onto a new page so columns stay labeled.
+  // Rows report their own height so a wrapped description can span several lines
+  // without the page-break math drifting.
   function drawSection(
     cols: { text: string; x: number; align?: "left" | "right" }[],
-    rows: (() => void)[],
+    rows: { height: number; draw: () => void }[],
   ) {
     if (rows.length === 0) return;
-    ensureSpace(12 + 14);
+    ensureSpace(12 + rows[0].height);
     drawLineHeader(page, y, font, gray, cols);
     y -= 12;
-    for (const drawRow of rows) {
-      if (ensureSpace(14)) {
+    for (const row of rows) {
+      if (ensureSpace(row.height)) {
         drawLineHeader(page, y, font, gray, cols);
         y -= 12;
       }
-      drawRow();
-      y -= 14;
+      row.draw();
+      y -= row.height;
     }
     y -= 4;
+  }
+
+  // Description column left edge and the right edge it must wrap before so the
+  // text never runs into the numeric columns to its right.
+  const descX = margin + 8;
+  const laborDescRight = 345; // before the Hours column
+  const partDescRight = 294; // before the Part # column
+  const feeDescRight = 540; // before the Amount column
+
+  // Draw a (possibly multi-line) description starting at the current baseline,
+  // returning the row height so the section can advance the cursor correctly.
+  function descRowHeight(lines: string[]): number {
+    return Math.max(14, lines.length * 12 + 2);
+  }
+  function drawDescLines(lines: string[]) {
+    let ly = y;
+    for (const line of lines) {
+      page.drawText(line, { x: descX, y: ly, size: 10, font, color: black });
+      ly -= 12;
+    }
   }
 
   // Helper to render labor/parts/fees for a group
@@ -266,44 +288,62 @@ export async function GET(
   ) {
     drawSection(
       [
-        { text: "Description", x: margin + 8 },
+        { text: "Labor", x: descX },
         { text: "Hours", x: 380, align: "right" },
         { text: "Rate", x: 460, align: "right" },
         { text: "Amount", x: 612 - margin, align: "right" },
       ],
-      laborLines.map((l) => () => {
-        page.drawText(l.description, { x: margin + 8, y, size: 10, font, color: black });
-        drawRight(page, l.hours.toString(), 380, y, font, 10, black);
-        drawRight(page, formatMoney(l.rate), 460, y, font, 10, black);
-        drawRight(page, formatMoney(l.hours * l.rate), 612 - margin, y, font, 10, black);
+      laborLines.map((l) => {
+        const lines = wrapText(l.description, font, 10, laborDescRight - descX);
+        return {
+          height: descRowHeight(lines),
+          draw: () => {
+            drawDescLines(lines);
+            drawRight(page, l.hours.toString(), 380, y, font, 10, black);
+            drawRight(page, formatMoney(l.rate), 460, y, font, 10, black);
+            drawRight(page, formatMoney(l.hours * l.rate), 612 - margin, y, font, 10, black);
+          },
+        };
       }),
     );
     drawSection(
       [
-        { text: "Description", x: margin + 8 },
+        { text: "Parts", x: descX },
         { text: "Part #", x: 300 },
         { text: "Qty", x: 420, align: "right" },
         { text: "Unit", x: 480, align: "right" },
         { text: "Amount", x: 612 - margin, align: "right" },
       ],
-      partLines.map((p) => () => {
-        page.drawText(p.description, { x: margin + 8, y, size: 10, font, color: black });
-        if (p.partNumber) {
-          page.drawText(p.partNumber, { x: 300, y, size: 9, font, color: gray });
-        }
-        drawRight(page, p.quantity.toString(), 420, y, font, 10, black);
-        drawRight(page, formatMoney(p.unitPrice), 480, y, font, 10, black);
-        drawRight(page, formatMoney(p.quantity * p.unitPrice), 612 - margin, y, font, 10, black);
+      partLines.map((p) => {
+        const lines = wrapText(p.description, font, 10, partDescRight - descX);
+        return {
+          height: descRowHeight(lines),
+          draw: () => {
+            drawDescLines(lines);
+            if (p.partNumber) {
+              page.drawText(p.partNumber, { x: 300, y, size: 9, font, color: gray });
+            }
+            drawRight(page, p.quantity.toString(), 420, y, font, 10, black);
+            drawRight(page, formatMoney(p.unitPrice), 480, y, font, 10, black);
+            drawRight(page, formatMoney(p.quantity * p.unitPrice), 612 - margin, y, font, 10, black);
+          },
+        };
       }),
     );
     drawSection(
       [
-        { text: "Description", x: margin + 8 },
+        { text: "Fees", x: descX },
         { text: "Amount", x: 612 - margin, align: "right" },
       ],
-      feeLines.map((f) => () => {
-        page.drawText(f.description, { x: margin + 8, y, size: 10, font, color: black });
-        drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
+      feeLines.map((f) => {
+        const lines = wrapText(f.description, font, 10, feeDescRight - descX);
+        return {
+          height: descRowHeight(lines),
+          draw: () => {
+            drawDescLines(lines);
+            drawRight(page, formatMoney(f.amount), 612 - margin, y, font, 10, black);
+          },
+        };
       }),
     );
   }
@@ -661,14 +701,38 @@ function wrapText(
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let current = "";
+  // Break a single token that is itself wider than maxWidth (e.g. a long part
+  // number with no spaces) at the character level so it can't run off the edge.
+  function pushLongWord(word: string) {
+    let chunk = "";
+    for (const ch of word) {
+      const candidate = chunk + ch;
+      if (font.widthOfTextAtSize(candidate, size) > maxWidth && chunk) {
+        lines.push(chunk);
+        chunk = ch;
+      } else {
+        chunk = candidate;
+      }
+    }
+    current = chunk;
+  }
   for (const word of words) {
+    if (!word) continue;
     const candidate = current ? `${current} ${word}` : word;
     const w = font.widthOfTextAtSize(candidate, size);
     if (w > maxWidth && current) {
       lines.push(current);
-      current = word;
+      current = "";
+    }
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      // Flush whatever is buffered, then hard-wrap the oversized token.
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      pushLongWord(word);
     } else {
-      current = candidate;
+      current = current ? `${current} ${word}` : word;
     }
   }
   if (current) lines.push(current);
