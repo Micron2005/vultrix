@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
@@ -11,10 +12,10 @@ import {
 import { MileageInput } from "@/components/MileageInput";
 import { createRepairOrder } from "../actions";
 import { fullName, parseMileage, vehicleLabel } from "@/lib/utils";
-import { CustomerPicker } from "@/components/CustomerPicker";
 import { openROsForVehicle, pastROsForVehicle } from "@/lib/duplicates";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
 import { VehiclePickerOrCreate } from "./VehiclePickerOrCreate";
+import { CustomerPickerOrCreate } from "./CustomerPickerOrCreate";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function NewRepairOrderPage({
     customerId = v.customerId;
   }
 
-  // Step 1: pick customer
+  // Step 1: pick or inline-create a customer
   if (!customerId) {
     const customers = await db.customer.findMany({
       where: { orgId },
@@ -56,10 +57,41 @@ export default async function NewRepairOrderPage({
       },
       take: 2000,
     });
-    if (customers.length === 0) redirect("/customers/new");
 
-    async function pickCustomer(fd: FormData) {
+    async function pickOrCreateCustomer(fd: FormData) {
       "use server";
+      const innerOrgId = await requireOrgId();
+      const mode = fd.get("mode");
+
+      // Inline-create a brand new customer (walk-in) then continue the flow.
+      if (mode === "new") {
+        const get = (k: string) => {
+          const v = fd.get(k);
+          return typeof v === "string" && v.trim() ? v.trim() : null;
+        };
+        const firstName = get("firstName");
+        const lastName = get("lastName");
+        // Names are required client-side; guard here too so a bad submit is a
+        // no-op rather than a crash.
+        if (!firstName || !lastName) return;
+        const type = get("type") === "BUSINESS" ? "BUSINESS" : "INDIVIDUAL";
+        const created = await db.customer.create({
+          data: {
+            orgId: innerOrgId,
+            type,
+            firstName,
+            lastName,
+            companyName: get("companyName"),
+            phone: get("phone"),
+            altPhone: get("altPhone"),
+            email: get("email"),
+          },
+        });
+        revalidatePath("/customers");
+        revalidatePath("/");
+        redirect(`/repair-orders/new?customerId=${created.id}`);
+      }
+
       const id = fd.get("customerId");
       if (typeof id !== "string" || !id) return;
       redirect(`/repair-orders/new?customerId=${id}`);
@@ -67,14 +99,15 @@ export default async function NewRepairOrderPage({
 
     return (
       <>
-        <PageHeader title="New Repair Order" description="Step 1: pick customer" />
+        <PageHeader
+          title="New Repair Order"
+          description="Step 1: pick or add a customer"
+        />
         <Card className="p-6">
-          <form action={pickCustomer} className="space-y-4 max-w-md">
-            <Field label="Customer">
-              <CustomerPicker customers={customers} />
-            </Field>
-            <Button type="submit">Continue</Button>
-          </form>
+          <CustomerPickerOrCreate
+            action={pickOrCreateCustomer}
+            customers={customers}
+          />
         </Card>
       </>
     );
