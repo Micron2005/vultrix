@@ -144,11 +144,6 @@ export function CustomerPickerOrCreate({ action, customers }: Props) {
               data-testid="new-customer-email"
             />
           </Field>
-
-          <p className="text-xs text-zinc-500">
-            You can add more customer details later from the Customers page.
-            Next you&apos;ll add the vehicle and continue into the repair order.
-          </p>
         </div>
       )}
 

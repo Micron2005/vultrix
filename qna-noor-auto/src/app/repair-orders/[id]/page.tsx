@@ -361,11 +361,7 @@ export default async function RepairOrderDetailPage({
       </Card>
 
       <Card className="mb-4">
-        <CardHeader title="Photos">
-          <span className="text-xs font-normal text-zinc-500">
-            Before/after &amp; damage shots — included for your records and insurance.
-          </span>
-        </CardHeader>
+        <CardHeader title="Photos" />
         <RoPhotos repairOrderId={ro.id} photos={ro.photos} />
       </Card>
 
@@ -556,11 +552,7 @@ export default async function RepairOrderDetailPage({
         const DocWord = isInvoiceStage ? "Invoice" : "Estimate";
         return (
       <Card className="mb-4">
-        <CardHeader title={`Shareable ${docWord} link`}>
-          <span className="text-xs text-zinc-500 font-normal">
-            Customer-safe — no cost, supplier, or internal data.
-          </span>
-        </CardHeader>
+        <CardHeader title={`Shareable ${docWord} link`} />
         <div className="p-4 space-y-3 text-sm">
           {ro.shareToken ? (
             <>
@@ -674,11 +666,7 @@ export default async function RepairOrderDetailPage({
 
       {/* Jobs section */}
       <Card className="mb-4">
-        <CardHeader title={`Jobs (${ro.jobs.length})`}>
-          <span className="text-xs text-zinc-500 font-normal">
-            Each job groups its labor, parts, and fees together.
-          </span>
-        </CardHeader>
+        <CardHeader title={`Jobs (${ro.jobs.length})`} />
         {!isLocked && (
           <div className="p-4 border-b border-zinc-200 bg-zinc-50">
             <div className="flex items-end gap-3">
