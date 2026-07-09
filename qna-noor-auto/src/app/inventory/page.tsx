@@ -1,38 +1,14 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
-  Card,
-  CardHeader,
   EmptyState,
   LinkButton,
   PageHeader,
 } from "@/components/ui";
+import { InventoryList, type InventoryPart } from "./InventoryList";
 
 export const dynamic = "force-dynamic";
-
-function stockStatus(qty: number, reorder: number): {
-  label: string;
-  className: string;
-} {
-  if (qty <= 0) {
-    return {
-      label: "Out of stock",
-      className: "bg-red-100 text-red-800",
-    };
-  }
-  if (qty <= reorder) {
-    return {
-      label: "Low",
-      className: "bg-amber-100 text-amber-800",
-    };
-  }
-  return {
-    label: "In stock",
-    className: "bg-emerald-100 text-emerald-800",
-  };
-}
 
 export default async function InventoryPage({
   searchParams,
@@ -76,6 +52,24 @@ export default async function InventoryPage({
   const allCategories = catRows
     .map((c) => c.category)
     .filter((c): c is string => Boolean(c));
+  const locationRows = await db.part.findMany({
+    where: { orgId, archived: false, location: { not: null } },
+    select: { location: true },
+    distinct: ["location"],
+    orderBy: { location: "asc" },
+  });
+  const allLocations = locationRows
+    .map((p) => p.location)
+    .filter((location): location is string => Boolean(location));
+  const unitRows = await db.part.findMany({
+    where: { orgId, archived: false, unit: { not: null } },
+    select: { unit: true },
+    distinct: ["unit"],
+    orderBy: { unit: "asc" },
+  });
+  const allUnits = unitRows
+    .map((p) => p.unit)
+    .filter((unit): unit is string => Boolean(unit));
 
   if (filter === "low") {
     parts = parts.filter((p) => p.qtyOnHand <= p.reorderLevel && p.qtyOnHand > 0);
@@ -100,6 +94,25 @@ export default async function InventoryPage({
     if (b === UNCATEGORIZED) return -1;
     return a.localeCompare(b);
   });
+  const serializableGroups: [string, InventoryPart[]][] = groups.map(
+    ([groupName, groupParts]) => [
+      groupName,
+      groupParts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        partNumber: p.partNumber,
+        source: p.source,
+        location: p.location,
+        unit: p.unit,
+        category: p.category,
+        costPrice: p.costPrice,
+        unitPrice: p.unitPrice,
+        qtyOnHand: p.qtyOnHand,
+        reorderLevel: p.reorderLevel,
+      })),
+    ],
+  );
 
   return (
     <>
@@ -184,99 +197,13 @@ export default async function InventoryPage({
           action={<LinkButton href="/inventory/new">Add part</LinkButton>}
         />
       ) : (
-        <Card>
-          <CardHeader title={`${parts.length} part${parts.length === 1 ? "" : "s"}`} />
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-2 font-medium">Part</th>
-                <th className="px-4 py-2 font-medium w-32">Part #</th>
-                <th className="px-4 py-2 font-medium w-28">Supplier</th>
-                <th className="px-4 py-2 font-medium w-24 text-right">Cost</th>
-                <th className="px-4 py-2 font-medium w-24 text-right">Price</th>
-                <th className="px-4 py-2 font-medium w-20 text-right">On hand</th>
-                <th className="px-4 py-2 font-medium w-20 text-right">Reorder @</th>
-                <th className="px-4 py-2 font-medium w-28">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {groups.map(([groupName, groupParts]) => (
-                <Fragment key={groupName}>
-                  {groups.length > 1 && (
-                    <tr className="bg-zinc-100/70">
-                      <td
-                        colSpan={8}
-                        className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600"
-                      >
-                        {groupName}
-                        <span className="ml-2 font-normal text-zinc-400">
-                          {groupParts.length}
-                        </span>
-                      </td>
-                    </tr>
-                  )}
-                  {groupParts.map((p) => {
-                    const status = stockStatus(p.qtyOnHand, p.reorderLevel);
-                    return (
-                      <tr key={p.id} className="hover:bg-zinc-50">
-                        <td className="px-4 py-2">
-                          <Link
-                            href={`/inventory/${p.id}`}
-                            className="font-medium text-zinc-900 hover:underline"
-                          >
-                            {p.name}
-                          </Link>
-                          {p.description && (
-                            <div className="text-xs text-zinc-500 line-clamp-1">
-                              {p.description}
-                            </div>
-                          )}
-                          {p.location && (
-                            <div className="mt-0.5 text-xs text-zinc-400">
-                              <span className="text-zinc-300">Loc: </span>
-                              {p.location}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-xs text-zinc-600 tabular-nums">
-                          {p.partNumber ?? "—"}
-                        </td>
-                        <td className="px-4 py-2 text-xs text-zinc-600">
-                          {p.source ?? "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">
-                          {p.costPrice != null ? `$${p.costPrice.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">
-                          {p.unitPrice != null ? `$${p.unitPrice.toFixed(2)}` : "—"}
-                          {p.unitPrice != null && p.unit && (
-                            <span className="text-zinc-400">{`/${p.unit}`}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums font-semibold">
-                          {p.qtyOnHand}
-                          {p.unit && (
-                            <span className="ml-1 text-xs font-normal text-zinc-400">
-                              {p.unit}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums text-zinc-500">
-                          {p.reorderLevel}
-                        </td>
-                        <td className="px-4 py-2 text-xs">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${status.className}`}>
-                            {status.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <InventoryList
+          groups={serializableGroups}
+          allCategories={allCategories}
+          allLocations={allLocations}
+          allUnits={allUnits}
+          partCount={parts.length}
+        />
       )}
     </>
   );
