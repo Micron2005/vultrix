@@ -131,6 +131,33 @@ export async function deletePart(id: string) {
   redirect("/inventory");
 }
 
+/**
+ * Bulk-set Category / Location / Unit on many parts at once (from the
+ * inventory list checkboxes). Only the fields present in `fields` are written,
+ * so callers can update just one attribute. A `null` value clears that field.
+ */
+export async function bulkUpdatePartFields(
+  ids: string[],
+  fields: {
+    category?: string | null;
+    location?: string | null;
+    unit?: string | null;
+  },
+) {
+  const orgId = await requireOrgId();
+  if (!ids.length) return;
+
+  const data: Record<string, string | null> = {};
+  if ("category" in fields) data.category = cleanStr(fields.category);
+  if ("location" in fields) data.location = cleanStr(fields.location);
+  if ("unit" in fields) data.unit = cleanStr(fields.unit);
+  if (Object.keys(data).length === 0) return;
+
+  await db.part.updateMany({ where: { id: { in: ids }, orgId }, data });
+  revalidatePath("/inventory");
+  revalidatePath("/");
+}
+
 export async function toggleArchived(id: string, archived: boolean) {
   const orgId = await requireOrgId();
   await db.part.updateMany({ where: { id, orgId }, data: { archived } });
