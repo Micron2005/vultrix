@@ -15,6 +15,7 @@ import {
   extendTrial,
   renameBusiness,
   setBusinessStatus,
+  adminResetUserPassword,
 } from "./actions";
 import { DeleteBusiness } from "./DeleteBusiness";
 
@@ -27,6 +28,7 @@ const NOTICES: Record<string, string> = {
   renamed: "Business renamed.",
   deleted: "Business deleted.",
   "trial-extended": "Free trial extended.",
+  "password-reset": "Password updated. Share the new password with the owner.",
 };
 
 export default async function AdminPage({
@@ -42,6 +44,10 @@ export default async function AdminPage({
     include: {
       _count: {
         select: { users: true, customers: true, repairOrders: true },
+      },
+      users: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, username: true, role: true, isActive: true },
       },
     },
   });
@@ -198,6 +204,53 @@ export default async function AdminPage({
                         Apply
                       </button>
                     </form>
+
+                    <div className="rounded-md border border-zinc-200 p-2 space-y-2">
+                      <div className="text-xs font-medium text-zinc-600">
+                        Logins ({org.users.length}) — reset a password
+                      </div>
+                      {org.users.map((u) => (
+                        <form
+                          key={u.id}
+                          action={adminResetUserPassword}
+                          className="flex items-center gap-2"
+                          data-testid={`admin-reset-form-${u.username}`}
+                        >
+                          <input type="hidden" name="userId" value={u.id} />
+                          <span
+                            className="w-32 shrink-0 truncate text-xs text-zinc-700"
+                            title={u.username}
+                          >
+                            {u.username}
+                            <span className="text-zinc-400">
+                              {" "}
+                              · {u.role.toLowerCase()}
+                            </span>
+                          </span>
+                          <input
+                            name="password"
+                            type="text"
+                            required
+                            minLength={6}
+                            placeholder="new password"
+                            aria-label={`New password for ${u.username}`}
+                            className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                            data-testid={`admin-reset-input-${u.username}`}
+                          />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm bg-white text-zinc-900 border border-zinc-300 hover:bg-zinc-50"
+                            data-testid={`admin-reset-submit-${u.username}`}
+                          >
+                            Set
+                          </button>
+                        </form>
+                      ))}
+                      <p className="text-[11px] text-zinc-400">
+                        Sets the password instantly (no email). Share it with the
+                        owner; they can change it later from their Logins page.
+                      </p>
+                    </div>
 
                     <DeleteBusiness orgId={org.id} name={org.name} />
                   </div>

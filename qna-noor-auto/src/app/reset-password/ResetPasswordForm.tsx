@@ -6,28 +6,34 @@ import { submitNewPassword } from "./actions";
 const MIN = 6;
 
 /**
- * New-password form for the reset flow. Shows a live "passwords match" hint and
- * a length check for friendly UX; the server action re-validates before saving.
+ * Reset form for the OTP flow: the user confirms their username/email, enters
+ * the 6-digit code we emailed, and chooses a new password. Live hints keep it
+ * friendly; the server action re-validates the code + password before saving.
  */
 export function ResetPasswordForm({
-  token,
+  defaultIdentifier = "",
   error,
 }: {
-  token: string;
+  defaultIdentifier?: string;
   error?: string;
 }) {
+  const [identifier, setIdentifier] = useState(defaultIdentifier);
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
 
   const tooShort = password.length > 0 && password.length < MIN;
   const mismatch = confirm.length > 0 && confirm !== password;
-  const canSubmit = password.length >= MIN && confirm === password;
+  const codeOk = /^\d{6}$/.test(code);
+  const canSubmit =
+    identifier.trim().length > 0 &&
+    codeOk &&
+    password.length >= MIN &&
+    confirm === password;
 
   return (
     <form action={submitNewPassword} className="space-y-4" data-testid="reset-form">
-      <input type="hidden" name="token" value={token} />
-
       {error && (
         <div
           className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700"
@@ -38,13 +44,48 @@ export function ResetPasswordForm({
       )}
 
       <label className="block">
+        <span className="text-sm font-medium text-zinc-700">
+          Username or email
+        </span>
+        <input
+          type="text"
+          name="identifier"
+          required
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="username"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          data-testid="reset-identifier"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-sm font-medium text-zinc-700">6-digit code</span>
+        <input
+          type="text"
+          name="code"
+          required
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="••••••"
+          className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-center text-lg font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          data-testid="reset-code"
+          autoFocus={defaultIdentifier.length > 0}
+        />
+      </label>
+
+      <label className="block">
         <span className="text-sm font-medium text-zinc-700">New password</span>
         <input
           type={show ? "text" : "password"}
           name="password"
           required
           minLength={MIN}
-          autoFocus
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

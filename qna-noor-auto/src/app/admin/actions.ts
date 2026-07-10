@@ -74,6 +74,43 @@ export async function createBusiness(formData: FormData) {
 }
 
 /**
+ * Reset a login's password directly (platform-admin only). This is the
+ * email-free recovery path: when a shop owner is locked out and email delivery
+ * is unavailable, the SUPERADMIN can set a new password here and share it.
+ * Access is gated behind requireSuperadmin(), so only the platform operator can
+ * do it.
+ */
+export async function adminResetUserPassword(formData: FormData) {
+  await requireSuperadmin();
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!userId) back({ error: "Missing user." });
+  if (password.length < 6) {
+    back({ error: "New password must be at least 6 characters." });
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!user) back({ error: "That login no longer exists." });
+
+  await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashPassword(password) },
+    }),
+    // Clear any outstanding self-serve reset codes for this user.
+    db.passwordResetToken.deleteMany({ where: { userId } }),
+  ]);
+
+  revalidatePath("/admin");
+  back({ saved: "password-reset" });
+}
+
+/**
  * Put a business on hold (SUSPENDED) or reactivate it (ACTIVE). A suspended
  * business's users can't sign in — used when a payment fails.
  */

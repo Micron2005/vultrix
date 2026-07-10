@@ -785,6 +785,9 @@ model PasswordResetToken {
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
+  // Wrong-guess counter for the 6-digit code; the code is invalidated after a
+  // small number of incorrect attempts to make brute-forcing infeasible.
+  attempts  Int       @default(0)
   createdAt DateTime  @default(now())
 
   @@index([userId])

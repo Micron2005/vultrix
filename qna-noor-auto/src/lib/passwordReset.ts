@@ -1,14 +1,20 @@
 // ---------------------------------------------------------------------------
-// Self-serve password reset.
+// Self-serve password reset via a 6-digit one-time code (OTP).
 //
 // Users sign in with a username (not an email), so "forgot password" accepts a
-// username OR an email and resolves the account. Reset links are delivered to
-// the user's stored email, falling back to their organization's billing email
-// for owners. We store only a SHA-256 hash of each single-use token (the raw
-// token lives only in the emailed link) and tokens expire after one hour.
+// username OR an email and resolves the account. A short numeric code is
+// emailed to the user's stored email, falling back to their organization's
+// billing email for owners.
 //
-// All lookups return generic results to the caller so the public form can never
-// reveal whether a given username/email exists.
+// Security:
+//   - We store only a SALTED SHA-256 hash of the code (userId + code); the raw
+//     code lives only in the email. Salting with the userId prevents rainbow
+//     tables and cross-user hash collisions on the unique column.
+//   - Codes expire after 15 minutes and are single-use.
+//   - A code is burned after 5 wrong attempts, so guessing a 6-digit code is
+//     infeasible (an attacker must regain inbox access to get a fresh one).
+//   - All lookups return generic results so the public form can never reveal
+//     whether a given username/email exists.
 // ---------------------------------------------------------------------------
 
 import crypto from "node:crypto";
@@ -17,25 +23,26 @@ import { hashPassword } from "@/lib/auth";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME } from "@/lib/branding";
 
-const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const RESEND_COOLDOWN_MS = 60 * 1000; // don't issue a new code within 60s
+const MAX_ATTEMPTS = 5;
 export const MIN_PASSWORD_LENGTH = 6;
+export const CODE_LENGTH = 6;
 
-function baseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") ||
-    "https://vultrix.net"
-  );
+function hashCode(userId: string, code: string): string {
+  return crypto.createHash("sha256").update(`${userId}:${code}`).digest("hex");
 }
 
-function hashToken(raw: string): string {
-  return crypto.createHash("sha256").update(raw).digest("hex");
+function generateCode(): string {
+  // Uniform, cryptographically-random 6-digit code, zero-padded (e.g. "003941").
+  return crypto.randomInt(0, 1_000_000).toString().padStart(CODE_LENGTH, "0");
 }
 
 type ResolvedUser = { id: string; username: string; deliveryEmail: string | null };
 
 /**
- * Resolve a username/email to a single account and the address a reset link
- * should be sent to. Order: exact username → user email → org billing email
+ * Resolve a username/email to a single account and the address a reset code
+ * should be sent to. Order: exact username -> user email -> org billing email
  * (owner). Returns null when nothing matches or the user is deactivated.
  */
 async function resolveUser(identifierRaw: string): Promise<ResolvedUser | null> {
@@ -82,61 +89,69 @@ async function resolveUser(identifierRaw: string): Promise<ResolvedUser | null> 
 }
 
 /**
- * Create a reset token and email a reset link. Never throws and never reveals
- * whether the account exists — callers should always show the same "if an
- * account exists, we've sent an email" message.
+ * Create a 6-digit reset code and email it. Never throws and never reveals
+ * whether the account exists -- callers should always show the same "if an
+ * account exists, we've sent a code" message.
  */
 export async function requestPasswordReset(identifier: string): Promise<void> {
   const resolved = await resolveUser(identifier);
   if (!resolved || !resolved.deliveryEmail) return;
 
-  // Replace any outstanding tokens with a single fresh one.
-  await db.passwordResetToken.deleteMany({
+  // Soft resend cooldown: if a still-valid code was issued moments ago, don't
+  // send another (prevents inbox spam + repeated-request abuse).
+  const latest = await db.passwordResetToken.findFirst({
     where: { userId: resolved.id, usedAt: null },
+    orderBy: { createdAt: "desc" },
   });
+  if (
+    latest &&
+    latest.expiresAt.getTime() > Date.now() &&
+    Date.now() - latest.createdAt.getTime() < RESEND_COOLDOWN_MS
+  ) {
+    return;
+  }
 
-  const raw = crypto.randomBytes(32).toString("base64url");
+  // Replace any outstanding codes with a single fresh one.
+  await db.passwordResetToken.deleteMany({ where: { userId: resolved.id } });
+
+  const code = generateCode();
   await db.passwordResetToken.create({
     data: {
       userId: resolved.id,
-      tokenHash: hashToken(raw),
-      expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
+      tokenHash: hashCode(resolved.id, code),
+      expiresAt: new Date(Date.now() + CODE_TTL_MS),
     },
   });
 
-  const link = `${baseUrl()}/reset-password?token=${encodeURIComponent(raw)}`;
   const sent = await sendEmail({
     to: resolved.deliveryEmail,
-    subject: `Reset your ${APP_NAME} password`,
-    html: resetHtml({ username: resolved.username, link }),
+    subject: `Your ${APP_NAME} password reset code: ${code}`,
+    html: resetHtml({ username: resolved.username, code }),
   });
 
-  // Local/dev convenience: when email isn't configured the link can't be
+  // Local/dev convenience: when email isn't configured the code can't be
   // delivered, so surface it in the server log. Never runs in production.
   if (!sent && process.env.NODE_ENV !== "production") {
     console.warn(
-      `[passwordReset] email not delivered (RESEND_API_KEY unset?). Dev reset link for "${resolved.username}": ${link}`,
+      `[passwordReset] email not delivered (RESEND_API_KEY unset?). Dev reset code for "${resolved.username}": ${code}`,
     );
   }
 }
 
-/** True when a raw token is unused and not yet expired. */
-export async function isResetTokenValid(raw: string): Promise<boolean> {
-  if (!raw) return false;
-  const t = await db.passwordResetToken.findUnique({
-    where: { tokenHash: hashToken(raw) },
-  });
-  return !!t && t.usedAt === null && t.expiresAt.getTime() > Date.now();
-}
-
 export type ResetOutcome = { ok: true } | { ok: false; error: string };
 
-/** Validate a token and set the user's new password (single use). */
+/**
+ * Validate an identifier + 6-digit code and set the user's new password.
+ * Single-use; the code is burned after MAX_ATTEMPTS wrong guesses.
+ */
 export async function completePasswordReset(
-  raw: string,
+  identifier: string,
+  codeRaw: string,
   newPassword: string,
 ): Promise<ResetOutcome> {
-  if (!raw) return { ok: false, error: "This reset link is invalid." };
+  const code = String(codeRaw ?? "").replace(/\D/g, "");
+  const generic = "That code is invalid or has expired. Request a new one.";
+
   if (newPassword.length < MIN_PASSWORD_LENGTH) {
     return {
       ok: false,
@@ -144,48 +159,82 @@ export async function completePasswordReset(
     };
   }
 
-  const token = await db.passwordResetToken.findUnique({
-    where: { tokenHash: hashToken(raw) },
+  const resolved = await resolveUser(identifier);
+  if (!resolved) return { ok: false, error: generic };
+
+  const token = await db.passwordResetToken.findFirst({
+    where: { userId: resolved.id, usedAt: null },
+    orderBy: { createdAt: "desc" },
   });
-  if (!token || token.usedAt || token.expiresAt.getTime() <= Date.now()) {
+  if (!token || token.expiresAt.getTime() <= Date.now()) {
+    return { ok: false, error: generic };
+  }
+
+  if (token.attempts >= MAX_ATTEMPTS) {
+    // Too many wrong guesses -- burn the code so an attacker must start over
+    // (and a new code requires access to the inbox again).
+    await db.passwordResetToken
+      .delete({ where: { id: token.id } })
+      .catch(() => {});
+    return {
+      ok: false,
+      error: "Too many incorrect attempts. Request a new code.",
+    };
+  }
+
+  const expected = Buffer.from(token.tokenHash, "hex");
+  const actual = Buffer.from(hashCode(resolved.id, code), "hex");
+  const matches =
+    code.length === CODE_LENGTH &&
+    expected.length === actual.length &&
+    crypto.timingSafeEqual(expected, actual);
+
+  if (!matches) {
+    await db.passwordResetToken.update({
+      where: { id: token.id },
+      data: { attempts: { increment: 1 } },
+    });
+    const left = Math.max(0, MAX_ATTEMPTS - (token.attempts + 1));
     return {
       ok: false,
       error:
-        "This reset link has expired or already been used. Request a new one.",
+        left > 0
+          ? `Incorrect code. ${left} attempt${left === 1 ? "" : "s"} left.`
+          : "Too many incorrect attempts. Request a new code.",
     };
   }
 
   await db.$transaction([
     db.user.update({
-      where: { id: token.userId },
+      where: { id: resolved.id },
       data: { passwordHash: hashPassword(newPassword) },
     }),
     db.passwordResetToken.update({
       where: { id: token.id },
       data: { usedAt: new Date() },
     }),
-    // Invalidate any other outstanding tokens for this user.
+    // Invalidate any other outstanding codes for this user.
     db.passwordResetToken.deleteMany({
-      where: { userId: token.userId, usedAt: null },
+      where: { userId: resolved.id, usedAt: null },
     }),
   ]);
 
   return { ok: true };
 }
 
-function resetHtml(p: { username: string; link: string }): string {
+function resetHtml(p: { username: string; code: string }): string {
   return `
   <div style="max-width:560px;margin:0 auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
-    <h2 style="margin:0 0 6px;color:#18181b">Reset your ${escapeHtml(APP_NAME)} password</h2>
+    <h2 style="margin:0 0 6px;color:#18181b">Your ${escapeHtml(APP_NAME)} password reset code</h2>
     <p style="margin:0 0 16px;color:#52525b;font-size:15px;line-height:1.5">
       We got a request to reset the password for <strong>${escapeHtml(p.username)}</strong>.
-      Click the button below to choose a new password. This link expires in 1 hour.
+      Enter this code on the reset page to choose a new password. It expires in 15 minutes.
     </p>
-    <a href="${p.link}" style="display:inline-block;background:#18181b;color:#fff;text-decoration:none;font:600 15px sans-serif;padding:11px 20px;border-radius:8px">
-      Reset my password
-    </a>
-    <p style="margin:22px 0 0;color:#a1a1aa;font-size:13px;line-height:1.5">
-      If you didn't request this, you can safely ignore this email — your password won't change.
+    <div style="font:700 34px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:8px;color:#18181b;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;padding:16px 20px;text-align:center;margin:0 0 18px">
+      ${escapeHtml(p.code)}
+    </div>
+    <p style="margin:0;color:#a1a1aa;font-size:13px;line-height:1.5">
+      If you didn't request this, you can safely ignore this email -- your password won't change.
     </p>
   </div>`;
 }
