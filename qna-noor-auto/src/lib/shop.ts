@@ -1,7 +1,7 @@
 import { db } from "./db";
 
 const DEFAULTS: Record<string, string> = {
-  shopName: "QNA / Noor Auto Repair",
+  shopName: "",
   shopAddress: "",
   shopPhone: "",
   shopEmail: "",
@@ -13,15 +13,34 @@ export async function getSetting(orgId: string, key: string): Promise<string> {
   const row = await db.shopSetting.findUnique({
     where: { orgId_key: { orgId, key } },
   });
-  return row?.value ?? DEFAULTS[key] ?? "";
+  if (row) return row.value;
+  // Default the shop name to the organization's own name (not a hardcoded
+  // sample shop) so a brand-new business sees their name until they customize.
+  if (key === "shopName") {
+    const org = await db.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    });
+    if (org?.name) return org.name;
+  }
+  return DEFAULTS[key] ?? "";
 }
 
 export async function getAllSettings(
   orgId: string,
 ): Promise<Record<string, string>> {
-  const rows = await db.shopSetting.findMany({ where: { orgId } });
+  const [rows, org] = await Promise.all([
+    db.shopSetting.findMany({ where: { orgId } }),
+    db.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    }),
+  ]);
   const out: Record<string, string> = { ...DEFAULTS };
-  for (const r of rows) out[r.key] = r.value;
+  // Per-org default: show their own business name as the shop name until an
+  // explicit shopName setting is saved below.
+  if (org?.name) out.shopName = org.name;
+  for (const r of rows) out[r.key] = r.value; // explicit saved settings win
   return out;
 }
 

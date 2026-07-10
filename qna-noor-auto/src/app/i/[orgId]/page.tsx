@@ -6,6 +6,7 @@ import {
   createIntakeVehicle,
   createIntakeRO,
 } from "../actions";
+import { IntakePhotos } from "./IntakePhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -206,6 +207,7 @@ export default async function IntakePage({
               data-testid="intake-mileage"
             />
           </div>
+          <IntakePhotos />
           <button type="submit" className={primaryBtn} data-testid="intake-create-ticket">
             Create ticket
           </button>

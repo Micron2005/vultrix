@@ -6,6 +6,10 @@ import { db } from "@/lib/db";
 import { verifyOrgIntake } from "@/lib/intakeTokens";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
+import {
+  MAX_INTAKE_PHOTOS,
+  MAX_INTAKE_DATAURL_BYTES,
+} from "./[orgId]/intake-photo-constants";
 
 function str(fd: FormData, key: string): string {
   const v = fd.get(key);
@@ -155,7 +159,7 @@ export async function createIntakeRO(fd: FormData) {
   const roNumber = await getNextRoNumber(orgId);
   const defaultTax = parseFloat(await getSetting(orgId, "defaultTaxRate")) || 0;
 
-  await db.repairOrder.create({
+  const ro = await db.repairOrder.create({
     data: {
       roNumber,
       orgId,
@@ -168,6 +172,36 @@ export async function createIntakeRO(fd: FormData) {
     },
     select: { id: true },
   });
+
+  // Best-effort: attach any photos the customer added. A bad photo payload must
+  // never block ticket creation, so this is wrapped and silently tolerant.
+  try {
+    const raw = str(fd, "photos");
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const rows = parsed
+          .filter(
+            (u): u is string =>
+              typeof u === "string" &&
+              u.startsWith("data:image/") &&
+              u.length <= MAX_INTAKE_DATAURL_BYTES,
+          )
+          .slice(0, MAX_INTAKE_PHOTOS)
+          .map((dataUrl, i) => ({
+            repairOrderId: ro.id,
+            orgId,
+            dataUrl,
+            sortOrder: i,
+          }));
+        if (rows.length > 0) {
+          await db.repairOrderPhoto.createMany({ data: rows });
+        }
+      }
+    }
+  } catch {
+    /* ignore malformed photo payloads */
+  }
 
   if (mileageIn !== null) {
     await db.vehicle.update({

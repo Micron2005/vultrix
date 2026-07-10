@@ -193,6 +193,16 @@ export async function materializeAccount(
   // 3. Mirror the subscription's status / dates onto the org.
   await syncSubscriptionToOrg(orgId, subscription);
 
+  // 3b. Seed the shop name from the business name so Settings shows their own
+  //     shop immediately (the owner can rename it later).
+  await db.shopSetting
+    .upsert({
+      where: { orgId_key: { orgId, key: "shopName" } },
+      create: { orgId, key: "shopName", value: pending.name },
+      update: {},
+    })
+    .catch(() => {});
+
   // 4. Best-effort: clear the pending signup (incl. the password hash) from
   //    Stripe now that it's persisted in our DB.
   try {
