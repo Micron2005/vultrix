@@ -126,6 +126,7 @@ model RepairOrder {
   paidAt      DateTime? // payment received
   cancelledAt DateTime? // RO cancelled
   clearedAt   DateTime? // paid ticket cleared/closed out of active list
+  deletedAt   DateTime? // soft delete: in Trash, hidden from all normal views
 
   mileageIn  Int?
   mileageOut Int?
@@ -170,6 +171,7 @@ model RepairOrder {
   @@index([status])
   @@index([openedAt])
   @@index([orgId])
+  @@index([orgId, deletedAt])
 }
 
 model Job {

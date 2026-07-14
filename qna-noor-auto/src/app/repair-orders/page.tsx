@@ -132,6 +132,13 @@ export default async function RepairOrdersPage({
         actions={
           <div className="flex gap-2">
             <Link
+              href="/repair-orders/trash"
+              className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+              data-testid="repair-orders-trash-link"
+            >
+              Trash
+            </Link>
+            <Link
               href="/repair-orders/duplicates"
               className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
             >

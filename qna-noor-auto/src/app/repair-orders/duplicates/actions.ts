@@ -31,8 +31,13 @@ export async function deleteFromDuplicates(id: string, fd: FormData) {
     redirect("/repair-orders/duplicates?error=paid_locked");
   }
 
-  await db.repairOrder.delete({ where: { id, orgId } });
+  // Soft delete: move to Trash (recoverable) instead of destroying the ticket.
+  await db.repairOrder.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
   revalidatePath("/repair-orders");
+  revalidatePath("/repair-orders/trash");
   revalidatePath("/repair-orders/duplicates");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);

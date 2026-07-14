@@ -55,6 +55,7 @@ import {
   resetJobApproval,
 } from "../actions";
 import { JobCard } from "./JobCard";
+import { DeleteROButton } from "./DeleteROButton";
 import {
   generateShareToken,
   regenerateShareToken,
@@ -961,11 +962,7 @@ export default async function RepairOrderDetailPage({
             Save &amp; exit
           </button>
         </div>
-        <form action={del}>
-          <Button type="submit" variant="danger" size="sm">
-            Delete RO
-          </Button>
-        </form>
+        <DeleteROButton action={del} roNumber={ro.roNumber} />
       </div>
     </>
   );

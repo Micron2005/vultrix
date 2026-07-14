@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, dbBase } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
@@ -193,14 +193,55 @@ export async function deleteRepairOrder(id: string) {
   const orgId = await requireOrgId();
   const ro = await db.repairOrder.findFirst({ where: { id, orgId } });
   if (!ro) return;
-  await db.repairOrder.delete({ where: { id, orgId } });
+  // Soft delete: move the ticket to Trash (recoverable) instead of destroying
+  // it and its invoice / line items. Restore from /repair-orders/trash.
+  await db.repairOrder.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
   revalidatePath("/repair-orders");
+  revalidatePath("/repair-orders/trash");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
   revalidatePath(`/vehicles/${ro.vehicleId}`);
   // Bounce back to the dashboard rather than the RO list — same rule as
   // Save & Exit on the RO detail page.
   redirect("/");
+}
+
+/** Restore a soft-deleted repair order from Trash. */
+export async function restoreRepairOrder(id: string) {
+  const orgId = await requireOrgId();
+  const ro = await dbBase.repairOrder.findFirst({
+    where: { id, orgId, deletedAt: { not: null } },
+  });
+  if (!ro) redirect("/repair-orders/trash?error=not_found");
+  await dbBase.repairOrder.update({
+    where: { id },
+    data: { deletedAt: null },
+  });
+  revalidatePath("/repair-orders");
+  revalidatePath("/repair-orders/trash");
+  revalidatePath("/");
+  revalidatePath(`/customers/${ro.customerId}`);
+  revalidatePath(`/vehicles/${ro.vehicleId}`);
+  redirect(`/repair-orders/${id}`);
+}
+
+/** Permanently delete a ticket from Trash (irreversible). Requires "DELETE". */
+export async function purgeRepairOrder(id: string, fd: FormData) {
+  const orgId = await requireOrgId();
+  const confirm = String(fd.get("confirm") ?? "").trim();
+  if (confirm !== "DELETE") {
+    redirect("/repair-orders/trash?error=confirm_required");
+  }
+  const ro = await dbBase.repairOrder.findFirst({
+    where: { id, orgId, deletedAt: { not: null } },
+  });
+  if (!ro) redirect("/repair-orders/trash?error=not_found");
+  await dbBase.repairOrder.delete({ where: { id } });
+  revalidatePath("/repair-orders/trash");
+  redirect("/repair-orders/trash?purged=1");
 }
 
 // Jobs
