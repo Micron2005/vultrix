@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { MileageInput } from "@/components/MileageInput";
 import { SaveButton } from "@/components/SaveButton";
-import { RemoteSaveButton } from "@/components/RemoteSaveButton";
+import { SaveAllButton } from "@/components/SaveAllButton";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
@@ -49,6 +49,7 @@ import {
   updateLaborLineTech,
   updatePartLine,
   updateRepairOrder,
+  saveRepairOrderAll,
   updateROVehicleInfo,
   approveJobAdmin,
   declineJobAdmin,
@@ -206,6 +207,7 @@ export default async function RepairOrderDetailPage({
   const ungroupedFees = ro.feeLines.filter((f) => !f.jobId);
 
   const updateAction = updateRepairOrder.bind(null, ro.id);
+  const saveAll = saveRepairOrderAll.bind(null, ro.id);
   const addLabor = addLaborLine.bind(null, ro.id);
   const addPart = addPartLine.bind(null, ro.id);
   const addFee = addFeeLine.bind(null, ro.id);
@@ -943,24 +945,16 @@ export default async function RepairOrderDetailPage({
       </Card>
 
       {/* Bottom action bar: Save + Save & Exit on the left, Delete on the
-          right. All three buttons live outside the Details form and target
-          it via the form="ro-details-form" attribute, so a click on Save
-          submits the whole Details form. Save & Exit adds exit=1 which the
-          server action uses to redirect back to the RO list. */}
+          right. Unlike the per-line "Save" buttons, these gather the Details
+          form AND every line-item form on the page, so a single click persists
+          the whole RO — including freshly typed line prices that weren't saved
+          row-by-row. Save & exit additionally redirects to the dashboard. */}
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-6">
         <div className="flex flex-wrap gap-2">
-          <RemoteSaveButton formId="ro-details-form" action={updateAction}>
-            Save
-          </RemoteSaveButton>
-          <button
-            type="submit"
-            form="ro-details-form"
-            name="exit"
-            value="1"
-            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-          >
+          <SaveAllButton action={saveAll}>Save</SaveAllButton>
+          <SaveAllButton action={saveAll} exit variant="outline">
             Save &amp; exit
-          </button>
+          </SaveAllButton>
         </div>
         <DeleteROButton action={del} roNumber={ro.roNumber} />
       </div>
