@@ -9,6 +9,7 @@ import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 import { computeRoTotal } from "@/lib/roTotal";
+import type { RoBulkSavePayload } from "./roBulkSave";
 
 const RO_STATUSES = [
   "ESTIMATE",
@@ -148,6 +149,120 @@ export async function updateRepairOrder(id: string, fd: FormData) {
   // Plain inline "Save": stay on the page. revalidatePath above refreshes the
   // server-rendered data in place, so the SaveButton can show its success
   // animation without a full page reload interrupting it.
+}
+
+/**
+ * Save the entire RO detail page in one action: the Details form plus all
+ * labor / part / fee line edits. Line-item edits are only applied while the RO
+ * is still editable (not INVOICED / PAID / CANCELLED); the Details block (notes,
+ * tax, discount, mileage) saves regardless, matching updateRepairOrder.
+ */
+export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload) {
+  const orgId = await requireOrgId();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
+    select: { id: true, status: true },
+  });
+  if (!ro) redirect("/repair-orders");
+
+  // --- 1) Details (always allowed, same shape as updateRepairOrder) --------
+  const d = payload.details ?? {};
+  const parsed = UpdateROSchema.parse({
+    complaint: d.complaint || null,
+    cause: d.cause || null,
+    correction: d.correction || null,
+    notes: d.notes || null,
+    mileageIn: d.mileageIn || null,
+    mileageOut: d.mileageOut || null,
+    taxRate: d.taxRate || null,
+    discount: d.discount || null,
+  });
+  await db.repairOrder.update({
+    where: { id, orgId },
+    data: {
+      complaint: parsed.complaint,
+      cause: parsed.cause,
+      correction: parsed.correction,
+      notes: parsed.notes,
+      mileageIn: parseMileage(parsed.mileageIn),
+      mileageOut: parseMileage(parsed.mileageOut),
+      taxRate: parsed.taxRate ? parseFloat(parsed.taxRate) || 0 : 0,
+      discount: parsed.discount ? parseFloat(parsed.discount) || 0 : 0,
+    },
+  });
+
+  // --- 2) Line items (only while the RO is unlocked) -----------------------
+  const lineEditsLocked =
+    ro.status === "INVOICED" || ro.status === "PAID" || ro.status === "CANCELLED";
+  if (!lineEditsLocked) {
+    const num = (v: string | undefined) => {
+      const s = String(v ?? "").trim();
+      if (s === "") return undefined;
+      const n = parseFloat(s);
+      return !Number.isNaN(n) && n >= 0 ? n : undefined;
+    };
+
+    for (const l of payload.labor ?? []) {
+      const f = l.fields ?? {};
+      const data: Record<string, unknown> = {};
+      const desc = String(f.description ?? "").trim();
+      if (desc) data.description = desc;
+      const h = num(f.hours);
+      if (h !== undefined) data.hours = h;
+      const r = num(f.rate);
+      if (r !== undefined) data.rate = r;
+      if (Object.keys(data).length > 0) {
+        await db.laborLine.updateMany({ where: { id: l.id, repairOrderId: id }, data });
+      }
+    }
+
+    for (const p of payload.parts ?? []) {
+      const f = p.fields ?? {};
+      const data: Record<string, unknown> = {};
+      const desc = String(f.description ?? "").trim();
+      if (desc) data.description = desc;
+      const q = num(f.quantity);
+      if (q !== undefined) data.quantity = q;
+      const price = num(f.unitPrice);
+      if (price !== undefined) data.unitPrice = price;
+      if ("costPrice" in f) {
+        const costRaw = String(f.costPrice ?? "").trim();
+        if (costRaw === "") data.costPrice = null;
+        else {
+          const c = parseFloat(costRaw);
+          if (!Number.isNaN(c) && c >= 0) data.costPrice = c;
+        }
+      }
+      if ("partNumber" in f) {
+        const pn = String(f.partNumber ?? "").trim();
+        data.partNumber = pn === "" ? null : pn;
+      }
+      if ("source" in f) {
+        const src = String(f.source ?? "").trim();
+        data.source = src === "" ? null : src;
+      }
+      if (Object.keys(data).length > 0) {
+        await db.partLine.updateMany({ where: { id: p.id, repairOrderId: id }, data });
+      }
+    }
+
+    for (const fee of payload.fees ?? []) {
+      const f = fee.fields ?? {};
+      const data: Record<string, unknown> = {};
+      const desc = String(f.description ?? "").trim();
+      if (desc) data.description = desc;
+      const a = num(f.amount);
+      if (a !== undefined) data.amount = Math.round(a * 100) / 100;
+      if (Object.keys(data).length > 0) {
+        await db.feeLine.updateMany({ where: { id: fee.id, repairOrderId: id }, data });
+      }
+    }
+  }
+
+  revalidatePath(`/repair-orders/${id}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+  if (payload.exit) redirect("/");
 }
 
 export async function setRepairOrderStatus(id: string, status: string) {
