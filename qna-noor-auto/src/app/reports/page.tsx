@@ -272,6 +272,7 @@ export default async function ReportsPage({
     (ro) => ro.openedAt >= from && ro.openedAt <= to,
   );
   for (const ro of rosInRange) {
+    if (!ro.vehicleId || !ro.vehicle) continue;
     const hours = ro.laborLines.reduce((s, l) => s + (l.hours ?? 0), 0);
     if (hours <= 0) continue;
     const cur = vehicleHours.get(ro.vehicleId) ?? {

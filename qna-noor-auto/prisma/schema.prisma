@@ -109,8 +109,8 @@ model RepairOrder {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
-  vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   status String @default("ESTIMATE") // ESTIMATE | IN_PROGRESS | COMPLETED | INVOICED | PAID | CANCELLED
 
@@ -692,6 +692,8 @@ model Organization {
   name      String // the business's own shop name, shown to its users
   // ACTIVE | SUSPENDED — a suspended org's users can't sign in (e.g. unpaid).
   status    String   @default("ACTIVE")
+  accountType String  @default("AUTO_SHOP")
+  features   String[] @default([])
 
   // --- Billing (Stripe subscription) ---------------------------------------
   // Contact email used for the Stripe customer / receipts.

@@ -66,7 +66,8 @@ export function vehicleLabel(v: {
   make?: string | null;
   model?: string | null;
   trim?: string | null;
-}): string {
+} | null | undefined): string {
+  if (!v) return "—";
   const parts = [v.year, v.make, v.model, v.trim].filter(Boolean);
   return parts.length ? parts.join(" ") : "Unknown Vehicle";
 }

@@ -216,7 +216,7 @@ export async function bulkDeleteRepairOrders(
   revalidatePath("/repair-orders");
   revalidatePath("/");
   for (const r of ros) {
-    revalidatePath(`/vehicles/${r.vehicleId}`);
+    if (r.vehicleId) revalidatePath(`/vehicles/${r.vehicleId}`);
   }
 
   return {

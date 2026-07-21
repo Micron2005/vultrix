@@ -3,9 +3,9 @@ import { db } from "./db";
 import { getStripe } from "./stripe";
 
 // ---------------------------------------------------------------------------
-// Billing configuration. The plan is a single monthly subscription with a free
-// trial. Amounts/durations are env-configurable so the price can change without
-// a code change.
+// Billing configuration. Both monthly subscription tiers share the same free
+// trial. Amounts/durations are env-configurable so prices can change without a
+// code change.
 // ---------------------------------------------------------------------------
 
 /** Recurring Stripe Price id for the plan (e.g. price_123). */
@@ -28,23 +28,28 @@ export const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS ?? 60);
  */
 export const GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS ?? 3);
 
-/** Monthly price in whole dollars, for display only (Stripe is the source of truth). */
+/** Auto-shop monthly price in whole dollars, for display only. */
 export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 45);
+/** General-account monthly price in whole dollars, for display only. */
+export const GENERAL_PRICE_USD = Number(
+  process.env.BILLING_GENERAL_PRICE_USD ?? 25,
+);
 
 /**
- * Resolve the recurring Price id to subscribe new businesses to.
+ * Resolve the recurring Price id for an account type.
  *
- * Prefers the explicit STRIPE_PRICE_ID env var. Otherwise it find-or-creates a
- * monthly Price (tagged with a lookup key derived from the amount) so the
- * platform works out of the box and a price change (BILLING_PRICE_USD) simply
- * provisions a new Price — existing subscriptions keep their original price.
+ * Auto shops prefer the explicit STRIPE_PRICE_ID env var. Other account types
+ * always use their tier's lookup key, so the auto-shop override cannot hijack
+ * the general price. Missing prices are created on demand.
  */
-export async function resolvePriceId(): Promise<string> {
-  const explicit = planPriceId();
+export async function resolvePriceId(accountType = "AUTO_SHOP"): Promise<string> {
+  const isAutoShop = accountType === "AUTO_SHOP";
+  const priceUsd = isAutoShop ? PRICE_USD : GENERAL_PRICE_USD;
+  const explicit = isAutoShop ? planPriceId() : undefined;
   if (explicit) return explicit;
 
   const stripe = getStripe();
-  const lookupKey = `vultrix_monthly_${PRICE_USD}`;
+  const lookupKey = `vultrix_monthly_${priceUsd}`;
 
   const found = await stripe.prices.list({
     lookup_keys: [lookupKey],
@@ -59,7 +64,7 @@ export async function resolvePriceId(): Promise<string> {
   });
   const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: Math.round(PRICE_USD * 100),
+    unit_amount: Math.round(priceUsd * 100),
     currency: "usd",
     recurring: { interval: "month" },
     lookup_key: lookupKey,

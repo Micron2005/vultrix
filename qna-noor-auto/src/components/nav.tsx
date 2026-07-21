@@ -10,25 +10,27 @@ type NavProps = {
   canManageUsers?: boolean;
   username?: string | null;
   isSuperadmin?: boolean;
+  enabledFeatures?: string[];
+  accountType?: string | null;
 };
 
 const items = [
   { href: "/", label: "Dashboard" },
-  { href: "/customers", label: "Customers" },
+  { href: "/customers", label: "Customers", feature: "customers" },
   { href: "/businesses", label: "Businesses" },
-  { href: "/vehicles", label: "Vehicles" },
-  { href: "/vehicle-search", label: "Lookup" },
-  { href: "/repair-orders", label: "Repair Orders" },
-  { href: "/appointments", label: "Schedule" },
-  { href: "/reminders", label: "Reminders" },
-  { href: "/notes", label: "Knowledge" },
-  { href: "/technicians", label: "Technicians" },
-  { href: "/inventory", label: "Inventory" },
-  { href: "/canned-jobs", label: "Presets" },
-  { href: "/expenses", label: "Financials" },
-  { href: "/reports", label: "Reports" },
-  { href: "/import", label: "Import" },
-  { href: "/export", label: "Export" },
+  { href: "/vehicles", label: "Vehicles", feature: "vehicles" },
+  { href: "/vehicle-search", label: "Lookup", feature: "lookup" },
+  { href: "/repair-orders", label: "Repair Orders", feature: "repair_orders" },
+  { href: "/appointments", label: "Schedule", feature: "schedule" },
+  { href: "/reminders", label: "Reminders", feature: "reminders" },
+  { href: "/notes", label: "Knowledge", feature: "knowledge" },
+  { href: "/technicians", label: "Technicians", feature: "technicians" },
+  { href: "/inventory", label: "Inventory", feature: "inventory" },
+  { href: "/canned-jobs", label: "Presets", feature: "presets" },
+  { href: "/expenses", label: "Financials", feature: "financials" },
+  { href: "/reports", label: "Reports", feature: "reports" },
+  { href: "/import", label: "Import", feature: "import_export" },
+  { href: "/export", label: "Export", feature: "import_export" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -43,6 +45,8 @@ export function Nav({
   canManageUsers,
   username,
   isSuperadmin,
+  enabledFeatures = [],
+  accountType,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -52,7 +56,7 @@ export function Nav({
 
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
-  const navItems = isSuperadmin
+  const baseItems = (isSuperadmin
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/leads", label: "Leads" },
@@ -63,7 +67,22 @@ export function Nav({
           { href: "/settings/users", label: "Logins" },
           { href: "/billing", label: "Billing" },
         ]
-      : items;
+    : items
+  ).map((item) => {
+    if (item.href !== "/repair-orders") return item;
+    const hasRepairOrders = enabledFeatures.includes("repair_orders");
+    return {
+      ...item,
+      label:
+        hasRepairOrders || (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
+          ? "Repair Orders"
+          : "Invoices",
+      feature: hasRepairOrders ? "repair_orders" : "invoices",
+    };
+  });
+  const navItems = baseItems.filter(
+    (item) => !item.feature || enabledFeatures.includes(item.feature),
+  );
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone

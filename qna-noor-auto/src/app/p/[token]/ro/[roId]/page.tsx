@@ -151,7 +151,7 @@ export default async function CustomerPortalROPage({
                 <div className="text-zinc-600">{ro.customer.email}</div>
               )}
             </div>
-            <div>
+            {ro.vehicle && <div>
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                 Vehicle
               </div>
@@ -178,7 +178,7 @@ export default async function CustomerPortalROPage({
                   Mileage out: {ro.mileageOut.toLocaleString()}
                 </div>
               )}
-            </div>
+            </div>}
           </section>
 
           {ro.complaint && (

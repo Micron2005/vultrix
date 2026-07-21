@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { resolvePriceId, TRIAL_DAYS } from "@/lib/billing";
+import { sanitizeFeatureKeys } from "@/lib/features";
 
 function back(params: Record<string, string>): never {
   const qs = new URLSearchParams(params).toString();
@@ -36,19 +37,46 @@ export async function startSignup(formData: FormData) {
   }
 
   const name = String(formData.get("name") ?? "").trim();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
+  const phone = String(formData.get("phone") ?? "").trim();
   const username = String(formData.get("username") ?? "")
     .trim()
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
   const agreed = formData.get("agree") === "1";
+  const accountTypeRaw = String(formData.get("accountType") ?? "AUTO_SHOP")
+    .trim()
+    .toUpperCase();
+  const accountType =
+    accountTypeRaw === "BUSINESS" || accountTypeRaw === "PERSONAL"
+      ? accountTypeRaw
+      : "AUTO_SHOP";
+  const submittedFeatures = String(formData.get("features") ?? "")
+    .split(",")
+    .map((key) => key.trim())
+    .filter(Boolean);
+  const features = sanitizeFeatureKeys(accountType, submittedFeatures);
+  const displayName =
+    accountType === "PERSONAL" ? `${firstName} ${lastName}`.trim() : name;
 
   if (!agreed) {
     back({ error: "You must agree to the Terms of Service to continue." });
   }
-  if (!name) back({ error: "Business name is required." });
+  if (!firstName || !lastName) {
+    back({ error: "First and last name are required." });
+  }
+  if (!displayName) {
+    back({
+      error:
+        accountType === "PERSONAL"
+          ? "First and last name are required."
+          : "Business name is required.",
+    });
+  }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     back({ error: "Enter a valid billing email." });
   }
@@ -68,16 +96,21 @@ export async function startSignup(formData: FormData) {
   // leaves a half-finished account behind. The pending signup details ride
   // along on the Stripe customer's metadata (password stored hashed).
   const stripe = getStripe();
-  const priceId = await resolvePriceId();
+  const priceId = await resolvePriceId(accountType);
 
   const customer = await stripe.customers.create({
     email,
-    name,
+    name: displayName,
     metadata: {
-      signupName: name,
+      signupName: displayName,
+      signupFirstName: firstName,
+      signupLastName: lastName,
       signupEmail: email,
+      signupPhone: phone,
       signupUsername: username,
       signupPasswordHash: hashPassword(password),
+      signupAccountType: accountType,
+      signupFeatures: features.join(","),
     },
   });
 

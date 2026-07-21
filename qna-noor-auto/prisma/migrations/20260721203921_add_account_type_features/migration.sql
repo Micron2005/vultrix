@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Organization"
+ADD COLUMN "accountType" TEXT NOT NULL DEFAULT 'AUTO_SHOP',
+ADD COLUMN "features" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

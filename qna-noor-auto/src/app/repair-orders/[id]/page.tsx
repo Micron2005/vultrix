@@ -221,14 +221,18 @@ export default async function RepairOrderDetailPage({
   // Possible-duplicate detection: only flag other OPEN ROs on the same
   // vehicle whose labor lines share a significant word with this RO's
   // labor lines. Empty labor lines → no flag (handled by the filter).
-  const otherOpen = await openROsForVehicle(orgId, ro.vehicleId, ro.id);
+  const otherOpen = ro.vehicleId
+    ? await openROsForVehicle(orgId, ro.vehicleId, ro.id)
+    : [];
   const duplicates = filterDuplicatesByLabor(
     otherOpen,
     ro.laborLines.map((l) => l.description),
   );
   // Past (paid / invoiced / cancelled) tickets on this same vehicle, shown as
   // history so the shop can judge whether this RO duplicates earlier work.
-  const pastTickets = await pastROsForVehicle(orgId, ro.vehicleId, ro.id);
+  const pastTickets = ro.vehicleId
+    ? await pastROsForVehicle(orgId, ro.vehicleId, ro.id)
+    : [];
 
   return (
     <>
@@ -242,10 +246,14 @@ export default async function RepairOrderDetailPage({
             >
               {fullName(ro.customer)}
             </Link>
-            {" · "}
-            <Link href={`/vehicles/${ro.vehicleId}`} className="underline">
-              {vehicleLabel(ro.vehicle)}
-            </Link>
+            {ro.vehicle && (
+              <>
+                {" · "}
+                <Link href={`/vehicles/${ro.vehicleId}`} className="underline">
+                  {vehicleLabel(ro.vehicle)}
+                </Link>
+              </>
+            )}
             {" · Opened "}
             {formatDate(ro.openedAt)}
           </>
@@ -301,6 +309,7 @@ export default async function RepairOrderDetailPage({
         </div>
       )}
 
+      {ro.vehicle && (
       <Card className="mb-4">
         <CardHeader title="Vehicle">
           <Link
@@ -315,7 +324,7 @@ export default async function RepairOrderDetailPage({
           className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end"
         >
           <input type="hidden" name="repairOrderId" value={ro.id} />
-          <input type="hidden" name="vehicleId" value={ro.vehicleId} />
+          <input type="hidden" name="vehicleId" value={ro.vehicleId ?? ""} />
           <div className="md:col-span-5">
             <Field label="VIN">
               <Input
@@ -362,6 +371,7 @@ export default async function RepairOrderDetailPage({
           </div>
         </form>
       </Card>
+      )}
 
       <Card className="mb-4">
         <CardHeader title="Photos" />

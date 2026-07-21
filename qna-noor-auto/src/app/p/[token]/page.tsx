@@ -208,7 +208,7 @@ export default async function CustomerPortalPage({
                 >
                   <div>
                     <div className="text-sm font-medium text-zinc-900">
-                      {vehicleLabel(ro.vehicle)}
+                      {ro.vehicle && vehicleLabel(ro.vehicle)}
                     </div>
                     {ro.complaint && (
                       <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
@@ -310,7 +310,7 @@ export default async function CustomerPortalPage({
                       </div>
                     </td>
                     <td className="px-4 py-2 text-zinc-700">
-                      {vehicleLabel(ro.vehicle)}
+                      {ro.vehicle && vehicleLabel(ro.vehicle)}
                     </td>
                     <td className="px-4 py-2 text-right text-zinc-700 tabular-nums">
                       {formatMoney(ro.total)}
@@ -363,7 +363,7 @@ export default async function CustomerPortalPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2 text-zinc-700">
-                      {vehicleLabel(ro.vehicle)}
+                      {ro.vehicle && vehicleLabel(ro.vehicle)}
                     </td>
                     <td className="px-4 py-2 text-zinc-600 max-w-[260px] truncate">
                       {ro.complaint ?? "—"}

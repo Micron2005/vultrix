@@ -21,6 +21,7 @@ import {
   subscriptionGrantsAccess,
   TRIAL_DAYS,
 } from "@/lib/billing";
+import { sanitizeFeatureKeys } from "@/lib/features";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME } from "@/lib/branding";
 
@@ -32,9 +33,14 @@ export type EnsureResult = {
 
 type Pending = {
   name: string;
+  firstName: string;
+  lastName: string;
   username: string;
   email: string;
+  phone: string;
   passwordHash: string;
+  accountType: string;
+  features: string[];
 };
 
 function isUniqueViolation(e: unknown): boolean {
@@ -50,12 +56,39 @@ function pendingFromMetadata(
   md: Stripe.Metadata | null | undefined,
 ): Pending | null {
   const m = md ?? {};
+  const accountTypeRaw = String(m.signupAccountType ?? "AUTO_SHOP")
+    .trim()
+    .toUpperCase();
+  const accountType =
+    accountTypeRaw === "BUSINESS" || accountTypeRaw === "PERSONAL"
+      ? accountTypeRaw
+      : "AUTO_SHOP";
   const username = String(m.signupUsername ?? "").trim().toLowerCase();
   const email = String(m.signupEmail ?? "").trim().toLowerCase();
   const passwordHash = String(m.signupPasswordHash ?? "");
   const name = String(m.signupName ?? "").trim();
+  const firstName = String(m.signupFirstName ?? "").trim();
+  const lastName = String(m.signupLastName ?? "").trim();
+  const phone = String(m.signupPhone ?? "").trim();
+  const features = sanitizeFeatureKeys(
+    accountType,
+    String(m.signupFeatures ?? "")
+      .split(",")
+      .map((key) => key.trim())
+      .filter(Boolean),
+  );
   if (!username || !email || !passwordHash) return null;
-  return { name: name || email, username, email, passwordHash };
+  return {
+    name: name || `${firstName} ${lastName}`.trim() || email,
+    firstName,
+    lastName,
+    username,
+    email,
+    phone,
+    passwordHash,
+    accountType,
+    features,
+  };
 }
 
 async function findOwner(orgId: string): Promise<string | null> {
@@ -134,6 +167,8 @@ export async function materializeAccount(
       data: {
         name: pending.name,
         status: "ACTIVE",
+        accountType: pending.accountType,
+        features: pending.features,
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,
@@ -202,6 +237,23 @@ export async function materializeAccount(
       update: {},
     })
     .catch(() => {});
+  await Promise.all([
+    db.shopSetting.upsert({
+      where: { orgId_key: { orgId, key: "contactFirstName" } },
+      create: { orgId, key: "contactFirstName", value: pending.firstName },
+      update: { value: pending.firstName },
+    }),
+    db.shopSetting.upsert({
+      where: { orgId_key: { orgId, key: "contactLastName" } },
+      create: { orgId, key: "contactLastName", value: pending.lastName },
+      update: { value: pending.lastName },
+    }),
+    db.shopSetting.upsert({
+      where: { orgId_key: { orgId, key: "shopPhone" } },
+      create: { orgId, key: "shopPhone", value: pending.phone },
+      update: { value: pending.phone },
+    }),
+  ]);
 
   // 4. Best-effort: clear the pending signup (incl. the password hash) from
   //    Stripe now that it's persisted in our DB.
@@ -215,7 +267,11 @@ export async function materializeAccount(
   try {
     await sendSignupEmails({
       name: pending.name,
+      firstName: pending.firstName,
+      lastName: pending.lastName,
       email: pending.email,
+      phone: pending.phone,
+      accountType: pending.accountType,
       username: finalUsername,
       subscription,
     });
@@ -239,11 +295,24 @@ function trialEndDate(sub: Stripe.Subscription): Date | null {
 
 async function sendSignupEmails(args: {
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
+  accountType: string;
   username: string;
   subscription: Stripe.Subscription;
 }): Promise<void> {
-  const { name, email, username, subscription } = args;
+  const {
+    name,
+    firstName,
+    lastName,
+    email,
+    phone,
+    accountType,
+    username,
+    subscription,
+  } = args;
   const loginUrl = `${baseUrl()}/login`;
   const trialEnd = trialEndDate(subscription);
 
@@ -261,7 +330,16 @@ async function sendSignupEmails(args: {
     await sendEmail({
       to: notify,
       subject: `New ${APP_NAME} signup: ${name}`,
-      html: ownerNotifyHtml({ name, email, username, trialEnd }),
+      html: ownerNotifyHtml({
+        name,
+        firstName,
+        lastName,
+        email,
+        phone,
+        accountType,
+        username,
+        trialEnd,
+      }),
       replyTo: email,
     });
   }
@@ -297,7 +375,11 @@ function welcomeHtml(p: {
 
 function ownerNotifyHtml(p: {
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
+  accountType: string;
   username: string;
   trialEnd: Date | null;
 }): string {
@@ -311,7 +393,11 @@ function ownerNotifyHtml(p: {
     <p style="margin:0 0 16px;color:#71717a;font-size:14px">A new business just completed checkout and activated their account.</p>
     <table style="border-collapse:collapse">
       ${row("Business", p.name)}
+      ${row("First name", p.firstName)}
+      ${row("Last name", p.lastName)}
       ${row("Email", p.email)}
+      ${row("Phone", p.phone)}
+      ${row("Account type", p.accountType)}
       ${row("Username", p.username)}
       ${row("Trial ends", p.trialEnd ? p.trialEnd.toLocaleDateString() : "")}
     </table>
