@@ -26,6 +26,22 @@ export const DEFAULT_GENERAL_FEATURES: FeatureKey[] = [
   "reports",
 ];
 
+export function sanitizeFeatureKeys(
+  accountType: string | null | undefined,
+  keys: string[] | null | undefined,
+): FeatureKey[] {
+  if ((accountType ?? "AUTO_SHOP") === "AUTO_SHOP") {
+    return [...ALL_FEATURE_KEYS];
+  }
+
+  const generalKeys = new Set<string>(
+    FEATURES.filter((feature) => !feature.autoOnly).map((feature) => feature.key),
+  );
+  return Array.from(
+    new Set((keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key))),
+  );
+}
+
 export function enabledFeatureSet(org: {
   accountType?: string | null;
   features?: string[] | null;
@@ -34,11 +50,5 @@ export function enabledFeatureSet(org: {
     return new Set(ALL_FEATURE_KEYS);
   }
 
-  const generalKeys = new Set<string>(
-    FEATURES.filter((feature) => !feature.autoOnly).map((feature) => feature.key),
-  );
-  const enabled = (org.features ?? []).filter((key): key is FeatureKey =>
-    generalKeys.has(key as FeatureKey),
-  );
-  return new Set(enabled);
+  return new Set(sanitizeFeatureKeys(org.accountType, org.features));
 }
