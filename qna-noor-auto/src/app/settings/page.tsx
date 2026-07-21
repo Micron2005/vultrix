@@ -13,7 +13,7 @@ import { getAllSettings, setSetting } from "@/lib/shop";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { isMarketingOwnerOrg } from "@/lib/marketing";
 import { intakeUrl } from "@/lib/intakeTokens";
 import {
@@ -42,6 +42,7 @@ export default async function SettingsPage({
   searchParams?: Promise<{ saved?: string; deleted?: string; error?: string }>;
 }) {
   const orgId = await requireOrgId();
+  const me = await getCurrentUser();
   const showFlyer = await isMarketingOwnerOrg(orgId);
   const sp = (await searchParams) ?? {};
   const settings = await getAllSettings(orgId);
@@ -115,6 +116,24 @@ export default async function SettingsPage({
           <SaveButton>Save settings</SaveButton>
         </form>
       </Card>
+
+      {me && (me.role === "OWNER" || me.role === "ADMIN") && (
+        <Card className="max-w-2xl mt-6">
+          <CardHeader title="API access" />
+          <div className="p-6">
+            <p className="text-sm text-zinc-600">
+              Connect your own assistant to your organization through an API
+              key.
+            </p>
+            <Link
+              href="/settings/api-keys"
+              className="mt-3 inline-flex text-sm font-medium text-zinc-900 underline"
+            >
+              Manage API keys →
+            </Link>
+          </div>
+        </Card>
+      )}
 
       <div id="shop-fees" className="h-4" />
       <Card className="max-w-4xl mt-6">
