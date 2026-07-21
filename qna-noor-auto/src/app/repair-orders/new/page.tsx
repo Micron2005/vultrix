@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import {
   Button,
   Card,
@@ -24,7 +24,10 @@ export default async function NewRepairOrderPage({
 }: {
   searchParams: Promise<{ customerId?: string; vehicleId?: string }>;
 }) {
+  const user = await requireUser();
   const orgId = await requireOrgId();
+  const isAutoShop = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
+  if (!isAutoShop && !user.features.includes("invoices")) redirect("/");
   const { customerId: cIdFromQuery, vehicleId: vIdFromQuery } =
     await searchParams;
 
@@ -118,6 +121,30 @@ export default async function NewRepairOrderPage({
     include: { vehicles: { orderBy: { createdAt: "desc" } } },
   });
   if (!customer) notFound();
+
+  if (!vehicleId && !isAutoShop) {
+    return (
+      <>
+        <PageHeader
+          title="New Invoice"
+          description={`Create an invoice for ${fullName(customer)}`}
+        />
+        <Card className="p-6">
+          <form action={createRepairOrder} className="space-y-4 max-w-2xl">
+            <input type="hidden" name="customerId" value={customer.id} />
+            <Field label="Description">
+              <Textarea
+                name="complaint"
+                rows={3}
+                placeholder="What is this invoice for?"
+              />
+            </Field>
+            <Button type="submit">Create Invoice</Button>
+          </form>
+        </Card>
+      </>
+    );
+  }
 
   // Step 2: pick vehicle if not provided — OR inline-create one
   if (!vehicleId) {

@@ -146,7 +146,7 @@ export default async function PublicEstimatePage({
                 <div className="text-zinc-600">{ro.customer.email}</div>
               )}
             </div>
-            <div>
+            {ro.vehicle && <div>
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                 Vehicle
               </div>
@@ -168,7 +168,7 @@ export default async function PublicEstimatePage({
                   Mileage in: {ro.mileageIn.toLocaleString()}
                 </div>
               )}
-            </div>
+            </div>}
           </section>
 
           {ro.complaint && (

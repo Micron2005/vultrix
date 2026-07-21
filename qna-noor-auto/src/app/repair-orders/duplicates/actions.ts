@@ -41,6 +41,6 @@ export async function deleteFromDuplicates(id: string, fd: FormData) {
   revalidatePath("/repair-orders/duplicates");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
-  revalidatePath(`/vehicles/${ro.vehicleId}`);
+  if (ro.vehicleId) revalidatePath(`/vehicles/${ro.vehicleId}`);
   redirect("/repair-orders/duplicates?deleted=1");
 }

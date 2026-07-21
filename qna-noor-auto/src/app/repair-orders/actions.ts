@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, dbBase } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
@@ -22,27 +22,42 @@ const RO_STATUSES = [
 
 const CreateROSchema = z.object({
   customerId: z.string().min(1),
-  vehicleId: z.string().min(1),
+  vehicleId: z.string().optional().nullable(),
   complaint: z.string().optional().nullable(),
   mileageIn: z.string().optional().nullable(),
 });
 
 export async function createRepairOrder(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const raw = Object.fromEntries(fd.entries()) as Record<string, string>;
   const parsed = CreateROSchema.parse({
     customerId: raw.customerId,
-    vehicleId: raw.vehicleId,
+    vehicleId: raw.vehicleId || null,
     complaint: raw.complaint || null,
     mileageIn: raw.mileageIn || null,
   });
 
-  // Ensure the customer and vehicle belong to this org before linking them.
-  const vehicle = await db.vehicle.findFirst({
-    where: { id: parsed.vehicleId, customerId: parsed.customerId, orgId },
-    select: { id: true },
-  });
-  if (!vehicle) throw new Error("Vehicle not found");
+  const requiresVehicle = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
+  if (!requiresVehicle && !user.features.includes("invoices")) {
+    throw new Error("Invoices are not enabled for this account");
+  }
+  if (requiresVehicle && !parsed.vehicleId) {
+    throw new Error("Vehicle is required for auto-shop repair orders");
+  }
+  if (parsed.vehicleId) {
+    const vehicle = await db.vehicle.findFirst({
+      where: { id: parsed.vehicleId, customerId: parsed.customerId, orgId },
+      select: { id: true },
+    });
+    if (!vehicle) throw new Error("Vehicle not found");
+  } else {
+    const customer = await db.customer.findFirst({
+      where: { id: parsed.customerId, orgId },
+      select: { id: true },
+    });
+    if (!customer) throw new Error("Customer not found");
+  }
 
   const roNumber = await getNextRoNumber(orgId);
   const defaultTax = parseFloat(await getSetting(orgId, "defaultTaxRate")) || 0;
@@ -62,7 +77,7 @@ export async function createRepairOrder(fd: FormData) {
 
   // Also update vehicle mileage if mileageIn was provided and greater
   const createdMileageIn = parseMileage(parsed.mileageIn);
-  if (createdMileageIn !== null) {
+  if (createdMileageIn !== null && parsed.vehicleId) {
     await db.vehicle.update({
       where: { id: parsed.vehicleId, orgId },
       data: { mileage: createdMileageIn },
@@ -72,7 +87,7 @@ export async function createRepairOrder(fd: FormData) {
   revalidatePath("/repair-orders");
   revalidatePath("/");
   revalidatePath(`/customers/${parsed.customerId}`);
-  revalidatePath(`/vehicles/${parsed.vehicleId}`);
+  if (parsed.vehicleId) revalidatePath(`/vehicles/${parsed.vehicleId}`);
   redirect(`/repair-orders/${created.id}`);
 }
 
@@ -318,7 +333,7 @@ export async function deleteRepairOrder(id: string) {
   revalidatePath("/repair-orders/trash");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
-  revalidatePath(`/vehicles/${ro.vehicleId}`);
+  if (ro.vehicleId) revalidatePath(`/vehicles/${ro.vehicleId}`);
   // Bounce back to the dashboard rather than the RO list — same rule as
   // Save & Exit on the RO detail page.
   redirect("/");
@@ -339,7 +354,7 @@ export async function restoreRepairOrder(id: string) {
   revalidatePath("/repair-orders/trash");
   revalidatePath("/");
   revalidatePath(`/customers/${ro.customerId}`);
-  revalidatePath(`/vehicles/${ro.vehicleId}`);
+  if (ro.vehicleId) revalidatePath(`/vehicles/${ro.vehicleId}`);
   redirect(`/repair-orders/${id}`);
 }
 
@@ -979,7 +994,7 @@ export async function updateROVehicleInfo(fd: FormData) {
     where: { id: parsed.repairOrderId, orgId },
     select: { id: true, vehicleId: true },
   });
-  if (!ro || ro.vehicleId !== parsed.vehicleId) {
+  if (!ro || !ro.vehicleId || ro.vehicleId !== parsed.vehicleId) {
     redirect(`/repair-orders/${parsed.repairOrderId}`);
   }
 

@@ -104,6 +104,7 @@ type Cluster = {
 // merged into one group — the cluster header only shows a single customer, so
 // cross-customer merging would be misleading.
 function vehicleIdentityKey(ro: ROWithRelations): string {
+  if (!ro.vehicle) return `no-vehicle:${ro.id}`;
   const vin = ro.vehicle.vin?.replace(/\s/g, "").toUpperCase();
   if (vin) return `cust:${ro.customerId}|vin:${vin}`;
   const plate = ro.vehicle.licensePlate?.replace(/\s/g, "").toUpperCase();
@@ -116,6 +117,7 @@ function clusterROs(ros: ROWithRelations[]): Cluster[] {
   // car spread across multiple Vehicle records still clusters together.
   const byVehicle = new Map<string, ROWithRelations[]>();
   for (const ro of ros) {
+    if (!ro.vehicleId || !ro.vehicle) continue;
     const key = vehicleIdentityKey(ro);
     const list = byVehicle.get(key) ?? [];
     list.push(ro);
@@ -192,6 +194,7 @@ function clusterROs(ros: ROWithRelations[]): Cluster[] {
         }
       }
       const sample = mros[0];
+      if (!sample.vehicleId) continue;
       clusters.push({
         vehicleId: sample.vehicleId,
         customerId: sample.customerId,

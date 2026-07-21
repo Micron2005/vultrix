@@ -153,7 +153,9 @@ export async function GET(
 
   // Bill To
   page.drawText("BILL TO", { x: margin, y, size: 9, font: bold, color: gray });
-  page.drawText("VEHICLE", { x: 320, y, size: 9, font: bold, color: gray });
+  if (ro.vehicle) {
+    page.drawText("VEHICLE", { x: 320, y, size: 9, font: bold, color: gray });
+  }
   y -= 14;
 
   const billTo: string[] = [fullName(ro.customer)];
@@ -165,9 +167,9 @@ export async function GET(
   if (ro.customer.phone) billTo.push(ro.customer.phone);
   if (ro.customer.email) billTo.push(ro.customer.email);
 
-  const vLines: string[] = [vehicleLabel(ro.vehicle)];
-  if (ro.vehicle.vin) vLines.push(`VIN: ${ro.vehicle.vin}`);
-  if (ro.vehicle.licensePlate)
+  const vLines: string[] = ro.vehicle ? [vehicleLabel(ro.vehicle)] : [];
+  if (ro.vehicle?.vin) vLines.push(`VIN: ${ro.vehicle.vin}`);
+  if (ro.vehicle?.licensePlate)
     vLines.push(
       `Plate: ${ro.vehicle.licensePlate}${ro.vehicle.licenseState ? ` (${ro.vehicle.licenseState})` : ""}`,
     );

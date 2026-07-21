@@ -280,6 +280,7 @@ export async function computeAllVehicleReminders(
     Array<{ mileage: number | null; date: Date }>
   >();
   for (const r of allROs) {
+    if (!r.vehicleId) continue;
     const list = roMileagesByVehicle.get(r.vehicleId) ?? [];
     if (typeof r.mileageIn === "number")
       list.push({ mileage: r.mileageIn, date: r.openedAt });
@@ -338,6 +339,7 @@ export async function autoLogServicesForRO(
     include: { laborLines: true },
   });
   if (!ro) return 0;
+  if (!ro.vehicleId) return 0;
 
   const intervals = await client.serviceInterval.findMany({
     where: { archived: false },

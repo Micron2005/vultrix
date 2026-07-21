@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -18,6 +18,7 @@ import {
   fullName,
   vehicleLabel,
 } from "@/lib/utils";
+import { repairOrderNouns } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,13 @@ export default async function RepairOrdersPage({
     sort?: string;
   }>;
 }) {
-  const orgId = await requireOrgId();
+  const user = await requireUser();
+  const orgId = user.orgId;
+  if (!orgId) throw new Error("Organization required");
+  const nouns = repairOrderNouns(user.accountType);
+  const isAutoShop = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
+  const recordPluralLower = nouns.plural.toLowerCase();
+  const recordSingularLower = nouns.singular.toLowerCase();
   const { q, status, view, sort } = await searchParams;
   const query = q?.trim() ?? "";
   const statusFilter = status?.trim();
@@ -127,8 +134,8 @@ export default async function RepairOrdersPage({
   return (
     <>
       <PageHeader
-        title="Repair Orders"
-        description="All repair orders across the shop"
+        title={nouns.plural}
+        description={`All ${nouns.plural.toLowerCase()} across the shop`}
         actions={
           <div className="flex gap-2">
             <Link
@@ -144,7 +151,9 @@ export default async function RepairOrdersPage({
             >
               Review duplicates
             </Link>
-            <LinkButton href="/repair-orders/new">New RO</LinkButton>
+            <LinkButton href="/repair-orders/new">
+              {isAutoShop ? "New RO" : "New invoice"}
+            </LinkButton>
           </div>
         }
       />
@@ -156,12 +165,22 @@ export default async function RepairOrdersPage({
         <Input
           name="q"
           defaultValue={query}
-          placeholder="Search RO #, customer, company, VIN, plate, complaint…"
+          placeholder={
+            isAutoShop
+              ? "Search RO #, customer, company, VIN, plate, complaint…"
+              : "Search invoice #, customer, company, complaint…"
+          }
           className="flex-1 min-w-[16rem]"
         />
         <Select name="view" defaultValue={viewMode}>
-          <option value="open">Open only (hide paid/cancelled)</option>
-          <option value="all">All ROs (include paid/cancelled)</option>
+          <option value="open">
+            Open only (hide paid/cancelled)
+          </option>
+          <option value="all">
+            {isAutoShop
+              ? "All ROs (include paid/cancelled)"
+              : "All invoices (include paid/cancelled)"}
+          </option>
         </Select>
         <Select name="sort" defaultValue={sortMode}>
           <option value="newest">Newest first</option>
@@ -184,8 +203,11 @@ export default async function RepairOrdersPage({
       </form>
       {viewMode !== "all" && !statusFilter && (
         <p className="-mt-2 mb-4 text-xs text-zinc-500">
-          Showing open repair orders only. Paid and cancelled ROs are hidden —
-          switch to &quot;All ROs&quot; or pick a specific status to see them.
+          {`Showing open ${recordPluralLower} only. Paid and cancelled ${
+            isAutoShop ? "ROs" : "invoices"
+          } are hidden — switch to "${
+            isAutoShop ? "All ROs" : "All invoices"
+          }" or pick a specific status to see them.`}
         </p>
       )}
 
@@ -193,15 +215,19 @@ export default async function RepairOrdersPage({
         <EmptyState
           title={
             query || statusFilter
-              ? "No ROs matched your filters"
-              : "No repair orders yet"
+              ? `No ${isAutoShop ? "ROs" : recordPluralLower} matched your filters`
+              : `No ${recordPluralLower} yet`
           }
           description={
             query || statusFilter
               ? undefined
-              : "Create your first repair order to get started."
+              : `Create your first ${recordSingularLower} to get started.`
           }
-          action={<LinkButton href="/repair-orders/new">New RO</LinkButton>}
+          action={
+            <LinkButton href="/repair-orders/new">
+              {isAutoShop ? "New RO" : "New invoice"}
+            </LinkButton>
+          }
         />
       ) : (
         <Card>
@@ -210,7 +236,9 @@ export default async function RepairOrdersPage({
               <tr>
                 <th className="px-4 py-2 font-medium">RO #</th>
                 <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Vehicle</th>
+                {isAutoShop && (
+                  <th className="px-4 py-2 font-medium">Vehicle</th>
+                )}
                 <th className="px-4 py-2 font-medium">Complaint</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Opened</th>
@@ -232,7 +260,9 @@ export default async function RepairOrdersPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2">{fullName(ro.customer)}</td>
-                    <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                    {isAutoShop && (
+                      <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                    )}
                     <td className="px-4 py-2 text-zinc-600 max-w-xs truncate">
                       {ro.complaint ?? "—"}
                     </td>

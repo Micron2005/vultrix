@@ -26,6 +26,15 @@ export const DEFAULT_GENERAL_FEATURES: FeatureKey[] = [
   "reports",
 ];
 
+export function repairOrderNouns(accountType?: string | null): {
+  singular: string;
+  plural: string;
+} {
+  return (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
+    ? { singular: "Repair Order", plural: "Repair Orders" }
+    : { singular: "Invoice", plural: "Invoices" };
+}
+
 export function sanitizeFeatureKeys(
   accountType: string | null | undefined,
   keys: string[] | null | undefined,

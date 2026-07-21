@@ -70,7 +70,8 @@ export default async function TrashPage({
                     <StatusBadge status={ro.status} />
                   </div>
                   <div className="mt-1 text-sm text-zinc-700">
-                    {fullName(ro.customer)} · {vehicleLabel(ro.vehicle)}
+                    {fullName(ro.customer)}
+                    {ro.vehicle && <> · {vehicleLabel(ro.vehicle)}</>}
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
                     Opened {formatDate(ro.openedAt)}

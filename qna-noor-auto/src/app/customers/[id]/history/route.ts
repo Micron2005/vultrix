@@ -267,7 +267,13 @@ export async function GET(
 
     // header line per RO
     ensureSpace(40);
-    const headerLeft = `RO #${ro.roNumber}  ·  ${formatDate(ro.openedAt)}  ·  ${vehicleLabel(ro.vehicle)}`;
+    const headerLeft = [
+      `RO #${ro.roNumber}`,
+      formatDate(ro.openedAt),
+      ro.vehicle ? vehicleLabel(ro.vehicle) : null,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
     page.drawText(headerLeft, { x: MARGIN, y, size: 11, font: bold, color: black });
     const statusLabel = ro.status;
     const statusWidth = font.widthOfTextAtSize(statusLabel, 9);

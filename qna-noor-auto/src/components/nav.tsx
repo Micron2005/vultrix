@@ -11,6 +11,7 @@ type NavProps = {
   username?: string | null;
   isSuperadmin?: boolean;
   enabledFeatures?: string[];
+  accountType?: string | null;
 };
 
 const items = [
@@ -45,6 +46,7 @@ export function Nav({
   username,
   isSuperadmin,
   enabledFeatures = [],
+  accountType,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -54,7 +56,7 @@ export function Nav({
 
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
-  const navItems = (isSuperadmin
+  const baseItems = (isSuperadmin
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/leads", label: "Leads" },
@@ -65,8 +67,22 @@ export function Nav({
           { href: "/settings/users", label: "Logins" },
           { href: "/billing", label: "Billing" },
         ]
-      : items
-  ).filter((item) => !item.feature || enabledFeatures.includes(item.feature));
+    : items
+  ).map((item) => {
+    if (item.href !== "/repair-orders") return item;
+    const hasRepairOrders = enabledFeatures.includes("repair_orders");
+    return {
+      ...item,
+      label:
+        hasRepairOrders || (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
+          ? "Repair Orders"
+          : "Invoices",
+      feature: hasRepairOrders ? "repair_orders" : "invoices",
+    };
+  });
+  const navItems = baseItems.filter(
+    (item) => !item.feature || enabledFeatures.includes(item.feature),
+  );
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone

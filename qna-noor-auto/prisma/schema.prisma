@@ -109,8 +109,8 @@ model RepairOrder {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
-  vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   status String @default("ESTIMATE") // ESTIMATE | IN_PROGRESS | COMPLETED | INVOICED | PAID | CANCELLED
 
