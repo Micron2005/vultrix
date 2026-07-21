@@ -12,6 +12,8 @@ export type CurrentUser = {
   orgId: string | null;
   orgName: string | null;
   orgStatus: string | null;
+  accountType: string | null;
+  features: string[];
 };
 
 /**
@@ -42,6 +44,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     orgId: user.orgId,
     orgName: user.organization?.name ?? null,
     orgStatus: user.organization?.status ?? null,
+    accountType: user.organization?.accountType ?? null,
+    features: user.organization?.features ?? [],
   };
 }
 

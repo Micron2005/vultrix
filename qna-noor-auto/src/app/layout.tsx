@@ -6,6 +6,7 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { getCurrentUser, canManageUsers } from "@/lib/session";
 import { isDemoOrg } from "@/lib/demo";
 import { APP_NAME } from "@/lib/branding";
+import { enabledFeatureSet } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -34,6 +35,7 @@ export default async function RootLayout({
   }
 
   const orgLabel = user.orgName ?? APP_NAME;
+  const enabledFeatures = Array.from(enabledFeatureSet(user));
 
   return (
     <html lang="en" className="h-full">
@@ -44,6 +46,7 @@ export default async function RootLayout({
             username={user.username}
             canManageUsers={canManageUsers(user.role)}
             isSuperadmin={user.role === "SUPERADMIN"}
+            enabledFeatures={enabledFeatures}
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}
