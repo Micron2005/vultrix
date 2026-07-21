@@ -102,6 +102,18 @@ export function ApiKeysManager({
           <pre className="overflow-x-auto rounded-md bg-zinc-900 p-4 text-xs text-zinc-100">
             {`curl -H "Authorization: Bearer <your-api-key>" ${apiBaseUrl}/api/v1/me`}
           </pre>
+          <ul className="space-y-1 text-xs text-zinc-600">
+            <li><code>GET /api/v1/customers</code> — find customers.</li>
+            <li><code>POST /api/v1/customers</code> — create a customer.</li>
+            <li><code>GET /api/v1/invoices</code> — list invoices.</li>
+            <li><code>POST /api/v1/invoices</code> — create an invoice.</li>
+            <li><code>GET /api/v1/inventory</code> — find inventory parts.</li>
+            <li><code>POST /api/v1/inventory</code> — create an inventory part.</li>
+            <li><code>POST /api/v1/inventory/:id/adjust</code> — adjust stock.</li>
+            <li><code>GET /api/v1/expenses</code> — list expenses.</li>
+            <li><code>POST /api/v1/expenses</code> — create an expense.</li>
+            <li><code>GET /api/v1/financials/summary</code> — summarize money in/out.</li>
+          </ul>
         </div>
       </Card>
     </>
