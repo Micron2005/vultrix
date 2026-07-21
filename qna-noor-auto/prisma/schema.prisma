@@ -734,8 +734,24 @@ model Organization {
   expenses         Expense[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
+  apiKeys          ApiKey[]
 
   @@index([status])
+}
+
+model ApiKey {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  name       String
+  tokenHash  String   @unique
+  prefix     String
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([orgId])
 }
 
 model User {
