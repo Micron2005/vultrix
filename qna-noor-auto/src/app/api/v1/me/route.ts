@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   const organization = await db.organization.findUnique({
     where: { id: auth.orgId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, accountType: true },
   });
   if (!organization) return unauthorizedResponse();
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     org: {
       id: organization.id,
       name: organization.name,
-      accountType: "AUTO_SHOP",
+      accountType: organization.accountType,
     },
   });
 }
