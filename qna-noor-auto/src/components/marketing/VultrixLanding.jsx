@@ -11,7 +11,7 @@ import {
   Wrench, FileText, Car, Search, Boxes, Package, QrCode, Bell, Calendar,
   UserCog, Building2, Receipt, BarChart3, Upload, ClipboardList, Users,
   ShieldCheck, Smartphone, Download, HardHat, Bot, Globe, Store, MessageSquare,
-  CreditCard, Clock, BadgeCheck, ArrowRight, ArrowUpRight, Quote, Check, X,
+  CreditCard, Clock, BadgeCheck, ArrowRight, ArrowUpRight, Check, X,
   Menu, Mail, Phone, MapPin, RefreshCw, Send, CheckCircle2, LayoutDashboard,
   ScanLine, Plus,
 } from "lucide-react";
@@ -662,22 +662,14 @@ const WhatIs = () => (
 const FounderStory = () => (
   <section className="bg-white border-y border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        <Reveal className="lg:col-span-7">
+      <div className="max-w-3xl">
+        <Reveal>
           <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Why I built it</div>
           <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">I got tired of clunky, overpriced tools. So I built a better one.</h2>
           <div className="mt-5 space-y-4 text-base text-zinc-600 leading-relaxed">
             <p>I work on cars. The software I was stuck with was slow, confusing, and cost a small fortune every month — and it still couldn't do half of what a busy shop actually needs.</p>
             <p>So I built {SITE.brand}: the system I wish I'd had on day one. Everything a shop touches in a day — estimates, parts, inventory, customers, reminders, and the money — in one fast, clean place. No fluff, no lock-in, no enterprise price tag.</p>
           </div>
-        </Reveal>
-        <Reveal className="lg:col-span-5" delay={0.1}>
-          <figure className="relative rounded-[18px] bg-zinc-950 text-white p-8 overflow-hidden">
-            <div className="absolute inset-0 vx-dots opacity-50" aria-hidden="true" />
-            <Quote className="relative h-8 w-8 text-amber-400" />
-            <blockquote className="relative mt-4 font-display text-xl font-bold leading-snug">“If it doesn't make the day in the bay faster, it doesn't belong in the software.”</blockquote>
-            <figcaption className="relative mt-5 text-sm text-zinc-400">— The {SITE.brand} founder, {SITE.owner}</figcaption>
-          </figure>
         </Reveal>
       </div>
     </div>
