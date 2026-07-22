@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Button, Input } from "@/components/ui";
 
 type TranscriptEntry = {
@@ -88,10 +89,11 @@ export function AssistantClient({
   voiceIdentifier: string | null;
   floating?: boolean;
 }) {
+  const pathname = usePathname();
+  const voiceEnabled = !floating || pathname !== "/assistant";
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
-  const [expanded, setExpanded] = useState(!floating);
   const [floatingPosition, setFloatingPosition] = useState<FloatingPosition>({
     x: POSITION_MARGIN,
     y: POSITION_MARGIN,
@@ -180,7 +182,7 @@ export function AssistantClient({
     clampPosition();
     window.addEventListener("resize", clampPosition);
     return () => window.removeEventListener("resize", clampPosition);
-  }, [clampFloatingPosition, expanded, floating]);
+  }, [clampFloatingPosition, floating]);
 
   const handleDragStart = (event: React.PointerEvent<HTMLElement>) => {
     if (!floating || event.button !== 0) return;
@@ -530,7 +532,7 @@ export function AssistantClient({
     const speechWindow = window as SpeechWindow;
     const Constructor =
       speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-    if (!Constructor) return;
+    if (!Constructor || !voiceEnabled) return;
     const recognition = new Constructor();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -582,6 +584,9 @@ export function AssistantClient({
       }
     };
     recognitionRef.current = recognition;
+    if (shouldListenRef.current) {
+      startRecognition();
+    }
     return () => {
       shouldListenRef.current = false;
       recognitionPausedRef.current = true;
@@ -595,7 +600,7 @@ export function AssistantClient({
       }
       recognitionRef.current = null;
     };
-  }, [clearCommandDebounce, clearSpeechBuffer, startRecognition]);
+  }, [clearCommandDebounce, clearSpeechBuffer, startRecognition, voiceEnabled]);
 
   const toggleListening = () => {
     const recognition = recognitionRef.current;
@@ -627,12 +632,14 @@ export function AssistantClient({
     FOLLOW_UP: "Listening for your next request",
   };
 
+  if (floating && !voiceEnabled) return null;
+
   return (
     <div
       ref={floatingRef}
       className={
         floating
-          ? "fixed z-50 w-[min(calc(100vw-2rem),24rem)]"
+          ? "fixed z-50"
           : "p-4 sm:p-6"
       }
       style={
@@ -641,11 +648,22 @@ export function AssistantClient({
           : undefined
       }
     >
-      {floating && !expanded ? (
+      {floating ? (
         <Button
           type="button"
           className="h-14 w-14 rounded-full p-0 shadow-lg"
-          aria-label={`Open ${assistantName}`}
+          variant={
+            voiceState === "THINKING"
+              ? "primary"
+              : listening
+                ? "danger"
+                : "secondary"
+          }
+          aria-label={
+            listening
+              ? `Stop ${assistantName} microphone`
+              : `Start ${assistantName} microphone`
+          }
           style={{ touchAction: "none", cursor: "move" }}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
@@ -656,44 +674,21 @@ export function AssistantClient({
               dragMovedRef.current = false;
               return;
             }
-            setExpanded(true);
+            toggleListening();
           }}
         >
-          <span className="text-xl" aria-hidden="true">
-            ◉
+          <span className="text-xs font-semibold" aria-hidden="true">
+            {voiceState === "THINKING"
+              ? "…"
+              : listening
+                ? voiceState === "ASLEEP"
+                  ? "WAKE"
+                  : "MIC"
+                : "◉"}
           </span>
         </Button>
       ) : (
-        <div
-          className={
-            floating
-              ? "rounded-lg border border-zinc-200 bg-white shadow-xl"
-              : ""
-          }
-        >
-          {floating && (
-            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-              <span
-                className="cursor-move text-sm font-semibold text-zinc-900"
-                style={{ touchAction: "none" }}
-                onPointerDown={handleDragStart}
-                onPointerMove={handleDragMove}
-                onPointerUp={handleDragEnd}
-                onPointerCancel={handleDragEnd}
-              >
-                {assistantName}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="Collapse assistant"
-                onClick={() => setExpanded(false)}
-              >
-                ×
-              </Button>
-            </div>
-          )}
+        <div>
           <div
             className={
               floating ? "max-h-[min(70vh,36rem)] overflow-y-auto" : ""
