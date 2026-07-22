@@ -48,6 +48,9 @@ export default async function RootLayout({
             isSuperadmin={user.role === "SUPERADMIN"}
             enabledFeatures={enabledFeatures}
             accountType={user.accountType}
+            aiAssistantEnabled={
+              user.accountType === "PERSONAL" && user.aiAssistantEnabled
+            }
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}

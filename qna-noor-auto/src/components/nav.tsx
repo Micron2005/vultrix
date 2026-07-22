@@ -12,6 +12,7 @@ type NavProps = {
   isSuperadmin?: boolean;
   enabledFeatures?: string[];
   accountType?: string | null;
+  aiAssistantEnabled?: boolean;
 };
 
 const items = [
@@ -47,6 +48,7 @@ export function Nav({
   isSuperadmin,
   enabledFeatures = [],
   accountType,
+  aiAssistantEnabled = false,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -86,7 +88,12 @@ export function Nav({
       feature: hasRepairOrders ? "repair_orders" : "invoices",
     };
   });
-  const navItems = baseItems.filter(
+  const navItems = [
+    ...baseItems,
+    ...(aiAssistantEnabled
+      ? [{ href: "/assistant", label: "Assistant", feature: undefined }]
+      : []),
+  ].filter(
     (item) => !item.feature || enabledFeatures.includes(item.feature),
   );
 
