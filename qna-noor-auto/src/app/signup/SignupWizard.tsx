@@ -6,6 +6,7 @@ import { startSignup } from "./actions";
 import {
   DEFAULT_GENERAL_FEATURES,
   FEATURES,
+  MANDATORY_GENERAL_FEATURES,
   type FeatureKey,
 } from "@/lib/features";
 
@@ -40,6 +41,7 @@ type PersistedSignupWizard = {
 
 const GENERAL_FEATURES = FEATURES.filter((feature) => !feature.autoOnly);
 const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
+const MANDATORY_FEATURE_SET = new Set<FeatureKey>(MANDATORY_GENERAL_FEATURES);
 const SIGNUP_STORAGE_KEY = "vultrix_signup_wizard_v1";
 const inputClass =
   "mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
@@ -171,7 +173,9 @@ export function SignupWizard({
         ? "BUSINESS"
         : "AUTO_SHOP";
   const autoShop = accountType === "AUTO_SHOP";
-  const finalFeatures = autoShop ? ALL_FEATURE_KEYS : selectedFeatures;
+  const finalFeatures = autoShop
+    ? ALL_FEATURE_KEYS
+    : Array.from(new Set([...selectedFeatures, ...MANDATORY_GENERAL_FEATURES]));
   const displayName =
     path === "personal" ? `${firstName} ${lastName}`.trim() : businessName.trim();
   const contactIsValid = Boolean(
@@ -230,7 +234,7 @@ export function SignupWizard({
   }
 
   function toggleFeature(key: FeatureKey) {
-    if (key === "invoices") return;
+    if (key === "invoices" || MANDATORY_FEATURE_SET.has(key)) return;
     setSelectedFeatures((current) =>
       current.includes(key)
         ? current.filter((item) => item !== key)
@@ -483,8 +487,10 @@ export function SignupWizard({
               </p>
               <div className="space-y-2">
                 {GENERAL_FEATURES.map((feature) => {
-                  const checked =
-                    feature.key === "invoices"
+                  const mandatory = MANDATORY_FEATURE_SET.has(feature.key);
+                  const checked = mandatory
+                    ? true
+                    : feature.key === "invoices"
                       ? invoiceChoice === "yes"
                       : selectedFeatures.includes(feature.key);
                   return (
@@ -495,11 +501,18 @@ export function SignupWizard({
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={feature.key === "invoices"}
+                        disabled={feature.key === "invoices" || mandatory}
                         onChange={() => toggleFeature(feature.key)}
                         className="rounded border-zinc-300"
                       />
-                      <span className="text-sm text-zinc-800">{feature.label}</span>
+                      <span className="text-sm text-zinc-800">
+                        {feature.label}
+                        {mandatory && (
+                          <span className="ml-2 text-xs text-zinc-400">
+                            Always included
+                          </span>
+                        )}
+                      </span>
                     </label>
                   );
                 })}
