@@ -69,6 +69,12 @@ export function Nav({
         ]
     : items
   ).map((item) => {
+    if (item.href === "/appointments") {
+      return {
+        ...item,
+        label: accountType === "PERSONAL" ? "Calendar" : "Schedule",
+      };
+    }
     if (item.href !== "/repair-orders") return item;
     const hasRepairOrders = enabledFeatures.includes("repair_orders");
     return {
