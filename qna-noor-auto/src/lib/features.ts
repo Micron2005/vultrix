@@ -19,11 +19,17 @@ export type FeatureKey = (typeof FEATURES)[number]["key"];
 
 const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
 
+// General features every non-auto account always gets, regardless of what they
+// pick during sign-up. Import / export is a baseline capability so anyone can
+// bring their own data in or take it out — it can't be turned off.
+export const MANDATORY_GENERAL_FEATURES: FeatureKey[] = ["import_export"];
+
 export const DEFAULT_GENERAL_FEATURES: FeatureKey[] = [
   "customers",
   "invoices",
   "financials",
   "reports",
+  "import_export",
 ];
 
 export function repairOrderNouns(accountType?: string | null): {
@@ -46,9 +52,11 @@ export function sanitizeFeatureKeys(
   const generalKeys = new Set<string>(
     FEATURES.filter((feature) => !feature.autoOnly).map((feature) => feature.key),
   );
-  return Array.from(
-    new Set((keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key))),
+  const selected = new Set(
+    (keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key)),
   );
+  for (const key of MANDATORY_GENERAL_FEATURES) selected.add(key);
+  return Array.from(selected);
 }
 
 export function enabledFeatureSet(org: {
