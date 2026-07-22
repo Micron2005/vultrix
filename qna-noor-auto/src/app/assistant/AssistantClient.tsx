@@ -42,6 +42,22 @@ type SpeechWindow = Window & {
 const FOLLOW_UP_TIMEOUT_MS = 6000;
 const SPEECH_PAUSE_MS = 3000;
 const DUPLICATE_TRANSCRIPT_WINDOW_MS = 1200;
+const ASSISTANT_POSITION_KEY = "vultrix-assistant-position";
+const POSITION_MARGIN = 8;
+
+type FloatingPosition = {
+  x: number;
+  y: number;
+};
+
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+  moved: boolean;
+};
 
 function normalizeSpeech(text: string): string {
   return text
@@ -76,8 +92,16 @@ export function AssistantClient({
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   const [expanded, setExpanded] = useState(!floating);
+  const [floatingPosition, setFloatingPosition] = useState<FloatingPosition>({
+    x: POSITION_MARGIN,
+    y: POSITION_MARGIN,
+  });
   const [voiceState, setVoiceStateValue] = useState<VoiceState>("ASLEEP");
   const [status, setStatus] = useState("");
+  const floatingRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const dragMovedRef = useRef(false);
+  const positionReadyRef = useRef(!floating);
   const recognitionRef = useRef<Recognition | null>(null);
   const recognitionStartedRef = useRef(false);
   const shouldListenRef = useRef(false);
@@ -96,6 +120,107 @@ export function AssistantClient({
   const submitMessageRef = useRef<(message: string) => Promise<void>>(
     async () => {},
   );
+
+  const clampFloatingPosition = useCallback((position: FloatingPosition) => {
+    if (typeof window === "undefined") return position;
+    const element = floatingRef.current;
+    const width = element?.offsetWidth ?? 56;
+    const height = element?.offsetHeight ?? 56;
+    return {
+      x: Math.min(
+        Math.max(POSITION_MARGIN, position.x),
+        Math.max(POSITION_MARGIN, window.innerWidth - width - POSITION_MARGIN),
+      ),
+      y: Math.min(
+        Math.max(POSITION_MARGIN, position.y),
+        Math.max(POSITION_MARGIN, window.innerHeight - height - POSITION_MARGIN),
+      ),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!floating) return;
+    const loadTimer = window.setTimeout(() => {
+      try {
+        const saved = window.localStorage.getItem(ASSISTANT_POSITION_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as Partial<FloatingPosition>;
+          if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+            setFloatingPosition(
+              clampFloatingPosition({ x: parsed.x, y: parsed.y }),
+            );
+          }
+        }
+      } catch {
+        // Ignore unavailable or malformed local storage.
+      } finally {
+        positionReadyRef.current = true;
+      }
+    }, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [clampFloatingPosition, floating]);
+
+  useEffect(() => {
+    if (!floating || !positionReadyRef.current) return;
+    try {
+      window.localStorage.setItem(
+        ASSISTANT_POSITION_KEY,
+        JSON.stringify(floatingPosition),
+      );
+    } catch {
+      // Ignore unavailable local storage.
+    }
+  }, [floating, floatingPosition]);
+
+  useEffect(() => {
+    if (!floating) return;
+    const clampPosition = () => {
+      setFloatingPosition((current) => clampFloatingPosition(current));
+    };
+    clampPosition();
+    window.addEventListener("resize", clampPosition);
+    return () => window.removeEventListener("resize", clampPosition);
+  }, [clampFloatingPosition, expanded, floating]);
+
+  const handleDragStart = (event: React.PointerEvent<HTMLElement>) => {
+    if (!floating || event.button !== 0) return;
+    const target = event.currentTarget;
+    target.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: floatingPosition.x,
+      originY: floatingPosition.y,
+      moved: false,
+    };
+    dragMovedRef.current = false;
+  };
+
+  const handleDragMove = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
+    drag.moved = true;
+    dragMovedRef.current = true;
+    setFloatingPosition(
+      clampFloatingPosition({
+        x: drag.originX + deltaX,
+        y: drag.originY + deltaY,
+      }),
+    );
+  };
+
+  const handleDragEnd = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
 
   const setVoiceState = useCallback((next: VoiceState) => {
     voiceStateRef.current = next;
@@ -504,10 +629,16 @@ export function AssistantClient({
 
   return (
     <div
+      ref={floatingRef}
       className={
         floating
-          ? "fixed bottom-4 right-4 z-50 w-[min(calc(100vw-2rem),24rem)]"
+          ? "fixed z-50 w-[min(calc(100vw-2rem),24rem)]"
           : "p-4 sm:p-6"
+      }
+      style={
+        floating
+          ? { left: floatingPosition.x, top: floatingPosition.y }
+          : undefined
       }
     >
       {floating && !expanded ? (
@@ -515,7 +646,18 @@ export function AssistantClient({
           type="button"
           className="h-14 w-14 rounded-full p-0 shadow-lg"
           aria-label={`Open ${assistantName}`}
-          onClick={() => setExpanded(true)}
+          style={{ touchAction: "none", cursor: "move" }}
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+          onClick={() => {
+            if (dragMovedRef.current) {
+              dragMovedRef.current = false;
+              return;
+            }
+            setExpanded(true);
+          }}
         >
           <span className="text-xl" aria-hidden="true">
             ◉
@@ -531,7 +673,14 @@ export function AssistantClient({
         >
           {floating && (
             <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-              <span className="text-sm font-semibold text-zinc-900">
+              <span
+                className="cursor-move text-sm font-semibold text-zinc-900"
+                style={{ touchAction: "none" }}
+                onPointerDown={handleDragStart}
+                onPointerMove={handleDragMove}
+                onPointerUp={handleDragEnd}
+                onPointerCancel={handleDragEnd}
+              >
                 {assistantName}
               </span>
               <Button
