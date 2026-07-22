@@ -50,7 +50,7 @@ async function resolveUser(identifierRaw: string): Promise<ResolvedUser | null> 
   if (!id) return null;
 
   let user = await db.user.findUnique({
-    where: { username: id },
+    where: { usernameLower: id },
     include: { organization: true },
   });
 

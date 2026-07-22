@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     typeof form.get("username") === "string"
       ? (form.get("username") as string).trim()
       : "";
+  const usernameLower = username.toLowerCase();
   const password = form.get("password");
   const remember = form.get("remember") === "1";
   const next = safeNext(
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   if (!username || typeof password !== "string" || !password) return fail();
 
   const user = await db.user.findUnique({
-    where: { username },
+    where: { usernameLower },
     include: { organization: true },
   });
 

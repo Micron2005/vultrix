@@ -24,11 +24,13 @@ function hashPassword(password: string): string {
 }
 
 async function main() {
-  const ownerUsername = (process.env.OWNER_USERNAME || "owner").toLowerCase();
+  const ownerUsername = (process.env.OWNER_USERNAME || "owner").trim();
+  const ownerUsernameLower = ownerUsername.toLowerCase();
   const ownerPassword = process.env.OWNER_PASSWORD || "changeme123";
   const superUsername = (
     process.env.SUPERADMIN_USERNAME || "admin"
-  ).toLowerCase();
+  ).trim();
+  const superUsernameLower = superUsername.toLowerCase();
   const superPassword = process.env.SUPERADMIN_PASSWORD || "changeme123";
 
   // 1. Starter organization from the existing shop name.
@@ -47,12 +49,13 @@ async function main() {
 
   // 2. Owner login for that org.
   const existingOwner = await db.user.findUnique({
-    where: { username: ownerUsername },
+    where: { usernameLower: ownerUsernameLower },
   });
   if (!existingOwner) {
     await db.user.create({
       data: {
         username: ownerUsername,
+        usernameLower: ownerUsernameLower,
         passwordHash: hashPassword(ownerPassword),
         role: "OWNER",
         orgId: org.id,
@@ -67,12 +70,13 @@ async function main() {
 
   // 3. Platform superadmin (no organization).
   const existingSuper = await db.user.findUnique({
-    where: { username: superUsername },
+    where: { usernameLower: superUsernameLower },
   });
   if (!existingSuper) {
     await db.user.create({
       data: {
         username: superUsername,
+        usernameLower: superUsernameLower,
         passwordHash: hashPassword(superPassword),
         role: "SUPERADMIN",
         orgId: null,

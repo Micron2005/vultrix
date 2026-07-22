@@ -77,6 +77,7 @@ export async function seedDemo(): Promise<void> {
     data: {
       id: DEMO_USER_ID,
       username: DEMO_USERNAME,
+      usernameLower: DEMO_USERNAME.toLowerCase(),
       email: "demo@vultrix.net",
       // Sign-in happens via the demo cookie, never this hash — randomized so
       // it's never a known/guessable credential.

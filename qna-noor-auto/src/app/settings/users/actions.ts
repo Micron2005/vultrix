@@ -24,22 +24,27 @@ async function requireManagerOrg() {
 export async function createUser(formData: FormData) {
   const me = await requireManagerOrg();
 
-  const username = String(formData.get("username") ?? "").trim().toLowerCase();
+  const username = String(formData.get("username") ?? "").trim();
+  const usernameLower = username.toLowerCase();
   const password = String(formData.get("password") ?? "");
   const roleRaw = String(formData.get("role") ?? "STAFF") as Role;
   const role = ASSIGNABLE_ROLES.includes(roleRaw) ? roleRaw : "STAFF";
 
-  if (!username || !/^[a-z0-9._-]{3,}$/.test(username)) {
+  if (!username || !/^[a-z0-9._-]{3,}$/i.test(username)) {
     back({ error: "Username must be 3+ characters (letters, numbers, . _ -)." });
   }
   if (password.length < 6) {
     back({ error: "Password must be at least 6 characters." });
   }
 
+  const existing = await db.user.findUnique({ where: { usernameLower } });
+  if (existing) back({ error: "That username is already taken." });
+
   try {
     await db.user.create({
       data: {
         username,
+        usernameLower,
         passwordHash: hashPassword(password),
         role,
         orgId: me.orgId,

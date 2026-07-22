@@ -6,6 +6,7 @@ import { startSignup } from "./actions";
 import {
   DEFAULT_GENERAL_FEATURES,
   FEATURES,
+  GENERAL_FEATURE_KEYS,
   MANDATORY_GENERAL_FEATURES,
   type FeatureKey,
 } from "@/lib/features";
@@ -15,6 +16,7 @@ type SignupWizardProps = {
   ownerLine: string;
   autoPrice: number;
   generalPrice: number;
+  personalBasicPrice: number;
   trialDays: number;
   error?: string;
   canceled?: string;
@@ -55,6 +57,7 @@ export function SignupWizard({
   ownerLine,
   autoPrice,
   generalPrice,
+  personalBasicPrice,
   trialDays,
   error,
   canceled,
@@ -92,7 +95,7 @@ export function SignupWizard({
           saved.step >= 1 &&
           saved.step <= 5
         ) {
-          setStep(saved.step);
+          setStep(saved.path === "business" ? Math.min(saved.step, 3) : saved.step);
         }
         if (saved.path === "business" || saved.path === "personal") {
           setPath(saved.path);
@@ -172,10 +175,24 @@ export function SignupWizard({
       : industry === "other"
         ? "BUSINESS"
         : "AUTO_SHOP";
-  const autoShop = accountType === "AUTO_SHOP";
-  const finalFeatures = autoShop
-    ? ALL_FEATURE_KEYS
-    : Array.from(new Set([...selectedFeatures, ...MANDATORY_GENERAL_FEATURES]));
+  const finalFeatures =
+    accountType === "AUTO_SHOP"
+      ? ALL_FEATURE_KEYS
+      : accountType === "BUSINESS"
+        ? GENERAL_FEATURE_KEYS
+        : Array.from(
+            new Set([...selectedFeatures, ...MANDATORY_GENERAL_FEATURES]),
+          );
+  const monthlyPrice =
+    accountType === "AUTO_SHOP"
+      ? autoPrice
+      : accountType === "BUSINESS"
+        ? generalPrice
+        : invoiceChoice === "yes"
+          ? generalPrice
+          : invoiceChoice === "no"
+            ? personalBasicPrice
+            : null;
   const displayName =
     path === "personal" ? `${firstName} ${lastName}`.trim() : businessName.trim();
   const contactIsValid = Boolean(
@@ -207,7 +224,7 @@ export function SignupWizard({
     }
     if (step === 3) {
       if (!industry) setStepError("Choose the option that best describes you.");
-      else if (industry === "other") setStep(4);
+      else if (industry === "other" || industry === "auto") return;
       return;
     }
     if (step === 4) {
@@ -250,8 +267,17 @@ export function SignupWizard({
             {brand}
           </div>
           <div className="text-xs text-zinc-500">
-            ${autoPrice}/month for auto shops · ${generalPrice}/month for other
-            accounts
+            {monthlyPrice === null
+              ? `$${personalBasicPrice}–$${generalPrice}/month for personal accounts`
+              : `$${monthlyPrice}/month`}
+            {accountType === "AUTO_SHOP" && " for auto shops"}
+            {accountType === "BUSINESS" && " for business accounts"}
+            {accountType === "PERSONAL" &&
+              invoiceChoice === "yes" &&
+              " for personal accounts with invoices"}
+            {accountType === "PERSONAL" &&
+              invoiceChoice === "no" &&
+              " for personal accounts without invoices"}
             {trialDays > 0 ? ` · ${trialDays}-day free trial` : ""}
           </div>
         </div>
@@ -518,7 +544,9 @@ export function SignupWizard({
                 })}
               </div>
               <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                This account is billed at ${generalPrice}/month.
+                This account is billed at $
+                {invoiceChoice === "yes" ? generalPrice : personalBasicPrice}
+                /month.
               </p>
             </div>
           )}
@@ -569,7 +597,7 @@ export function SignupWizard({
                   Back
                 </button>
               )}
-              {step === 3 && industry === "auto" ? (
+              {step === 3 && (industry === "auto" || industry === "other") ? (
                 <button
                   key="pay"
                   type="submit"

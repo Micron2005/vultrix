@@ -23,13 +23,12 @@ export async function createBusiness(formData: FormData) {
   await requireSuperadmin();
 
   const name = String(formData.get("name") ?? "").trim();
-  const username = String(formData.get("username") ?? "")
-    .trim()
-    .toLowerCase();
+  const username = String(formData.get("username") ?? "").trim();
+  const usernameLower = username.toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   if (!name) back({ error: "Business name is required." });
-  if (!/^[a-z0-9._-]{3,}$/.test(username)) {
+  if (!/^[a-z0-9._-]{3,}$/i.test(username)) {
     back({ error: "Owner username must be 3+ characters (letters, numbers, . _ -)." });
   }
   if (password.length < 6) {
@@ -38,7 +37,7 @@ export async function createBusiness(formData: FormData) {
 
   // Username is globally unique across all businesses; check before creating
   // the org so we don't leave an org with no owner login.
-  const existing = await db.user.findUnique({ where: { username } });
+  const existing = await db.user.findUnique({ where: { usernameLower } });
   if (existing) back({ error: "That username is already taken." });
 
   const org = await db.organization.create({
@@ -49,6 +48,7 @@ export async function createBusiness(formData: FormData) {
     await db.user.create({
       data: {
         username,
+        usernameLower,
         passwordHash: hashPassword(password),
         role: "OWNER",
         orgId: org.id,

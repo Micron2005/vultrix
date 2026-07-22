@@ -63,7 +63,7 @@ function pendingFromMetadata(
     accountTypeRaw === "BUSINESS" || accountTypeRaw === "PERSONAL"
       ? accountTypeRaw
       : "AUTO_SHOP";
-  const username = String(m.signupUsername ?? "").trim().toLowerCase();
+  const username = String(m.signupUsername ?? "").trim();
   const email = String(m.signupEmail ?? "").trim().toLowerCase();
   const passwordHash = String(m.signupPasswordHash ?? "");
   const name = String(m.signupName ?? "").trim();
@@ -198,10 +198,12 @@ export async function materializeAccount(
   for (let attempt = 0; attempt <= 20; attempt++) {
     const candidate =
       attempt === 0 ? pending.username : `${pending.username}${attempt}`;
+    const candidateLower = candidate.toLowerCase();
     try {
       const owner = await db.user.create({
         data: {
           username: candidate,
+          usernameLower: candidateLower,
           // Store the signup email so the owner can reset their own password.
           email: pending.email,
           passwordHash: pending.passwordHash,

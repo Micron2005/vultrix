@@ -18,6 +18,9 @@ export const FEATURES = [
 export type FeatureKey = (typeof FEATURES)[number]["key"];
 
 const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
+export const GENERAL_FEATURE_KEYS = FEATURES.filter(
+  (feature) => !feature.autoOnly,
+).map((feature) => feature.key);
 
 // General features every non-auto account always gets, regardless of what they
 // pick during sign-up. Import / export is a baseline capability so anyone can
@@ -53,6 +56,9 @@ export function sanitizeFeatureKeys(
 ): FeatureKey[] {
   if ((accountType ?? "AUTO_SHOP") === "AUTO_SHOP") {
     return [...ALL_FEATURE_KEYS];
+  }
+  if (accountType === "BUSINESS") {
+    return [...GENERAL_FEATURE_KEYS];
   }
 
   const generalKeys = new Set<string>(
