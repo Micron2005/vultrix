@@ -1,14 +1,94 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
-import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import { prettyStatus } from "./AppointmentForm";
 import { statusBadgeClass } from "./status";
+import { PersonalCalendar } from "./PersonalCalendar";
+import {
+  addDays,
+  endOfWeek,
+  startOfMonth,
+  startOfWeek as dfStartOfWeek,
+} from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string; view?: string; date?: string }>;
+}) {
+  const user = await requireUser();
+  if (user.accountType === "PERSONAL") {
+    return <PersonalCalendarPage searchParams={searchParams} />;
+  }
+  return <ShopSchedulePage searchParams={searchParams} />;
+}
+
+async function PersonalCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; date?: string }>;
+}) {
+  const orgId = await requireOrgId();
+  const params = await searchParams;
+  const view =
+    params.view === "day" ||
+    params.view === "week" ||
+    params.view === "year"
+      ? params.view
+      : "month";
+  const parsedDate = params.date ? new Date(`${params.date}T00:00:00`) : new Date();
+  const date = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+  const rangeStart =
+    view === "day"
+      ? new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      : view === "week"
+        ? dfStartOfWeek(date, { weekStartsOn: 1 })
+        : view === "year"
+          ? new Date(date.getFullYear(), 0, 1)
+          : dfStartOfWeek(startOfMonth(date), { weekStartsOn: 1 });
+  const rangeEnd =
+    view === "day"
+      ? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+      : view === "week"
+        ? endOfWeek(date, { weekStartsOn: 1 })
+        : view === "year"
+          ? new Date(date.getFullYear() + 1, 0, 1)
+          : addDays(
+              dfStartOfWeek(startOfMonth(date), { weekStartsOn: 1 }),
+              42,
+            );
+  const events = await db.calendarEvent.findMany({
+    where: { orgId, startsAt: { gte: rangeStart, lt: rangeEnd } },
+    orderBy: { startsAt: "asc" },
+  });
+  return (
+    <>
+      <PageHeader
+        title="Calendar"
+        description="Plan your day, week, month, and year"
+      />
+      <PersonalCalendar
+        view={view}
+        date={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`}
+        events={events.map((event) => ({
+          id: event.id,
+          title: event.title,
+          startsAt: event.startsAt.toISOString(),
+          endsAt: event.endsAt?.toISOString() ?? null,
+          allDay: event.allDay,
+          isReminder: event.isReminder,
+          notes: event.notes,
+        }))}
+      />
+    </>
+  );
+}
+
+async function ShopSchedulePage({
   searchParams,
 }: {
   searchParams: Promise<{ week?: string }>;

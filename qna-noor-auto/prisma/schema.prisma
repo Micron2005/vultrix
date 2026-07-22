@@ -729,6 +729,7 @@ model Organization {
   technicians      Technician[]
   parts            Part[]
   appointments     Appointment[]
+  calendarEvents   CalendarEvent[]
   repairNotes      RepairNote[]
   cannedJobs       CannedJob[]
   expenses         Expense[]
@@ -736,6 +737,23 @@ model Organization {
   shopSettings     ShopSetting[]
 
   @@index([status])
+}
+
+model CalendarEvent {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title        String
+  startsAt     DateTime
+  endsAt       DateTime?
+  allDay       Boolean      @default(false)
+  isReminder   Boolean      @default(false)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([startsAt])
 }
 
 model User {

@@ -24,6 +24,12 @@ const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
 // bring their own data in or take it out — it can't be turned off.
 export const MANDATORY_GENERAL_FEATURES: FeatureKey[] = ["import_export"];
 
+export function mandatoryFeaturesFor(accountType?: string | null): FeatureKey[] {
+  return accountType === "PERSONAL"
+    ? [...MANDATORY_GENERAL_FEATURES, "schedule"]
+    : [...MANDATORY_GENERAL_FEATURES];
+}
+
 export const DEFAULT_GENERAL_FEATURES: FeatureKey[] = [
   "customers",
   "invoices",
@@ -55,7 +61,7 @@ export function sanitizeFeatureKeys(
   const selected = new Set(
     (keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key)),
   );
-  for (const key of MANDATORY_GENERAL_FEATURES) selected.add(key);
+  for (const key of mandatoryFeaturesFor(accountType)) selected.add(key);
   return Array.from(selected);
 }
 
