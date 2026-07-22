@@ -34,6 +34,21 @@ export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 45);
 export const GENERAL_PRICE_USD = Number(
   process.env.BILLING_GENERAL_PRICE_USD ?? 25,
 );
+/** Personal-account monthly price without the invoices feature. */
+export const PERSONAL_BASIC_PRICE_USD = Number(
+  process.env.BILLING_PERSONAL_PRICE_USD ?? 15,
+);
+
+export function priceForAccount(
+  accountType = "AUTO_SHOP",
+  hasInvoices = true,
+): number {
+  if (accountType === "AUTO_SHOP") return PRICE_USD;
+  if (accountType === "PERSONAL" && !hasInvoices) {
+    return PERSONAL_BASIC_PRICE_USD;
+  }
+  return GENERAL_PRICE_USD;
+}
 
 /**
  * Resolve the recurring Price id for an account type.
@@ -42,9 +57,12 @@ export const GENERAL_PRICE_USD = Number(
  * always use their tier's lookup key, so the auto-shop override cannot hijack
  * the general price. Missing prices are created on demand.
  */
-export async function resolvePriceId(accountType = "AUTO_SHOP"): Promise<string> {
+export async function resolvePriceId(
+  accountType = "AUTO_SHOP",
+  hasInvoices = true,
+): Promise<string> {
   const isAutoShop = accountType === "AUTO_SHOP";
-  const priceUsd = isAutoShop ? PRICE_USD : GENERAL_PRICE_USD;
+  const priceUsd = priceForAccount(accountType, hasInvoices);
   const explicit = isAutoShop ? planPriceId() : undefined;
   if (explicit) return explicit;
 

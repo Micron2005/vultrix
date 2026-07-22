@@ -3,7 +3,7 @@ import { Button, Card, CardHeader, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { billingConfigured } from "@/lib/stripe";
-import { describeBilling, PRICE_USD } from "@/lib/billing";
+import { describeBilling, priceForAccount } from "@/lib/billing";
 import { refreshConnectStatus } from "@/lib/connect";
 import {
   openBillingPortal,
@@ -41,12 +41,16 @@ export default async function BillingPage({
   const hasSubscription = Boolean(org.stripeCustomerId);
   const connectStarted = Boolean(org.stripeConnectAccountId);
   const connectReady = org.stripeConnectChargesEnabled;
+  const monthlyPrice = priceForAccount(
+    org.accountType,
+    org.features.includes("invoices"),
+  );
 
   return (
     <div>
       <PageHeader
         title="Billing"
-        description={`Your ${org.name} subscription — $${PRICE_USD}/month.`}
+        description={`Your ${org.name} subscription — $${monthlyPrice}/month.`}
       />
 
       {sp.error && (

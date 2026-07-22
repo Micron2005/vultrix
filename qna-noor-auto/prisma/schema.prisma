@@ -763,6 +763,7 @@ model User {
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   username     String  @unique
+  usernameLower String @unique
   // Optional contact email. Captured for OWNERs at signup (the billing email)
   // so they can self-serve a password reset. Not unique: staff logins may share
   // a shop inbox, and it's only used to deliver reset links.

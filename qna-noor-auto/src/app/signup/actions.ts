@@ -43,9 +43,7 @@ export async function startSignup(formData: FormData) {
     .trim()
     .toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
-  const username = String(formData.get("username") ?? "")
-    .trim()
-    .toLowerCase();
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const agreed = formData.get("agree") === "1";
   const accountTypeRaw = String(formData.get("accountType") ?? "AUTO_SHOP")
@@ -80,14 +78,15 @@ export async function startSignup(formData: FormData) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     back({ error: "Enter a valid billing email." });
   }
-  if (!/^[a-z0-9._-]{3,}$/.test(username)) {
+  if (!/^[a-z0-9._-]{3,}$/i.test(username)) {
     back({ error: "Username must be 3+ characters (letters, numbers, . _ -)." });
   }
   if (password.length < 6) {
     back({ error: "Password must be at least 6 characters." });
   }
 
-  const existing = await db.user.findUnique({ where: { username } });
+  const usernameLower = username.toLowerCase();
+  const existing = await db.user.findUnique({ where: { usernameLower } });
   if (existing) back({ error: "That username is already taken." });
 
   // NOTE: we deliberately do NOT create the Organization / OWNER user here.
@@ -96,7 +95,7 @@ export async function startSignup(formData: FormData) {
   // leaves a half-finished account behind. The pending signup details ride
   // along on the Stripe customer's metadata (password stored hashed).
   const stripe = getStripe();
-  const priceId = await resolvePriceId(accountType);
+  const priceId = await resolvePriceId(accountType, features.includes("invoices"));
 
   const customer = await stripe.customers.create({
     email,
