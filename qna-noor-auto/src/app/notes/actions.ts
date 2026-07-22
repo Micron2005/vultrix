@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { createNoteForOrg } from "@/lib/notes";
 
 const NoteSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -82,7 +83,7 @@ function toData(fd: FormData) {
 export async function createNote(fd: FormData) {
   const orgId = await requireOrgId();
   const data = toData(fd);
-  const created = await db.repairNote.create({ data: { ...data, orgId } });
+  const created = await createNoteForOrg(orgId, data);
   revalidatePath("/notes");
   redirect(`/notes/${created.id}`);
 }

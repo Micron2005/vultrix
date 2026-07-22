@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { createCalendarEventForOrg } from "@/lib/calendar";
 
 const CalendarEventSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -39,7 +40,7 @@ function eventData(fd: FormData) {
 
 export async function createCalendarEvent(fd: FormData) {
   const orgId = await requireOrgId();
-  await db.calendarEvent.create({ data: { ...eventData(fd), orgId } });
+  await createCalendarEventForOrg(orgId, eventData(fd));
   revalidatePath("/appointments");
 }
 
