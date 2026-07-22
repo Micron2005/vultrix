@@ -7,6 +7,7 @@ import { getCurrentUser, canManageUsers } from "@/lib/session";
 import { isDemoOrg } from "@/lib/demo";
 import { APP_NAME } from "@/lib/branding";
 import { enabledFeatureSet } from "@/lib/features";
+import { AssistantClient } from "@/app/assistant/AssistantClient";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -56,6 +57,13 @@ export default async function RootLayout({
             {isDemoOrg(user.orgId) && <DemoBanner />}
             <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
           </main>
+          {user.accountType === "PERSONAL" && user.aiAssistantEnabled && (
+            <AssistantClient
+              floating
+              assistantName={user.aiAssistantName}
+              voiceIdentifier={user.aiAssistantVoice}
+            />
+          )}
         </div>
       </body>
     </html>

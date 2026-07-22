@@ -16,6 +16,7 @@ import type { CurrentUser } from "@/lib/session";
 import { prettyStatus } from "./appointments/AppointmentForm";
 import { statusBadgeClass } from "./appointments/status";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
+import { getAssistantFinancialSummary } from "@/lib/assistant";
 
 export const dynamic = "force-dynamic";
 
@@ -110,8 +111,12 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             take: 5,
             select: { id: true, title: true, updatedAt: true },
           })
-        : Promise.resolve([]),
+      : Promise.resolve([]),
     ]);
+  const personalFinancialSummary =
+    personalAccount && hasFinancials && !hasInvoices
+      ? (await getAssistantFinancialSummary(orgId)).data
+      : null;
   const todayCalendarEvents = calendarEvents.filter(
     (event) => event.startsAt >= dayStart && event.startsAt < dayEnd,
   );
@@ -320,7 +325,23 @@ async function Dashboard({ user }: { user: CurrentUser }) {
                   ]
                 : undefined
             }
-          />
+            />
+          )}
+        {personalFinancialSummary && (
+          <>
+            <StatCard
+              label="Money in (this month)"
+              value={formatMoney(personalFinancialSummary.moneyIn)}
+            />
+            <StatCard
+              label="Money out (this month)"
+              value={formatMoney(personalFinancialSummary.moneyOut)}
+            />
+            <StatCard
+              label="Net (this month)"
+              value={formatMoney(personalFinancialSummary.net)}
+            />
+          </>
         )}
       </div>
 
