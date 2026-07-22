@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser, requireOrgId } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -10,7 +10,8 @@ import {
 import { formatDate, formatMoney } from "@/lib/utils";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
-import { prettyCategory, prettyMethod } from "./categories";
+import { prettyCategory, prettyFrequency, prettyMethod } from "./categories";
+import { enabledFeatureSet } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,10 @@ export default async function ExpensesListPage({
   searchParams: Promise<{ from?: string; to?: string; category?: string }>;
 }) {
   const orgId = await requireOrgId();
+  const user = await getCurrentUser();
+  const showIncome = Boolean(
+    user && !enabledFeatureSet(user).has("invoices"),
+  );
   const sp = await searchParams;
   const from = sp.from ? new Date(sp.from) : null;
   const to = sp.to ? new Date(sp.to) : null;
@@ -48,29 +53,54 @@ export default async function ExpensesListPage({
   const mtdTo = new Date(now);
   mtdTo.setHours(23, 59, 59, 999);
 
-  const [expenses, mtdPayments, mtdExpenses, invoicedROs] = await Promise.all([
+  const [
+    expenses,
+    mtdPayments,
+    mtdExpenses,
+    invoicedROs,
+    incomeEntries,
+    mtdIncome,
+  ] = await Promise.all([
     db.expense.findMany({ where, orderBy: { paidAt: "desc" } }),
-    db.payment.findMany({
-      where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
-      select: { amount: true },
-    }),
+    showIncome
+      ? Promise.resolve([])
+      : db.payment.findMany({
+          where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
+          select: { amount: true },
+        }),
     db.expense.findMany({
       where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
       select: { amount: true },
     }),
-    db.repairOrder.findMany({
-      where: { orgId, status: "INVOICED" },
-      include: {
-        laborLines: true,
-        partLines: true,
-        feeLines: true,
-        payments: { select: { amount: true } },
-      },
-    }),
+    showIncome
+      ? Promise.resolve([])
+      : db.repairOrder.findMany({
+          where: { orgId, status: "INVOICED" },
+          include: {
+            laborLines: true,
+            partLines: true,
+            feeLines: true,
+            payments: { select: { amount: true } },
+          },
+        }),
+    showIncome
+      ? db.income.findMany({
+          where: { orgId },
+          orderBy: { receivedAt: "desc" },
+        })
+      : Promise.resolve([]),
+    showIncome
+      ? db.income.findMany({
+          where: { orgId, receivedAt: { gte: mtdFrom, lte: mtdTo } },
+          select: { amount: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const mtdRevenue = mtdPayments.reduce((s, p) => s + p.amount, 0);
+  const mtdRevenue = showIncome
+    ? mtdIncome.reduce((s, income) => s + income.amount, 0)
+    : mtdPayments.reduce((s, p) => s + p.amount, 0);
   const mtdExpensesTotal = mtdExpenses.reduce((s, e) => s + e.amount, 0);
   const mtdNet = mtdRevenue - mtdExpensesTotal;
 
@@ -100,22 +130,31 @@ export default async function ExpensesListPage({
     <>
       <PageHeader
         title="Financials"
-        description="Revenue, money owed, and shop expenses — all in one place."
+        description={
+          showIncome
+            ? "Money in, expenses, and net income — all in one place."
+            : "Revenue, money owed, and shop expenses — all in one place."
+        }
         actions={<LinkButton href="/expenses/new">+ New expense</LinkButton>}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <SummaryCard label="Revenue this month" value={formatMoney(mtdRevenue)} />
         <SummaryCard
-          label="A/R outstanding"
-          value={formatMoney(arTotal)}
-          sub={
-            arCount === 0
-              ? "No open invoices"
-              : `${arCount} invoice${arCount === 1 ? "" : "s"} unpaid`
-          }
-          highlight={arTotal > 0}
+          label={showIncome ? "Money in this month" : "Revenue this month"}
+          value={formatMoney(mtdRevenue)}
         />
+        {!showIncome && (
+          <SummaryCard
+            label="A/R outstanding"
+            value={formatMoney(arTotal)}
+            sub={
+              arCount === 0
+                ? "No open invoices"
+                : `${arCount} invoice${arCount === 1 ? "" : "s"} unpaid`
+            }
+            highlight={arTotal > 0}
+          />
+        )}
         <SummaryCard
           label="Expenses this month"
           value={formatMoney(mtdExpensesTotal)}
@@ -123,12 +162,72 @@ export default async function ExpensesListPage({
         <SummaryCard
           label="Net this month"
           value={formatMoney(mtdNet)}
-          sub="Revenue − expenses"
+          sub={showIncome ? "Money in − expenses" : "Revenue − expenses"}
         />
       </div>
 
+      {showIncome && (
+        <>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-zinc-900">Income</h2>
+            <LinkButton href="/expenses/income/new" size="sm">
+              + New income
+            </LinkButton>
+          </div>
+          {incomeEntries.length === 0 ? (
+            <EmptyState
+              title="No income yet."
+              description="Log your earnings so money in and net income reflect your real month."
+              action={<LinkButton href="/expenses/income/new">+ Add income</LinkButton>}
+            />
+          ) : (
+            <Card className="mb-4">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">Date</th>
+                    <th className="px-4 py-2 font-medium">Source</th>
+                    <th className="px-4 py-2 font-medium">Frequency</th>
+                    <th className="px-4 py-2 font-medium">Note</th>
+                    <th className="px-4 py-2 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {incomeEntries.map((income) => (
+                    <tr key={income.id} className="hover:bg-zinc-50">
+                      <td className="px-4 py-2 text-zinc-700 whitespace-nowrap">
+                        <Link
+                          href={`/expenses/income/${income.id}/edit`}
+                          className="hover:underline"
+                        >
+                          {formatDate(income.receivedAt)}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-zinc-700">
+                        {income.source}
+                      </td>
+                      <td className="px-4 py-2 text-zinc-500">
+                        {prettyFrequency(income.frequency)}
+                      </td>
+                      <td className="px-4 py-2 text-zinc-500">
+                        {income.note ?? "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium text-zinc-900 tabular-nums">
+                        {formatMoney(income.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </>
+      )}
+
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-900">Shop expenses</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">
+          {showIncome ? "Expenses" : "Shop expenses"}
+        </h2>
         <Link
           href="/reports"
           className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
