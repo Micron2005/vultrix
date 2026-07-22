@@ -4,7 +4,11 @@ import { SaveButton } from "@/components/SaveButton";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { billingConfigured } from "@/lib/stripe";
-import { describeBilling, priceForAccount } from "@/lib/billing";
+import {
+  describeBilling,
+  PERSONAL_AI_ADDON_USD,
+  priceForAccount,
+} from "@/lib/billing";
 import { enabledFeatureSet } from "@/lib/features";
 import { refreshConnectStatus } from "@/lib/connect";
 import {
@@ -53,6 +57,7 @@ export default async function BillingPage({
   const monthlyPrice = priceForAccount(
     org.accountType,
     hasInvoices,
+    org.aiHostedEnabled,
   );
 
   return (
@@ -126,8 +131,16 @@ export default async function BillingPage({
                 Invoices
               </label>
               <Select name="invoices" defaultValue={hasInvoices ? "yes" : "no"}>
-                <option value="no">No — $15/month</option>
-                <option value="yes">Yes — $25/month</option>
+                <option value="no">
+                  No — $
+                  {priceForAccount("PERSONAL", false, org.aiHostedEnabled)}
+                  /month
+                </option>
+                <option value="yes">
+                  Yes — $
+                  {priceForAccount("PERSONAL", true, org.aiHostedEnabled)}
+                  /month
+                </option>
               </Select>
               <p className="mt-1 text-xs text-zinc-500">
                 Invoices also enable Customers and Businesses.
@@ -135,6 +148,30 @@ export default async function BillingPage({
             </div>
           ) : (
             <input type="hidden" name="invoices" value="yes" />
+          )}
+          {org.accountType === "PERSONAL" && (
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">
+                AI assistant (hosted)
+              </label>
+              <Select
+                name="aiHosted"
+                defaultValue={org.aiHostedEnabled ? "yes" : "no"}
+              >
+                <option value="no">
+                  Off — $
+                  {priceForAccount("PERSONAL", hasInvoices, false)}/month
+                </option>
+                <option value="yes">
+                  On — +${PERSONAL_AI_ADDON_USD}/mo, $
+                  {priceForAccount("PERSONAL", hasInvoices, true)}/month
+                </option>
+              </Select>
+              <p className="mt-1 text-xs text-zinc-500">
+                Hosted AI is a Personal-only add-on. Bring your own
+                OpenAI/Anthropic key in Settings for free.
+              </p>
+            </div>
           )}
           <p className="text-sm text-zinc-600">
             {org.accountType === "AUTO_SHOP"

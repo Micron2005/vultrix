@@ -58,6 +58,8 @@ export async function startSignup(formData: FormData) {
     .map((key) => key.trim())
     .filter(Boolean);
   const features = sanitizeFeatureKeys(accountType, submittedFeatures);
+  const aiHostedEnabled =
+    accountType === "PERSONAL" && formData.get("aiHosted") === "yes";
   const displayName =
     accountType === "PERSONAL" ? `${firstName} ${lastName}`.trim() : name;
 
@@ -95,7 +97,11 @@ export async function startSignup(formData: FormData) {
   // leaves a half-finished account behind. The pending signup details ride
   // along on the Stripe customer's metadata (password stored hashed).
   const stripe = getStripe();
-  const priceId = await resolvePriceId(accountType, features.includes("invoices"));
+  const priceId = await resolvePriceId(
+    accountType,
+    features.includes("invoices"),
+    aiHostedEnabled,
+  );
 
   const customer = await stripe.customers.create({
     email,
@@ -110,6 +116,7 @@ export async function startSignup(formData: FormData) {
       signupPasswordHash: hashPassword(password),
       signupAccountType: accountType,
       signupFeatures: features.join(","),
+      signupAiHosted: aiHostedEnabled ? "1" : "0",
     },
   });
 
