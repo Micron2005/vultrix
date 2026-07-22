@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { startSignup } from "./actions";
-import {
-  DEFAULT_GENERAL_FEATURES,
-  FEATURES,
-  GENERAL_FEATURE_KEYS,
-  MANDATORY_GENERAL_FEATURES,
-  type FeatureKey,
-} from "@/lib/features";
+import { sanitizeFeatureKeys } from "@/lib/features";
 
 type SignupWizardProps = {
   brand: string;
@@ -38,12 +32,8 @@ type PersistedSignupWizard = {
   phone: string;
   username: string;
   agreed: boolean;
-  selectedFeatures: FeatureKey[];
 };
 
-const GENERAL_FEATURES = FEATURES.filter((feature) => !feature.autoOnly);
-const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
-const MANDATORY_FEATURE_SET = new Set<FeatureKey>(MANDATORY_GENERAL_FEATURES);
 const SIGNUP_STORAGE_KEY = "vultrix_signup_wizard_v1";
 const inputClass =
   "mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
@@ -74,9 +64,6 @@ export function SignupWizard({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [selectedFeatures, setSelectedFeatures] = useState<FeatureKey[]>(
-    DEFAULT_GENERAL_FEATURES,
-  );
   const [stepError, setStepError] = useState("");
 
   useEffect(() => {
@@ -95,7 +82,11 @@ export function SignupWizard({
           saved.step >= 1 &&
           saved.step <= 5
         ) {
-          setStep(saved.path === "business" ? Math.min(saved.step, 3) : saved.step);
+          setStep(
+            saved.path === "business"
+              ? Math.min(saved.step, 3)
+              : Math.min(saved.step, 4),
+          );
         }
         if (saved.path === "business" || saved.path === "personal") {
           setPath(saved.path);
@@ -115,15 +106,6 @@ export function SignupWizard({
         if (typeof saved.phone === "string") setPhone(saved.phone);
         if (typeof saved.username === "string") setUsername(saved.username);
         if (typeof saved.agreed === "boolean") setAgreed(saved.agreed);
-        if (Array.isArray(saved.selectedFeatures)) {
-          setSelectedFeatures(
-            saved.selectedFeatures.filter(
-              (feature): feature is FeatureKey =>
-                typeof feature === "string" &&
-                ALL_FEATURE_KEYS.includes(feature as FeatureKey),
-            ),
-          );
-        }
       });
     } catch {
       return;
@@ -144,7 +126,6 @@ export function SignupWizard({
       phone,
       username,
       agreed,
-      selectedFeatures,
     };
     try {
       window.sessionStorage.setItem(
@@ -166,7 +147,6 @@ export function SignupWizard({
     phone,
     username,
     agreed,
-    selectedFeatures,
   ]);
 
   const accountType =
@@ -175,14 +155,10 @@ export function SignupWizard({
       : industry === "other"
         ? "BUSINESS"
         : "AUTO_SHOP";
-  const finalFeatures =
-    accountType === "AUTO_SHOP"
-      ? ALL_FEATURE_KEYS
-      : accountType === "BUSINESS"
-        ? GENERAL_FEATURE_KEYS
-        : Array.from(
-            new Set([...selectedFeatures, ...MANDATORY_GENERAL_FEATURES]),
-          );
+  const finalFeatures = sanitizeFeatureKeys(
+    accountType,
+    invoiceChoice === "yes" ? ["invoices"] : [],
+  );
   const monthlyPrice =
     accountType === "AUTO_SHOP"
       ? autoPrice
@@ -219,44 +195,28 @@ export function SignupWizard({
         );
         return;
       }
-      setStep(path === "business" ? 3 : 4);
+      setStep(3);
       return;
     }
     if (step === 3) {
       if (!industry) setStepError("Choose the option that best describes you.");
-      else if (industry === "other" || industry === "auto") return;
+      else if (path === "personal") setStep(4);
       return;
     }
     if (step === 4) {
       if (!invoiceChoice) setStepError("Choose yes or no to continue.");
-      else setStep(5);
     }
   }
 
   function back() {
     setStepError("");
-    if (step === 5) setStep(4);
-    else if (step === 4) setStep(path === "business" ? 3 : 2);
+    if (step === 4) setStep(3);
     else if (step === 3) setStep(2);
     else if (step === 2) setStep(1);
   }
 
   function setInvoices(value: "yes" | "no") {
     setInvoiceChoice(value);
-    setSelectedFeatures((current) =>
-      value === "yes"
-        ? Array.from(new Set([...current, "invoices"]))
-        : current.filter((key) => key !== "invoices" && key !== "customers"),
-    );
-  }
-
-  function toggleFeature(key: FeatureKey) {
-    if (key === "invoices" || MANDATORY_FEATURE_SET.has(key)) return;
-    setSelectedFeatures((current) =>
-      current.includes(key)
-        ? current.filter((item) => item !== key)
-        : [...current, key],
-    );
   }
 
   return (
@@ -292,10 +252,9 @@ export function SignupWizard({
                 {step === 2 && "Tell us about yourself"}
                 {step === 3 && "What kind of business is this?"}
                 {step === 4 && "Do you need to create invoices?"}
-                {step === 5 && "Choose your dashboard sections"}
               </h1>
             </div>
-            <div className="text-xs text-zinc-400">1–5</div>
+            <div className="text-xs text-zinc-400">1–4</div>
           </div>
 
           {step === 1 && (
@@ -448,7 +407,9 @@ export function SignupWizard({
           {step === 3 && (
             <div className="space-y-3">
               <p className="text-sm text-zinc-600">
-                This helps us set up the right dashboard for your work.
+                {path === "personal"
+                  ? "Do you work in automotive repair?"
+                  : "This helps us set up the right dashboard for your work."}
               </p>
               {(["auto", "other"] as const).map((value) => (
                 <button
@@ -463,13 +424,17 @@ export function SignupWizard({
                 >
                   <div className="font-medium text-zinc-900">
                     {value === "auto"
-                      ? "Automotive repair shop"
-                      : "Something else"}
+                      ? "Yes — automotive repair"
+                      : path === "personal"
+                        ? "No — something else"
+                        : "Something else"}
                   </div>
                   <div className="mt-1 text-sm text-zinc-500">
                     {value === "auto"
                       ? "Repair orders, vehicles, technicians, parts, and more."
-                      : "Choose the business tools that fit your workflow."}
+                      : path === "personal"
+                        ? "Use the general workspace for your own work and projects."
+                        : "Choose the business tools that fit your workflow."}
                   </div>
                 </button>
               ))}
@@ -479,7 +444,7 @@ export function SignupWizard({
           {step === 4 && (
             <div className="space-y-3">
               <p className="text-sm text-zinc-600">
-                You can change these dashboard sections later.
+                You can change this choice later from Billing.
               </p>
               {(["yes", "no"] as const).map((value) => (
                 <button
@@ -505,47 +470,8 @@ export function SignupWizard({
             </div>
           )}
 
-          {step === 5 && (
-            <div className="space-y-4">
-              <p className="text-sm text-zinc-600">
-                Select the sections you want to see in your dashboard. Other
-                sections can be added later.
-              </p>
-              <div className="space-y-2">
-                {GENERAL_FEATURES.filter(
-                  (feature) =>
-                    feature.key !== "customers" || invoiceChoice === "yes",
-                ).map((feature) => {
-                  const mandatory = MANDATORY_FEATURE_SET.has(feature.key);
-                  const checked = mandatory
-                    ? true
-                    : feature.key === "invoices"
-                      ? invoiceChoice === "yes"
-                      : selectedFeatures.includes(feature.key);
-                  return (
-                    <label
-                      key={feature.key}
-                      className="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-2.5"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={feature.key === "invoices" || mandatory}
-                        onChange={() => toggleFeature(feature.key)}
-                        className="rounded border-zinc-300"
-                      />
-                      <span className="text-sm text-zinc-800">
-                        {feature.label}
-                        {mandatory && (
-                          <span className="ml-2 text-xs text-zinc-400">
-                            Always included
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+          {step === 4 && (
+            <div>
               <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
                 This account is billed at $
                 {invoiceChoice === "yes" ? generalPrice : personalBasicPrice}
@@ -600,7 +526,9 @@ export function SignupWizard({
                   Back
                 </button>
               )}
-              {step === 3 && (industry === "auto" || industry === "other") ? (
+              {step === 3 &&
+              path === "business" &&
+              (industry === "auto" || industry === "other") ? (
                 <button
                   key="pay"
                   type="submit"
@@ -609,7 +537,7 @@ export function SignupWizard({
                 >
                   Continue to payment
                 </button>
-              ) : step === 5 ? (
+              ) : step === 4 && path === "personal" ? (
                 <button
                   key="pay"
                   type="submit"

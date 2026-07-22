@@ -16,17 +16,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { isMarketingOwnerOrg } from "@/lib/marketing";
 import { intakeUrl } from "@/lib/intakeTokens";
-import { billingConfigured } from "@/lib/stripe";
-import {
-  enabledFeatureSet,
-  FEATURES,
-  MANDATORY_GENERAL_FEATURES,
-  sanitizeFeatureKeys,
-} from "@/lib/features";
-import {
-  applyInvoiceTierToSubscription,
-  priceForAccount,
-} from "@/lib/billing";
+import { enabledFeatureSet } from "@/lib/features";
 import {
   createShopFee,
   deleteShopFee,
@@ -54,7 +44,6 @@ export default async function SettingsPage({
     saved?: string;
     deleted?: string;
     error?: string;
-    feature_saved?: string;
   }>;
 }) {
   const orgId = await requireOrgId();
@@ -66,9 +55,6 @@ export default async function SettingsPage({
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
   const showIntakeQr = Boolean(user && showAutoSettings);
-  const canManageFeatures = Boolean(
-    user && (user.role === "OWNER" || user.role === "ADMIN"),
-  );
   const showFlyer = await isMarketingOwnerOrg(orgId);
   const sp = (await searchParams) ?? {};
   const settings = await getAllSettings(orgId);
@@ -99,74 +85,6 @@ export default async function SettingsPage({
     revalidatePath("/settings");
     revalidatePath("/");
     redirect("/settings");
-  }
-
-  async function saveFeatures(fd: FormData) {
-    "use server";
-    const manager = await getCurrentUser();
-    if (
-      !manager ||
-      (manager.role !== "OWNER" && manager.role !== "ADMIN") ||
-      !manager.orgId
-    ) {
-      redirect("/settings?feature_saved=Not%20allowed.");
-    }
-    const currentOrg = await db.organization.findUnique({
-      where: { id: manager.orgId },
-    });
-    if (!currentOrg) redirect("/settings?feature_saved=Business%20not%20found.");
-    if (currentOrg.accountType === "AUTO_SHOP") {
-      redirect("/settings");
-    }
-
-    const submitted = fd
-      .getAll("features")
-      .filter((value): value is string => typeof value === "string");
-    const oldFeatures = sanitizeFeatureKeys(
-      currentOrg.accountType,
-      currentOrg.features,
-    );
-    const nextFeatures = sanitizeFeatureKeys(
-      currentOrg.accountType,
-      submitted,
-    );
-    const oldHasInvoices = oldFeatures.includes("invoices");
-    const nextHasInvoices = nextFeatures.includes("invoices");
-
-    let confirmation = "Features saved.";
-    if (currentOrg.accountType === "PERSONAL" && oldHasInvoices !== nextHasInvoices) {
-      const price = priceForAccount("PERSONAL", nextHasInvoices);
-      if (
-        currentOrg.stripeCustomerId &&
-        currentOrg.stripeSubscriptionId &&
-        billingConfigured()
-      ) {
-        const subscription = await applyInvoiceTierToSubscription({
-          orgId: manager.orgId,
-          accountType: currentOrg.accountType,
-          subscriptionId: currentOrg.stripeSubscriptionId,
-          hasInvoices: nextHasInvoices,
-        });
-        confirmation =
-          nextHasInvoices && subscription.status === "trialing"
-            ? `Invoices enabled — free during your trial, then $${price}/month.`
-            : nextHasInvoices
-              ? `Invoices enabled — your plan is now $${price}/month starting next renewal.`
-              : `Invoices disabled — your plan is now $${price}/month starting next renewal.`;
-      } else {
-        confirmation = nextHasInvoices
-          ? `Invoices enabled — your next subscription will be $${price}/month.`
-          : `Invoices disabled — your next subscription will be $${price}/month.`;
-      }
-    }
-
-    await db.organization.update({
-      where: { id: manager.orgId },
-      data: { features: nextFeatures },
-    });
-    revalidatePath("/settings");
-    revalidatePath("/");
-    redirect(`/settings?feature_saved=${encodeURIComponent(confirmation)}`);
   }
 
   return (
@@ -247,62 +165,6 @@ export default async function SettingsPage({
           <SaveButton>Save settings</SaveButton>
         </form>
       </Card>
-
-      {accountType !== "AUTO_SHOP" && canManageFeatures && (
-        <Card className="mt-6 max-w-2xl">
-          <CardHeader title="Your plan & features" />
-          {sp.feature_saved && (
-            <div className="mx-6 mt-4 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
-              {sp.feature_saved}
-            </div>
-          )}
-          <form action={saveFeatures} className="space-y-4 p-6">
-            <p className="text-sm text-zinc-600">
-              {accountType === "BUSINESS"
-                ? "Business accounts include all general features."
-                : "Choose the features you want available in your workspace."}
-            </p>
-            <div className="space-y-2">
-              {FEATURES.filter(
-                (feature) =>
-                  !feature.autoOnly &&
-                  (feature.key !== "customers" ||
-                    accountType === "BUSINESS" ||
-                    featureSet.has("invoices")),
-              ).map((feature) => {
-                const mandatory =
-                  accountType === "BUSINESS" ||
-                  MANDATORY_GENERAL_FEATURES.includes(feature.key) ||
-                  (accountType === "PERSONAL" && feature.key === "schedule");
-                return (
-                  <label
-                    key={feature.key}
-                    className="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-2.5"
-                  >
-                    <input
-                      type="checkbox"
-                      name="features"
-                      value={feature.key}
-                      defaultChecked={featureSet.has(feature.key)}
-                      disabled={mandatory}
-                      className="rounded border-zinc-300"
-                    />
-                    <span className="text-sm text-zinc-800">
-                      {feature.label}
-                      {mandatory && (
-                        <span className="ml-2 text-xs text-zinc-400">
-                          Always included
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            <SaveButton>Save features</SaveButton>
-          </form>
-        </Card>
-      )}
 
       {showAutoSettings && <div id="shop-fees" className="h-4" />}
       {showAutoSettings && <Card className="max-w-4xl mt-6">
