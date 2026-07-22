@@ -40,7 +40,7 @@ type SpeechWindow = Window & {
 };
 
 const FOLLOW_UP_TIMEOUT_MS = 6000;
-const SPEECH_PAUSE_MS = 1800;
+const SPEECH_PAUSE_MS = 3000;
 const DUPLICATE_TRANSCRIPT_WINDOW_MS = 1200;
 
 function normalizeSpeech(text: string): string {
