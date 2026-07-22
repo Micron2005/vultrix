@@ -67,6 +67,7 @@ export function sanitizeFeatureKeys(
   const selected = new Set(
     (keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key)),
   );
+  if (!selected.has("invoices")) selected.delete("customers");
   for (const key of mandatoryFeaturesFor(accountType)) selected.add(key);
   return Array.from(selected);
 }

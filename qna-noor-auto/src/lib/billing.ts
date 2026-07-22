@@ -90,6 +90,38 @@ export async function resolvePriceId(
   return price.id;
 }
 
+/**
+ * Swap a personal account's subscription between the invoice and basic tiers.
+ * Stripe keeps the existing trial and billing cycle; proration is disabled so
+ * the new amount applies at the next renewal instead of charging immediately.
+ */
+export async function applyInvoiceTierToSubscription(opts: {
+  orgId: string;
+  accountType: string;
+  subscriptionId: string;
+  hasInvoices: boolean;
+}): Promise<Stripe.Subscription> {
+  const stripe = getStripe();
+  const subscription = await stripe.subscriptions.retrieve(
+    opts.subscriptionId,
+  );
+  const item = subscription.items.data[0];
+  if (!item) throw new Error("Subscription has no recurring item.");
+
+  const priceId = await resolvePriceId(opts.accountType, opts.hasInvoices);
+  if (item.price.id === priceId) {
+    await syncSubscriptionToOrg(opts.orgId, subscription);
+    return subscription;
+  }
+
+  const updated = await stripe.subscriptions.update(subscription.id, {
+    items: [{ id: item.id, price: priceId }],
+    proration_behavior: "none",
+  });
+  await syncSubscriptionToOrg(opts.orgId, updated);
+  return updated;
+}
+
 /** Subscription statuses that grant access (trial counts as paid access). */
 const ACTIVE_SUB_STATUSES = new Set(["trialing", "active"]);
 

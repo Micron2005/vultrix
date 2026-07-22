@@ -246,7 +246,7 @@ export function SignupWizard({
     setSelectedFeatures((current) =>
       value === "yes"
         ? Array.from(new Set([...current, "invoices"]))
-        : current.filter((key) => key !== "invoices"),
+        : current.filter((key) => key !== "invoices" && key !== "customers"),
     );
   }
 
@@ -512,7 +512,10 @@ export function SignupWizard({
                 sections can be added later.
               </p>
               <div className="space-y-2">
-                {GENERAL_FEATURES.map((feature) => {
+                {GENERAL_FEATURES.filter(
+                  (feature) =>
+                    feature.key !== "customers" || invoiceChoice === "yes",
+                ).map((feature) => {
                   const mandatory = MANDATORY_FEATURE_SET.has(feature.key);
                   const checked = mandatory
                     ? true

@@ -17,7 +17,7 @@ type NavProps = {
 const items = [
   { href: "/", label: "Dashboard" },
   { href: "/customers", label: "Customers", feature: "customers" },
-  { href: "/businesses", label: "Businesses" },
+  { href: "/businesses", label: "Businesses", feature: "customers" },
   { href: "/vehicles", label: "Vehicles", feature: "vehicles" },
   { href: "/vehicle-search", label: "Lookup", feature: "lookup" },
   { href: "/repair-orders", label: "Repair Orders", feature: "repair_orders" },
