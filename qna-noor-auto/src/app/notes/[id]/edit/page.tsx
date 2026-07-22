@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { NoteForm } from "../../NoteForm";
 import { updateNote } from "../../actions";
@@ -14,6 +14,7 @@ export default async function EditNotePage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const note = await db.repairNote.findFirst({ where: { id, orgId } });
   if (!note) notFound();
 
@@ -30,7 +31,12 @@ export default async function EditNotePage({
         }
       />
       <div className="max-w-3xl">
-        <NoteForm action={action} note={note} submitLabel="Save changes" />
+        <NoteForm
+          action={action}
+          accountType={user.accountType}
+          note={note}
+          submitLabel="Save changes"
+        />
       </div>
     </>
   );
