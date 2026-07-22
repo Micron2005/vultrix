@@ -154,7 +154,7 @@ function StepCard({
           type="file"
           accept=".csv,text/csv"
           required
-          className="text-sm"
+          className="text-sm text-zinc-700 file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-900 file:transition-colors hover:file:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1"
           onChange={(e) => setName(e.target.files?.[0]?.name ?? "")}
         />
         {name && (
