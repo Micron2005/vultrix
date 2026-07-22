@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import {
   Card,
   LinkButton,
@@ -18,7 +18,10 @@ export default async function NotePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const orgId = await requireOrgId();
+  const user = await requireUser();
+  if (!user.orgId) redirect("/admin");
+  const orgId = user.orgId;
+  const isAutoShop = user.accountType === "AUTO_SHOP";
   const note = await db.repairNote.findFirst({ where: { id, orgId } });
   if (!note) notFound();
 
@@ -30,14 +33,15 @@ export default async function NotePage({
         title={note.title}
         description={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-600">
-            <span>{formatVehicleSpec(note)}</span>
-            {note.laborHoursEstimate != null && (
+            {isAutoShop && <span>{formatVehicleSpec(note)}</span>}
+            {isAutoShop && note.laborHoursEstimate != null && (
               <span className="text-xs text-zinc-500">
                 · ~{note.laborHoursEstimate.toFixed(1)} hr labor
               </span>
             )}
             <span className="text-xs text-zinc-400">
-              · updated {formatDateTime(note.updatedAt)}
+              {isAutoShop ? "· " : ""}
+              updated {formatDateTime(note.updatedAt)}
             </span>
           </div>
         }
@@ -66,17 +70,22 @@ export default async function NotePage({
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        <Section title="Symptom / Complaint" body={note.symptom} />
-        <Section title="Diagnosis / Cause" body={note.diagnosis} />
-        <Section title="Fix / Correction" body={note.fix} />
-        <Section title="Parts used / suggested" body={note.partsNotes} />
+        {isAutoShop ? (
+          <>
+            <Section title="Symptom / Complaint" body={note.symptom} />
+            <Section title="Diagnosis / Cause" body={note.diagnosis} />
+            <Section title="Fix / Correction" body={note.fix} />
+            <Section title="Parts used / suggested" body={note.partsNotes} />
+          </>
+        ) : (
+          <Section title="Note" body={note.fix} />
+        )}
       </div>
 
       <form action={del} className="mt-8">
         <button
           type="submit"
           className="text-xs text-red-700 hover:underline"
-          // eslint-disable-next-line react/no-unknown-property
           formNoValidate
         >
           Delete this note

@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import {
   Card,
   EmptyState,
@@ -17,7 +18,10 @@ export default async function NotesPage({
 }: {
   searchParams: Promise<{ q?: string; tag?: string }>;
 }) {
-  const orgId = await requireOrgId();
+  const user = await requireUser();
+  if (!user.orgId) redirect("/admin");
+  const orgId = user.orgId;
+  const isAutoShop = user.accountType === "AUTO_SHOP";
   const { q, tag } = await searchParams;
   const query = q?.trim() ?? "";
   const tagFilter = tag?.trim().toLowerCase() ?? "";
@@ -66,7 +70,11 @@ export default async function NotesPage({
     <>
       <PageHeader
         title="Knowledge base"
-        description="Your own repair notes, searchable by year, make, model, and text"
+        description={
+          isAutoShop
+            ? "Your own repair notes, searchable by year, make, model, and text"
+            : "Your notes, searchable by title, details, and tags"
+        }
         actions={<LinkButton href="/notes/new">New note</LinkButton>}
       />
 
@@ -74,7 +82,11 @@ export default async function NotesPage({
         <Input
           name="q"
           defaultValue={query}
-          placeholder="Search title, vehicle, symptom, fix, parts…"
+          placeholder={
+            isAutoShop
+              ? "Search title, vehicle, symptom, fix, parts…"
+              : "Search title, details, tags…"
+          }
         />
         {tagFilter && <input type="hidden" name="tag" value={tagFilter} />}
       </form>
@@ -116,7 +128,9 @@ export default async function NotesPage({
           description={
             query || tagFilter
               ? undefined
-              : "Capture your first repair note so your future self (and future techs) can find it again."
+              : isAutoShop
+                ? "Capture your first repair note so your future self (and future techs) can find it again."
+                : "Capture your first note so you can find it again when you need it."
           }
           action={<LinkButton href="/notes/new">Add note</LinkButton>}
         />
@@ -126,7 +140,9 @@ export default async function NotesPage({
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">Title</th>
-                <th className="px-4 py-2 font-medium w-40">Vehicle</th>
+                {isAutoShop && (
+                  <th className="px-4 py-2 font-medium w-40">Vehicle</th>
+                )}
                 <th className="px-4 py-2 font-medium w-40">Tags</th>
                 <th className="px-4 py-2 font-medium w-32">Updated</th>
               </tr>
@@ -141,15 +157,17 @@ export default async function NotesPage({
                     >
                       {n.title}
                     </Link>
-                    {n.symptom && (
+                    {(isAutoShop ? n.symptom : n.fix) && (
                       <div className="text-xs text-zinc-500 line-clamp-1">
-                        {n.symptom}
+                        {isAutoShop ? n.symptom : n.fix}
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-xs text-zinc-600">
-                    {formatVehicleSpec(n)}
-                  </td>
+                  {isAutoShop && (
+                    <td className="px-4 py-2 text-xs text-zinc-600">
+                      {formatVehicleSpec(n)}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-xs">
                     {n.tags ? (
                       <div className="flex flex-wrap gap-1">
