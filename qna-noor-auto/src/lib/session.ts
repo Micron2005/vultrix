@@ -15,6 +15,8 @@ export type CurrentUser = {
   accountType: string | null;
   features: string[];
   aiAssistantEnabled: boolean;
+  aiAssistantName: string;
+  aiAssistantVoice: string | null;
 };
 
 /**
@@ -48,6 +50,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     accountType: user.organization?.accountType ?? null,
     features: user.organization?.features ?? [],
     aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
+    aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
+    aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,
   };
 }
 

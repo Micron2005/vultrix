@@ -40,6 +40,7 @@ type SpeechWindow = Window & {
 };
 
 const FOLLOW_UP_TIMEOUT_MS = 6000;
+const SPEECH_PAUSE_MS = 1800;
 const DUPLICATE_TRANSCRIPT_WINDOW_MS = 1200;
 
 function normalizeSpeech(text: string): string {
@@ -65,13 +66,16 @@ function isAffirmativeFollowUp(text: string): boolean {
 export function AssistantClient({
   assistantName,
   voiceIdentifier,
+  floating = false,
 }: {
   assistantName: string;
   voiceIdentifier: string | null;
+  floating?: boolean;
 }) {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
+  const [expanded, setExpanded] = useState(!floating);
   const [voiceState, setVoiceStateValue] = useState<VoiceState>("ASLEEP");
   const [status, setStatus] = useState("");
   const recognitionRef = useRef<Recognition | null>(null);
@@ -83,7 +87,12 @@ export function AssistantClient({
   const voiceStateRef = useRef<VoiceState>("ASLEEP");
   const commandBusyRef = useRef(false);
   const lastTranscriptRef = useRef({ text: "", at: 0 });
-  const processTranscriptRef = useRef<(transcript: string) => void>(() => {});
+  const speechBufferRef = useRef("");
+  const interimSpeechRef = useRef("");
+  const commandDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processTranscriptRef = useRef<
+    (transcript: string, isFinal: boolean) => void
+  >(() => {});
   const submitMessageRef = useRef<(message: string) => Promise<void>>(
     async () => {},
   );
@@ -99,6 +108,33 @@ export function AssistantClient({
       followUpTimerRef.current = null;
     }
   }, []);
+
+  const clearCommandDebounce = useCallback(() => {
+    if (commandDebounceRef.current) {
+      clearTimeout(commandDebounceRef.current);
+      commandDebounceRef.current = null;
+    }
+  }, []);
+
+  const clearSpeechBuffer = useCallback(() => {
+    clearCommandDebounce();
+    speechBufferRef.current = "";
+    interimSpeechRef.current = "";
+  }, [clearCommandDebounce]);
+
+  const queueCommand = useCallback(
+    (command: string) => {
+      const trimmed = command.trim();
+      if (!trimmed) return;
+      clearCommandDebounce();
+      commandDebounceRef.current = setTimeout(() => {
+        commandDebounceRef.current = null;
+        clearSpeechBuffer();
+        void submitMessageRef.current(trimmed);
+      }, SPEECH_PAUSE_MS);
+    },
+    [clearCommandDebounce, clearSpeechBuffer],
+  );
 
   const speakSequence = useCallback(
     (phrases: string[]): Promise<void> => {
@@ -215,6 +251,7 @@ export function AssistantClient({
       if (!trimmed || commandBusyRef.current) return;
       commandBusyRef.current = true;
       clearFollowUpTimer();
+      clearSpeechBuffer();
       stopRecognition();
       setVoiceState("THINKING");
       setStatus("Thinking…");
@@ -272,6 +309,7 @@ export function AssistantClient({
     [
       beginFollowUp,
       clearFollowUpTimer,
+      clearSpeechBuffer,
       entries,
       setVoiceState,
       speakSequence,
@@ -280,9 +318,13 @@ export function AssistantClient({
   );
 
   const processTranscript = useCallback(
-    (transcript: string) => {
+    (transcript: string, isFinal: boolean) => {
       const trimmed = transcript.trim();
       if (!trimmed || commandBusyRef.current) return;
+      if (!isFinal) {
+        clearCommandDebounce();
+        return;
+      }
       const now = Date.now();
       if (
         lastTranscriptRef.current.text === normalizeSpeech(trimmed) &&
@@ -302,13 +344,17 @@ export function AssistantClient({
           wakeIndex = normalized.indexOf(name);
           wakeLength = name.length;
         }
-        if (wakeIndex < 0) return;
+        if (wakeIndex < 0) {
+          clearSpeechBuffer();
+          return;
+        }
         const command = trimmed
           .slice(Math.min(trimmed.length, wakeIndex + wakeLength))
           .replace(/^[\s,:-]+/, "");
         if (command) {
-          void submitMessageRef.current(command);
+          queueCommand(command);
         } else {
+          clearSpeechBuffer();
           setVoiceState("ACTIVE");
           setStatus("Listening…");
           stopRecognition();
@@ -319,10 +365,12 @@ export function AssistantClient({
       if (state === "FOLLOW_UP") {
         clearFollowUpTimer();
         if (isNegativeFollowUp(trimmed)) {
+          clearSpeechBuffer();
           void returnToAsleep(true);
           return;
         }
         if (isAffirmativeFollowUp(trimmed)) {
+          clearSpeechBuffer();
           setVoiceState("ACTIVE");
           setStatus("Go ahead — I’m listening.");
           stopRecognition();
@@ -331,12 +379,15 @@ export function AssistantClient({
         }
       }
       if (state === "ACTIVE" || state === "FOLLOW_UP") {
-        void submitMessageRef.current(trimmed);
+        queueCommand(trimmed);
       }
     },
     [
       assistantName,
       clearFollowUpTimer,
+      clearCommandDebounce,
+      clearSpeechBuffer,
+      queueCommand,
       returnToAsleep,
       setVoiceState,
       speakSequence,
@@ -357,9 +408,10 @@ export function AssistantClient({
     if (!Constructor) return;
     const recognition = new Constructor();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.onresult = (event) => {
+      let hasFinalResult = false;
       for (
         let index = event.resultIndex;
         index < event.results.length;
@@ -367,9 +419,25 @@ export function AssistantClient({
       ) {
         const result = event.results[index];
         if (result.isFinal) {
-          processTranscriptRef.current(result[0].transcript);
+          hasFinalResult = true;
+          speechBufferRef.current = [
+            speechBufferRef.current,
+            result[0].transcript,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          interimSpeechRef.current = "";
+        } else {
+          interimSpeechRef.current = result[0].transcript;
         }
       }
+      const transcript = [
+        speechBufferRef.current,
+        interimSpeechRef.current,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      processTranscriptRef.current(transcript, hasFinalResult);
     };
     recognition.onerror = () => {
       recognitionStartedRef.current = false;
@@ -393,6 +461,8 @@ export function AssistantClient({
       shouldListenRef.current = false;
       recognitionPausedRef.current = true;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      clearCommandDebounce();
+      clearSpeechBuffer();
       try {
         recognition.stop();
       } catch {
@@ -400,7 +470,7 @@ export function AssistantClient({
       }
       recognitionRef.current = null;
     };
-  }, [startRecognition]);
+  }, [clearCommandDebounce, clearSpeechBuffer, startRecognition]);
 
   const toggleListening = () => {
     const recognition = recognitionRef.current;
@@ -411,6 +481,7 @@ export function AssistantClient({
     if (shouldListenRef.current) {
       shouldListenRef.current = false;
       clearFollowUpTimer();
+      clearSpeechBuffer();
       stopRecognition();
       setListening(false);
       setVoiceState("ASLEEP");
@@ -432,16 +503,62 @@ export function AssistantClient({
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div
+      className={
+        floating
+          ? "fixed bottom-4 right-4 z-50 w-[min(calc(100vw-2rem),24rem)]"
+          : "p-4 sm:p-6"
+      }
+    >
+      {floating && !expanded ? (
+        <Button
+          type="button"
+          className="h-14 w-14 rounded-full p-0 shadow-lg"
+          aria-label={`Open ${assistantName}`}
+          onClick={() => setExpanded(true)}
+        >
+          <span className="text-xl" aria-hidden="true">
+            ◉
+          </span>
+        </Button>
+      ) : (
+        <div
+          className={
+            floating
+              ? "rounded-lg border border-zinc-200 bg-white shadow-xl"
+              : ""
+          }
+        >
+          {floating && (
+            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+              <span className="text-sm font-semibold text-zinc-900">
+                {assistantName}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Collapse assistant"
+                onClick={() => setExpanded(false)}
+              >
+                ×
+              </Button>
+            </div>
+          )}
+          <div
+            className={
+              floating ? "max-h-[min(70vh,36rem)] overflow-y-auto" : ""
+            }
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
         <div className="text-sm font-medium text-zinc-700">
           {stateLabel[voiceState]}
         </div>
         <div className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600">
           {voiceState.toLowerCase().replace("_", " ")}
         </div>
-      </div>
-      <div className="mb-4 min-h-48 space-y-3">
+            </div>
+            <div className="mb-4 min-h-48 space-y-3">
         {entries.length === 0 ? (
           <p className="text-sm text-zinc-500">
             Try “Hey {assistantName}, add an event tomorrow at 9 AM” or type
@@ -473,9 +590,9 @@ export function AssistantClient({
             </div>
           ))
         )}
-      </div>
-      {status && <p className="mb-3 text-sm text-zinc-500">{status}</p>}
-      <form
+            </div>
+            {status && <p className="mb-3 text-sm text-zinc-500">{status}</p>}
+            <form
         className="flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
@@ -489,19 +606,22 @@ export function AssistantClient({
           aria-label="Assistant request"
         />
         <Button type="submit">Send</Button>
-      </form>
-      <div className="mt-3 flex items-center gap-3">
-        <Button
+            </form>
+            <div className="mt-3 flex items-center gap-3">
+              <Button
           type="button"
           variant={listening ? "danger" : "secondary"}
           onClick={toggleListening}
         >
           {listening ? "Stop mic" : "Start mic"}
-        </Button>
-        <span className="text-xs text-zinc-500">
-          Voice works best in Chrome; text input works everywhere.
-        </span>
-      </div>
+              </Button>
+              <span className="text-xs text-zinc-500">
+                Voice works best in Chrome; text input works everywhere.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
