@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
+import { createIncomeForOrg } from "@/lib/income";
 
 async function requireIncomeOrgId(): Promise<string> {
   const user = await requireUser();
@@ -52,8 +53,12 @@ export async function createIncome(fd: FormData) {
   if (amount <= 0) throw new Error("Amount must be greater than zero");
   if (!source) throw new Error("Source is required");
 
-  await db.income.create({
-    data: { orgId, amount, receivedAt, source, frequency, note },
+  await createIncomeForOrg(orgId, {
+    amount,
+    receivedAt,
+    source,
+    frequency,
+    note,
   });
 
   revalidatePath("/expenses");

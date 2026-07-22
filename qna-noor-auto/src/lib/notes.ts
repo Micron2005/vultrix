@@ -1,6 +1,46 @@
 import { db } from "@/lib/db";
 import type { RepairNote } from "@prisma/client";
 
+export type NoteInput = {
+  title: string;
+  yearMin?: number | null;
+  yearMax?: number | null;
+  make?: string | null;
+  model?: string | null;
+  engine?: string | null;
+  symptom?: string | null;
+  diagnosis?: string | null;
+  fix?: string | null;
+  partsNotes?: string | null;
+  laborHoursEstimate?: number | null;
+  tags?: string | null;
+};
+
+export function normalizeNoteTags(raw?: string | null): string | null {
+  if (!raw) return null;
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const tag of raw.split(",")) {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      tags.push(normalized);
+    }
+  }
+  return tags.length > 0 ? tags.join(",") : null;
+}
+
+export async function createNoteForOrg(orgId: string, input: NoteInput) {
+  return db.repairNote.create({
+    data: {
+      ...input,
+      title: input.title.trim(),
+      tags: normalizeNoteTags(input.tags),
+      orgId,
+    },
+  });
+}
+
 type VehicleMatchSpec = {
   year?: number | null;
   make?: string | null;

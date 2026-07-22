@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { adjustInventoryStock, createInventoryPart } from "@/lib/inventory";
 
 const PartSchema = z.object({
   partNumber: z.string().optional().nullable(),
@@ -74,24 +75,8 @@ function toData(fd: FormData) {
 export async function createPart(fd: FormData) {
   const orgId = await requireOrgId();
   const data = toData(fd);
-
-  // Create part + initial StockMove together if an opening qty was given.
-  const part = await db.part.create({ data: { ...data, orgId, qtyOnHand: 0 } });
-
-  if (data.qtyOnHand !== 0) {
-    await db.part.update({
-      where: { id: part.id },
-      data: { qtyOnHand: data.qtyOnHand },
-    });
-    await db.stockMove.create({
-      data: {
-        partId: part.id,
-        delta: data.qtyOnHand,
-        reason: "INITIAL",
-        note: "Opening balance",
-      },
-    });
-  }
+  const { qtyOnHand, ...partData } = data;
+  const part = await createInventoryPart(orgId, partData, qtyOnHand);
 
   revalidatePath("/inventory");
   revalidatePath("/");
@@ -186,18 +171,7 @@ export async function adjustStock(id: string, fd: FormData) {
   });
   if (!owned) return;
 
-  await db.part.update({
-    where: { id },
-    data: { qtyOnHand: { increment: delta } },
-  });
-  await db.stockMove.create({
-    data: {
-      partId: id,
-      delta,
-      reason: reason === "RECEIVE" || reason === "ADJUST" ? reason : "ADJUST",
-      note,
-    },
-  });
+  await adjustInventoryStock(orgId, id, delta, reason, note);
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { createExpenseForOrg } from "@/lib/expenses";
 
 function parseMoney(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? ""));
@@ -40,8 +41,14 @@ export async function createExpense(fd: FormData) {
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
-  await db.expense.create({
-    data: { orgId, amount, category, paidAt, vendor, reference, method, note },
+  await createExpenseForOrg(orgId, {
+    amount,
+    category,
+    paidAt,
+    vendor,
+    reference,
+    method,
+    note,
   });
 
   revalidatePath("/expenses");
