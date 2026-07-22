@@ -19,6 +19,15 @@ export const EXPENSE_METHODS = [
   "OTHER",
 ] as const;
 
+export const INCOME_FREQUENCIES = [
+  "ONE_TIME",
+  "WEEKLY",
+  "BIWEEKLY",
+  "MONTHLY",
+] as const;
+
+export type IncomeFrequency = (typeof INCOME_FREQUENCIES)[number];
+
 export function prettyCategory(c: string): string {
   const map: Record<string, string> = {
     RENT: "Rent",
@@ -43,4 +52,14 @@ export function prettyMethod(m: string | null): string {
     OTHER: "Other",
   };
   return map[m] ?? m;
+}
+
+export function prettyFrequency(frequency: string): string {
+  const map: Record<string, string> = {
+    ONE_TIME: "One time",
+    WEEKLY: "Weekly",
+    BIWEEKLY: "Every two weeks",
+    MONTHLY: "Monthly",
+  };
+  return map[frequency] ?? frequency;
 }

@@ -608,6 +608,25 @@ model Expense {
   @@index([orgId])
 }
 
+model Income {
+  id String @id @default(cuid())
+
+  receivedAt DateTime @default(now())
+  amount     Float // always positive; it's money received
+  source     String
+  frequency  String // ONE_TIME | WEEKLY | BIWEEKLY | MONTHLY
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([receivedAt])
+  @@index([orgId])
+}
+
 // Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
 // auto-apply to every repair order. Each fee = min(maxCap, partsSubtotal *
 // partsPercent + laborSubtotal * laborPercent). Rendered as its own line on
@@ -733,6 +752,7 @@ model Organization {
   repairNotes      RepairNote[]
   cannedJobs       CannedJob[]
   expenses         Expense[]
+  incomes          Income[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
 
