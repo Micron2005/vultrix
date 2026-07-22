@@ -44,13 +44,26 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   const hasReminders = enabledFeatures.has("reminders");
   const hasInventory = enabledFeatures.has("inventory");
   const hasTechnicians = enabledFeatures.has("technicians");
+  const hasKnowledge = enabledFeatures.has("knowledge");
+  const personalAccount = user.accountType === "PERSONAL";
+  const showMoneyCards = (hasFinancials && hasRecords) || hasInvoices;
+  const showRecentNotes = !autoShop && hasKnowledge && !showMoneyCards;
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
+  const weekEnd = new Date(dayStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
 
-  const [customerCount, vehicleCount, openROs, recentROs, todayAppts] =
-    await Promise.all([
+  const [
+    customerCount,
+    vehicleCount,
+    openROs,
+    recentROs,
+    todayAppts,
+    calendarEvents,
+    recentNotes,
+  ] = await Promise.all([
       hasCustomers ? db.customer.count({ where: { orgId } }) : Promise.resolve(0),
       hasVehicles ? db.vehicle.count({ where: { orgId } }) : Promise.resolve(0),
       hasRecords
@@ -76,14 +89,35 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             },
           })
         : Promise.resolve([]),
-      hasSchedule
+      hasSchedule && !personalAccount
         ? db.appointment.findMany({
             where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
             orderBy: { startsAt: "asc" },
             include: { customer: true, vehicle: true },
           })
         : Promise.resolve([]),
+      hasSchedule && personalAccount
+        ? db.calendarEvent.findMany({
+            where: { orgId, startsAt: { gte: dayStart, lt: weekEnd } },
+            orderBy: { startsAt: "asc" },
+            take: 8,
+          })
+        : Promise.resolve([]),
+      showRecentNotes
+        ? db.repairNote.findMany({
+            where: { orgId },
+            orderBy: { updatedAt: "desc" },
+            take: 5,
+            select: { id: true, title: true, updatedAt: true },
+          })
+        : Promise.resolve([]),
     ]);
+  const todayCalendarEvents = calendarEvents.filter(
+    (event) => event.startsAt >= dayStart && event.startsAt < dayEnd,
+  );
+  const upcomingCalendarEvents = calendarEvents.filter(
+    (event) => event.startsAt >= dayEnd,
+  );
 
   const recentShopFeesByRO = await loadAppliedShopFeesForROs(
     orgId,
@@ -93,7 +127,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
     }),
   );
 
-  const paidThisMonthROs = hasFinancials
+  const paidThisMonthROs = hasFinancials && hasRecords
     ? await db.repairOrder.findMany({
         where: {
           orgId,
@@ -233,7 +267,13 @@ async function Dashboard({ user }: { user: CurrentUser }) {
     <>
       <PageHeader
         title="Dashboard"
-        description="Overview of shop activity"
+        description={
+          autoShop
+            ? "Overview of shop activity"
+            : personalAccount
+              ? "Plan your day and keep your important notes close"
+              : "Overview of your activity"
+        }
         actions={
           hasRecords ? (
             <LinkButton href="/repair-orders/new">
@@ -259,39 +299,123 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             href="/repair-orders"
           />
         )}
-        {hasFinancials && (
+        {hasFinancials && hasRecords && (
           <>
             <StatCard
               label="Revenue (this month)"
               value={formatMoney(revenueThisMonth)}
             />
-            <StatCard
-              label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
-              value={formatMoney(moneyOwed)}
-              highlight={moneyOwed > 0}
-              sublines={
-                moneyOwed > 0
-                  ? [
-                      `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
-                      `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
-                    ]
-                  : undefined
-              }
-            />
           </>
+        )}
+        {hasInvoices && (
+          <StatCard
+            label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
+            value={formatMoney(moneyOwed)}
+            highlight={moneyOwed > 0}
+            sublines={
+              moneyOwed > 0
+                ? [
+                    `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
+                    `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
+                  ]
+                : undefined
+            }
+          />
         )}
       </div>
 
       {hasSchedule && <Card className="mb-6">
-        <CardHeader title={`Today's schedule (${todayAppts.length})`}>
+        <CardHeader
+          title={`Today's schedule (${
+            personalAccount ? todayCalendarEvents.length : todayAppts.length
+          })`}
+        >
           <LinkButton href="/appointments" variant="ghost" size="sm">
-            Full week →
+            {personalAccount ? "Calendar →" : "Full week →"}
           </LinkButton>
-          <LinkButton href="/appointments/new" size="sm">
+          <LinkButton
+            href={personalAccount ? "/appointments" : "/appointments/new"}
+            size="sm"
+          >
             + New
           </LinkButton>
         </CardHeader>
-        {todayAppts.length === 0 ? (
+        {personalAccount ? (
+          todayCalendarEvents.length > 0 ? (
+            <ul className="divide-y divide-zinc-200">
+              {todayCalendarEvents.map((event) => (
+                <li key={event.id}>
+                  <Link
+                    href={`/appointments?view=day&date=${ymd(event.startsAt)}`}
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-50"
+                  >
+                    <div className="text-sm font-semibold text-zinc-900 w-20 shrink-0">
+                      {event.allDay
+                        ? "All day"
+                        : new Intl.DateTimeFormat("en-US", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }).format(event.startsAt)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-zinc-900 truncate">
+                        {event.title}
+                      </div>
+                      {event.notes && (
+                        <div className="text-xs text-zinc-500 truncate">
+                          {event.notes}
+                        </div>
+                      )}
+                    </div>
+                    {event.isReminder && (
+                      <span className="text-[10px] uppercase font-semibold rounded bg-amber-100 px-2 py-1 text-amber-800">
+                        Reminder
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : upcomingCalendarEvents.length > 0 ? (
+            <>
+              <div className="px-4 pt-4 text-sm font-medium text-zinc-700">
+                Nothing scheduled for today. Coming up this week:
+              </div>
+              <ul className="divide-y divide-zinc-200">
+                {upcomingCalendarEvents.map((event) => (
+                  <li key={event.id}>
+                    <Link
+                      href={`/appointments?view=day&date=${ymd(event.startsAt)}`}
+                      className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-50"
+                    >
+                      <div className="text-xs font-semibold text-zinc-500 w-20 shrink-0">
+                        {new Intl.DateTimeFormat("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        }).format(event.startsAt)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-zinc-900 truncate">
+                          {event.title}
+                        </div>
+                      </div>
+                      {event.isReminder && (
+                        <span className="text-[10px] uppercase font-semibold rounded bg-amber-100 px-2 py-1 text-amber-800">
+                          Reminder
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <div className="p-6 text-sm text-zinc-500 text-center">
+              Nothing scheduled for today or the rest of this week.
+            </div>
+          )
+        ) : todayAppts.length === 0 ? (
           <div className="p-6 text-sm text-zinc-500 text-center">
             Nothing scheduled for today.
           </div>
@@ -332,6 +456,42 @@ async function Dashboard({ user }: { user: CurrentUser }) {
           </ul>
         )}
       </Card>}
+
+      {showRecentNotes && (
+        <Card className="mb-6">
+          <CardHeader title="Recent notes">
+            <LinkButton href="/notes" variant="ghost" size="sm">
+              All notes →
+            </LinkButton>
+            <LinkButton href="/notes/new" size="sm">
+              New note
+            </LinkButton>
+          </CardHeader>
+          {recentNotes.length === 0 ? (
+            <div className="p-6 text-center text-sm text-zinc-500">
+              No notes yet. Capture something useful for later.
+            </div>
+          ) : (
+            <ul className="divide-y divide-zinc-200">
+              {recentNotes.map((note) => (
+                <li key={note.id}>
+                  <Link
+                    href={`/notes/${note.id}`}
+                    className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-zinc-50"
+                  >
+                    <span className="truncate text-sm font-medium text-zinc-900">
+                      {note.title}
+                    </span>
+                    <span className="shrink-0 text-xs text-zinc-500">
+                      {formatDate(note.updatedAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       {hasReminders && vehiclesDue.length > 0 && (
         <Card className="mb-6 border-amber-200">
@@ -687,4 +847,10 @@ function StatCard({
       </Link>
     );
   return body;
+}
+
+function ymd(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
 }
