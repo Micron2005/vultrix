@@ -7,8 +7,10 @@ import {
   Field,
   Input,
   PageHeader,
+  Select,
 } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
+import { isAiKeyEncryptionConfigured } from "@/lib/ai-key-crypto";
 import { getAllSettings, setSetting } from "@/lib/shop";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -22,6 +24,8 @@ import {
   deleteShopFee,
   updateShopFee,
 } from "./shop-fees-actions";
+import { saveAiAssistantSettings } from "./ai-assistant-actions";
+import { VoicePicker } from "./VoicePicker";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +48,8 @@ export default async function SettingsPage({
     saved?: string;
     deleted?: string;
     error?: string;
+    assistant_saved?: string;
+    assistant_error?: string;
   }>;
 }) {
   const orgId = await requireOrgId();
@@ -51,6 +57,11 @@ export default async function SettingsPage({
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
+  const isPersonal = accountType === "PERSONAL";
+  const canManageAssistant = Boolean(
+    user && (user.role === "OWNER" || user.role === "ADMIN"),
+  );
+  const aiKeyConfigured = isAiKeyEncryptionConfigured();
   const featureSet = enabledFeatureSet(org);
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
@@ -165,6 +176,97 @@ export default async function SettingsPage({
           <SaveButton>Save settings</SaveButton>
         </form>
       </Card>
+
+      {isPersonal && canManageAssistant && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="AI assistant" />
+          <form action={saveAiAssistantSettings} className="space-y-4 p-6">
+            {sp.assistant_saved && (
+              <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
+                AI assistant settings saved.
+              </div>
+            )}
+            {sp.assistant_error && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+                {assistantErrorMessage(sp.assistant_error)}
+              </div>
+            )}
+            <label className="flex items-center gap-3 text-sm text-zinc-800">
+              <input
+                type="checkbox"
+                name="enabled"
+                defaultChecked={org.aiAssistantEnabled}
+                className="h-4 w-4 rounded border-zinc-300"
+              />
+              Enable my assistant
+            </label>
+            <Field label="Assistant name">
+              <Input
+                name="assistantName"
+                defaultValue={org.aiAssistantName}
+                placeholder="Assistant"
+                maxLength={80}
+                required
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                This name will become the assistant&apos;s wake word later.
+              </p>
+            </Field>
+            <Field label="Response voice">
+              <VoicePicker defaultValue={org.aiAssistantVoice ?? ""} />
+              <p className="mt-1 text-xs text-zinc-500">
+                Voices come from your browser and may vary by device.
+              </p>
+            </Field>
+            <Field label="Backend">
+              <Select name="provider" defaultValue={org.aiAssistantProvider}>
+                <option value="OLLAMA">Built-in (Ollama)</option>
+                <option value="OPENAI" disabled={!aiKeyConfigured}>
+                  My own key — OpenAI
+                </option>
+                <option value="ANTHROPIC" disabled={!aiKeyConfigured}>
+                  My own key — Anthropic
+                </option>
+              </Select>
+              {!aiKeyConfigured && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Own-key backends are unavailable until AI_KEY_SECRET is
+                  configured.
+                </p>
+              )}
+            </Field>
+            <Field label="Own API key (write-only)">
+              <Input
+                type="password"
+                name="apiKey"
+                placeholder={
+                  org.aiAssistantApiKeyEncrypted
+                    ? "Enter a new key to replace the saved key"
+                    : "Paste an OpenAI or Anthropic key"
+                }
+                autoComplete="new-password"
+                disabled={!aiKeyConfigured}
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                {org.aiAssistantApiKeyEncrypted
+                  ? "A key is saved. The existing key is never shown."
+                  : "No key is currently saved."}
+              </p>
+              {org.aiAssistantApiKeyEncrypted && (
+                <label className="mt-2 flex items-center gap-2 text-xs text-zinc-700">
+                  <input
+                    type="checkbox"
+                    name="clearApiKey"
+                    className="h-3.5 w-3.5 rounded border-zinc-300"
+                  />
+                  Clear saved key
+                </label>
+              )}
+            </Field>
+            <SaveButton>Save assistant settings</SaveButton>
+          </form>
+        </Card>
+      )}
 
       {showAutoSettings && <div id="shop-fees" className="h-4" />}
       {showAutoSettings && <Card className="max-w-4xl mt-6">
@@ -393,4 +495,21 @@ export default async function SettingsPage({
       )}
     </>
   );
+}
+
+function assistantErrorMessage(code: string): string {
+  switch (code) {
+    case "not_allowed":
+      return "Only an owner or admin can change assistant settings.";
+    case "key_unavailable":
+      return "Own-key storage is unavailable until AI_KEY_SECRET is configured.";
+    case "key_required":
+      return "Add an API key before selecting an own-key backend.";
+    case "personal_only":
+      return "AI assistant settings are currently available for personal accounts only.";
+    case "invalid":
+      return "Check the assistant settings and try again.";
+    default:
+      return "The assistant settings could not be saved.";
+  }
 }

@@ -714,6 +714,12 @@ model Organization {
   accountType String  @default("AUTO_SHOP")
   features   String[] @default([])
 
+  aiAssistantEnabled          Boolean @default(false)
+  aiAssistantProvider         String  @default("OLLAMA")
+  aiAssistantApiKeyEncrypted  String?
+  aiAssistantName             String  @default("Assistant")
+  aiAssistantVoice            String?
+
   // --- Billing (Stripe subscription) ---------------------------------------
   // Contact email used for the Stripe customer / receipts.
   billingEmail         String?
