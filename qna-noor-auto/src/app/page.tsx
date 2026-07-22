@@ -8,6 +8,11 @@ import { TRIAL_DAYS } from "@/lib/billing";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
+import {
+  enabledFeatureSet,
+  repairOrderNouns,
+} from "@/lib/features";
+import type { CurrentUser } from "@/lib/session";
 import { prettyStatus } from "./appointments/AppointmentForm";
 import { statusBadgeClass } from "./appointments/status";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
@@ -21,10 +26,24 @@ export default async function HomePage() {
   const user = await getCurrentUser();
   if (!user) return <VultrixLanding trialDays={TRIAL_DAYS} />;
   if (!user.orgId) redirect("/admin");
-  return <Dashboard orgId={user.orgId} />;
+  return <Dashboard user={user} />;
 }
 
-async function Dashboard({ orgId }: { orgId: string }) {
+async function Dashboard({ user }: { user: CurrentUser }) {
+  const orgId = user.orgId as string;
+  const enabledFeatures = enabledFeatureSet(user);
+  const nouns = repairOrderNouns(user.accountType);
+  const autoShop = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
+  const hasCustomers = enabledFeatures.has("customers");
+  const hasVehicles = enabledFeatures.has("vehicles");
+  const hasRepairOrders = enabledFeatures.has("repair_orders");
+  const hasInvoices = enabledFeatures.has("invoices");
+  const hasRecords = hasRepairOrders || hasInvoices;
+  const hasFinancials = enabledFeatures.has("financials");
+  const hasSchedule = enabledFeatures.has("schedule");
+  const hasReminders = enabledFeatures.has("reminders");
+  const hasInventory = enabledFeatures.has("inventory");
+  const hasTechnicians = enabledFeatures.has("technicians");
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
@@ -32,29 +51,38 @@ async function Dashboard({ orgId }: { orgId: string }) {
 
   const [customerCount, vehicleCount, openROs, recentROs, todayAppts] =
     await Promise.all([
-      db.customer.count({ where: { orgId } }),
-      db.vehicle.count({ where: { orgId } }),
-      db.repairOrder.count({
-        where: { orgId, status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] } },
-      }),
-      db.repairOrder.findMany({
-        where: { orgId },
-        orderBy: { openedAt: "desc" },
-        take: 8,
-        include: {
-          customer: true,
-          vehicle: true,
-          jobs: { select: { id: true, approvalStatus: true } },
-          laborLines: true,
-          partLines: true,
-          feeLines: true,
-        },
-      }),
-      db.appointment.findMany({
-        where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
-        orderBy: { startsAt: "asc" },
-        include: { customer: true, vehicle: true },
-      }),
+      hasCustomers ? db.customer.count({ where: { orgId } }) : Promise.resolve(0),
+      hasVehicles ? db.vehicle.count({ where: { orgId } }) : Promise.resolve(0),
+      hasRecords
+        ? db.repairOrder.count({
+            where: {
+              orgId,
+              status: { in: ["ESTIMATE", "IN_PROGRESS", "COMPLETED"] },
+            },
+          })
+        : Promise.resolve(0),
+      hasRecords
+        ? db.repairOrder.findMany({
+            where: { orgId },
+            orderBy: { openedAt: "desc" },
+            take: 8,
+            include: {
+              customer: true,
+              vehicle: true,
+              jobs: { select: { id: true, approvalStatus: true } },
+              laborLines: true,
+              partLines: true,
+              feeLines: true,
+            },
+          })
+        : Promise.resolve([]),
+      hasSchedule
+        ? db.appointment.findMany({
+            where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
+            orderBy: { startsAt: "asc" },
+            include: { customer: true, vehicle: true },
+          })
+        : Promise.resolve([]),
     ]);
 
   const recentShopFeesByRO = await loadAppliedShopFeesForROs(
@@ -65,21 +93,23 @@ async function Dashboard({ orgId }: { orgId: string }) {
     }),
   );
 
-  const paidThisMonthROs = await db.repairOrder.findMany({
-    where: {
-      orgId,
-      status: "PAID",
-      closedAt: {
-        gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      },
-    },
-    include: {
-      jobs: { select: { id: true, approvalStatus: true } },
-      laborLines: true,
-      partLines: true,
-      feeLines: true,
-    },
-  });
+  const paidThisMonthROs = hasFinancials
+    ? await db.repairOrder.findMany({
+        where: {
+          orgId,
+          status: "PAID",
+          closedAt: {
+            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          },
+        },
+        include: {
+          jobs: { select: { id: true, approvalStatus: true } },
+          laborLines: true,
+          partLines: true,
+          feeLines: true,
+        },
+      })
+    : [];
   const paidShopFeesByRO = await loadAppliedShopFeesForROs(
     orgId,
     paidThisMonthROs.map((ro) => {
@@ -97,19 +127,21 @@ async function Dashboard({ orgId }: { orgId: string }) {
   // Money owed: any RO that's been invoiced but not fully paid.
   // Include INVOICED (in process) so partial payments still show up.
   // Exclude PAID and CANCELLED.
-  const outstandingROs = await db.repairOrder.findMany({
-    where: { orgId, status: "INVOICED" },
-    orderBy: { invoicedAt: "asc" },
-    include: {
-      customer: true,
-      vehicle: true,
-      jobs: { select: { id: true, approvalStatus: true } },
-      laborLines: true,
-      partLines: true,
-      feeLines: true,
-      payments: true,
-    },
-  });
+  const outstandingROs = hasInvoices
+    ? await db.repairOrder.findMany({
+        where: { orgId, status: "INVOICED" },
+        orderBy: { invoicedAt: "asc" },
+        include: {
+          customer: true,
+          vehicle: true,
+          jobs: { select: { id: true, approvalStatus: true } },
+          laborLines: true,
+          partLines: true,
+          feeLines: true,
+          payments: true,
+        },
+      })
+    : [];
   const outstandingShopFeesByRO = await loadAppliedShopFeesForROs(
     orgId,
     outstandingROs.map((ro) => {
@@ -141,13 +173,15 @@ async function Dashboard({ orgId }: { orgId: string }) {
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  const weekLaborLines = await db.laborLine.findMany({
-    where: {
-      technicianId: { not: null },
-      repairOrder: { orgId, openedAt: { gte: weekStart } },
-    },
-    include: { technician: true },
-  });
+  const weekLaborLines = hasTechnicians
+    ? await db.laborLine.findMany({
+        where: {
+          technicianId: { not: null },
+          repairOrder: { orgId, openedAt: { gte: weekStart } },
+        },
+        include: { technician: true },
+      })
+    : [];
   const techHoursMap = new Map<
     string,
     { id: string; name: string; hours: number }
@@ -169,22 +203,24 @@ async function Dashboard({ orgId }: { orgId: string }) {
 
   // Low stock: any active catalog part where qtyOnHand <= reorderLevel.
   // Sort out-of-stock first, then by how deep under the threshold.
-  const activeParts = await db.part.findMany({
-    where: { orgId, archived: false },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      partNumber: true,
-      qtyOnHand: true,
-      reorderLevel: true,
-    },
-  });
+  const activeParts = hasInventory
+    ? await db.part.findMany({
+        where: { orgId, archived: false },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          partNumber: true,
+          qtyOnHand: true,
+          reorderLevel: true,
+        },
+      })
+    : [];
   const lowStockParts = activeParts
     .filter((p) => p.qtyOnHand <= p.reorderLevel)
     .sort((a, b) => a.qtyOnHand - a.reorderLevel - (b.qtyOnHand - b.reorderLevel));
 
-  const allReminders = await computeAllVehicleReminders(orgId);
+  const allReminders = hasReminders ? await computeAllVehicleReminders(orgId) : [];
   const vehiclesDue = allReminders
     .map((r) => ({
       ...r,
@@ -199,34 +235,54 @@ async function Dashboard({ orgId }: { orgId: string }) {
         title="Dashboard"
         description="Overview of shop activity"
         actions={
-          <LinkButton href="/repair-orders/new">New Repair Order</LinkButton>
+          hasRecords ? (
+            <LinkButton href="/repair-orders/new">
+              {autoShop
+                ? "New Repair Order"
+                : `New ${nouns.singular.toLowerCase()}`}
+            </LinkButton>
+          ) : undefined
         }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Customers" value={customerCount.toString()} href="/customers" />
-        <StatCard label="Vehicles" value={vehicleCount.toString()} href="/vehicles" />
-        <StatCard label="Open ROs" value={openROs.toString()} href="/repair-orders" />
-        <StatCard
-          label="Revenue (this month)"
-          value={formatMoney(revenueThisMonth)}
-        />
-        <StatCard
-          label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
-          value={formatMoney(moneyOwed)}
-          highlight={moneyOwed > 0}
-          sublines={
-            moneyOwed > 0
-              ? [
-                  `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
-                  `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
-                ]
-              : undefined
-          }
-        />
+        {hasCustomers && (
+          <StatCard label="Customers" value={customerCount.toString()} href="/customers" />
+        )}
+        {hasVehicles && (
+          <StatCard label="Vehicles" value={vehicleCount.toString()} href="/vehicles" />
+        )}
+        {hasRecords && (
+          <StatCard
+            label={autoShop ? "Open ROs" : `Open ${nouns.plural.toLowerCase()}`}
+            value={openROs.toString()}
+            href="/repair-orders"
+          />
+        )}
+        {hasFinancials && (
+          <>
+            <StatCard
+              label="Revenue (this month)"
+              value={formatMoney(revenueThisMonth)}
+            />
+            <StatCard
+              label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
+              value={formatMoney(moneyOwed)}
+              highlight={moneyOwed > 0}
+              sublines={
+                moneyOwed > 0
+                  ? [
+                      `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
+                      `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
+                    ]
+                  : undefined
+              }
+            />
+          </>
+        )}
       </div>
 
-      <Card className="mb-6">
+      {hasSchedule && <Card className="mb-6">
         <CardHeader title={`Today's schedule (${todayAppts.length})`}>
           <LinkButton href="/appointments" variant="ghost" size="sm">
             Full week →
@@ -259,7 +315,7 @@ async function Dashboard({ orgId }: { orgId: string }) {
                     </div>
                     <div className="text-xs text-zinc-500 truncate">
                       {fullName(a.customer)}
-                      {a.vehicle && ` · ${vehicleLabel(a.vehicle)}`}
+                      {hasVehicles && a.vehicle && ` · ${vehicleLabel(a.vehicle)}`}
                     </div>
                   </div>
                   <span
@@ -275,9 +331,9 @@ async function Dashboard({ orgId }: { orgId: string }) {
             ))}
           </ul>
         )}
-      </Card>
+      </Card>}
 
-      {vehiclesDue.length > 0 && (
+      {hasReminders && vehiclesDue.length > 0 && (
         <Card className="mb-6 border-amber-200">
           <CardHeader
             title={`Vehicles due for service (${vehiclesDue.length})`}
@@ -320,7 +376,7 @@ async function Dashboard({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      {lowStockParts.length > 0 && (
+      {hasInventory && lowStockParts.length > 0 && (
         <Card className="mb-6 border-amber-200">
           <CardHeader
             title={`Low stock (${lowStockParts.length})`}
@@ -381,7 +437,7 @@ async function Dashboard({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      {hoursThisWeek.length > 0 && (
+      {hasTechnicians && hoursThisWeek.length > 0 && (
         <Card className="mb-6">
           <CardHeader title={`Hours logged this week (${hoursThisWeek.length} tech${hoursThisWeek.length === 1 ? "" : "s"})`}>
             <LinkButton href="/technicians" variant="ghost" size="sm">
@@ -416,7 +472,7 @@ async function Dashboard({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      {outstandingWithBalance.length > 0 && (
+      {hasInvoices && outstandingWithBalance.length > 0 && (
         <Card className="mb-6 border-amber-200">
           <CardHeader
             title={`Outstanding invoices (${outstandingWithBalance.length}) · ${formatMoney(moneyOwed)} owed`}
@@ -424,9 +480,13 @@ async function Dashboard({ orgId }: { orgId: string }) {
           <table className="w-full text-sm">
             <thead className="bg-amber-50 text-left text-xs text-amber-900 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-2 font-medium">RO #</th>
+                <th className="px-4 py-2 font-medium">
+                  {autoShop ? "RO #" : "Invoice #"}
+                </th>
                 <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Vehicle</th>
+                {hasVehicles && (
+                  <th className="px-4 py-2 font-medium">Vehicle</th>
+                )}
                 <th className="px-4 py-2 font-medium">Invoiced</th>
                 <th className="px-4 py-2 font-medium text-right">Total</th>
                 <th className="px-4 py-2 font-medium text-right">Paid</th>
@@ -463,7 +523,9 @@ async function Dashboard({ orgId }: { orgId: string }) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                  {hasVehicles && (
+                    <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                  )}
                   <td className="px-4 py-2 text-zinc-500">
                     {ro.invoicedAt ? formatDate(ro.invoicedAt) : "—"}
                   </td>
@@ -483,64 +545,85 @@ async function Dashboard({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader title="Recent Repair Orders">
-          <LinkButton href="/repair-orders" variant="ghost" size="sm">
-            View all →
-          </LinkButton>
-        </CardHeader>
-        {recentROs.length === 0 ? (
-          <div className="p-10 text-center text-sm text-zinc-500">
-            No repair orders yet.{" "}
-            <Link href="/repair-orders/new" className="underline">
-              Create your first RO
-            </Link>
-            .
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-2 font-medium">RO #</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Vehicle</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Opened</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {recentROs.map((ro) => {
-                const shopFees = recentShopFeesByRO.get(ro.id) ?? [];
-                const { total } = computeTotals({ ...excludeDeclinedJobLines(ro), shopFees });
-                return (
-                  <tr key={ro.id} className="hover:bg-zinc-50">
-                    <td className="px-4 py-2">
-                      <Link
-                        href={`/repair-orders/${ro.id}`}
-                        className="font-medium text-zinc-900 hover:underline"
-                      >
-                        #{ro.roNumber}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">{fullName(ro.customer)}</td>
-                    <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
-                    <td className="px-4 py-2">
-                      <StatusBadge status={ro.status} />
-                    </td>
-                    <td className="px-4 py-2 text-zinc-500">
-                      {formatDate(ro.openedAt)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatMoney(total)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
+      {hasRecords && (
+        <Card>
+          <CardHeader
+            title={
+              autoShop
+                ? "Recent Repair Orders"
+                : `Recent ${nouns.plural}`
+            }
+          >
+            <LinkButton href="/repair-orders" variant="ghost" size="sm">
+              View all →
+            </LinkButton>
+          </CardHeader>
+          {recentROs.length === 0 ? (
+            <div className="p-10 text-center text-sm text-zinc-500">
+              {autoShop
+                ? "No repair orders yet. "
+                : "No invoices yet. "}
+              <Link href="/repair-orders/new" className="underline">
+                {autoShop
+                  ? "Create your first RO"
+                  : "Create your first invoice"}
+              </Link>
+              .
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-2 font-medium">
+                    {autoShop ? "RO #" : "Invoice #"}
+                  </th>
+                  <th className="px-4 py-2 font-medium">Customer</th>
+                  {hasVehicles && (
+                    <th className="px-4 py-2 font-medium">Vehicle</th>
+                  )}
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Opened</th>
+                  <th className="px-4 py-2 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {recentROs.map((ro) => {
+                  const shopFees = recentShopFeesByRO.get(ro.id) ?? [];
+                  const { total } = computeTotals({
+                    ...excludeDeclinedJobLines(ro),
+                    shopFees,
+                  });
+                  return (
+                    <tr key={ro.id} className="hover:bg-zinc-50">
+                      <td className="px-4 py-2">
+                        <Link
+                          href={`/repair-orders/${ro.id}`}
+                          className="font-medium text-zinc-900 hover:underline"
+                        >
+                          #{ro.roNumber}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2">{fullName(ro.customer)}</td>
+                      {hasVehicles && (
+                        <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                      )}
+                      <td className="px-4 py-2">
+                        <StatusBadge status={ro.status} />
+                      </td>
+                      <td className="px-4 py-2 text-zinc-500">
+                        {formatDate(ro.openedAt)}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {formatMoney(total)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
     </>
   );
 }
