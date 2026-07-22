@@ -14,6 +14,7 @@ export type CurrentUser = {
   orgStatus: string | null;
   accountType: string | null;
   features: string[];
+  aiAssistantEnabled: boolean;
 };
 
 /**
@@ -46,6 +47,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     orgStatus: user.organization?.status ?? null,
     accountType: user.organization?.accountType ?? null,
     features: user.organization?.features ?? [],
+    aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
   };
 }
 
