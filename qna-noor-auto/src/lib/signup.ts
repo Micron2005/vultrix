@@ -41,6 +41,7 @@ type Pending = {
   passwordHash: string;
   accountType: string;
   features: string[];
+  aiHostedEnabled: boolean;
 };
 
 function isUniqueViolation(e: unknown): boolean {
@@ -77,6 +78,8 @@ function pendingFromMetadata(
       .map((key) => key.trim())
       .filter(Boolean),
   );
+  const aiHostedEnabled =
+    accountType === "PERSONAL" && String(m.signupAiHosted ?? "") === "1";
   if (!username || !email || !passwordHash) return null;
   return {
     name: name || `${firstName} ${lastName}`.trim() || email,
@@ -88,6 +91,7 @@ function pendingFromMetadata(
     passwordHash,
     accountType,
     features,
+    aiHostedEnabled,
   };
 }
 
@@ -169,6 +173,7 @@ export async function materializeAccount(
         status: "ACTIVE",
         accountType: pending.accountType,
         features: pending.features,
+        aiHostedEnabled: pending.aiHostedEnabled,
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,

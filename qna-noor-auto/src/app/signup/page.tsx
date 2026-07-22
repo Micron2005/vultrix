@@ -2,6 +2,7 @@ import { APP_NAME, APP_OWNER_LINE } from "@/lib/branding";
 import {
   GENERAL_PRICE_USD,
   PERSONAL_BASIC_PRICE_USD,
+  PERSONAL_AI_ADDON_USD,
   PRICE_USD,
   TRIAL_DAYS,
 } from "@/lib/billing";
@@ -46,6 +47,7 @@ export default async function SignupPage({
       autoPrice={PRICE_USD}
       generalPrice={GENERAL_PRICE_USD}
       personalBasicPrice={PERSONAL_BASIC_PRICE_USD}
+      personalAiAddonPrice={PERSONAL_AI_ADDON_USD}
       trialDays={TRIAL_DAYS}
       error={error}
       canceled={canceled}

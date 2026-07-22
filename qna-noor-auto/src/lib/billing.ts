@@ -38,16 +38,24 @@ export const GENERAL_PRICE_USD = Number(
 export const PERSONAL_BASIC_PRICE_USD = Number(
   process.env.BILLING_PERSONAL_PRICE_USD ?? 15,
 );
+/** Hosted assistant add-on price for Personal accounts, in whole dollars. */
+export const PERSONAL_AI_ADDON_USD = Number(
+  process.env.BILLING_PERSONAL_AI_ADDON_USD ?? 10,
+);
 
 export function priceForAccount(
   accountType = "AUTO_SHOP",
   hasInvoices = true,
+  aiHosted = false,
 ): number {
   if (accountType === "AUTO_SHOP") return PRICE_USD;
-  if (accountType === "PERSONAL" && !hasInvoices) {
-    return PERSONAL_BASIC_PRICE_USD;
-  }
-  return GENERAL_PRICE_USD;
+  const basePrice =
+    accountType === "PERSONAL" && !hasInvoices
+      ? PERSONAL_BASIC_PRICE_USD
+      : GENERAL_PRICE_USD;
+  return accountType === "PERSONAL" && aiHosted
+    ? basePrice + PERSONAL_AI_ADDON_USD
+    : basePrice;
 }
 
 /**
@@ -60,9 +68,10 @@ export function priceForAccount(
 export async function resolvePriceId(
   accountType = "AUTO_SHOP",
   hasInvoices = true,
+  aiHosted = false,
 ): Promise<string> {
   const isAutoShop = accountType === "AUTO_SHOP";
-  const priceUsd = priceForAccount(accountType, hasInvoices);
+  const priceUsd = priceForAccount(accountType, hasInvoices, aiHosted);
   const explicit = isAutoShop ? planPriceId() : undefined;
   if (explicit) return explicit;
 
@@ -100,6 +109,7 @@ export async function applyInvoiceTierToSubscription(opts: {
   accountType: string;
   subscriptionId: string;
   hasInvoices: boolean;
+  aiHosted?: boolean;
 }): Promise<Stripe.Subscription> {
   return applySubscriptionPriceToSubscription(opts);
 }
@@ -114,6 +124,7 @@ export async function applySubscriptionPriceToSubscription(opts: {
   accountType: string;
   subscriptionId: string;
   hasInvoices: boolean;
+  aiHosted?: boolean;
 }): Promise<Stripe.Subscription> {
   const stripe = getStripe();
   const subscription = await stripe.subscriptions.retrieve(
@@ -122,7 +133,11 @@ export async function applySubscriptionPriceToSubscription(opts: {
   const item = subscription.items.data[0];
   if (!item) throw new Error("Subscription has no recurring item.");
 
-  const priceId = await resolvePriceId(opts.accountType, opts.hasInvoices);
+  const priceId = await resolvePriceId(
+    opts.accountType,
+    opts.hasInvoices,
+    opts.aiHosted,
+  );
   if (item.price.id === priceId) {
     await syncSubscriptionToOrg(opts.orgId, subscription);
     return subscription;

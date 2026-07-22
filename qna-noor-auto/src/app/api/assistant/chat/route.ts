@@ -278,6 +278,7 @@ export async function POST(request: Request) {
     select: {
       accountType: true,
       aiAssistantEnabled: true,
+      aiHostedEnabled: true,
       aiAssistantName: true,
       aiAssistantProvider: true,
       aiAssistantApiKeyEncrypted: true,
@@ -292,6 +293,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Assistant backend is invalid" }, { status: 500 });
   }
   const provider: AssistantProvider = providerResult.data;
+  if (provider === "OLLAMA" && !org.aiHostedEnabled) {
+    return Response.json({
+      reply:
+        "Hosted AI is not active on this account. Enable the hosted AI add-on in Billing, or add your own OpenAI or Anthropic key in Settings.",
+      steps: [],
+    });
+  }
   let apiKey: string | undefined;
   if (provider !== "OLLAMA") {
     if (!org.aiAssistantApiKeyEncrypted || !isAiKeyEncryptionConfigured()) {

@@ -83,9 +83,15 @@ export async function updatePlan(formData: FormData) {
     requestedHasInvoices ? ["invoices"] : [],
   );
   const nextHasInvoices = nextFeatures.includes("invoices");
+  const nextAiHosted =
+    accountType === "PERSONAL" &&
+    (formData.has("aiHosted")
+      ? formData.get("aiHosted") === "yes"
+      : oldAccountType === "PERSONAL" && org.aiHostedEnabled);
   const accountTypeChanged = accountType !== oldAccountType;
   const invoicesChanged = nextHasInvoices !== oldHasInvoices;
-  const planChanged = accountTypeChanged || invoicesChanged;
+  const aiHostedChanged = nextAiHosted !== org.aiHostedEnabled;
+  const planChanged = accountTypeChanged || invoicesChanged || aiHostedChanged;
 
   let subscriptionStatus = org.subscriptionStatus;
   if (
@@ -99,16 +105,24 @@ export async function updatePlan(formData: FormData) {
       accountType,
       subscriptionId: org.stripeSubscriptionId,
       hasInvoices: nextHasInvoices,
+      aiHosted: nextAiHosted,
     });
     subscriptionStatus = subscription.status;
   }
 
   await db.organization.update({
     where: { id: org.id },
-    data: { accountType, features: nextFeatures },
+    data: {
+      accountType,
+      features: nextFeatures,
+      aiHostedEnabled: nextAiHosted,
+      ...(org.aiAssistantProvider === "OLLAMA" && !nextAiHosted
+        ? { aiAssistantEnabled: false }
+        : {}),
+    },
   });
 
-  const price = priceForAccount(accountType, nextHasInvoices);
+  const price = priceForAccount(accountType, nextHasInvoices, nextAiHosted);
   const planLabel =
     accountType === "AUTO_SHOP"
       ? "Auto shop"

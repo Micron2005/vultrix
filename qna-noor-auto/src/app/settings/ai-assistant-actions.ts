@@ -30,6 +30,7 @@ export async function saveAiAssistantSettings(formData: FormData) {
     where: { id: user.orgId },
     select: {
       accountType: true,
+      aiHostedEnabled: true,
       aiAssistantApiKeyEncrypted: true,
     },
   });
@@ -50,6 +51,11 @@ export async function saveAiAssistantSettings(formData: FormData) {
   if (!parsed.success) redirect("/settings?assistant_error=invalid");
 
   const input = parsed.data;
+  if (input.provider === "OLLAMA" && !org.aiHostedEnabled) {
+    redirect(
+      "/settings?assistant_error=hosted_ai_required",
+    );
+  }
   const suppliedApiKey = input.apiKey ?? "";
   const wantsOwnKey = input.provider === "OPENAI" || input.provider === "ANTHROPIC";
   if (wantsOwnKey && !isAiKeyEncryptionConfigured() && suppliedApiKey) {

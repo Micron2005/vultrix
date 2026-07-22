@@ -240,7 +240,12 @@ async function callOllama(request: ProviderRequest): Promise<ProviderResponse> {
   );
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.OLLAMA_API_KEY
+        ? { Authorization: `Bearer ${process.env.OLLAMA_API_KEY}` }
+        : {}),
+    },
     body: JSON.stringify({
       model: request.model,
       stream: false,

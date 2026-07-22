@@ -715,6 +715,7 @@ model Organization {
   features   String[] @default([])
 
   aiAssistantEnabled          Boolean @default(false)
+  aiHostedEnabled             Boolean @default(false)
   aiAssistantProvider         String  @default("OLLAMA")
   aiAssistantApiKeyEncrypted  String?
   aiAssistantName             String  @default("Assistant")
