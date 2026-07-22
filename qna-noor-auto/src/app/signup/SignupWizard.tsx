@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { startSignup } from "./actions";
 import {
   DEFAULT_GENERAL_FEATURES,
@@ -21,9 +21,26 @@ type SignupWizardProps = {
 
 type AccountPath = "business" | "personal";
 type Industry = "auto" | "other" | "";
+type InvoiceChoice = "yes" | "no" | "";
+
+type PersistedSignupWizard = {
+  step: number;
+  path: AccountPath | "";
+  industry: Industry;
+  invoiceChoice: InvoiceChoice;
+  firstName: string;
+  lastName: string;
+  businessName: string;
+  email: string;
+  phone: string;
+  username: string;
+  agreed: boolean;
+  selectedFeatures: FeatureKey[];
+};
 
 const GENERAL_FEATURES = FEATURES.filter((feature) => !feature.autoOnly);
 const ALL_FEATURE_KEYS = FEATURES.map((feature) => feature.key);
+const SIGNUP_STORAGE_KEY = "vultrix_signup_wizard_v1";
 const inputClass =
   "mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
 const primaryButtonClass =
@@ -56,6 +73,96 @@ export function SignupWizard({
     DEFAULT_GENERAL_FEATURES,
   );
   const [stepError, setStepError] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.sessionStorage.getItem(SIGNUP_STORAGE_KEY);
+      if (!stored) return;
+      const parsed: unknown = JSON.parse(stored);
+      if (!parsed || typeof parsed !== "object") return;
+      const saved = parsed as Partial<PersistedSignupWizard>;
+
+      queueMicrotask(() => {
+        if (
+          typeof saved.step === "number" &&
+          Number.isInteger(saved.step) &&
+          saved.step >= 1 &&
+          saved.step <= 5
+        ) {
+          setStep(saved.step);
+        }
+        if (saved.path === "business" || saved.path === "personal") {
+          setPath(saved.path);
+        }
+        if (saved.industry === "auto" || saved.industry === "other") {
+          setIndustry(saved.industry);
+        }
+        if (saved.invoiceChoice === "yes" || saved.invoiceChoice === "no") {
+          setInvoiceChoice(saved.invoiceChoice);
+        }
+        if (typeof saved.firstName === "string") setFirstName(saved.firstName);
+        if (typeof saved.lastName === "string") setLastName(saved.lastName);
+        if (typeof saved.businessName === "string") {
+          setBusinessName(saved.businessName);
+        }
+        if (typeof saved.email === "string") setEmail(saved.email);
+        if (typeof saved.phone === "string") setPhone(saved.phone);
+        if (typeof saved.username === "string") setUsername(saved.username);
+        if (typeof saved.agreed === "boolean") setAgreed(saved.agreed);
+        if (Array.isArray(saved.selectedFeatures)) {
+          setSelectedFeatures(
+            saved.selectedFeatures.filter(
+              (feature): feature is FeatureKey =>
+                typeof feature === "string" &&
+                ALL_FEATURE_KEYS.includes(feature as FeatureKey),
+            ),
+          );
+        }
+      });
+    } catch {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const persisted: PersistedSignupWizard = {
+      step,
+      path,
+      industry,
+      invoiceChoice,
+      firstName,
+      lastName,
+      businessName,
+      email,
+      phone,
+      username,
+      agreed,
+      selectedFeatures,
+    };
+    try {
+      window.sessionStorage.setItem(
+        SIGNUP_STORAGE_KEY,
+        JSON.stringify(persisted),
+      );
+    } catch {
+      return;
+    }
+  }, [
+    step,
+    path,
+    industry,
+    invoiceChoice,
+    firstName,
+    lastName,
+    businessName,
+    email,
+    phone,
+    username,
+    agreed,
+    selectedFeatures,
+  ]);
 
   const accountType =
     path === "personal"
@@ -451,6 +558,7 @@ export function SignupWizard({
               )}
               {step === 3 && industry === "auto" ? (
                 <button
+                  key="pay"
                   type="submit"
                   disabled={!contactIsValid || !industry}
                   className={primaryButtonClass}
@@ -459,6 +567,7 @@ export function SignupWizard({
                 </button>
               ) : step === 5 ? (
                 <button
+                  key="pay"
                   type="submit"
                   disabled={!contactIsValid || !invoiceChoice}
                   className={primaryButtonClass}
@@ -467,6 +576,7 @@ export function SignupWizard({
                 </button>
               ) : (
                 <button
+                  key="continue"
                   type="button"
                   onClick={next}
                   disabled={step === 1 && !path}
