@@ -1,14 +1,17 @@
 import { redirect } from "next/navigation";
-import { Button, Card, CardHeader, PageHeader } from "@/components/ui";
+import { Button, Card, CardHeader, PageHeader, Select } from "@/components/ui";
+import { SaveButton } from "@/components/SaveButton";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { billingConfigured } from "@/lib/stripe";
 import { describeBilling, priceForAccount } from "@/lib/billing";
+import { enabledFeatureSet } from "@/lib/features";
 import { refreshConnectStatus } from "@/lib/connect";
 import {
   openBillingPortal,
   startConnectOnboarding,
   openConnectDashboard,
+  updatePlan,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +19,11 @@ export const dynamic = "force-dynamic";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ error?: string; connect?: string }>;
+  searchParams?: Promise<{
+    error?: string;
+    connect?: string;
+    plan_saved?: string;
+  }>;
 }) {
   const user = await requireUser();
   if (!user.orgId) redirect("/admin");
@@ -41,9 +48,11 @@ export default async function BillingPage({
   const hasSubscription = Boolean(org.stripeCustomerId);
   const connectStarted = Boolean(org.stripeConnectAccountId);
   const connectReady = org.stripeConnectChargesEnabled;
+  const featureSet = enabledFeatureSet(org);
+  const hasInvoices = featureSet.has("invoices");
   const monthlyPrice = priceForAccount(
     org.accountType,
-    org.features.includes("invoices"),
+    hasInvoices,
   );
 
   return (
@@ -53,9 +62,15 @@ export default async function BillingPage({
         description={`Your ${org.name} subscription — $${monthlyPrice}/month.`}
       />
 
-      {sp.error && (
-        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-          {sp.error}
+      {(sp.error || sp.plan_saved) && (
+        <div
+          className={
+            sp.error
+              ? "mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700"
+              : "mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800"
+          }
+        >
+          {sp.error ?? sp.plan_saved}
         </div>
       )}
 
@@ -90,6 +105,46 @@ export default async function BillingPage({
             </p>
           )}
         </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title="Plan and account type" />
+        <form action={updatePlan} className="p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-700 mb-1">
+              Account type
+            </label>
+            <Select name="accountType" defaultValue={org.accountType}>
+              <option value="PERSONAL">Personal</option>
+              <option value="BUSINESS">Business</option>
+              <option value="AUTO_SHOP">Auto shop</option>
+            </Select>
+          </div>
+          {org.accountType === "PERSONAL" ? (
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">
+                Invoices
+              </label>
+              <Select name="invoices" defaultValue={hasInvoices ? "yes" : "no"}>
+                <option value="no">No — $15/month</option>
+                <option value="yes">Yes — $25/month</option>
+              </Select>
+              <p className="mt-1 text-xs text-zinc-500">
+                Invoices also enable Customers and Businesses.
+              </p>
+            </div>
+          ) : (
+            <input type="hidden" name="invoices" value="yes" />
+          )}
+          <p className="text-sm text-zinc-600">
+            {org.accountType === "AUTO_SHOP"
+              ? "Auto shops include all automotive features and invoicing."
+              : org.accountType === "BUSINESS"
+                ? "Business accounts include all general features and invoicing."
+                : "Personal accounts include all general features. Choose whether you need invoicing."}
+          </p>
+          <SaveButton>Save plan</SaveButton>
+        </form>
       </Card>
 
       <Card className="mt-6">

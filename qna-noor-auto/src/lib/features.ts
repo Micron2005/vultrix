@@ -22,9 +22,9 @@ export const GENERAL_FEATURE_KEYS = FEATURES.filter(
   (feature) => !feature.autoOnly,
 ).map((feature) => feature.key);
 
-// General features every non-auto account always gets, regardless of what they
-// pick during sign-up. Import / export is a baseline capability so anyone can
-// bring their own data in or take it out — it can't be turned off.
+// General features every non-auto account always gets. Import / export is a
+// baseline capability so anyone can bring their own data in or take it out —
+// it can't be turned off.
 export const MANDATORY_GENERAL_FEATURES: FeatureKey[] = ["import_export"];
 
 export function mandatoryFeaturesFor(accountType?: string | null): FeatureKey[] {
@@ -32,14 +32,6 @@ export function mandatoryFeaturesFor(accountType?: string | null): FeatureKey[] 
     ? [...MANDATORY_GENERAL_FEATURES, "schedule"]
     : [...MANDATORY_GENERAL_FEATURES];
 }
-
-export const DEFAULT_GENERAL_FEATURES: FeatureKey[] = [
-  "customers",
-  "invoices",
-  "financials",
-  "reports",
-  "import_export",
-];
 
 export function repairOrderNouns(accountType?: string | null): {
   singular: string;
@@ -61,13 +53,11 @@ export function sanitizeFeatureKeys(
     return [...GENERAL_FEATURE_KEYS];
   }
 
-  const generalKeys = new Set<string>(
-    FEATURES.filter((feature) => !feature.autoOnly).map((feature) => feature.key),
-  );
-  const selected = new Set(
-    (keys ?? []).filter((key): key is FeatureKey => generalKeys.has(key)),
-  );
-  if (!selected.has("invoices")) selected.delete("customers");
+  const selected = new Set<FeatureKey>(GENERAL_FEATURE_KEYS);
+  if (!(keys ?? []).includes("invoices")) {
+    selected.delete("invoices");
+    selected.delete("customers");
+  }
   for (const key of mandatoryFeaturesFor(accountType)) selected.add(key);
   return Array.from(selected);
 }

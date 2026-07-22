@@ -101,6 +101,20 @@ export async function applyInvoiceTierToSubscription(opts: {
   subscriptionId: string;
   hasInvoices: boolean;
 }): Promise<Stripe.Subscription> {
+  return applySubscriptionPriceToSubscription(opts);
+}
+
+/**
+ * Swap a subscription to the price for its account type and invoice choice.
+ * Stripe preserves the current trial and billing cycle because only the
+ * recurring item's price is changed with proration disabled.
+ */
+export async function applySubscriptionPriceToSubscription(opts: {
+  orgId: string;
+  accountType: string;
+  subscriptionId: string;
+  hasInvoices: boolean;
+}): Promise<Stripe.Subscription> {
   const stripe = getStripe();
   const subscription = await stripe.subscriptions.retrieve(
     opts.subscriptionId,
