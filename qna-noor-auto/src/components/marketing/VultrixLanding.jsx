@@ -13,7 +13,7 @@ import {
   ShieldCheck, Smartphone, Download, HardHat, Bot, Globe, Store, MessageSquare,
   CreditCard, Clock, BadgeCheck, ArrowRight, ArrowUpRight, Check, X,
   Menu, Mail, Phone, MapPin, RefreshCw, Send, CheckCircle2, LayoutDashboard,
-  ScanLine, Plus,
+  ScanLine, Plus, Home,
 } from "lucide-react";
 import VultrixAssistant from "./VultrixAssistant";
 
@@ -23,13 +23,24 @@ import VultrixAssistant from "./VultrixAssistant";
 const SITE = {
   brand: "Vultrix",
   owner: "M.S.A.M Enterprise",
-  tagline: "Shop management powered by Vultrix",
+  tagline: "One system to run your business — and your life.",
   price: 45,
-  trialDays: 14,
+  trialDays: 60,
   annualMonthsFree: 2,
   supportEmail: "micron.alam18@gmail.com", // empty = hide email, route to the form
   phone: "571-320-9425",
   phoneHref: "+15713209425",
+};
+
+// Plan pricing — the single source of truth for every price shown on the page.
+// Personal is a base price with optional add-ons (invoices + AI) that stack.
+const PRICING = {
+  auto: 35,
+  business: 25,
+  personalBase: 15,
+  invoicesAddon: 10, // Personal: turns on invoices + customer management
+  aiAddon: 10, // Vultrix AI assistant — Personal today, business/shop coming soon
+  startingPrice: 15, // lowest entry point, used for "plans from $X" copy
 };
 
 const URLS = {
@@ -43,8 +54,8 @@ const URLS = {
 };
 
 const NAV_LINKS = [
+  { label: "Who it's for", href: "#who" },
   { label: "Features", href: "#features" },
-  { label: "How it works", href: "#deep-dives" },
   { label: "Roadmap", href: "#roadmap" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
@@ -64,31 +75,74 @@ const WHAT_IS = [
   "Keep customers coming back with automatic service reminders",
 ];
 
-const FEATURES = [
-  { icon: Wrench, title: "Repair & work orders", desc: "Full lifecycle from estimate to paid, with labor and parts lines and technician assignment." },
-  { icon: FileText, title: "Invoices & estimates", desc: "Clean, professional PDFs and shareable links your customers can approve from their phone." },
-  { icon: ScanLine, title: "On-the-go ticket intake", desc: "Techs scan a QR to start a ticket from their phone — out on a road call or busy in the bay. Capture the customer, vehicle, and what's wrong, and it lands in the office's queue to price, order parts, and invoice. No login, no trip to the desk." },
-  { icon: CreditCard, title: "Online payments", desc: "Customers pay their invoice right from their phone or a shared link — get paid faster with a lot less chasing." },
-  { icon: Car, title: "Customers & vehicles", desc: "A searchable history of every customer, vehicle, and job you've ever done." },
-  { icon: Search, title: "VIN decode & plate search", desc: "Decode any VIN in seconds with open recalls included, or pull up a vehicle that's already in your records by its plate." },
-  { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the vehicle and jump straight to your suppliers in one click." },
-  { icon: Package, title: "Inventory", desc: "Track cost, price, and on-hand stock. It auto-deducts when a part is used on a repair order." },
-  { icon: QrCode, title: "QR part labels", desc: "Print QR stickers for your shelves and scan to pull up a part instantly." },
-  { icon: Bell, title: "Service reminders", desc: "Find customers who've gone quiet and win them back with one tap to text or email." },
-  { icon: Calendar, title: "Scheduling", desc: "See today's bays and the week ahead at a glance." },
-  { icon: UserCog, title: "Technicians & hours", desc: "Assign work and track logged hours for every tech." },
-  { icon: Building2, title: "Business & fleet accounts", desc: "Handle B2B accounts and see exactly who owes what." },
-  { icon: Receipt, title: "Expenses & financials", desc: "Log shop expenses by category and keep the numbers straight." },
-  { icon: BarChart3, title: "Reports", desc: "Know your revenue, what's owed, and where the money is going." },
-  { icon: ClipboardList, title: "Canned jobs & presets", desc: "Save your common jobs and drop them onto a repair order in seconds." },
+// Who Vultrix is for — mirrors the account types you pick at sign-up.
+const AUDIENCES = [
+  {
+    icon: Wrench,
+    kicker: "Auto repair shops",
+    title: "The shop, fully handled",
+    desc: "The flagship toolkit Vultrix was born in — the complete workflow for a busy bay.",
+    points: [
+      "Estimates → approved → in progress → paid",
+      "VIN decode, parts that fit & inventory",
+      "Technicians, reminders & scheduling",
+    ],
+  },
+  {
+    icon: Store,
+    kicker: "Small businesses",
+    title: "Any business, your way",
+    desc: "Switch off the auto-specific parts and keep exactly what your business needs.",
+    points: [
+      "Professional invoices & online payments",
+      "Inventory & expense tracking",
+      "Clear financial reports",
+    ],
+  },
+  {
+    icon: Home,
+    kicker: "Personal use",
+    title: "Life, organized",
+    desc: "Track your money, plan your week, and capture ideas — with an AI assistant that does it for you.",
+    points: [
+      "Income & expense tracking",
+      "Calendar, reminders & notes",
+      "Built-in voice & chat AI assistant",
+    ],
+  },
+];
+
+// Features available across accounts. Invoicing & customers are built in for
+// auto shops and businesses, and an optional add-on for personal accounts.
+const GENERAL_FEATURES = [
+  { icon: FileText, title: "Invoices & estimates", desc: "Clean, professional PDFs and shareable links your customers can approve and pay from their phone.", tag: "Optional on Personal" },
+  { icon: CreditCard, title: "Online payments", desc: "Get paid faster — customers pay from a phone or a shared link, securely through Stripe.", tag: "Optional on Personal" },
+  { icon: Users, title: "Customers & contacts", desc: "A searchable record of everyone you do business with, with full job and invoice history.", tag: "Optional on Personal" },
+  { icon: Package, title: "Inventory", desc: "Track cost, price, and on-hand stock with QR shelf labels and low-stock alerts. Optional." },
+  { icon: Receipt, title: "Income & expenses", desc: "Log money in and money out by category so your numbers always stay straight." },
+  { icon: BarChart3, title: "Reports", desc: "See revenue, what's owed, and where the money's going — all at a glance." },
+  { icon: Calendar, title: "Scheduling & calendar", desc: "Plan your day and week and set reminders so nothing important slips through." },
+  { icon: ClipboardList, title: "Notes & knowledge", desc: "Capture notes, checklists, and reference info you can search back through later." },
   { icon: Upload, title: "Import & export", desc: "Bring your data in by CSV and take it with you anytime. No lock-in, ever." },
-  { icon: Users, title: "Multi-user roles", desc: "Add your whole team with roles for owners, admins, and technicians." },
+  { icon: UserCog, title: "Multi-user roles", desc: "Add your whole team with roles for owners, admins, and staff." },
+];
+
+// Features that only make sense for — and are only shown to — auto repair shops.
+const AUTO_FEATURES = [
+  { icon: Wrench, title: "Repair & work orders", desc: "Full lifecycle from estimate to paid, with labor and parts lines and technician assignment." },
+  { icon: ScanLine, title: "On-the-go ticket intake", desc: "Techs scan a QR to start a ticket from their phone — no login. It lands in the office queue to price, order parts, and invoice." },
+  { icon: Car, title: "Vehicles & history", desc: "Every vehicle gets a searchable history of past jobs, parts, and invoices." },
+  { icon: Search, title: "VIN decode & plate search", desc: "Decode any VIN in seconds with open recalls included, or pull up a saved vehicle by its plate." },
+  { icon: Boxes, title: "Parts that fit", desc: "See parts tagged to the exact vehicle and jump straight to your suppliers in one click." },
+  { icon: Bell, title: "Service reminders", desc: "Find customers who've gone quiet and win them back with one tap to text or email." },
+  { icon: HardHat, title: "Technicians & hours", desc: "Assign work and track logged hours for every technician." },
+  { icon: BadgeCheck, title: "Canned jobs & presets", desc: "Save your common jobs and drop them onto a repair order in seconds." },
 ];
 
 const STATS = [
-  { value: 14, suffix: "", label: "Days free to try" },
-  { value: 45, prefix: "$", suffix: "", label: "Per month, flat" },
-  { value: 16, suffix: "+", label: "Tools in one place" },
+  { value: 60, suffix: "", label: "Days free to try" },
+  { value: PRICING.startingPrice, prefix: "$", suffix: "", label: "To start, per month" },
+  { value: GENERAL_FEATURES.length + AUTO_FEATURES.length, suffix: "+", label: "Tools in one place" },
   { value: 100, suffix: "%", label: "Of your data, exportable" },
 ];
 
@@ -103,7 +157,7 @@ const COMPARISON = {
   ],
   vultrix: [
     "Everything in one place",
-    "One flat $45 / month",
+    "Plans from $15/month",
     "A fast, clean, modern interface",
     "Export your data whenever you want",
     "Customers approve and pay from their phone",
@@ -112,9 +166,9 @@ const COMPARISON = {
 };
 
 const ROADMAP = [
-  { icon: Bot, status: "Exploring", title: "AI shop assistant", note: "We're exploring a built-in assistant to help with day-to-day shop tasks. An early customer-support assistant is already live on the site." },
+  { icon: Bot, status: "Live for Personal", title: "AI assistant for every account", note: "The built-in AI assistant is live on Personal accounts today — add it for $10/mo, or connect your own OpenAI or Anthropic key. Rolling out to business and shop accounts next." },
   { icon: Globe, status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
-  { icon: Store, status: "Planned", title: "Customer-facing shop websites", note: "Give every shop a clean public website tied right to their Vultrix account." },
+  { icon: Store, status: "Planned", title: "Customer-facing websites", note: "Give every account a clean public website tied right to their Vultrix data." },
   { icon: Boxes, status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
   { icon: MessageSquare, status: "Planned", title: "Two-way customer texting", note: "Message customers and collect approvals right inside Vultrix." },
 ];
@@ -127,24 +181,79 @@ const DEEP_DIVES = [
   { id: "deep-dive-reminders", eyebrow: "Retention", title: "Keep the bays full with win-back reminders", points: ["Automatically surface customers who haven't been in for months", "One tap to text or email an invite back for service", "Bring in repeat work without blasting discounts"], mock: "reminder" },
 ];
 
-const TIERS = [
+// Three plans mirroring the account types you pick at sign-up. Personal is a
+// base price with optional add-ons (invoices, AI) handled on the card itself.
+const PLANS = [
   {
-    id: "all", name: "Full access", monthly: 45, available: true, highlight: true, badge: "Everything included",
-    tagline: "Every tool your shop runs on — one flat price.", cta: "Start free trial", href: URLS.signup,
-    features: ["Unlimited repair orders & invoices", "On-the-go ticket intake", "Online payments from a phone or link", "Customers, vehicles & full history", "VIN decode + recalls, find saved by plate", "Inventory with QR labels", "Service reminders & scheduling", "Technicians, expenses & reports", "CSV import / export", "Multiple users & roles"],
+    id: "auto",
+    icon: Wrench,
+    name: "Auto Repair Shop",
+    monthly: PRICING.auto,
+    badge: "Full shop toolkit",
+    tagline: "The complete workflow Vultrix was born in — everything a busy bay runs on.",
+    cta: "Start free trial",
+    aiNote: "AI assistant coming soon",
+    intro: "Everything in Business, plus:",
+    features: [
+      "Repair orders — estimate → approved → paid",
+      "VIN decode, plate search & open recalls",
+      "Parts that fit + QR inventory labels",
+      "Technicians, logged hours & scheduling",
+      "On-the-go QR ticket intake (no login)",
+      "Service reminders to win customers back",
+    ],
+  },
+  {
+    id: "business",
+    icon: Store,
+    name: "Business",
+    monthly: PRICING.business,
+    badge: "Most popular",
+    highlight: true,
+    tagline: "Run any small business your way — turn off the auto-specific parts and keep what fits.",
+    cta: "Start free trial",
+    aiNote: "AI assistant coming soon",
+    intro: "Everything you need to run day to day:",
+    features: [
+      "Professional invoices & online payments",
+      "Customers & optional inventory",
+      "Income, expenses & clear reports",
+      "Scheduling & calendar",
+      "Notes & searchable knowledge base",
+      "CSV import / export — your data stays yours",
+    ],
+  },
+  {
+    id: "personal",
+    icon: Home,
+    name: "Personal",
+    monthly: PRICING.personalBase,
+    badge: "Life, organized",
+    tagline: "Track your money, plan your week, and capture ideas — with an AI assistant that does it for you.",
+    cta: "Start free trial",
+    personal: true, // renders the interactive add-on toggles
+    intro: "Built for everyday life:",
+    features: [
+      "Income & expense tracking",
+      "Calendar, reminders & to-dos",
+      "Notes & knowledge base",
+      "CSV import / export",
+    ],
   },
 ];
 
 const FAQS = [
   { q: "Is there a contract?", a: "No. Vultrix is month-to-month and you can cancel anytime from your billing portal — no calls, no hoops." },
-  { q: "How does the free trial work?", a: "You get 14 days free. You won't be charged until the trial ends, and you can cancel before then at no cost." },
+  { q: "How does the free trial work?", a: "You get 60 days free. You won't be charged until the trial ends, and you can cancel before then at no cost." },
+  { q: "What does it cost?", a: "It depends on your account: an Auto Repair Shop is $35/month, a Business is $25/month, and a Personal account is $15/month. Personal accounts can add invoices & customers for $10/month, and the Vultrix AI assistant for another $10/month — or connect your own OpenAI/Anthropic key at no extra cost." },
+  { q: "Which account type should I pick?", a: "Pick Auto Repair Shop for the full shop workflow (repair orders, VIN/parts lookup, technicians). Pick Business to run any other small business with invoices, inventory, and reports. Pick Personal to organize your own money, calendar, and notes." },
+  { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions. It's live on Personal accounts today for $10/month — or bring your own OpenAI/Anthropic key for free. Support for business and shop accounts is coming next." },
   { q: "Can I export my data?", a: "Yes. You can import and export by CSV whenever you like. Your data is yours — there's no lock-in." },
-  { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on the shop computer, your phone, or a tablet out in the bay." },
-  { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, admins, and technicians." },
+  { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on a computer, your phone, or a tablet." },
+  { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, admins, and staff." },
   { q: "Is my payment secure?", a: "Billing is handled by Stripe, an industry-leading payment processor. We never see or store your card details." },
-  { q: "Can my customers pay online?", a: "Yes. Customers can pay their invoice right from their phone or a shared link — no extra setup on your end." },
+  { q: "Can my customers pay online?", a: "Yes. On accounts with invoicing, customers can pay right from their phone or a shared link — no extra setup on your end." },
   { q: "Do you offer discounts?", a: "From time to time, yes. When we're running a promotion you'll get a code to enter at checkout, and the discount applies automatically." },
-  { q: "What does it cost?", a: "A flat $45 per month with every feature included — no tiers and no per-feature upsells." },
 ];
 
 const TRUST_BADGES = [
@@ -592,20 +701,20 @@ const Hero = ({ trialDays }) => (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
         <Reveal className="lg:col-span-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
-            <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic
+            <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic — now for everyone
           </div>
           <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.05]">
-            Run your whole shop from <span className="text-amber-400">one screen.</span>
+            Everything you run, from <span className="text-amber-400">one screen.</span>
           </h1>
           <p className="mt-5 text-base sm:text-lg text-zinc-300 leading-relaxed max-w-xl">
-            Repair orders, invoices, the parts that fit, inventory, reminders, and reporting — all in one place. {SITE.brand} replaces the clunky, overpriced legacy tools with something fast, clean, and made for the bay.
+            {SITE.brand} began as software for auto repair shops and grew into an all-in-one system for any small business — or your personal life. Jobs, invoices, inventory, scheduling, expenses, reminders, and a built-in AI assistant, minus the clunky, overpriced tools.
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
             <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
             <a href={URLS.demo} className={`${btnBase} h-12 px-6 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-zinc-400">
-            <span className="font-semibold text-white">${SITE.price}/mo</span>
+            <span className="font-semibold text-white">Plans from ${PRICING.startingPrice}/mo</span>
             {TRUST_BADGES.map((b) => (
               <span key={b.label} className="inline-flex items-center gap-1.5"><b.icon className="h-4 w-4 text-amber-400" /> {b.label}</span>
             ))}
@@ -640,9 +749,9 @@ const WhatIs = () => (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
         <Reveal className="lg:col-span-6">
           <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">What is {SITE.brand}?</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">The shop management system mechanics actually want to use</h2>
-          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{SITE.brand} is an all-in-one platform for independent auto repair shops. Write up a repair order, see the parts that fit the vehicle, send a professional invoice, track your inventory, and keep customers coming back — without bouncing between five different tools or paying enterprise prices.</p>
-          <p className="mt-4 text-base text-zinc-600 leading-relaxed">It runs in any browser, on the shop computer, your phone, or a tablet in the bay. Your data is always yours, and you can export it anytime.</p>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">The all-in-one system, shaped to how you work</h2>
+          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{SITE.brand} began in a busy auto repair shop and grew into a flexible platform for any small business — or your personal life. Write up jobs and invoices, track inventory and expenses, plan your week, and keep customers (or yourself) on track — without bouncing between five different tools or paying enterprise prices.</p>
+          <p className="mt-4 text-base text-zinc-600 leading-relaxed">It runs in any browser, on the shop computer, your phone, or a tablet in the bay. You choose your setup at sign-up and only see the tools you need. Your data is always yours, and you can export it anytime.</p>
         </Reveal>
         <Reveal className="lg:col-span-6" delay={0.1}>
           <div className="rounded-[18px] bg-white border border-zinc-200 shadow-sm p-6 sm:p-8">
@@ -659,6 +768,41 @@ const WhatIs = () => (
   </section>
 );
 
+const Audiences = () => (
+  <section id="who" className="scroll-anchor bg-white border-t border-zinc-200">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <Reveal>
+        <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Who it's for</div>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Built for the bay — flexible enough for anyone.</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">Pick your setup when you sign up and {SITE.brand} shapes itself to match — you only ever see the tools that fit how you work.</p>
+      </Reveal>
+      <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+        {AUDIENCES.map((a, i) => (
+          <Reveal key={a.kicker} delay={(i % 3) * 0.06}>
+            <div className="h-full rounded-[16px] bg-white border border-zinc-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 text-amber-400"><a.icon className="h-6 w-6" /></span>
+              <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-600">{a.kicker}</div>
+              <h3 className="mt-1 font-display text-xl font-extrabold text-zinc-900">{a.title}</h3>
+              <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{a.desc}</p>
+              <ul className="mt-4 space-y-2">
+                {a.points.map((p) => (
+                  <li key={p} className="flex items-start gap-2 text-sm text-zinc-700"><Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />{p}</li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      <Reveal delay={0.1}>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>Choose your setup <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <a href={URLS.demo} className={`${btnBase} h-11 px-5 border border-zinc-300 text-zinc-800 hover:bg-zinc-50 text-sm`}>Explore the live demo</a>
+        </div>
+      </Reveal>
+    </div>
+  </section>
+);
+
 const FounderStory = () => (
   <section className="bg-white border-y border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
@@ -669,6 +813,7 @@ const FounderStory = () => (
           <div className="mt-5 space-y-4 text-base text-zinc-600 leading-relaxed">
             <p>I work on cars. The software I was stuck with was slow, confusing, and cost a small fortune every month — and it still couldn't do half of what a busy shop actually needs.</p>
             <p>So I built {SITE.brand}: the system I wish I'd had on day one. Everything a shop touches in a day — estimates, parts, inventory, customers, reminders, and the money — in one fast, clean place. No fluff, no lock-in, no enterprise price tag.</p>
+            <p>It started in my own shop. But scattered tools, ugly screens, and monthly fees for half the features hit every small business — and honestly, everyday life too. So {SITE.brand} now flexes to fit auto shops, other businesses, and personal use. Same clean system, shaped to whatever you're running.</p>
           </div>
         </Reveal>
       </div>
@@ -676,24 +821,54 @@ const FounderStory = () => (
   </section>
 );
 
+const FeatureCard = ({ f, i }) => (
+  <Reveal delay={(i % 3) * 0.05} className="h-full">
+    <div className="group h-full rounded-[14px] bg-white border border-zinc-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors"><f.icon className="h-5 w-5" /></span>
+      <h3 className="mt-4 font-display text-base font-bold text-zinc-900">{f.title}</h3>
+      <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{f.desc}</p>
+      {f.tag && <span className="mt-3 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{f.tag}</span>}
+    </div>
+  </Reveal>
+);
+
 const Features = () => (
   <section id="features" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <Reveal>
         <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Everything in one place</div>
-        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">One subscription. Every tool your shop runs on.</h2>
-        <p className="mt-4 text-zinc-600 max-w-2xl">{SITE.brand} brings the whole shop together — no more juggling logins, spreadsheets, and sticky notes.</p>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Powerful tools, tailored to how you work.</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">Pick your setup at sign-up and {SITE.brand} shows only what fits. Here's what comes with every account — plus the extra toolkit built just for auto repair shops.</p>
       </Reveal>
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        {FEATURES.map((f, i) => (
-          <Reveal key={f.title} delay={(i % 3) * 0.05}>
-            <div className="group h-full rounded-[14px] bg-white border border-zinc-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors"><f.icon className="h-5 w-5" /></span>
-              <h3 className="mt-4 font-display text-base font-bold text-zinc-900">{f.title}</h3>
-              <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{f.desc}</p>
+
+      <div className="mt-12">
+        <Reveal>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 shrink-0"><LayoutDashboard className="h-5 w-5" /></span>
+            <div>
+              <h3 className="font-display text-xl font-extrabold text-zinc-900">In every account</h3>
+              <p className="text-sm text-zinc-600">Auto shop, business, or personal. Invoicing &amp; customers are built in for shops and businesses — and an add-on for personal accounts.</p>
             </div>
-          </Reveal>
-        ))}
+          </div>
+        </Reveal>
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {GENERAL_FEATURES.map((f, i) => (<FeatureCard key={f.title} f={f} i={i} />))}
+        </div>
+      </div>
+
+      <div className="mt-14">
+        <Reveal>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-zinc-950 shrink-0"><Wrench className="h-5 w-5" /></span>
+            <div>
+              <h3 className="font-display text-xl font-extrabold text-zinc-900">Auto repair shops only</h3>
+              <p className="text-sm text-zinc-600">The shop-floor toolkit — exclusive to auto repair accounts.</p>
+            </div>
+          </div>
+        </Reveal>
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {AUTO_FEATURES.map((f, i) => (<FeatureCard key={f.title} f={f} i={i} />))}
+        </div>
       </div>
     </div>
   </section>
@@ -813,12 +988,13 @@ const Roadmap = () => (
       <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {ROADMAP.map((r, i) => {
           const soon = r.status === "Coming soon";
+          const live = r.status.startsWith("Live");
           return (
             <Reveal key={r.title} delay={(i % 3) * 0.05}>
               <div className="h-full rounded-[14px] bg-[#fafafa] border border-zinc-200 p-6 hover:border-zinc-300 transition-colors">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-zinc-200 text-zinc-900"><r.icon className="h-5 w-5" /></span>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${soon ? "bg-amber-100 text-amber-700" : "bg-zinc-200 text-zinc-700"}`}>{r.status}</span>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${live ? "bg-green-100 text-green-700" : soon ? "bg-amber-100 text-amber-700" : "bg-zinc-200 text-zinc-700"}`}>{r.status}</span>
                 </div>
                 <h3 className="mt-4 font-display text-base font-bold text-zinc-900">{r.title}</h3>
                 <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{r.note}</p>
@@ -833,44 +1009,114 @@ const Roadmap = () => (
 );
 
 const money = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+
+const PriceToggle = ({ checked, onChange, label, hint, testId }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    onClick={() => onChange(!checked)}
+    data-testid={testId}
+    className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${checked ? "border-amber-400 bg-amber-50" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+  >
+    <span className="min-w-0">
+      <span className="block text-sm font-semibold text-zinc-900">{label}</span>
+      <span className="block text-xs text-zinc-500">{hint}</span>
+    </span>
+    <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-300"}`}>
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[1.375rem]" : "translate-x-0.5"}`} />
+    </span>
+  </button>
+);
+
 const Pricing = ({ trialDays }) => {
+  const [addInvoices, setAddInvoices] = useState(false);
+  const [addAi, setAddAi] = useState(false);
+  const personalPrice =
+    PRICING.personalBase +
+    (addInvoices ? PRICING.invoicesAddon : 0) +
+    (addAi ? PRICING.aiAddon : 0);
+
   return (
     <section id="pricing" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <Reveal>
           <div className="text-center">
-            <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, affordable pricing</div>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One plan. Everything included.</h2>
-            <p className="mt-4 text-zinc-600 max-w-xl mx-auto">No tiers to decode, no per-feature upsells. One flat monthly price with every tool Vultrix has — and a {trialDays}-day free trial to start.</p>
+            <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, honest pricing</div>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One price for how you work.</h2>
+            <p className="mt-4 text-zinc-600 max-w-2xl mx-auto">Pick the setup that matches your account type — you only pay for what fits. Every plan includes a {trialDays}-day free trial, month-to-month billing, and your data exportable anytime.</p>
           </div>
         </Reveal>
-        <Reveal delay={0.1}>
-          <div className="mt-10 grid grid-cols-1 gap-6 max-w-md mx-auto">
-            {TIERS.map((t) => (
-              <div key={t.id} className={`relative flex flex-col rounded-[20px] p-7 sm:p-8 bg-white ${t.highlight ? "border-2 border-amber-400 shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display text-xl font-extrabold tracking-tight text-zinc-900">{t.name}</h3>
-                  {t.badge && <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${t.available ? "bg-amber-100 text-amber-700" : "bg-zinc-200 text-zinc-600"}`}>{t.badge}</span>}
+        <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {PLANS.map((p, i) => {
+            const price = p.personal ? personalPrice : p.monthly;
+            return (
+              <Reveal key={p.id} delay={(i % 3) * 0.06} className="h-full">
+                <div
+                  data-testid={`pricing-card-${p.id}`}
+                  className={`relative flex h-full flex-col rounded-[20px] p-7 bg-white ${p.highlight ? "border-2 border-amber-400 shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 shrink-0"><p.icon className="h-5 w-5" /></span>
+                    <div className="min-w-0">
+                      <h3 className="font-display text-xl font-extrabold tracking-tight text-zinc-900 leading-tight">{p.name}</h3>
+                      {p.badge && <span className={`mt-1 inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.highlight ? "bg-amber-100 text-amber-700" : "bg-zinc-100 text-zinc-600"}`}>{p.badge}</span>}
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-zinc-600 leading-relaxed">{p.tagline}</p>
+                  <div className="mt-5 flex items-end gap-1">
+                    <span className="font-display text-5xl font-extrabold tracking-tight text-zinc-900" data-testid={`pricing-amount-${p.id}`}>{money(price)}</span>
+                    <span className="mb-1.5 text-zinc-500">/mo</span>
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">Billed monthly · cancel anytime</div>
+
+                  {p.personal ? (
+                    <div className="mt-5 space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Make it yours</div>
+                      <PriceToggle
+                        checked={addInvoices}
+                        onChange={setAddInvoices}
+                        label="Add invoices & customers"
+                        hint={`+${money(PRICING.invoicesAddon)}/mo`}
+                        testId="personal-invoices-toggle"
+                      />
+                      <PriceToggle
+                        checked={addAi}
+                        onChange={setAddAi}
+                        label="Add the Vultrix AI assistant"
+                        hint={`+${money(PRICING.aiAddon)}/mo — or connect your own OpenAI / Anthropic key, free`}
+                        testId="personal-ai-toggle"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500">
+                      <Bot className="h-3.5 w-3.5" /> {p.aiNote}
+                    </div>
+                  )}
+
+                  <a
+                    href={URLS.signup}
+                    data-testid={`pricing-cta-${p.id}`}
+                    className={`${btnBase} mt-6 w-full h-12 ${p.highlight ? "bg-amber-500 text-zinc-950 hover:bg-amber-400" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
+                  >
+                    {p.cta}<ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                  <a href={URLS.demo} className="mt-3 text-center text-sm font-medium text-zinc-600 underline underline-offset-4 decoration-zinc-300 hover:text-zinc-900 hover:decoration-zinc-500">or try the live demo first</a>
+
+                  {p.intro && <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-zinc-400">{p.intro}</div>}
+                  <ul className="mt-3 space-y-3">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 shrink-0"><Check className="h-3.5 w-3.5" /></span><span className="text-sm text-zinc-700">{f}</span></li>
+                    ))}
+                  </ul>
                 </div>
-                <p className="mt-1.5 text-sm text-zinc-600">{t.tagline}</p>
-                <div className="mt-5 flex items-end gap-1">
-                  <span className="font-display text-5xl font-extrabold tracking-tight text-zinc-900">{money(t.monthly)}</span>
-                  <span className="mb-1.5 text-zinc-500">/mo</span>
-                </div>
-                <div className="mt-1 h-5 text-xs text-zinc-500">Billed monthly · cancel anytime</div>
-                <a href={t.href} {...(t.available ? { target: "_blank", rel: "noopener noreferrer" } : {})} className={`${btnBase} mt-6 w-full h-12 ${t.available ? "bg-zinc-900 text-white hover:bg-zinc-800" : "border border-zinc-300 text-zinc-800 hover:bg-zinc-50"}`}>{t.cta}{t.available && <ArrowRight className="ml-2 h-4 w-4" />}</a>
-                <a href={URLS.demo} className="mt-3 text-center text-sm font-medium text-zinc-600 underline underline-offset-4 decoration-zinc-300 hover:text-zinc-900 hover:decoration-zinc-500">or try the live demo first</a>
-                <ul className="mt-7 space-y-3">
-                  {t.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 shrink-0"><Check className="h-3.5 w-3.5" /></span><span className="text-sm text-zinc-700">{f}</span></li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </Reveal>
+              </Reveal>
+            );
+          })}
+        </div>
         <Reveal delay={0.15}>
-          <div className="mt-8 flex flex-col items-center gap-3">
+          <div className="mt-10 flex flex-col items-center gap-3">
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {TRUST_BADGES.map((b) => (<span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><b.icon className="h-4 w-4 text-amber-500" /> {b.label}</span>))}
             </div>
@@ -1017,8 +1263,8 @@ const FinalCta = ({ trialDays }) => (
     <div className="absolute inset-0 vx-dots opacity-50" aria-hidden="true" />
     <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
       <Reveal>
-        <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight">Run your shop like a system.</h2>
-        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {trialDays} days. ${SITE.price}/month after that. Cancel anytime.</p>
+        <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight">Run everything like a system.</h2>
+        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {trialDays} days — plans from ${PRICING.startingPrice}/month after that. Cancel anytime.</p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <a href={URLS.signup} className={`${btnBase} h-12 px-7 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
           <a href={URLS.demo} className={`${btnBase} h-12 px-7 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
@@ -1036,7 +1282,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
             <div className="flex items-center gap-2"><VultrixLogo /><span className="font-display text-xl font-extrabold tracking-tight text-white">{SITE.brand}</span></div>
-            <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{SITE.tagline}. The all-in-one shop management platform built by a working mechanic, for working shops.</p>
+            <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{SITE.tagline} The all-in-one platform for auto repair shops, small businesses, and personal life — built by a working mechanic.</p>
           </div>
           <div className="md:col-span-3">
             <div className="text-sm font-semibold text-white">Product</div>
@@ -1077,9 +1323,9 @@ export default function VultrixLanding({ trialDays = SITE.trialDays }) {
         <Hero trialDays={trialDays} />
         <CredibilityStrip />
         <WhatIs />
+        <Audiences />
         <FounderStory />
         <Features />
-        <DeepDives />
         <Stats trialDays={trialDays} />
         <ImportSection />
         <ShopRecommendation />
@@ -1093,7 +1339,7 @@ export default function VultrixLanding({ trialDays = SITE.trialDays }) {
       <Footer />
       <VultrixAssistant
         brand={SITE.brand}
-        price={SITE.price}
+        pricing={PRICING}
         trialDays={trialDays}
         phone={SITE.phone}
         phoneHref={SITE.phoneHref}
