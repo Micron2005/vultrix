@@ -7,6 +7,8 @@ export type AssistantToolName =
   | "add_expense"
   | "add_note"
   | "add_calendar_event"
+  | "read_note"
+  | "remove_calendar_event"
   | "get_financial_summary"
   | "get_inventory_overview"
   | "get_upcoming_events"

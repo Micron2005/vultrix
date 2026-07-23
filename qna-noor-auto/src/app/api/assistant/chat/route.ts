@@ -12,6 +12,8 @@ import {
   getAssistantInventoryOverview,
   getAssistantReportsSummary,
   getAssistantUpcomingEvents,
+  readAssistantNote,
+  removeAssistantCalendarEvent,
   type AddCalendarEventArgs,
   type AddExpenseArgs,
   type AddIncomeArgs,
@@ -20,6 +22,8 @@ import {
   type CreateInventoryPartArgs,
   type PeriodArgs,
   type ReportsSummaryArgs,
+  type ReadNoteArgs,
+  type RemoveCalendarEventArgs,
   type UpcomingEventsArgs,
 } from "@/lib/assistant";
 import {
@@ -133,6 +137,18 @@ const tools: AssistantToolDefinition[] = [
     },
   },
   {
+    name: "read_note",
+    description: "Read a Knowledge note by title.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: property("string", "Note title"),
+      },
+      required: ["title"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "add_calendar_event",
     description: "Add a calendar event or reminder.",
     parameters: {
@@ -146,6 +162,19 @@ const tools: AssistantToolDefinition[] = [
         notes: property("string"),
       },
       required: ["title", "startsAt"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "remove_calendar_event",
+    description: "Remove an upcoming calendar event by title.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: property("string", "Event title"),
+        date: property("string", "ISO date, optional"),
+      },
+      required: ["title"],
       additionalProperties: false,
     },
   },
@@ -241,10 +270,17 @@ async function executeTool(
         return finish(await addAssistantExpense(orgId, args as AddExpenseArgs));
       case "add_note":
         return finish(await addAssistantNote(orgId, args as AddNoteArgs));
+      case "read_note":
+        return finish(await readAssistantNote(orgId, args as ReadNoteArgs));
       case "add_calendar_event":
         return finish(await addAssistantCalendarEvent(
           orgId,
           args as AddCalendarEventArgs,
+        ));
+      case "remove_calendar_event":
+        return finish(await removeAssistantCalendarEvent(
+          orgId,
+          args as RemoveCalendarEventArgs,
         ));
       case "get_financial_summary":
         return finish(await getAssistantFinancialSummary(orgId, args as PeriodArgs));

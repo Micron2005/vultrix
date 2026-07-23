@@ -184,9 +184,10 @@ export default async function BillingPage({
         </form>
       </Card>
 
-      <Card className="mt-6">
-        <CardHeader title="Accept customer payments" />
-        <div className="p-4 space-y-4">
+      {hasInvoices && (
+        <Card className="mt-6">
+          <CardHeader title="Accept customer payments" />
+          <div className="p-4 space-y-4">
           <p className="text-sm text-zinc-600">
             Let your customers pay their invoices online by card. Money goes
             straight to your own Stripe account and pays out to your bank — we
@@ -232,8 +233,9 @@ export default async function BillingPage({
               </p>
             </form>
           )}
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
