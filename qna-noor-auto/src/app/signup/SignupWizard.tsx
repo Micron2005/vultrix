@@ -264,7 +264,10 @@ export function SignupWizard({
               <h1 className="mt-1 text-lg font-semibold text-zinc-900">
                 {step === 1 && `What are you using ${brand} for?`}
                 {step === 2 && "Tell us about yourself"}
-                {step === 3 && "What kind of business is this?"}
+                {step === 3 &&
+                  (path === "personal"
+                    ? "What do you do?"
+                    : "What kind of business is this?")}
                 {step === 4 && "Do you need to create invoices?"}
                 {step === 5 && "Add the built-in AI assistant?"}
               </h1>
