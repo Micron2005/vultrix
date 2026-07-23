@@ -30,6 +30,7 @@ export function SupplierLinks({ ctx, compact = false, label }: Props) {
     null,
   );
   const clip = formatSupplierClipboard(ctx);
+  const anyNeedsVehicle = PARTS_SUPPLIERS.some((s) => s.needsVehicleContext);
 
   function openSupplier(s: SupplierDef) {
     let url = s.buildUrl(ctx);
@@ -111,7 +112,7 @@ export function SupplierLinks({ ctx, compact = false, label }: Props) {
           {copied.hint}
         </div>
       )}
-      {!compact && !copied && clip && (
+      {!compact && !copied && clip && anyNeedsVehicle && (
         <div className="mt-1.5 text-xs text-zinc-500">
           {clip.kind === "vin" && (
             <>

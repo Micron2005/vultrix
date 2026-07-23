@@ -124,32 +124,6 @@ export function formatSupplierClipboard(
 
 export const PARTS_SUPPLIERS: SupplierDef[] = [
   {
-    id: "autozone-pro",
-    name: "AutoZone Pro",
-    short: "AutoZone",
-    description:
-      "AutoZone Commercial — set the vehicle in the 'My Zone' selector first, then the part search will be filtered for you.",
-    needsVehicleContext: true,
-    buildUrl: (ctx) => {
-      const q = partOnly(ctx);
-      if (!q) return "https://www.autozonepro.com/";
-      return `https://www.autozonepro.com/search?searchText=${enc(q)}`;
-    },
-  },
-  {
-    id: "oreilly-first-call",
-    name: "O'Reilly First Call",
-    short: "O'Reilly",
-    description:
-      "O'Reilly First Call Online — pick the vehicle in First Call's own vehicle selector, then the part search will be filtered.",
-    needsVehicleContext: true,
-    buildUrl: (ctx) => {
-      const q = partOnly(ctx);
-      if (!q) return "https://www.firstcallonline.com/";
-      return `https://www.firstcallonline.com/search?searchTerm=${enc(q)}`;
-    },
-  },
-  {
     id: "amazon",
     name: "Amazon",
     short: "Amazon",
@@ -158,21 +132,6 @@ export const PARTS_SUPPLIERS: SupplierDef[] = [
       const q = combined(ctx);
       if (!q) return "https://www.amazon.com/automotive";
       return `https://www.amazon.com/s?i=automotive&k=${enc(q)}`;
-    },
-  },
-  {
-    id: "rockauto",
-    name: "RockAuto",
-    short: "RockAuto",
-    description:
-      "RockAuto parts catalog — if a part number is known, search by it; otherwise we open the catalog home.",
-    buildUrl: (ctx) => {
-      if (ctx.partNumber && ctx.partNumber.trim()) {
-        return `https://www.rockauto.com/en/partsearch/?partnum=${enc(ctx.partNumber.trim())}`;
-      }
-      const q = combined(ctx);
-      if (!q) return "https://www.rockauto.com/";
-      return `https://www.rockauto.com/en/partsearch/?partnum=${enc(q)}`;
     },
   },
 ];
