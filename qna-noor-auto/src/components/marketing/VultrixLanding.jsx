@@ -13,7 +13,7 @@ import {
   ShieldCheck, Smartphone, Download, HardHat, Bot, Globe, Store, MessageSquare,
   CreditCard, Clock, BadgeCheck, ArrowRight, ArrowUpRight, Check, X,
   Menu, Mail, Phone, MapPin, RefreshCw, Send, CheckCircle2, LayoutDashboard,
-  ScanLine, Plus,
+  ScanLine, Plus, Home,
 } from "lucide-react";
 import VultrixAssistant from "./VultrixAssistant";
 
@@ -23,7 +23,7 @@ import VultrixAssistant from "./VultrixAssistant";
 const SITE = {
   brand: "Vultrix",
   owner: "M.S.A.M Enterprise",
-  tagline: "Shop management powered by Vultrix",
+  tagline: "One system to run your business — and your life.",
   price: 45,
   trialDays: 14,
   annualMonthsFree: 2,
@@ -43,6 +43,7 @@ const URLS = {
 };
 
 const NAV_LINKS = [
+  { label: "Who it's for", href: "#who" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#deep-dives" },
   { label: "Roadmap", href: "#roadmap" },
@@ -62,6 +63,43 @@ const WHAT_IS = [
   "Track parts, labor, tech hours, and money owed in one place",
   "Know exactly what fits a vehicle before you order",
   "Keep customers coming back with automatic service reminders",
+];
+
+// Who Vultrix is for — mirrors the account types you pick at sign-up.
+const AUDIENCES = [
+  {
+    icon: Wrench,
+    kicker: "Auto repair shops",
+    title: "The shop, fully handled",
+    desc: "The flagship toolkit Vultrix was born in — the complete workflow for a busy bay.",
+    points: [
+      "Estimates → approved → in progress → paid",
+      "VIN decode, parts that fit & inventory",
+      "Technicians, reminders & scheduling",
+    ],
+  },
+  {
+    icon: Store,
+    kicker: "Small businesses",
+    title: "Any business, your way",
+    desc: "Switch off the auto-specific parts and keep exactly what your business needs.",
+    points: [
+      "Professional invoices & online payments",
+      "Inventory & expense tracking",
+      "Clear financial reports",
+    ],
+  },
+  {
+    icon: Home,
+    kicker: "Personal use",
+    title: "Life, organized",
+    desc: "Track your money, plan your week, and capture ideas — with an AI assistant that does it for you.",
+    points: [
+      "Income & expense tracking",
+      "Calendar, reminders & notes",
+      "Built-in voice & chat AI assistant",
+    ],
+  },
 ];
 
 const FEATURES = [
@@ -592,13 +630,13 @@ const Hero = ({ trialDays }) => (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
         <Reveal className="lg:col-span-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
-            <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic
+            <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic — now for everyone
           </div>
           <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.05]">
-            Run your whole shop from <span className="text-amber-400">one screen.</span>
+            Everything you run, from <span className="text-amber-400">one screen.</span>
           </h1>
           <p className="mt-5 text-base sm:text-lg text-zinc-300 leading-relaxed max-w-xl">
-            Repair orders, invoices, the parts that fit, inventory, reminders, and reporting — all in one place. {SITE.brand} replaces the clunky, overpriced legacy tools with something fast, clean, and made for the bay.
+            {SITE.brand} began as software for auto repair shops and grew into an all-in-one system for any small business — or your personal life. Jobs, invoices, inventory, scheduling, expenses, reminders, and a built-in AI assistant, minus the clunky, overpriced tools.
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
             <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
@@ -640,9 +678,9 @@ const WhatIs = () => (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
         <Reveal className="lg:col-span-6">
           <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">What is {SITE.brand}?</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">The shop management system mechanics actually want to use</h2>
-          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{SITE.brand} is an all-in-one platform for independent auto repair shops. Write up a repair order, see the parts that fit the vehicle, send a professional invoice, track your inventory, and keep customers coming back — without bouncing between five different tools or paying enterprise prices.</p>
-          <p className="mt-4 text-base text-zinc-600 leading-relaxed">It runs in any browser, on the shop computer, your phone, or a tablet in the bay. Your data is always yours, and you can export it anytime.</p>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">The all-in-one system, shaped to how you work</h2>
+          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{SITE.brand} began in a busy auto repair shop and grew into a flexible platform for any small business — or your personal life. Write up jobs and invoices, track inventory and expenses, plan your week, and keep customers (or yourself) on track — without bouncing between five different tools or paying enterprise prices.</p>
+          <p className="mt-4 text-base text-zinc-600 leading-relaxed">It runs in any browser, on the shop computer, your phone, or a tablet in the bay. You choose your setup at sign-up and only see the tools you need. Your data is always yours, and you can export it anytime.</p>
         </Reveal>
         <Reveal className="lg:col-span-6" delay={0.1}>
           <div className="rounded-[18px] bg-white border border-zinc-200 shadow-sm p-6 sm:p-8">
@@ -659,6 +697,41 @@ const WhatIs = () => (
   </section>
 );
 
+const Audiences = () => (
+  <section id="who" className="scroll-anchor bg-white border-t border-zinc-200">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <Reveal>
+        <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Who it's for</div>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Built for the bay — flexible enough for anyone.</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">Pick your setup when you sign up and {SITE.brand} shapes itself to match — you only ever see the tools that fit how you work.</p>
+      </Reveal>
+      <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+        {AUDIENCES.map((a, i) => (
+          <Reveal key={a.kicker} delay={(i % 3) * 0.06}>
+            <div className="h-full rounded-[16px] bg-white border border-zinc-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 text-amber-400"><a.icon className="h-6 w-6" /></span>
+              <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-600">{a.kicker}</div>
+              <h3 className="mt-1 font-display text-xl font-extrabold text-zinc-900">{a.title}</h3>
+              <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{a.desc}</p>
+              <ul className="mt-4 space-y-2">
+                {a.points.map((p) => (
+                  <li key={p} className="flex items-start gap-2 text-sm text-zinc-700"><Check className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />{p}</li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      <Reveal delay={0.1}>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>Choose your setup <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <a href={URLS.demo} className={`${btnBase} h-11 px-5 border border-zinc-300 text-zinc-800 hover:bg-zinc-50 text-sm`}>Explore the live demo</a>
+        </div>
+      </Reveal>
+    </div>
+  </section>
+);
+
 const FounderStory = () => (
   <section className="bg-white border-y border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
@@ -669,6 +742,7 @@ const FounderStory = () => (
           <div className="mt-5 space-y-4 text-base text-zinc-600 leading-relaxed">
             <p>I work on cars. The software I was stuck with was slow, confusing, and cost a small fortune every month — and it still couldn't do half of what a busy shop actually needs.</p>
             <p>So I built {SITE.brand}: the system I wish I'd had on day one. Everything a shop touches in a day — estimates, parts, inventory, customers, reminders, and the money — in one fast, clean place. No fluff, no lock-in, no enterprise price tag.</p>
+            <p>It started in my own shop. But scattered tools, ugly screens, and monthly fees for half the features hit every small business — and honestly, everyday life too. So {SITE.brand} now flexes to fit auto shops, other businesses, and personal use. Same clean system, shaped to whatever you're running.</p>
           </div>
         </Reveal>
       </div>
@@ -681,8 +755,8 @@ const Features = () => (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <Reveal>
         <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Everything in one place</div>
-        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">One subscription. Every tool your shop runs on.</h2>
-        <p className="mt-4 text-zinc-600 max-w-2xl">{SITE.brand} brings the whole shop together — no more juggling logins, spreadsheets, and sticky notes.</p>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">One subscription. Every tool you need in one place.</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">{SITE.brand} brings your whole operation together — no more juggling logins, spreadsheets, and sticky notes. These are the shop's full-power tools; turn on only the ones your account needs.</p>
       </Reveal>
       <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {FEATURES.map((f, i) => (
@@ -1077,6 +1151,7 @@ export default function VultrixLanding({ trialDays = SITE.trialDays }) {
         <Hero trialDays={trialDays} />
         <CredibilityStrip />
         <WhatIs />
+        <Audiences />
         <FounderStory />
         <Features />
         <DeepDives />
