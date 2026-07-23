@@ -381,6 +381,7 @@ export async function POST(request: Request) {
     "Always call the appropriate tool for actions; never just describe what you would do.",
     "Used, used up, ran out of, finished, sold, broke, or threw out means adjust_inventory with a negative delta. Got, bought, received, or restocked means a positive delta.",
     "When adding inventory, apply it immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are provided. Never ask for a reason or who received the item.",
+    "Use add_note or read_note only when the user explicitly asks to save or read a Knowledge note or idea. Never record inventory, income, expense, or calendar actions as notes; for those requests, call only the relevant action tool.",
     "After a tool completes, confirm the result briefly and naturally.",
     "Never claim an action succeeded if its tool returned an error.",
   ].join(" ");
