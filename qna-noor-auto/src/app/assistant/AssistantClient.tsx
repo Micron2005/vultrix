@@ -412,8 +412,8 @@ export function AssistantClient({
           { role: "assistant", content: reply, steps: body.steps },
         ]);
         setStatus("");
-        await speakSequence([reply, "Anything else?"]);
         if (shouldListenRef.current) {
+          await speakSequence([reply]);
           beginFollowUp();
         } else {
           setVoiceState("ASLEEP");
@@ -428,8 +428,8 @@ export function AssistantClient({
           { role: "assistant", content: reply },
         ]);
         setStatus("");
-        await speakSequence([reply, "Anything else?"]);
         if (shouldListenRef.current) {
+          await speakSequence([reply]);
           beginFollowUp();
         } else {
           setVoiceState("ASLEEP");
