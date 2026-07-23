@@ -38,10 +38,10 @@ const inventoryPartSchema = z.object({
   unit: z.string().trim().optional(),
   location: z.string().trim().optional(),
   source: z.string().trim().optional(),
-  cost: z.number().finite().nonnegative().optional(),
-  price: z.number().finite().nonnegative().optional(),
-  openingQuantity: z.number().finite().nonnegative().default(0),
-  reorderLevel: z.number().finite().nonnegative().default(0),
+  cost: z.coerce.number().finite().nonnegative().optional(),
+  price: z.coerce.number().finite().nonnegative().optional(),
+  openingQuantity: z.coerce.number().finite().nonnegative().default(0),
+  reorderLevel: z.coerce.number().finite().nonnegative().default(0),
 });
 
 export type CreateInventoryPartArgs = z.input<typeof inventoryPartSchema>;
@@ -75,8 +75,8 @@ export async function createAssistantInventoryPart(
     return {
       data: { id: updated.id, name: updated.name, quantity: updated.qtyOnHand },
       confirmation: input.openingQuantity
-        ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock.`
-        : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock.`,
+        ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock. You can add the cost and location later if you want.`
+        : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock. You can add the cost and location later if you want.`,
     };
   }
   const part = await createInventoryPart(
@@ -97,7 +97,7 @@ export async function createAssistantInventoryPart(
   );
   return {
     data: { id: part.id, name: part.name, quantity: part.qtyOnHand },
-    confirmation: `Created ${part.name} with ${part.qtyOnHand} in stock.`,
+    confirmation: `Created ${part.name} with ${part.qtyOnHand} in stock. You can add the cost and location later if you want.`,
   };
 }
 
@@ -105,7 +105,7 @@ const adjustInventorySchema = z
   .object({
     partId: z.string().trim().min(1).optional(),
     partName: z.string().trim().min(1).optional(),
-    delta: z.number().finite().refine((value) => value !== 0),
+    delta: z.coerce.number().finite().refine((value) => value !== 0),
     reason: z.enum(["RECEIVE", "ADJUST"]).default("ADJUST"),
     note: z.string().trim().optional(),
   })
@@ -165,7 +165,7 @@ export async function adjustAssistantInventory(
 }
 
 const incomeSchema = z.object({
-  amount: z.number().finite().positive(),
+  amount: z.coerce.number().finite().positive(),
   receivedAt: dateInputSchema.optional(),
   source: z.string().trim().min(1),
   frequency: z.enum(["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"]).default("ONE_TIME"),
@@ -203,7 +203,7 @@ export async function addAssistantIncome(
 }
 
 const expenseSchema = z.object({
-  amount: z.number().finite().positive(),
+  amount: z.coerce.number().finite().positive(),
   paidAt: dateInputSchema.optional(),
   category: z.string().trim().min(1).default("MISC"),
   vendor: z.string().trim().optional(),
@@ -504,7 +504,7 @@ export async function getAssistantInventoryOverview(
 
 const upcomingSchema = z.object({
   from: dateInputSchema.optional(),
-  limit: z.number().int().positive().max(50).default(10),
+  limit: z.coerce.number().int().positive().max(50).default(10),
 });
 
 export type UpcomingEventsArgs = z.input<typeof upcomingSchema>;

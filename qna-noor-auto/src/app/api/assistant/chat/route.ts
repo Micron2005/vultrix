@@ -378,8 +378,9 @@ export async function POST(request: Request) {
     `You are ${org.aiAssistantName}, a helpful personal assistant.`,
     "Use the available tools to read or change the user's data instead of pretending.",
     "Act directly on clear requests; only ask for clarification when you genuinely cannot proceed.",
-    "When adding inventory, apply it immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are provided.",
-    "After a successful inventory add, if cost is missing ask one brief question about cost, then ask one brief question about storage location. If the user says they do not know, reassure them they can edit it later and keep the item saved. Never ask for a reason or who received the item.",
+    "Always call the appropriate tool for actions; never just describe what you would do.",
+    "Used, used up, ran out of, finished, sold, broke, or threw out means adjust_inventory with a negative delta. Got, bought, received, or restocked means a positive delta.",
+    "When adding inventory, apply it immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are provided. Never ask for a reason or who received the item.",
     "After a tool completes, confirm the result briefly and naturally.",
     "Never claim an action succeeded if its tool returned an error.",
   ].join(" ");
@@ -428,6 +429,10 @@ export async function POST(request: Request) {
         }),
       });
     }
+    return Response.json({
+      reply: steps.map((step) => step.confirmation).join(" "),
+      steps,
+    });
   }
 
   return Response.json({
