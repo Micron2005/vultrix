@@ -20,12 +20,28 @@ export type AssistantResult<T> = {
 const orgIdSchema = z.string().trim().min(1, "Organization is required.");
 const dateInputSchema = z.union([z.date(), z.string().trim().min(1)]);
 const optionalText = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  (value) => (
+    value == null || (typeof value === "string" && value.trim() === "")
+      ? undefined
+      : value
+  ),
   z.string().trim().min(1),
 ).optional();
 const optionalDateInputSchema = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  (value) => (
+    value == null || (typeof value === "string" && value.trim() === "")
+      ? undefined
+      : value
+  ),
   dateInputSchema,
+).optional();
+const optionalNumber = (schema: z.ZodType<number>) => z.preprocess(
+  (value) => (
+    value == null || (typeof value === "string" && value.trim() === "")
+      ? undefined
+      : value
+  ),
+  schema,
 ).optional();
 
 function parseDate(value: Date | string, label: string): Date {
@@ -46,10 +62,10 @@ const inventoryPartSchema = z.object({
   unit: optionalText,
   location: optionalText,
   source: optionalText,
-  cost: z.coerce.number().finite().nonnegative().optional(),
-  price: z.coerce.number().finite().nonnegative().optional(),
-  openingQuantity: z.coerce.number().finite().nonnegative().default(0),
-  reorderLevel: z.coerce.number().finite().nonnegative().default(0),
+  cost: optionalNumber(z.coerce.number().finite().nonnegative()),
+  price: optionalNumber(z.coerce.number().finite().nonnegative()),
+  openingQuantity: optionalNumber(z.coerce.number().finite().nonnegative()).default(0),
+  reorderLevel: optionalNumber(z.coerce.number().finite().nonnegative()).default(0),
 });
 
 export type CreateInventoryPartArgs = z.input<typeof inventoryPartSchema>;
@@ -514,7 +530,7 @@ export async function getAssistantInventoryOverview(
 
 const upcomingSchema = z.object({
   from: optionalDateInputSchema,
-  limit: z.coerce.number().int().positive().max(50).default(10),
+  limit: optionalNumber(z.coerce.number().int().positive().max(50)).default(10),
 });
 
 export type UpcomingEventsArgs = z.input<typeof upcomingSchema>;
