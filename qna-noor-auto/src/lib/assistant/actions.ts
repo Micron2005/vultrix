@@ -75,8 +75,8 @@ export async function createAssistantInventoryPart(
     return {
       data: { id: updated.id, name: updated.name, quantity: updated.qtyOnHand },
       confirmation: input.openingQuantity
-        ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock. You can add the cost and location later if you want.`
-        : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock. You can add the cost and location later if you want.`,
+        ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock.`
+        : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock.`,
     };
   }
   const part = await createInventoryPart(
@@ -97,7 +97,7 @@ export async function createAssistantInventoryPart(
   );
   return {
     data: { id: part.id, name: part.name, quantity: part.qtyOnHand },
-    confirmation: `Created ${part.name} with ${part.qtyOnHand} in stock. You can add the cost and location later if you want.`,
+    confirmation: `Created ${part.name} with ${part.qtyOnHand} in stock.`,
   };
 }
 
