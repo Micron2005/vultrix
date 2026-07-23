@@ -16,8 +16,10 @@ function toDateInput(d: Date | null | undefined): string {
 export function ExpenseForm({
   action,
   initial,
+  accountType = "AUTO_SHOP",
 }: {
   action: (fd: FormData) => void;
+  accountType?: string | null;
   initial?: {
     amount?: number;
     category?: string;
@@ -28,6 +30,8 @@ export function ExpenseForm({
     note?: string | null;
   };
 }) {
+  const isAutoShop = accountType === "AUTO_SHOP";
+
   return (
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -50,13 +54,22 @@ export function ExpenseForm({
           />
         </Field>
         <Field label="Category (required)">
-          <Select name="category" defaultValue={initial?.category ?? "MISC"}>
-            {EXPENSE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {prettyCategory(c)}
-              </option>
-            ))}
-          </Select>
+          {isAutoShop ? (
+            <Select name="category" defaultValue={initial?.category ?? "MISC"}>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {prettyCategory(c)}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input
+              name="category"
+              required
+              defaultValue={initial?.category ?? ""}
+              placeholder="e.g. Groceries, Transport, Software"
+            />
+          )}
         </Field>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

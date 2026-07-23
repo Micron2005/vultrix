@@ -27,3 +27,9 @@ export async function createCalendarEventForOrg(
     },
   });
 }
+
+export async function deleteCalendarEventForOrg(orgId: string, eventId: string) {
+  return db.calendarEvent.deleteMany({
+    where: { id: eventId, orgId },
+  });
+}

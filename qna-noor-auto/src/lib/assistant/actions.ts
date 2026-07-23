@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createCalendarEventForOrg } from "@/lib/calendar";
+import {
+  createCalendarEventForOrg,
+  deleteCalendarEventForOrg,
+} from "@/lib/calendar";
 import { createExpenseForOrg } from "@/lib/expenses";
 import { createIncomeForOrg } from "@/lib/income";
 import { createInventoryPart, adjustInventoryStock } from "@/lib/inventory";
@@ -230,6 +233,56 @@ export async function addAssistantNote(
   };
 }
 
+const readNoteSchema = z.object({
+  title: z.string().trim().min(1),
+});
+
+export type ReadNoteArgs = z.input<typeof readNoteSchema>;
+
+export async function readAssistantNote(
+  orgId: string,
+  args: ReadNoteArgs,
+): Promise<AssistantResult<{ id: string; title: string; body: string }>> {
+  const id = requireOrgId(orgId);
+  const input = readNoteSchema.parse(args);
+  const title = input.title.toLowerCase();
+  const notes = await db.repairNote.findMany({
+    where: { orgId: id },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      fix: true,
+      symptom: true,
+      diagnosis: true,
+      partsNotes: true,
+      tags: true,
+    },
+  });
+  const exact = notes.filter((note) => note.title.toLowerCase() === title);
+  const matches = exact.length > 0
+    ? exact
+    : notes.filter((note) => note.title.toLowerCase().includes(title));
+  const note = matches[0];
+  if (!note) {
+    return {
+      data: { id: "", title: input.title, body: "" },
+      confirmation: `I couldn't find a note titled '${input.title}'.`,
+    };
+  }
+  const body = note.fix?.trim() || [
+    note.symptom && `Symptom: ${note.symptom.trim()}`,
+    note.diagnosis && `Diagnosis: ${note.diagnosis.trim()}`,
+    note.partsNotes && `Parts: ${note.partsNotes.trim()}`,
+    note.tags && `Tags: ${note.tags.trim()}`,
+  ].filter(Boolean).join(". ");
+  const content = body || "This note has no contents.";
+  return {
+    data: { id: note.id, title: note.title, body: content },
+    confirmation: `Note '${note.title}': ${content}`,
+  };
+}
+
 const calendarEventSchema = z.object({
   title: z.string().trim().min(1),
   startsAt: dateInputSchema,
@@ -258,6 +311,58 @@ export async function addAssistantCalendarEvent(
   return {
     data: { id: event.id, title: event.title, startsAt: event.startsAt },
     confirmation: `Added ${event.allDay ? "all-day " : ""}event “${event.title}”.`,
+  };
+}
+
+const removeCalendarEventSchema = z.object({
+  title: z.string().trim().min(1),
+  date: z.string().trim().min(1).optional(),
+});
+
+export type RemoveCalendarEventArgs = z.input<typeof removeCalendarEventSchema>;
+
+export async function removeAssistantCalendarEvent(
+  orgId: string,
+  args: RemoveCalendarEventArgs,
+): Promise<AssistantResult<{ id: string; title: string; startsAt: Date }>> {
+  const id = requireOrgId(orgId);
+  const input = removeCalendarEventSchema.parse(args);
+  const from = new Date();
+  const events = await db.calendarEvent.findMany({
+    where: {
+      orgId: id,
+      startsAt: { gte: from },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+  const title = input.title.toLowerCase();
+  const exactMatches = events.filter((event) => event.title.toLowerCase() === title);
+  const titleMatches = exactMatches.length > 0
+    ? exactMatches
+    : events.filter((event) => event.title.toLowerCase().includes(title));
+  let matches = titleMatches;
+  if (input.date) {
+    const date = parseDate(input.date, "event date");
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    matches = titleMatches.filter(
+      (event) => event.startsAt >= new Date(date.getFullYear(), date.getMonth(), date.getDate()) &&
+        event.startsAt < new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate()),
+    );
+  }
+  const event = matches[0];
+  if (!event) {
+    return {
+      data: { id: "", title: input.title, startsAt: from },
+      confirmation: input.date
+        ? `I couldn't find an upcoming event titled '${input.title}' on ${input.date}.`
+        : `I couldn't find an upcoming event titled '${input.title}'.`,
+    };
+  }
+  await deleteCalendarEventForOrg(id, event.id);
+  return {
+    data: { id: event.id, title: event.title, startsAt: event.startsAt },
+    confirmation: `Removed “${event.title}” on ${event.startsAt.toLocaleDateString()}.`,
   };
 }
 
