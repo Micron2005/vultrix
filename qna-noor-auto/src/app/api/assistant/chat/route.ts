@@ -58,7 +58,8 @@ const property = (type: string, description?: string) => ({
 const tools: AssistantToolDefinition[] = [
   {
     name: "create_inventory_part",
-    description: "Create an inventory part, optionally with opening stock.",
+    description:
+      "Add a brand-new inventory item, optionally with opening stock, cost, price, and storage location. For an existing item, use adjust_inventory instead.",
     parameters: {
       type: "object",
       properties: {
@@ -66,6 +67,9 @@ const tools: AssistantToolDefinition[] = [
         partNumber: property("string"),
         category: property("string"),
         unit: property("string"),
+        cost: property("number", "Cost per unit, optional"),
+        price: property("number", "Selling price per unit, optional"),
+        location: property("string", "Storage location, optional"),
         openingQuantity: property("number", "Opening quantity, default 0"),
         reorderLevel: property("number", "Low-stock threshold, default 0"),
       },
@@ -75,7 +79,8 @@ const tools: AssistantToolDefinition[] = [
   },
   {
     name: "adjust_inventory",
-    description: "Add or remove inventory by part name or ID.",
+    description:
+      "Add or remove inventory by part name or ID. Use this for an existing item; if the name is new, it creates the item without blocking.",
     parameters: {
       type: "object",
       properties: {
@@ -373,7 +378,8 @@ export async function POST(request: Request) {
     `You are ${org.aiAssistantName}, a helpful personal assistant.`,
     "Use the available tools to read or change the user's data instead of pretending.",
     "Act directly on clear requests; only ask for clarification when you genuinely cannot proceed.",
-    "When adding or removing inventory, apply the change immediately \u2014 never ask for a reason or who received the item.",
+    "When adding inventory, apply it immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are provided.",
+    "After a successful inventory add, if cost is missing ask one brief question about cost, then ask one brief question about storage location. If the user says they do not know, reassure them they can edit it later and keep the item saved. Never ask for a reason or who received the item.",
     "After a tool completes, confirm the result briefly and naturally.",
     "Never claim an action succeeded if its tool returned an error.",
   ].join(" ");
