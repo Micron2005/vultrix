@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Button, Card, PageHeader } from "@/components/ui";
 import { ExpenseForm } from "../../ExpenseForm";
 import { deleteExpense, updateExpense } from "../../actions";
@@ -14,6 +14,7 @@ export default async function EditExpensePage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await getCurrentUser();
   const exp = await db.expense.findFirst({ where: { id, orgId } });
   if (!exp) notFound();
 
@@ -44,6 +45,7 @@ export default async function EditExpensePage({
             method: exp.method,
             note: exp.note,
           }}
+          accountType={user?.accountType}
         />
       </Card>
     </>
