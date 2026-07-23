@@ -18,7 +18,7 @@ function respond(raw, cfg) {
     return { action: "capture", text: "Happy to connect you with a human. Drop your name and email below and the team will reach out \u2014 usually the same day." };
 
   if (has("price", "pricing", "cost", "how much", "$", "monthly", "per month", "fee", "expensive", "cheap", "afford", "subscrib"))
-    return { text: `${cfg.brand} is $${cfg.price}/month, flat \u2014 no setup fees, no contract, cancel anytime. You also get a ${cfg.trialDays}-day free trial to try it first. A Pro tier with extra power is coming soon.`, quick: ["Free trial", "Features", "Talk to a human"] };
+    return { text: `${cfg.brand} pricing depends on your account: an Auto Repair Shop is $${cfg.pricing.auto}/mo, a Business is $${cfg.pricing.business}/mo, and a Personal account is $${cfg.pricing.personalBase}/mo. Personal can add invoices & customers for $${cfg.pricing.invoicesAddon}/mo and the AI assistant for $${cfg.pricing.aiAddon}/mo \u2014 or connect your own OpenAI/Anthropic key for free. Every plan comes with a ${cfg.trialDays}-day free trial.`, quick: ["Free trial", "AI assistant", "Talk to a human"] };
 
   if (has("trial", "free", "try it", "try ", "test it", "demo"))
     return { text: `Yes \u2014 there is a ${cfg.trialDays}-day free trial, no strings. Tap Sign up at the top to start, or I can have someone walk you through it.`, quick: ["Sign up help", "Pricing", "Talk to a human"] };
@@ -42,7 +42,7 @@ function respond(raw, cfg) {
     return { text: "Built-in reporting shows revenue, money owed, tech hours, and shop activity at a glance \u2014 right on your dashboard.", quick: ["Features", "Pricing"] };
 
   if (has("how", "work", "workflow", "process", "setup", "set up", "use it"))
-    return { text: "Simple flow: create a repair order \u2192 add jobs, parts & labor \u2192 send the estimate \u2192 customer approves \u2192 invoice \u2192 take payment. Most shops are set up in about a day.", quick: ["Pricing", "Free trial", "Talk to a human"] };
+    return { text: "You pick your account type at sign-up \u2014 auto shop, business, or personal \u2014 and Vultrix shows only the tools that fit. Add your customers, jobs or invoices, track money, plan your schedule, and you're up and running in about a day.", quick: ["Pricing", "Free trial", "Talk to a human"] };
 
   if (has("phone", "mobile", "tablet", "ipad", "device", "computer", "laptop", "android", "iphone"))
     return { text: "Works on any device \u2014 phone, tablet, or desktop. Nothing to install; just log in from a browser.", quick: ["Free trial", "Features"] };
@@ -53,8 +53,11 @@ function respond(raw, cfg) {
   if (has("secure", "security", "stripe", "payment", "card", "safe", "pci"))
     return { text: "Payments and billing run through Stripe \u2014 secure and PCI-compliant. Vultrix never stores raw card numbers.", quick: ["Pricing", "Free trial"] };
 
+  if (has("assistant", "chatbot", "openai", "anthropic", "claude", "voice"))
+    return { text: `${cfg.brand} has a built-in AI assistant \u2014 voice or chat \u2014 that can add calendar events, take notes, and answer questions for you. It's live on Personal accounts today for $${cfg.pricing.aiAddon}/mo, or connect your own OpenAI/Anthropic key for free. Support for business and shop accounts is coming next.`, quick: ["Pricing", "Free trial", "Talk to a human"] };
+
   if (has("roadmap", "future", "coming", "upcoming", "soon", "planned"))
-    return { text: "On the roadmap: two-way customer texting, deeper reporting, a Pro tier, and more. The full list is in the Roadmap section above.", quick: ["Pricing", "Talk to a human"] };
+    return { text: "On the roadmap: the AI assistant expanding to business & shop accounts, two-way customer texting, deeper reporting, and more. The full list is in the Roadmap section above.", quick: ["AI assistant", "Pricing", "Talk to a human"] };
 
   if (has("shop", "qna", "noor", "recommend", "near me", "my car", "fix"))
     return { text: cfg.shopUrl ? `Need actual auto repair? ${cfg.brand} is built by the crew at ${cfg.shopName} \u2014 check them out at ${cfg.shopUrl}.` : `Fun fact: ${cfg.brand} is built by a working shop, ${cfg.shopName}. Their website is coming soon.`, quick: ["Features", "Talk to a human"] };
@@ -71,8 +74,15 @@ function respond(raw, cfg) {
 export default function VultrixAssistant(props) {
   const cfg = {
     brand: props.brand || "Vultrix",
-    price: props.price || 45,
-    trialDays: props.trialDays || 14,
+    pricing: props.pricing || {
+      auto: 35,
+      business: 25,
+      personalBase: 15,
+      invoicesAddon: 10,
+      aiAddon: 10,
+      startingPrice: 15,
+    },
+    trialDays: props.trialDays || 60,
     phone: props.phone || "",
     phoneHref: props.phoneHref || "",
     shopName: props.shopName || "QNA / Noor Auto Repair",
@@ -85,7 +95,7 @@ export default function VultrixAssistant(props) {
     {
       role: "bot",
       text: `Hi! I am the ${cfg.brand} assistant \u2014 here to answer quick questions about the software. What can I help with?`,
-      quick: ["Pricing", "Free trial", "Features", "How it works", "Talk to a human"],
+      quick: ["Pricing", "Free trial", "AI assistant", "How it works", "Talk to a human"],
     },
   ]);
   const [input, setInput] = useState("");
