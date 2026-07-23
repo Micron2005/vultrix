@@ -201,7 +201,7 @@ export default async function PartDetailPage({
         <CardHeader title="Look up on">
           <span className="text-xs text-zinc-500 font-normal">
             Opens the supplier&apos;s site in a new tab prefilled with this
-            part. Sign in there with your pro account.
+            part.
           </span>
         </CardHeader>
         <div className="p-4">
