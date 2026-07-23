@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
+import { enabledFeatureSet } from "@/lib/features";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
@@ -88,6 +89,29 @@ export default async function ReportsPage({
   searchParams: SearchParams;
 }) {
   const orgId = await requireOrgId();
+  const user = await getCurrentUser();
+  const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
+  const autoShop = (user?.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
+  if (!autoShop) {
+    return (
+      <GeneralReportsPage
+        orgId={orgId}
+        hasInvoices={hasInvoices}
+        searchParams={searchParams}
+      />
+    );
+  }
+
+  return <AutoReportsPage orgId={orgId} searchParams={searchParams} />;
+}
+
+async function AutoReportsPage({
+  orgId,
+  searchParams,
+}: {
+  orgId: string;
+  searchParams: SearchParams;
+}) {
   const sp = await searchParams;
   const { preset, from, to, label } = resolveRange(sp);
 
@@ -708,6 +732,359 @@ export default async function ReportsPage({
           )}
         </div>
       </Card>
+    </>
+  );
+}
+
+async function GeneralReportsPage({
+  orgId,
+  hasInvoices,
+  searchParams,
+}: {
+  orgId: string;
+  hasInvoices: boolean;
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const { preset, from, to, label } = resolveRange(sp);
+  const [expensesInRange, paymentsInRange, incomeInRange] = await Promise.all([
+    db.expense.findMany({
+      where: { orgId, paidAt: { gte: from, lte: to } },
+      orderBy: { paidAt: "desc" },
+    }),
+    hasInvoices
+      ? db.payment.findMany({
+          where: { orgId, paidAt: { gte: from, lte: to } },
+          include: {
+            repairOrder: {
+              include: { customer: true },
+            },
+          },
+        })
+      : Promise.resolve([]),
+    hasInvoices
+      ? Promise.resolve([])
+      : db.income.findMany({
+          where: { orgId, receivedAt: { gte: from, lte: to } },
+          orderBy: { receivedAt: "desc" },
+        }),
+  ]);
+  const moneyIn = hasInvoices
+    ? paymentsInRange.reduce((sum, payment) => sum + payment.amount, 0)
+    : incomeInRange.reduce((sum, income) => sum + income.amount, 0);
+  const moneyOut = expensesInRange.reduce((sum, expense) => sum + expense.amount, 0);
+  const net = moneyIn - moneyOut;
+
+  const months: { key: string; label: string; moneyIn: number }[] = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: monthKey(d), label: monthLabel(d), moneyIn: 0 });
+  }
+  const monthTotals = new Map(months.map((month) => [month.key, month]));
+  if (hasInvoices) {
+    const paymentsLast12Months = await db.payment.findMany({
+      where: {
+        orgId,
+        paidAt: {
+          gte: new Date(months[0].key + "-01"),
+          lte: to,
+        },
+      },
+      select: { amount: true, paidAt: true },
+    });
+    for (const payment of paymentsLast12Months) {
+      const month = monthTotals.get(monthKey(payment.paidAt));
+      if (month) month.moneyIn += payment.amount;
+    }
+  } else {
+    const incomeLast12Months = await db.income.findMany({
+      where: {
+        orgId,
+        receivedAt: {
+          gte: new Date(months[0].key + "-01"),
+          lte: to,
+        },
+      },
+      select: { amount: true, receivedAt: true },
+    });
+    for (const income of incomeLast12Months) {
+      const month = monthTotals.get(monthKey(income.receivedAt));
+      if (month) month.moneyIn += income.amount;
+    }
+  }
+
+  const expensesByCategory = new Map<string, number>();
+  for (const expense of expensesInRange) {
+    expensesByCategory.set(
+      expense.category,
+      (expensesByCategory.get(expense.category) ?? 0) + expense.amount,
+    );
+  }
+  const expenseCategoryRows = Array.from(expensesByCategory.entries())
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  let arTotal = 0;
+  let arIndividuals = 0;
+  let arBusinesses = 0;
+  let topCustomers: Array<{
+    id: string;
+    name: string;
+    paid: number;
+    paymentCount: number;
+  }> = [];
+  if (hasInvoices) {
+    const invoicedROs = await db.repairOrder.findMany({
+      where: { orgId, status: "INVOICED" },
+      include: {
+        customer: true,
+        laborLines: true,
+        partLines: { include: { part: true } },
+        feeLines: true,
+        payments: true,
+      },
+    });
+    const arShopFeesByRO = await loadAppliedShopFeesForROs(
+      orgId,
+      invoicedROs.map((ro) => {
+        const totals = computeTotals(ro);
+        return {
+          id: ro.id,
+          partsSubtotal: totals.partsSubtotal,
+          laborSubtotal: totals.laborSubtotal,
+        };
+      }),
+    );
+    for (const ro of invoicedROs) {
+      const total = computeTotals({
+        ...ro,
+        shopFees: arShopFeesByRO.get(ro.id) ?? [],
+      }).total;
+      const paid = ro.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const balance = Math.max(0, total - paid);
+      arTotal += balance;
+      if (ro.customer.type === "BUSINESS") arBusinesses += balance;
+      else arIndividuals += balance;
+    }
+
+    const customerTotals = new Map<
+      string,
+      { id: string; name: string; paid: number; paymentCount: number }
+    >();
+    for (const payment of paymentsInRange) {
+      if (!payment.repairOrder) continue;
+      const customer = payment.repairOrder.customer;
+      const current = customerTotals.get(customer.id) ?? {
+        id: customer.id,
+        name: fullName(customer),
+        paid: 0,
+        paymentCount: 0,
+      };
+      current.paid += payment.amount;
+      current.paymentCount += 1;
+      customerTotals.set(customer.id, current);
+    }
+    topCustomers = Array.from(customerTotals.values())
+      .sort((a, b) => b.paid - a.paid)
+      .slice(0, 10);
+  }
+
+  const incomeBySource = new Map<string, number>();
+  for (const income of incomeInRange) {
+    incomeBySource.set(
+      income.source,
+      (incomeBySource.get(income.source) ?? 0) + income.amount,
+    );
+  }
+  const incomeSourceRows = Array.from(incomeBySource.entries()).sort(
+    (a, b) => b[1] - a[1],
+  );
+
+  return (
+    <>
+      <PageHeader title="Reports" description={`Financial metrics · ${label}`} />
+
+      <Card className="mb-6">
+        <div className="p-4">
+          <RangeForm preset={preset} from={from} to={to} />
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+        <Stat label="Money in" value={formatMoney(moneyIn)} />
+        <Stat label="Money out" value={formatMoney(moneyOut)} />
+        <Stat
+          label="Net"
+          value={formatMoney(net)}
+          highlight={net < 0}
+        />
+        {hasInvoices && (
+          <Stat
+            label="A/R outstanding"
+            value={formatMoney(arTotal)}
+            highlight={arTotal > 0}
+            sublines={
+              arTotal > 0
+                ? [
+                    `Individuals · ${formatMoney(arIndividuals)}`,
+                    `Businesses · ${formatMoney(arBusinesses)}`,
+                  ]
+                : undefined
+            }
+          />
+        )}
+      </div>
+
+      <Card className="mb-6">
+        <CardHeader title={`Profit & loss (${label.toLowerCase()})`} />
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+          <div>
+            <div className="space-y-1">
+              <PLRow label="Money in" value={formatMoney(moneyIn)} />
+              <PLRow
+                label={
+                  <Link href="/expenses" className="text-zinc-700 hover:underline">
+                    Money out ({expensesInRange.length})
+                  </Link>
+                }
+                value={`− ${formatMoney(moneyOut)}`}
+              />
+              <div className="h-px bg-zinc-200 my-2" />
+              <PLRow
+                label={<span className="font-semibold">Net</span>}
+                value={
+                  <span
+                    className={
+                      "font-semibold " +
+                      (net >= 0 ? "text-emerald-700" : "text-red-700")
+                    }
+                  >
+                    {formatMoney(net)}
+                  </span>
+                }
+              />
+            </div>
+            <div className="mt-3 text-[11px] text-zinc-500">
+              Net = money in − money out.
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+              Money out by category
+            </div>
+            {expenseCategoryRows.length === 0 ? (
+              <div className="text-zinc-500">No expenses recorded in this range.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-zinc-200">
+                  {expenseCategoryRows.map((row) => (
+                    <tr key={row.category}>
+                      <td className="py-1.5 text-zinc-700">
+                        {prettyCategory(row.category)}
+                      </td>
+                      <td className="py-1.5 text-zinc-500 text-right w-12">
+                        {moneyOut > 0
+                          ? ((row.amount / moneyOut) * 100).toFixed(0)
+                          : "0"}
+                        %
+                      </td>
+                      <td className="py-1.5 text-right tabular-nums text-zinc-900">
+                        {formatMoney(row.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader title="Money in by month (last 12 months)" />
+        {months.every((month) => month.moneyIn === 0) ? (
+          <div className="p-4 text-sm text-zinc-500">
+            No money in recorded in the last 12 months.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-zinc-200">
+              {months.map((month) => (
+                <tr key={month.key}>
+                  <td className="px-4 py-2 text-zinc-700">{month.label}</td>
+                  <td className="px-4 py-2 text-right tabular-nums font-medium">
+                    {formatMoney(month.moneyIn)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      {hasInvoices ? (
+        <Card className="mb-6">
+          <CardHeader title={`Top customers (${label.toLowerCase()})`} />
+          {topCustomers.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-500">
+              No payments received in this range.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-600">
+                <tr>
+                  <th className="px-4 py-2">Customer</th>
+                  <th className="px-4 py-2 text-right">Payments</th>
+                  <th className="px-4 py-2 text-right">Paid</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {topCustomers.map((customer) => (
+                  <tr key={customer.id}>
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/customers/${customer.id}`}
+                        className="text-zinc-900 hover:underline"
+                      >
+                        {customer.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-right text-zinc-600">
+                      {customer.paymentCount}
+                    </td>
+                    <td className="px-4 py-2 text-right font-medium">
+                      {formatMoney(customer.paid)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      ) : (
+        <Card className="mb-6">
+          <CardHeader title={`Income by source (${label.toLowerCase()})`} />
+          {incomeSourceRows.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-500">
+              No income recorded in this range.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-zinc-200">
+                {incomeSourceRows.map(([source, amount]) => (
+                  <tr key={source}>
+                    <td className="px-4 py-2 text-zinc-700">{source}</td>
+                    <td className="px-4 py-2 text-right font-medium tabular-nums">
+                      {formatMoney(amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
     </>
   );
 }
