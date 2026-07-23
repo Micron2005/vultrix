@@ -86,11 +86,13 @@ export function SignupWizard({
           saved.step >= 1 &&
           saved.step <= 5
         ) {
-          setStep(
-            saved.path === "business"
-              ? Math.min(saved.step, 3)
-              : Math.min(saved.step, 5),
-          );
+          // The password is intentionally NOT persisted (security). Steps 3+
+          // gate "Continue to payment" on a valid password, so restoring past
+          // the contact step (2) would leave that button permanently disabled
+          // with no way forward. Cap the restored step at 2 — every other field
+          // and choice is restored below, so the customer only re-enters their
+          // password and breezes through the rest.
+          setStep(Math.min(saved.step, 2));
         }
         if (saved.path === "business" || saved.path === "personal") {
           setPath(saved.path);
