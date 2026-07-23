@@ -38,8 +38,8 @@ const inventoryPartSchema = z.object({
   unit: z.string().trim().optional(),
   location: z.string().trim().optional(),
   source: z.string().trim().optional(),
-  costPrice: z.number().finite().nonnegative().optional(),
-  unitPrice: z.number().finite().nonnegative().optional(),
+  cost: z.number().finite().nonnegative().optional(),
+  price: z.number().finite().nonnegative().optional(),
   openingQuantity: z.number().finite().nonnegative().default(0),
   reorderLevel: z.number().finite().nonnegative().default(0),
 });
@@ -52,6 +52,33 @@ export async function createAssistantInventoryPart(
 ): Promise<AssistantResult<{ id: string; name: string; quantity: number }>> {
   const id = requireOrgId(orgId);
   const input = inventoryPartSchema.parse(args);
+  const existingParts = await db.part.findMany({
+    where: { orgId: id },
+    orderBy: { updatedAt: "desc" },
+  });
+  const normalizedName = input.name.toLowerCase();
+  const existing = existingParts.find(
+    (part) => part.name.toLowerCase() === normalizedName,
+  );
+  if (existing) {
+    const details = await db.part.update({
+      where: { id: existing.id },
+      data: {
+        ...(input.cost !== undefined ? { costPrice: input.cost } : {}),
+        ...(input.price !== undefined ? { unitPrice: input.price } : {}),
+        ...(input.location !== undefined ? { location: input.location } : {}),
+      },
+    });
+    const updated = input.openingQuantity
+      ? await adjustInventoryStock(id, details.id, input.openingQuantity, "RECEIVE")
+      : details;
+    return {
+      data: { id: updated.id, name: updated.name, quantity: updated.qtyOnHand },
+      confirmation: input.openingQuantity
+        ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock.`
+        : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock.`,
+    };
+  }
   const part = await createInventoryPart(
     id,
     {
@@ -62,8 +89,8 @@ export async function createAssistantInventoryPart(
       unit: input.unit,
       location: input.location,
       source: input.source,
-      costPrice: input.costPrice,
-      unitPrice: input.unitPrice,
+      costPrice: input.cost,
+      unitPrice: input.price,
       reorderLevel: input.reorderLevel,
     },
     input.openingQuantity,
