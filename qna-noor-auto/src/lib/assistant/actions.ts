@@ -19,6 +19,14 @@ export type AssistantResult<T> = {
 
 const orgIdSchema = z.string().trim().min(1, "Organization is required.");
 const dateInputSchema = z.union([z.date(), z.string().trim().min(1)]);
+const optionalText = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(1),
+).optional();
+const optionalDateInputSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  dateInputSchema,
+).optional();
 
 function parseDate(value: Date | string, label: string): Date {
   const date = value instanceof Date ? value : new Date(value);
@@ -32,12 +40,12 @@ function requireOrgId(orgId: string): string {
 
 const inventoryPartSchema = z.object({
   name: z.string().trim().min(1),
-  partNumber: z.string().trim().optional(),
-  description: z.string().trim().optional(),
-  category: z.string().trim().optional(),
-  unit: z.string().trim().optional(),
-  location: z.string().trim().optional(),
-  source: z.string().trim().optional(),
+  partNumber: optionalText,
+  description: optionalText,
+  category: optionalText,
+  unit: optionalText,
+  location: optionalText,
+  source: optionalText,
   cost: z.coerce.number().finite().nonnegative().optional(),
   price: z.coerce.number().finite().nonnegative().optional(),
   openingQuantity: z.coerce.number().finite().nonnegative().default(0),
@@ -103,11 +111,11 @@ export async function createAssistantInventoryPart(
 
 const adjustInventorySchema = z
   .object({
-    partId: z.string().trim().min(1).optional(),
-    partName: z.string().trim().min(1).optional(),
+    partId: optionalText,
+    partName: optionalText,
     delta: z.coerce.number().finite().refine((value) => value !== 0),
     reason: z.enum(["RECEIVE", "ADJUST"]).default("ADJUST"),
-    note: z.string().trim().optional(),
+    note: optionalText,
   })
   .refine((value) => value.partId || value.partName, {
     message: "A part id or name is required.",
@@ -166,10 +174,10 @@ export async function adjustAssistantInventory(
 
 const incomeSchema = z.object({
   amount: z.coerce.number().finite().positive(),
-  receivedAt: dateInputSchema.optional(),
+  receivedAt: optionalDateInputSchema,
   source: z.string().trim().min(1),
   frequency: z.enum(["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"]).default("ONE_TIME"),
-  note: z.string().trim().optional(),
+  note: optionalText,
 });
 
 export type AddIncomeArgs = z.input<typeof incomeSchema>;
@@ -204,12 +212,12 @@ export async function addAssistantIncome(
 
 const expenseSchema = z.object({
   amount: z.coerce.number().finite().positive(),
-  paidAt: dateInputSchema.optional(),
+  paidAt: optionalDateInputSchema,
   category: z.string().trim().min(1).default("MISC"),
-  vendor: z.string().trim().optional(),
-  reference: z.string().trim().optional(),
-  method: z.string().trim().optional(),
-  note: z.string().trim().optional(),
+  vendor: optionalText,
+  reference: optionalText,
+  method: optionalText,
+  note: optionalText,
 });
 
 export type AddExpenseArgs = z.input<typeof expenseSchema>;
@@ -237,8 +245,8 @@ export async function addAssistantExpense(
 
 const noteSchema = z.object({
   title: z.string().trim().min(1),
-  details: z.string().trim().optional(),
-  tags: z.string().trim().optional(),
+  details: optionalText,
+  tags: optionalText,
 });
 
 export type AddNoteArgs = z.input<typeof noteSchema>;
@@ -313,10 +321,10 @@ export async function readAssistantNote(
 const calendarEventSchema = z.object({
   title: z.string().trim().min(1),
   startsAt: dateInputSchema,
-  endsAt: dateInputSchema.optional(),
+  endsAt: optionalDateInputSchema,
   allDay: z.boolean().default(false),
   isReminder: z.boolean().default(false),
-  notes: z.string().trim().optional(),
+  notes: optionalText,
 });
 
 export type AddCalendarEventArgs = z.input<typeof calendarEventSchema>;
@@ -343,7 +351,7 @@ export async function addAssistantCalendarEvent(
 
 const removeCalendarEventSchema = z.object({
   title: z.string().trim().min(1),
-  date: z.string().trim().min(1).optional(),
+  date: optionalText,
 });
 
 export type RemoveCalendarEventArgs = z.input<typeof removeCalendarEventSchema>;
@@ -394,8 +402,8 @@ export async function removeAssistantCalendarEvent(
 }
 
 const periodSchema = z.object({
-  from: dateInputSchema.optional(),
-  to: dateInputSchema.optional(),
+  from: optionalDateInputSchema,
+  to: optionalDateInputSchema,
 });
 
 export type PeriodArgs = z.input<typeof periodSchema>;
@@ -409,7 +417,9 @@ type FinancialSummary = {
   source: "income" | "payments";
 };
 
-function resolvePeriod(input: PeriodArgs): { from: Date; to: Date } {
+function resolvePeriod(
+  input: z.output<typeof periodSchema>,
+): { from: Date; to: Date } {
   const now = new Date();
   const from = input.from
     ? parseDate(input.from, "period start")
@@ -503,7 +513,7 @@ export async function getAssistantInventoryOverview(
 }
 
 const upcomingSchema = z.object({
-  from: dateInputSchema.optional(),
+  from: optionalDateInputSchema,
   limit: z.coerce.number().int().positive().max(50).default(10),
 });
 
