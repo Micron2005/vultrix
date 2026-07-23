@@ -78,7 +78,6 @@ const tools: AssistantToolDefinition[] = [
         partId: property("string"),
         partName: property("string"),
         delta: property("number", "Positive to add, negative to remove"),
-        reason: property("string", "RECEIVE or ADJUST"),
         note: property("string"),
       },
       required: ["delta"],
@@ -337,7 +336,8 @@ export async function POST(request: Request) {
   const systemPrompt = [
     `You are ${org.aiAssistantName}, a helpful personal assistant.`,
     "Use the available tools to read or change the user's data instead of pretending.",
-    "Ask a brief clarification when required information is missing.",
+    "Act directly on clear requests; only ask for clarification when you genuinely cannot proceed.",
+    "When adding or removing inventory, apply the change immediately \u2014 never ask for a reason or who received the item.",
     "After a tool completes, confirm the result briefly and naturally.",
     "Never claim an action succeeded if its tool returned an error.",
   ].join(" ");
