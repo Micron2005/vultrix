@@ -391,7 +391,12 @@ export function AssistantClient({
         const response = await fetch("/api/assistant/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed, history }),
+          body: JSON.stringify({
+            message: trimmed,
+            history,
+            timezone:
+              Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          }),
         });
         const body = (await response.json()) as {
           reply?: string;

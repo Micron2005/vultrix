@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
+  parseDateTime,
+  type DateContext,
+  DEFAULT_DATE_CONTEXT,
+} from "./datetime";
+import {
   createCalendarEventForOrg,
   deleteCalendarEventForOrg,
 } from "@/lib/calendar";
@@ -44,10 +49,26 @@ const optionalNumber = (schema: z.ZodType<number>) => z.preprocess(
   schema,
 ).optional();
 
-function parseDate(value: Date | string, label: string): Date {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) throw new Error(`Invalid ${label}.`);
-  return date;
+/**
+ * Context passed to date-aware assistant actions so relative expressions like
+ * "tomorrow at 9am" resolve against the user's clock/timezone.
+ */
+export type AssistantContext = DateContext;
+
+function resolveDate(
+  value: Date | string,
+  label: string,
+  ctx: AssistantContext,
+): Date {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) throw new Error(`Invalid ${label}.`);
+    return value;
+  }
+  const parsed = parseDateTime(value, ctx);
+  if (!parsed) {
+    throw new Error(`I couldn't understand the ${label} "${value}".`);
+  }
+  return parsed;
 }
 
 function requireOrgId(orgId: string): string {
@@ -201,6 +222,7 @@ export type AddIncomeArgs = z.input<typeof incomeSchema>;
 export async function addAssistantIncome(
   orgId: string,
   args: AddIncomeArgs,
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<AssistantResult<{ id: string; amount: number; source: string }>> {
   const id = requireOrgId(orgId);
   const input = incomeSchema.parse(args);
@@ -215,7 +237,7 @@ export async function addAssistantIncome(
   }
   const income = await createIncomeForOrg(id, {
     amount: input.amount,
-    receivedAt: input.receivedAt ? parseDate(input.receivedAt, "received date") : new Date(),
+    receivedAt: input.receivedAt ? resolveDate(input.receivedAt, "received date", ctx) : new Date(),
     source: input.source,
     frequency: input.frequency,
     note: input.note,
@@ -241,12 +263,13 @@ export type AddExpenseArgs = z.input<typeof expenseSchema>;
 export async function addAssistantExpense(
   orgId: string,
   args: AddExpenseArgs,
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<AssistantResult<{ id: string; amount: number; category: string }>> {
   const id = requireOrgId(orgId);
   const input = expenseSchema.parse(args);
   const expense = await createExpenseForOrg(id, {
     amount: input.amount,
-    paidAt: input.paidAt ? parseDate(input.paidAt, "paid date") : new Date(),
+    paidAt: input.paidAt ? resolveDate(input.paidAt, "paid date", ctx) : new Date(),
     category: input.category.toUpperCase(),
     vendor: input.vendor,
     reference: input.reference,
@@ -259,8 +282,10 @@ export async function addAssistantExpense(
   };
 }
 
+const UNTITLED_NOTE = "Untitled note";
+
 const noteSchema = z.object({
-  title: z.string().trim().min(1),
+  title: optionalText,
   details: optionalText,
   tags: optionalText,
 });
@@ -270,17 +295,66 @@ export type AddNoteArgs = z.input<typeof noteSchema>;
 export async function addAssistantNote(
   orgId: string,
   args: AddNoteArgs,
-): Promise<AssistantResult<{ id: string; title: string }>> {
+): Promise<AssistantResult<{ id: string; title: string; needsTitle: boolean }>> {
   const id = requireOrgId(orgId);
   const input = noteSchema.parse(args);
+  const providedTitle = input.title?.trim();
+  const needsTitle = !providedTitle;
   const note = await createNoteForOrg(id, {
-    title: input.title,
+    title: providedTitle || UNTITLED_NOTE,
     fix: input.details,
     tags: input.tags,
   });
   return {
-    data: { id: note.id, title: note.title },
-    confirmation: `Added note “${note.title}”.`,
+    data: { id: note.id, title: note.title, needsTitle },
+    confirmation: needsTitle
+      ? "Saved the note (no title yet)."
+      : `Added note “${note.title}”.`,
+  };
+}
+
+const updateNoteSchema = z
+  .object({
+    noteId: optionalText,
+    title: optionalText,
+    details: optionalText,
+  })
+  .refine((value) => value.title || value.details, {
+    message: "A new title or details are required.",
+  });
+
+export type UpdateNoteArgs = z.input<typeof updateNoteSchema>;
+
+export async function updateAssistantNote(
+  orgId: string,
+  args: UpdateNoteArgs,
+): Promise<AssistantResult<{ id: string; title: string }>> {
+  const id = requireOrgId(orgId);
+  const input = updateNoteSchema.parse(args);
+  let note = input.noteId
+    ? await db.repairNote.findFirst({ where: { id: input.noteId, orgId: id } })
+    : null;
+  if (!note) {
+    // Fall back to the most recently touched note — handles "call it X" right
+    // after saving an untitled note.
+    note = await db.repairNote.findFirst({
+      where: { orgId: id },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+  if (!note) throw new Error("There's no note to update yet.");
+  const updated = await db.repairNote.update({
+    where: { id: note.id },
+    data: {
+      ...(input.title ? { title: input.title.trim() } : {}),
+      ...(input.details ? { fix: input.details } : {}),
+    },
+  });
+  return {
+    data: { id: updated.id, title: updated.title },
+    confirmation: input.title
+      ? `Renamed the note to “${updated.title}”.`
+      : `Updated the note “${updated.title}”.`,
   };
 }
 
@@ -348,13 +422,14 @@ export type AddCalendarEventArgs = z.input<typeof calendarEventSchema>;
 export async function addAssistantCalendarEvent(
   orgId: string,
   args: AddCalendarEventArgs,
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<AssistantResult<{ id: string; title: string; startsAt: Date }>> {
   const id = requireOrgId(orgId);
   const input = calendarEventSchema.parse(args);
   const event = await createCalendarEventForOrg(id, {
     title: input.title,
-    startsAt: parseDate(input.startsAt, "start date"),
-    endsAt: input.endsAt ? parseDate(input.endsAt, "end date") : null,
+    startsAt: resolveDate(input.startsAt, "start date", ctx),
+    endsAt: input.endsAt ? resolveDate(input.endsAt, "end date", ctx) : null,
     allDay: input.allDay,
     isReminder: input.isReminder,
     notes: input.notes,
@@ -375,10 +450,11 @@ export type RemoveCalendarEventArgs = z.input<typeof removeCalendarEventSchema>;
 export async function removeAssistantCalendarEvent(
   orgId: string,
   args: RemoveCalendarEventArgs,
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<AssistantResult<{ id: string; title: string; startsAt: Date }>> {
   const id = requireOrgId(orgId);
   const input = removeCalendarEventSchema.parse(args);
-  const from = new Date();
+  const from = ctx.now;
   const events = await db.calendarEvent.findMany({
     where: {
       orgId: id,
@@ -393,7 +469,7 @@ export async function removeAssistantCalendarEvent(
     : events.filter((event) => event.title.toLowerCase().includes(title));
   let matches = titleMatches;
   if (input.date) {
-    const date = parseDate(input.date, "event date");
+    const date = resolveDate(input.date, "event date", ctx);
     const nextDate = new Date(date);
     nextDate.setDate(nextDate.getDate() + 1);
     matches = titleMatches.filter(
@@ -435,12 +511,13 @@ type FinancialSummary = {
 
 function resolvePeriod(
   input: z.output<typeof periodSchema>,
+  ctx: AssistantContext,
 ): { from: Date; to: Date } {
-  const now = new Date();
+  const now = ctx.now;
   const from = input.from
-    ? parseDate(input.from, "period start")
+    ? resolveDate(input.from, "period start", ctx)
     : new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = input.to ? parseDate(input.to, "period end") : now;
+  const to = input.to ? resolveDate(input.to, "period end", ctx) : now;
   if (to < from) throw new Error("Period end must be after period start.");
   return { from, to };
 }
@@ -448,9 +525,10 @@ function resolvePeriod(
 export async function getAssistantFinancialSummary(
   orgId: string,
   args: PeriodArgs = {},
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<AssistantResult<FinancialSummary>> {
   const id = requireOrgId(orgId);
-  const { from, to } = resolvePeriod(periodSchema.parse(args));
+  const { from, to } = resolvePeriod(periodSchema.parse(args), ctx);
   const org = await db.organization.findUnique({
     where: { id },
     select: { accountType: true, features: true },
@@ -538,6 +616,7 @@ export type UpcomingEventsArgs = z.input<typeof upcomingSchema>;
 export async function getAssistantUpcomingEvents(
   orgId: string,
   args: UpcomingEventsArgs = {},
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<
   AssistantResult<
     Array<{
@@ -553,7 +632,7 @@ export async function getAssistantUpcomingEvents(
 > {
   const id = requireOrgId(orgId);
   const input = upcomingSchema.parse(args);
-  const from = input.from ? parseDate(input.from, "start date") : new Date();
+  const from = input.from ? resolveDate(input.from, "start date", ctx) : ctx.now;
   const events = await db.calendarEvent.findMany({
     where: { orgId: id, startsAt: { gte: from } },
     orderBy: { startsAt: "asc" },
@@ -575,6 +654,7 @@ export type ReportsSummaryArgs = z.input<typeof reportsSchema>;
 export async function getAssistantReportsSummary(
   orgId: string,
   args: ReportsSummaryArgs = {},
+  ctx: AssistantContext = DEFAULT_DATE_CONTEXT,
 ): Promise<
   AssistantResult<{
     from: Date;
@@ -589,7 +669,7 @@ export async function getAssistantReportsSummary(
   }>
 > {
   const id = requireOrgId(orgId);
-  const { from, to } = resolvePeriod(reportsSchema.parse(args));
+  const { from, to } = resolvePeriod(reportsSchema.parse(args), ctx);
   const [allROs, payments, expenses, openRepairOrders, invoicedRepairOrders] =
     await Promise.all([
       db.repairOrder.findMany({

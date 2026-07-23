@@ -6,6 +6,7 @@ export type AssistantToolName =
   | "add_income"
   | "add_expense"
   | "add_note"
+  | "update_note"
   | "add_calendar_event"
   | "read_note"
   | "remove_calendar_event"
@@ -202,7 +203,7 @@ async function callAnthropic(request: ProviderRequest): Promise<ProviderResponse
     },
     body: JSON.stringify({
       model: request.model,
-      max_tokens: 700,
+      max_tokens: 1536,
       system: request.systemPrompt,
       messages,
       tools: request.tools.map((tool) => ({

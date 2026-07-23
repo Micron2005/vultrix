@@ -14,17 +14,20 @@ import {
   getAssistantUpcomingEvents,
   readAssistantNote,
   removeAssistantCalendarEvent,
+  updateAssistantNote,
   type AddCalendarEventArgs,
   type AddExpenseArgs,
   type AddIncomeArgs,
   type AddNoteArgs,
   type AdjustInventoryArgs,
+  type AssistantContext,
   type CreateInventoryPartArgs,
   type PeriodArgs,
   type ReportsSummaryArgs,
   type ReadNoteArgs,
   type RemoveCalendarEventArgs,
   type UpcomingEventsArgs,
+  type UpdateNoteArgs,
 } from "@/lib/assistant";
 import {
   runAssistantProvider,
@@ -33,12 +36,18 @@ import {
   type AssistantToolDefinition,
   type AssistantToolName,
 } from "@/lib/assistant/providers";
+import {
+  runAssistantConversation,
+  type ProviderCaller,
+} from "@/lib/assistant/conversation";
+import { describeNow } from "@/lib/assistant/datetime";
 import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
+  timezone: z.string().trim().min(1).max(64).optional(),
   history: z
     .array(
       z.object({
@@ -54,6 +63,9 @@ const property = (type: string, description?: string) => ({
   type,
   ...(description ? { description } : {}),
 });
+
+const NL_DATE_HINT =
+  "Accepts natural language (e.g. 'tomorrow at 9am', 'next Friday', 'in 2 hours') or an ISO date/time — the current date/time is given in the system prompt.";
 
 const tools: AssistantToolDefinition[] = [
   {
@@ -100,7 +112,7 @@ const tools: AssistantToolDefinition[] = [
       type: "object",
       properties: {
         amount: property("number"),
-        receivedAt: property("string", "ISO date/time, optional"),
+        receivedAt: property("string", `Date received. ${NL_DATE_HINT}`),
         source: property("string", "Income source"),
         frequency: property("string", "ONE_TIME, WEEKLY, BIWEEKLY, or MONTHLY"),
         note: property("string"),
@@ -116,7 +128,7 @@ const tools: AssistantToolDefinition[] = [
       type: "object",
       properties: {
         amount: property("number"),
-        paidAt: property("string", "ISO date/time, optional"),
+        paidAt: property("string", `Date paid. ${NL_DATE_HINT}`),
         category: property("string"),
         vendor: property("string"),
         reference: property("string"),
@@ -129,15 +141,31 @@ const tools: AssistantToolDefinition[] = [
   },
   {
     name: "add_note",
-    description: "Add a Knowledge note with a title, details, and tags.",
+    description:
+      "Save a Knowledge note (an idea, reminder, or piece of information). If the user did not give a title, omit it — the note is still saved and you should then ask what to call it.",
     parameters: {
       type: "object",
       properties: {
-        title: property("string"),
-        details: property("string"),
+        title: property("string", "Optional. Omit if the user hasn't named it."),
+        details: property("string", "The note body / what to remember"),
         tags: property("string", "Comma-separated tags"),
       },
-      required: ["title"],
+      required: [],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "update_note",
+    description:
+      "Rename or add details to an existing note — e.g. after saving an untitled note and the user tells you what to call it. If no noteId is given, the most recently touched note is used.",
+    parameters: {
+      type: "object",
+      properties: {
+        noteId: property("string", "Optional id of the note to update"),
+        title: property("string", "New title"),
+        details: property("string", "New or additional details"),
+      },
+      required: [],
       additionalProperties: false,
     },
   },
@@ -160,8 +188,8 @@ const tools: AssistantToolDefinition[] = [
       type: "object",
       properties: {
         title: property("string"),
-        startsAt: property("string", "ISO date/time"),
-        endsAt: property("string", "ISO date/time, optional"),
+        startsAt: property("string", `When it starts. ${NL_DATE_HINT}`),
+        endsAt: property("string", `When it ends, optional. ${NL_DATE_HINT}`),
         allDay: property("boolean"),
         isReminder: property("boolean"),
         notes: property("string"),
@@ -177,7 +205,7 @@ const tools: AssistantToolDefinition[] = [
       type: "object",
       properties: {
         title: property("string", "Event title"),
-        date: property("string", "ISO date, optional"),
+        date: property("string", `Date of the event, optional. ${NL_DATE_HINT}`),
       },
       required: ["title"],
       additionalProperties: false,
@@ -189,8 +217,8 @@ const tools: AssistantToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        from: property("string", "ISO date/time, optional"),
-        to: property("string", "ISO date/time, optional"),
+        from: property("string", `Period start, optional. ${NL_DATE_HINT}`),
+        to: property("string", `Period end, optional. ${NL_DATE_HINT}`),
       },
       additionalProperties: false,
     },
@@ -210,7 +238,7 @@ const tools: AssistantToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        from: property("string", "ISO date/time, optional"),
+        from: property("string", `Start of the window, optional. ${NL_DATE_HINT}`),
         limit: property("number", "Maximum 50, default 10"),
       },
       additionalProperties: false,
@@ -222,8 +250,8 @@ const tools: AssistantToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        from: property("string", "ISO date/time, optional"),
-        to: property("string", "ISO date/time, optional"),
+        from: property("string", `Period start, optional. ${NL_DATE_HINT}`),
+        to: property("string", `Period end, optional. ${NL_DATE_HINT}`),
       },
       additionalProperties: false,
     },
@@ -231,11 +259,15 @@ const tools: AssistantToolDefinition[] = [
 ];
 
 const providerSchema = z.enum(["OLLAMA", "OPENAI", "ANTHROPIC"]);
-const MAX_TOOL_ITERATIONS = 5;
+const MAX_TOOL_ITERATIONS = 6;
 
 function friendlyError(error: unknown): string {
   if (error instanceof z.ZodError) {
-    return "I couldn't use those details. Please provide the required information.";
+    const first = error.issues[0];
+    const field = first?.path?.join(".") ?? "";
+    return field
+      ? `I still need the "${field}" for that. Could you tell me?`
+      : "I still need a bit more information for that. Could you clarify?";
   }
   const message = error instanceof Error ? error.message : "";
   if (
@@ -250,6 +282,7 @@ function friendlyError(error: unknown): string {
 
 async function executeTool(
   orgId: string,
+  ctx: AssistantContext,
   name: AssistantToolName,
   args: unknown,
 ): Promise<{ confirmation: string; result: unknown }> {
@@ -270,42 +303,75 @@ async function executeTool(
           args as AdjustInventoryArgs,
         ));
       case "add_income":
-        return finish(await addAssistantIncome(orgId, args as AddIncomeArgs));
+        return finish(await addAssistantIncome(orgId, args as AddIncomeArgs, ctx));
       case "add_expense":
-        return finish(await addAssistantExpense(orgId, args as AddExpenseArgs));
+        return finish(await addAssistantExpense(orgId, args as AddExpenseArgs, ctx));
       case "add_note":
         return finish(await addAssistantNote(orgId, args as AddNoteArgs));
+      case "update_note":
+        return finish(await updateAssistantNote(orgId, args as UpdateNoteArgs));
       case "read_note":
         return finish(await readAssistantNote(orgId, args as ReadNoteArgs));
       case "add_calendar_event":
         return finish(await addAssistantCalendarEvent(
           orgId,
           args as AddCalendarEventArgs,
+          ctx,
         ));
       case "remove_calendar_event":
         return finish(await removeAssistantCalendarEvent(
           orgId,
           args as RemoveCalendarEventArgs,
+          ctx,
         ));
       case "get_financial_summary":
-        return finish(await getAssistantFinancialSummary(orgId, args as PeriodArgs));
+        return finish(await getAssistantFinancialSummary(orgId, args as PeriodArgs, ctx));
       case "get_inventory_overview":
         return finish(await getAssistantInventoryOverview(orgId));
       case "get_upcoming_events":
         return finish(await getAssistantUpcomingEvents(
           orgId,
           args as UpcomingEventsArgs,
+          ctx,
         ));
       case "get_reports_summary":
         return finish(await getAssistantReportsSummary(
           orgId,
           args as ReportsSummaryArgs,
+          ctx,
         ));
     }
   } catch (error) {
     const message = friendlyError(error);
     return { confirmation: message, result: { error: message } };
   }
+}
+
+function buildSystemPrompt(assistantName: string, timezone: string, now: Date): string {
+  return [
+    `You are ${assistantName}, a friendly, knowledgeable AI assistant.`,
+    `The current date and time is ${describeNow(timezone, now)}. Use it to resolve relative dates like "tomorrow" or "next week".`,
+    "",
+    "You do two things well:",
+    "1. Have a normal, helpful conversation — answer questions, explain things, brainstorm, help with writing, planning, coding, and ideas, just like a capable general assistant.",
+    "2. Take actions in the user's app using the available tools.",
+    "",
+    "Guidelines:",
+    "- For general questions or chit-chat, just reply naturally. Do NOT call a tool unless the user wants to read or change their own data.",
+    "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending.",
+    "- Act on clear requests right away; you may pass natural-language dates/times to tools (they're resolved against the current time above).",
+    "- After a tool runs, confirm what happened briefly and naturally, in your own words. Never claim success if a tool returned an error.",
+    "- If a tool reports it's missing information, ask the user for exactly that one thing in a friendly way — never dead-end with a generic error.",
+    "",
+    "Notes flow:",
+    "- Use add_note / read_note / update_note only for saving or reading the user's notes, ideas, or reminders. Never store inventory, income, expense, or calendar items as notes — use their own tools.",
+    "- If the user asks to save a note but hasn't given a title, call add_note WITHOUT a title. When it returns needsTitle, ask the user what they'd like to call it.",
+    "- When the user then gives a title, call update_note to set it. If they say they don't know or don't care, reassure them: \"No problem — you can always add a title later,\" and move on.",
+    "",
+    "Inventory phrasing:",
+    "- \"Used\", \"used up\", \"ran out of\", \"finished\", \"sold\", \"broke\", or \"threw out\" means adjust_inventory with a NEGATIVE delta. \"Got\", \"bought\", \"received\", or \"restocked\" means a POSITIVE delta.",
+    "- Apply inventory changes immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are given. Never ask for a reason or who received the item.",
+  ].join("\n");
 }
 
 export async function POST(request: Request) {
@@ -369,75 +435,43 @@ export async function POST(request: Request) {
     return Response.json({ error: "Message is required" }, { status: 400 });
   }
 
+  const timezone = parsed.data.timezone ?? "UTC";
+  const now = new Date();
+  const ctx: AssistantContext = { timezone, now };
+
   const messages: AssistantMessage[] = [
     ...parsed.data.history,
     { role: "user", content: parsed.data.message },
   ];
-  const steps: Array<{ tool: string; confirmation: string }> = [];
-  const systemPrompt = [
-    `You are ${org.aiAssistantName}, a helpful personal assistant.`,
-    "Use the available tools to read or change the user's data instead of pretending.",
-    "Act directly on clear requests; only ask for clarification when you genuinely cannot proceed.",
-    "Always call the appropriate tool for actions; never just describe what you would do.",
-    "Used, used up, ran out of, finished, sold, broke, or threw out means adjust_inventory with a negative delta. Got, bought, received, or restocked means a positive delta.",
-    "When adding inventory, apply it immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are provided. Never ask for a reason or who received the item.",
-    "Use add_note or read_note only when the user explicitly asks to save or read a Knowledge note or idea. Never record inventory, income, expense, or calendar actions as notes; for those requests, call only the relevant action tool.",
-    "After a tool completes, confirm the result briefly and naturally.",
-    "Never claim an action succeeded if its tool returned an error.",
-  ].join(" ");
 
-  for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-    let providerResponse;
-    try {
-      providerResponse = await runAssistantProvider({
-        provider,
-        apiKey,
-        model:
-          provider === "OLLAMA"
-            ? process.env.OLLAMA_MODEL ?? "llama3.1:8b"
-            : provider === "OPENAI"
-              ? "gpt-4o-mini"
-              : "claude-3-5-haiku-latest",
-        systemPrompt,
-        messages,
-        tools,
-      });
-    } catch (error) {
-      return Response.json({
-        reply: friendlyError(error),
-        steps,
-      });
-    }
+  const systemPrompt = buildSystemPrompt(org.aiAssistantName, timezone, now);
+  const model =
+    provider === "OLLAMA"
+      ? process.env.OLLAMA_MODEL ?? "llama3.1:8b"
+      : provider === "OPENAI"
+        ? "gpt-4o-mini"
+        : "claude-3-5-haiku-latest";
 
-    messages.push({
-      role: "assistant",
-      content: providerResponse.content,
-      toolCalls: providerResponse.toolCalls,
+  const callProvider: ProviderCaller = (conversationMessages) =>
+    runAssistantProvider({
+      provider,
+      apiKey,
+      model,
+      systemPrompt,
+      messages: conversationMessages,
+      tools,
     });
-    if (providerResponse.toolCalls.length === 0) {
-      return Response.json({ reply: providerResponse.content || "I’m ready.", steps });
-    }
 
-    for (const call of providerResponse.toolCalls) {
-      const result = await executeTool(user.orgId, call.name, call.arguments);
-      steps.push({ tool: call.name, confirmation: result.confirmation });
-      messages.push({
-        role: "tool",
-        toolCallId: call.id,
-        content: JSON.stringify({
-          data: result.result,
-          confirmation: result.confirmation,
-        }),
-      });
-    }
-    return Response.json({
-      reply: steps.map((step) => step.confirmation).join(" "),
-      steps,
+  try {
+    const { reply, steps } = await runAssistantConversation({
+      callProvider,
+      executeTool: (name, args) =>
+        executeTool(user.orgId as string, ctx, name as AssistantToolName, args),
+      messages,
+      maxIterations: MAX_TOOL_ITERATIONS,
     });
+    return Response.json({ reply, steps });
+  } catch (error) {
+    return Response.json({ reply: friendlyError(error), steps: [] });
   }
-
-  return Response.json({
-    reply: "I reached the action limit before finishing. Please try a simpler request.",
-    steps,
-  });
 }

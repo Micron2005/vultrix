@@ -11,6 +11,7 @@ export {
   getAssistantUpcomingEvents,
   readAssistantNote,
   removeAssistantCalendarEvent,
+  updateAssistantNote,
 } from "./actions";
 export type {
   AddCalendarEventArgs,
@@ -18,6 +19,7 @@ export type {
   AddIncomeArgs,
   AddNoteArgs,
   AdjustInventoryArgs,
+  AssistantContext,
   AssistantResult,
   CreateInventoryPartArgs,
   PeriodArgs,
@@ -25,4 +27,5 @@ export type {
   ReportsSummaryArgs,
   RemoveCalendarEventArgs,
   UpcomingEventsArgs,
+  UpdateNoteArgs,
 } from "./actions";
