@@ -3,15 +3,11 @@ import { db } from "./db";
 import { getStripe } from "./stripe";
 
 // ---------------------------------------------------------------------------
-// Billing configuration. Both monthly subscription tiers share the same free
-// trial. Amounts/durations are env-configurable so prices can change without a
-// code change.
+// Billing configuration. Every account type is billed monthly on the same free
+// trial. Prices are env-configurable so they can change without a code change,
+// and the recurring Stripe Price for each tier is created/reused automatically
+// by resolvePriceId() (keyed by amount) — no manual Price wiring required.
 // ---------------------------------------------------------------------------
-
-/** Recurring Stripe Price id for the plan (e.g. price_123). */
-export function planPriceId(): string | undefined {
-  return process.env.STRIPE_PRICE_ID?.trim() || undefined;
-}
 
 /**
  * Free-trial length, in days, applied to new subscriptions.
@@ -29,7 +25,7 @@ export const TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS ?? 60);
 export const GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS ?? 3);
 
 /** Auto-shop monthly price in whole dollars, for display only. */
-export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 45);
+export const PRICE_USD = Number(process.env.BILLING_PRICE_USD ?? 35);
 /** General-account monthly price in whole dollars, for display only. */
 export const GENERAL_PRICE_USD = Number(
   process.env.BILLING_GENERAL_PRICE_USD ?? 25,
@@ -61,19 +57,16 @@ export function priceForAccount(
 /**
  * Resolve the recurring Price id for an account type.
  *
- * Auto shops prefer the explicit STRIPE_PRICE_ID env var. Other account types
- * always use their tier's lookup key, so the auto-shop override cannot hijack
- * the general price. Missing prices are created on demand.
+ * Every tier uses a lookup key derived from its monthly amount, so the correct
+ * Stripe Price is found (or created once on demand) automatically. No manual
+ * Price/env wiring is required — changing the amount constants is enough.
  */
 export async function resolvePriceId(
   accountType = "AUTO_SHOP",
   hasInvoices = true,
   aiHosted = false,
 ): Promise<string> {
-  const isAutoShop = accountType === "AUTO_SHOP";
   const priceUsd = priceForAccount(accountType, hasInvoices, aiHosted);
-  const explicit = isAutoShop ? planPriceId() : undefined;
-  if (explicit) return explicit;
 
   const stripe = getStripe();
   const lookupKey = `vultrix_monthly_${priceUsd}`;
@@ -87,7 +80,7 @@ export async function resolvePriceId(
 
   const product = await stripe.products.create({
     name: "Vultrix subscription",
-    description: "Monthly access to the Vultrix shop management platform.",
+    description: "Monthly access to the Vultrix platform.",
   });
   const price = await stripe.prices.create({
     product: product.id,

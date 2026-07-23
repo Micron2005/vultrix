@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       // A one-time payment (mode=payment) is a customer paying a shop's invoice
       // on the shop's connected account — record it. Subscriptions are the
-      // platform's own $45/mo billing.
+      // platform's own monthly plan billing.
       if (session.mode === "payment") {
         await recordOnlinePayment(session);
         break;
