@@ -288,6 +288,7 @@ const noteSchema = z.object({
   title: optionalText,
   details: optionalText,
   tags: optionalText,
+  category: optionalText,
 });
 
 export type AddNoteArgs = z.input<typeof noteSchema>;
@@ -304,6 +305,7 @@ export async function addAssistantNote(
     title: providedTitle || UNTITLED_NOTE,
     fix: input.details,
     tags: input.tags,
+    category: input.category,
   });
   return {
     data: { id: note.id, title: note.title, needsTitle },
@@ -318,9 +320,10 @@ const updateNoteSchema = z
     noteId: optionalText,
     title: optionalText,
     details: optionalText,
+    category: optionalText,
   })
-  .refine((value) => value.title || value.details, {
-    message: "A new title or details are required.",
+  .refine((value) => value.title || value.details || value.category, {
+    message: "A new title, details, or category are required.",
   });
 
 export type UpdateNoteArgs = z.input<typeof updateNoteSchema>;
@@ -348,6 +351,7 @@ export async function updateAssistantNote(
     data: {
       ...(input.title ? { title: input.title.trim() } : {}),
       ...(input.details ? { fix: input.details } : {}),
+      ...(input.category ? { category: input.category } : {}),
     },
   });
   return {

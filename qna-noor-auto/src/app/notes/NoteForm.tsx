@@ -1,17 +1,23 @@
 import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import type { RepairNote } from "@prisma/client";
+import { NoteBodyField } from "./NoteBodyField";
+import { NoteImages, type NoteImageItem } from "./NoteImages";
 
 export function NoteForm({
   action,
   note,
   submitLabel = "Save note",
   accountType = "AUTO_SHOP",
+  categories = [],
+  initialImages = [],
 }: {
   action: (fd: FormData) => void | Promise<void>;
   note?: Partial<RepairNote>;
   submitLabel?: string;
   accountType?: string | null;
+  categories?: string[];
+  initialImages?: NoteImageItem[];
 }) {
   const isAutoShop = accountType === "AUTO_SHOP";
 
@@ -29,6 +35,18 @@ export function NoteForm({
                 : "e.g. Weekly planning checklist"
             }
           />
+        </Field>
+
+        <Field label="Category">
+          <Input
+            name="category"
+            list="note-category-options"
+            placeholder="e.g. Planning, Ideas, Reference"
+            defaultValue={note?.category ?? ""}
+          />
+          <datalist id="note-category-options">
+            {categories.map((category) => <option key={category} value={category} />)}
+          </datalist>
         </Field>
 
         {isAutoShop ? (
@@ -99,12 +117,7 @@ export function NoteForm({
         ) : (
           <>
             <Field label="Note / Details">
-              <Textarea
-                name="fix"
-                rows={10}
-                placeholder="Write the details you want to remember."
-                defaultValue={note?.fix ?? ""}
-              />
+              <NoteBodyField defaultValue={note?.fix} />
             </Field>
             <Field label="Tags (comma-separated)">
               <Input
@@ -156,6 +169,10 @@ export function NoteForm({
           </Field>
         </div>
       )}
+
+      <Field label="Images">
+        <NoteImages initialImages={initialImages} />
+      </Field>
 
       <div className="flex gap-2">
         <SaveButton>{submitLabel}</SaveButton>

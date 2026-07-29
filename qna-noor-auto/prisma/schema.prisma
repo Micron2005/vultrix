@@ -470,16 +470,32 @@ model RepairNote {
   laborHoursEstimate Float?
 
   tags String? // comma-separated: "brakes,noise,honda"
+  category String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  images       NoteImage[]
 
   @@index([make, model])
   @@index([yearMin])
   @@index([yearMax])
+  @@index([orgId])
+}
+
+model NoteImage {
+  id        String     @id @default(cuid())
+  noteId    String
+  note      RepairNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  orgId     String
+  dataUrl   String
+  caption   String?
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  @@index([noteId])
   @@index([orgId])
 }
 

@@ -9,6 +9,8 @@ import {
 } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import { deleteNote } from "../actions";
+import { NoteGallery } from "../NoteGallery";
+import { renderNoteBody } from "../renderNoteBody";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,10 @@ export default async function NotePage({
   if (!user.orgId) redirect("/admin");
   const orgId = user.orgId;
   const isAutoShop = user.accountType === "AUTO_SHOP";
-  const note = await db.repairNote.findFirst({ where: { id, orgId } });
+  const note = await db.repairNote.findFirst({
+    where: { id, orgId },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
+  });
   if (!note) notFound();
 
   const del = deleteNote.bind(null, note.id);
@@ -69,6 +74,13 @@ export default async function NotePage({
         </div>
       )}
 
+      {note.category && (
+        <div className="mb-4">
+          <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-700">{note.category}</span>
+        </div>
+      )}
+      <NoteGallery images={note.images} />
+
       <div className="grid grid-cols-1 gap-4">
         {isAutoShop ? (
           <>
@@ -78,7 +90,7 @@ export default async function NotePage({
             <Section title="Parts used / suggested" body={note.partsNotes} />
           </>
         ) : (
-          <Section title="Note" body={note.fix} />
+          <Section title="Note" body={note.fix} rich />
         )}
       </div>
 
@@ -98,9 +110,11 @@ export default async function NotePage({
 function Section({
   title,
   body,
+  rich = false,
 }: {
   title: string;
   body: string | null;
+  rich?: boolean;
 }) {
   if (!body) return null;
   return (
@@ -108,7 +122,7 @@ function Section({
       <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
         {title}
       </div>
-      <div className="whitespace-pre-wrap text-sm text-zinc-900">{body}</div>
+      <div className="space-y-3 text-sm text-zinc-900">{rich ? renderNoteBody(body) : body}</div>
     </Card>
   );
 }
