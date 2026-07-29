@@ -122,7 +122,9 @@ function Section({
       <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
         {title}
       </div>
-      <div className="space-y-3 text-sm text-zinc-900">{rich ? renderNoteBody(body) : body}</div>
+      <div className="space-y-3 text-sm text-zinc-900">
+        {rich ? renderNoteBody(body) : <div className="whitespace-pre-wrap">{body}</div>}
+      </div>
     </Card>
   );
 }
