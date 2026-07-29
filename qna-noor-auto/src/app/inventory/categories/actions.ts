@@ -36,6 +36,27 @@ export async function createCategory(formData: FormData) {
   redirect(`/inventory/categories/${category.id}`);
 }
 
+export async function chooseCategoryForNewPart(formData: FormData) {
+  const orgId = await requireOrgId();
+  const fresh = String(formData.get("fresh") ?? "").trim();
+  const existing = String(formData.get("existing") ?? "").trim();
+  const name = fresh || existing;
+
+  if (!name) redirect("/inventory/new");
+
+  if (fresh) {
+    try {
+      await db.category.create({
+        data: { name: fresh, orgId },
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+    }
+  }
+
+  redirect(`/inventory/new?category=${encodeURIComponent(name)}`);
+}
+
 export async function renameCategory(id: string, formData: FormData) {
   const orgId = await requireOrgId();
   const name = categoryName(formData);
