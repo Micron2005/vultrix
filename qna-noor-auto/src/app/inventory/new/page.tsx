@@ -6,8 +6,14 @@ import { createPart } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewPartPage() {
+export default async function NewPartPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
   const orgId = await requireOrgId();
+  const sp = await searchParams;
+  const defaultCategory = (sp.category ?? "").trim();
   const [cats, locs] = await Promise.all([
     db.part.findMany({
       where: { orgId, category: { not: null } },
@@ -39,6 +45,7 @@ export default async function NewPartPage() {
         action={createPart}
         categories={categories}
         locations={locations}
+        defaultCategory={defaultCategory}
         submitLabel="Create part"
         isNew
       />

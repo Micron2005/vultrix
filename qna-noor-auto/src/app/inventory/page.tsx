@@ -127,6 +127,9 @@ export default async function InventoryPage({
             <LinkButton href="/inventory/bin-qr" variant="secondary">
               Shelf / bin QR
             </LinkButton>
+            <LinkButton href="/inventory/category-qr" variant="secondary">
+              Category QR
+            </LinkButton>
             <LinkButton
               href={`/inventory/qr-sheet${filter !== "active" ? `?filter=${filter}` : ""}${q ? `${filter !== "active" ? "&" : "?"}q=${encodeURIComponent(q)}` : ""}`}
               variant="secondary"
