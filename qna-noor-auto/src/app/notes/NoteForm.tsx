@@ -1,7 +1,6 @@
 import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import type { RepairNote } from "@prisma/client";
-import { NoteBodyField } from "./NoteBodyField";
 import { NoteImages, type NoteImageItem } from "./NoteImages";
 
 export function NoteForm({
@@ -117,7 +116,12 @@ export function NoteForm({
         ) : (
           <>
             <Field label="Note / Details">
-              <NoteBodyField defaultValue={note?.fix} />
+              <Textarea
+                name="fix"
+                rows={10}
+                placeholder="Write the details you want to remember."
+                defaultValue={note?.fix ?? ""}
+              />
             </Field>
             <Field label="Tags (comma-separated)">
               <Input

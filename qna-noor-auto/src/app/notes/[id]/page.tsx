@@ -10,7 +10,6 @@ import {
 import { formatDateTime } from "@/lib/utils";
 import { deleteNote } from "../actions";
 import { NoteGallery } from "../NoteGallery";
-import { renderNoteBody } from "../renderNoteBody";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +89,7 @@ export default async function NotePage({
             <Section title="Parts used / suggested" body={note.partsNotes} />
           </>
         ) : (
-          <Section title="Note" body={note.fix} rich />
+          <Section title="Note" body={note.fix} />
         )}
       </div>
 
@@ -110,11 +109,9 @@ export default async function NotePage({
 function Section({
   title,
   body,
-  rich = false,
 }: {
   title: string;
   body: string | null;
-  rich?: boolean;
 }) {
   if (!body) return null;
   return (
@@ -122,9 +119,7 @@ function Section({
       <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
         {title}
       </div>
-      <div className="space-y-3 text-sm text-zinc-900">
-        {rich ? renderNoteBody(body) : <div className="whitespace-pre-wrap">{body}</div>}
-      </div>
+      <div className="whitespace-pre-wrap text-sm text-zinc-900">{body}</div>
     </Card>
   );
 }
