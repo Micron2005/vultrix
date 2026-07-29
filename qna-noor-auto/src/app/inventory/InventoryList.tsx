@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { bulkUpdatePartFields } from "./actions";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, LinkButton } from "@/components/ui";
+
+const UNCATEGORIZED = "Uncategorized";
+
+function addPartHref(groupName: string): string {
+  return groupName === UNCATEGORIZED
+    ? "/inventory/new?uncategorized=1"
+    : `/inventory/new?category=${encodeURIComponent(groupName)}`;
+}
 
 const COMMON_UNITS = [
   "each",
@@ -275,6 +283,9 @@ function GroupRows({
             {groupParts.length}
           </span>
         </button>
+        <LinkButton href={addPartHref(groupName)} variant="secondary" size="sm">
+          Add part
+        </LinkButton>
       </div>
       {!isCollapsed && (
         <div className="overflow-x-auto">
