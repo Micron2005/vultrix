@@ -11,7 +11,6 @@ import {
   LinkButton,
   PageHeader,
   Select,
-  Textarea,
 } from "@/components/ui";
 import { adjustStock, deletePart, toggleArchived } from "../actions";
 import { SupplierLinks } from "@/app/vehicle-search/SupplierLinks";
@@ -105,6 +104,9 @@ export default async function PartDetailPage({
         }
         actions={
           <div className="flex gap-2">
+            <LinkButton href="/inventory" variant="secondary">
+              ← Inventory
+            </LinkButton>
             <LinkButton href={`/inventory/${id}/qr`} variant="secondary">
               QR sticker
             </LinkButton>

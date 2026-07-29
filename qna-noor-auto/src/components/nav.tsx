@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { Menu, X, ExternalLink } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import {
+  ExternalLink,
+  Menu,
+  PanelLeft,
+  PanelLeftClose,
+  X,
+} from "lucide-react";
 
 type NavProps = {
   orgLabel: string;
@@ -54,7 +60,28 @@ export function Nav({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const closeMobile = () => setMobileOpen(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDesktopCollapsed(localStorage.getItem("nav:collapsed") === "1");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function toggleDesktopCollapsed() {
+    setDesktopCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem("nav:collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
+
+  function expandDesktopSidebar() {
+    setDesktopCollapsed(false);
+    localStorage.setItem("nav:collapsed", "0");
+  }
 
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
@@ -143,6 +170,15 @@ export function Nav({
           data-testid="nav-close-button"
         >
           <X className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={toggleDesktopCollapsed}
+          className="hidden lg:inline-flex -mr-1 h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100"
+          aria-label="Collapse sidebar"
+          data-testid="nav-collapse-button"
+        >
+          <PanelLeftClose className="h-5 w-5" />
         </button>
       </div>
       {!isSuperadmin && (
@@ -238,13 +274,25 @@ export function Nav({
         className={
           "no-print bg-white border-r border-zinc-200 overflow-y-auto " +
           "fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-out " +
-          "lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 " +
+          "lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 " +
+          (desktopCollapsed ? "lg:hidden " : "") +
           (mobileOpen ? "translate-x-0" : "-translate-x-full")
         }
         data-testid="app-sidebar"
       >
         {sidebarBody}
       </aside>
+      {desktopCollapsed && (
+        <button
+          type="button"
+          onClick={expandDesktopSidebar}
+          className="no-print hidden lg:inline-flex fixed top-3 left-3 z-40 h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 shadow-sm"
+          aria-label="Open sidebar"
+          data-testid="nav-expand-button"
+        >
+          <PanelLeft className="h-5 w-5" />
+        </button>
+      )}
     </>
   );
 }
