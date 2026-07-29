@@ -21,6 +21,7 @@ export function PartForm({
   part,
   categories = [],
   locations = [],
+  defaultCategory,
   submitLabel = "Save part",
   isNew = false,
 }: {
@@ -28,6 +29,7 @@ export function PartForm({
   part?: Partial<Part>;
   categories?: string[];
   locations?: string[];
+  defaultCategory?: string;
   submitLabel?: string;
   isNew?: boolean;
 }) {
@@ -65,7 +67,7 @@ export function PartForm({
           <Input
             name="category"
             list="part-category-options"
-            defaultValue={part?.category ?? ""}
+            defaultValue={part?.category ?? defaultCategory ?? ""}
             placeholder="e.g. Brakes, Filters, Oils"
           />
           <datalist id="part-category-options">

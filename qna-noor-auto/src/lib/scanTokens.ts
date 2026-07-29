@@ -56,3 +56,12 @@ export function locationScanUrl(origin: string, location: string): string {
   const base = origin || "";
   return `${base}/sl/${encodeURIComponent(location)}`;
 }
+
+/**
+ * URL for a category QR sticker. Scanning it opens the login-gated category
+ * page, which lists every active part in that category.
+ */
+export function categoryScanUrl(origin: string, category: string): string {
+  const base = origin || "";
+  return `${base}/sc/${encodeURIComponent(category)}`;
+}
