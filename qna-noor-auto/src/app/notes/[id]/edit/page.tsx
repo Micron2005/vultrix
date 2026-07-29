@@ -15,8 +15,17 @@ export default async function EditNotePage({
   const { id } = await params;
   const orgId = await requireOrgId();
   const user = await requireUser();
-  const note = await db.repairNote.findFirst({ where: { id, orgId } });
+  const note = await db.repairNote.findFirst({
+    where: { id, orgId },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
+  });
   if (!note) notFound();
+  const categories = await db.repairNote.findMany({
+    where: { orgId, category: { not: null } },
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
 
   const action = updateNote.bind(null, note.id);
 
@@ -36,6 +45,8 @@ export default async function EditNotePage({
           accountType={user.accountType}
           note={note}
           submitLabel="Save changes"
+          categories={categories.flatMap((item) => item.category ? [item.category] : [])}
+          initialImages={note.images.map((image) => ({ dataUrl: image.dataUrl, caption: image.caption }))}
         />
       </div>
     </>

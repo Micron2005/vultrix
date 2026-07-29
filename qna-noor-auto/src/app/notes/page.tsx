@@ -2,218 +2,120 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import {
-  Card,
-  EmptyState,
-  Input,
-  LinkButton,
-  PageHeader,
-} from "@/components/ui";
-import { formatDate } from "@/lib/utils";
+import { EmptyState, Input, LinkButton, PageHeader } from "@/components/ui";
+import { NotesList, type NoteGroup } from "./NotesList";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tag?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string; cat?: string }>;
 }) {
   const user = await requireUser();
   if (!user.orgId) redirect("/admin");
-  const orgId = user.orgId;
-  const isAutoShop = user.accountType === "AUTO_SHOP";
-  const { q, tag } = await searchParams;
+  const { q, tag, cat } = await searchParams;
   const query = q?.trim() ?? "";
   const tagFilter = tag?.trim().toLowerCase() ?? "";
-
-  const where: Record<string, unknown> = { orgId };
+  const categoryFilter = cat?.trim() ?? "";
+  const where: Record<string, unknown> = { orgId: user.orgId };
   const AND: Record<string, unknown>[] = [];
 
   if (query) {
-    AND.push({
-      OR: [
-        { title: { contains: query } },
-        { make: { contains: query } },
-        { model: { contains: query } },
-        { engine: { contains: query } },
-        { symptom: { contains: query } },
-        { diagnosis: { contains: query } },
-        { fix: { contains: query } },
-        { partsNotes: { contains: query } },
-        { tags: { contains: query.toLowerCase() } },
-      ],
-    });
+    AND.push({ OR: [
+      { title: { contains: query } }, { category: { contains: query } },
+      { make: { contains: query } }, { model: { contains: query } },
+      { engine: { contains: query } }, { symptom: { contains: query } },
+      { diagnosis: { contains: query } }, { fix: { contains: query } },
+      { partsNotes: { contains: query } }, { tags: { contains: query.toLowerCase() } },
+    ] });
   }
-  if (tagFilter) {
-    AND.push({ tags: { contains: tagFilter } });
-  }
-  if (AND.length > 0) where.AND = AND;
+  if (tagFilter) AND.push({ tags: { contains: tagFilter } });
+  if (categoryFilter === "__none__") AND.push({ category: null });
+  else if (categoryFilter) AND.push({ category: categoryFilter });
+  if (AND.length) where.AND = AND;
 
-  const notes = await db.repairNote.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
-
-  // Collect all unique tags across visible notes for chip filter
+  const [notes, categoryRows] = await Promise.all([
+    db.repairNote.findMany({ where, orderBy: { updatedAt: "desc" }, take: 200 }),
+    db.repairNote.findMany({
+      where: { orgId: user.orgId, category: { not: null } },
+      select: { category: true },
+      distinct: ["category"],
+      orderBy: { category: "asc" },
+    }),
+  ]);
+  const categories = categoryRows.flatMap((row) => row.category ? [row.category] : []);
   const allTags = new Set<string>();
-  for (const n of notes) {
-    if (!n.tags) continue;
-    for (const t of n.tags.split(",")) {
-      const trimmed = t.trim();
-      if (trimmed) allTags.add(trimmed);
-    }
+  for (const note of notes) {
+    for (const value of note.tags?.split(",") ?? []) if (value.trim()) allTags.add(value.trim());
   }
-  const tags = Array.from(allTags).sort();
+  const groupsByName = new Map<string, NoteGroup>();
+  for (const note of notes) {
+    const name = note.category ?? "Uncategorized";
+    const group = groupsByName.get(name) ?? { name, notes: [] };
+    group.notes.push({
+      id: note.id,
+      title: note.title,
+      fix: note.fix,
+      symptom: note.symptom,
+      tags: note.tags,
+      updatedAt: note.updatedAt.toISOString(),
+      yearMin: note.yearMin,
+      yearMax: note.yearMax,
+      make: note.make,
+      model: note.model,
+      engine: note.engine,
+    });
+    groupsByName.set(name, group);
+  }
+  const groups = [...groupsByName.values()].sort((a, b) =>
+    a.name === "Uncategorized" ? 1 : b.name === "Uncategorized" ? -1 : a.name.localeCompare(b.name));
+  const filterHref = (next: Record<string, string | null>) => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (tagFilter) params.set("tag", tagFilter);
+    if (categoryFilter) params.set("cat", categoryFilter);
+    for (const [key, value] of Object.entries(next)) {
+      if (value) params.set(key, value); else params.delete(key);
+    }
+    const text = params.toString();
+    return text ? `/notes?${text}` : "/notes";
+  };
+  const isAutoShop = user.accountType === "AUTO_SHOP";
+  const hasFilters = Boolean(query || tagFilter || categoryFilter);
 
   return (
     <>
       <PageHeader
         title="Knowledge base"
-        description={
-          isAutoShop
-            ? "Your own repair notes, searchable by year, make, model, and text"
-            : "Your notes, searchable by title, details, and tags"
-        }
+        description={isAutoShop ? "Your own repair notes, searchable by year, make, model, and text" : "Your notes, searchable by title, details, and tags"}
         actions={<LinkButton href="/notes/new">New note</LinkButton>}
       />
-
       <form className="mb-4 max-w-md" method="GET">
-        <Input
-          name="q"
-          defaultValue={query}
-          placeholder={
-            isAutoShop
-              ? "Search title, vehicle, symptom, fix, parts…"
-              : "Search title, details, tags…"
-          }
-        />
+        <Input name="q" defaultValue={query} placeholder={isAutoShop ? "Search title, vehicle, symptom, fix, parts…" : "Search title, details, tags…"} />
         {tagFilter && <input type="hidden" name="tag" value={tagFilter} />}
+        {categoryFilter && <input type="hidden" name="cat" value={categoryFilter} />}
       </form>
-
-      {tags.length > 0 && (
+      {(categories.length > 0 || categoryFilter) && (
         <div className="mb-4 flex flex-wrap gap-1 text-xs">
-          {tagFilter && (
-            <Link
-              href={query ? `/notes?q=${encodeURIComponent(query)}` : "/notes"}
-              className="rounded-full bg-red-100 text-red-800 px-2 py-1 hover:bg-red-200"
-            >
-              Clear tag: {tagFilter} ×
-            </Link>
-          )}
-          {!tagFilter &&
-            tags.map((t) => (
-              <Link
-                key={t}
-                href={
-                  query
-                    ? `/notes?q=${encodeURIComponent(query)}&tag=${encodeURIComponent(t)}`
-                    : `/notes?tag=${encodeURIComponent(t)}`
-                }
-                className="rounded-full bg-zinc-100 text-zinc-700 px-2 py-1 hover:bg-zinc-200"
-              >
-                {t}
-              </Link>
-            ))}
+          {categoryFilter && <Link href={filterHref({ cat: null })} className="rounded-full bg-red-100 px-2 py-1 text-red-800 hover:bg-red-200">Clear category ×</Link>}
+          {!categoryFilter && categories.map((category) => <Link key={category} href={filterHref({ cat: category })} className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700 hover:bg-zinc-200">{category}</Link>)}
+          {!categoryFilter && <Link href={filterHref({ cat: "__none__" })} className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700 hover:bg-zinc-200">Uncategorized</Link>}
         </div>
       )}
-
+      {allTags.size > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1 text-xs">
+          {tagFilter && <Link href={filterHref({ tag: null })} className="rounded-full bg-red-100 px-2 py-1 text-red-800 hover:bg-red-200">Clear tag: {tagFilter} ×</Link>}
+          {!tagFilter && [...allTags].sort().map((value) => <Link key={value} href={filterHref({ tag: value })} className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700 hover:bg-zinc-200">{value}</Link>)}
+        </div>
+      )}
       {notes.length === 0 ? (
         <EmptyState
-          title={
-            query || tagFilter
-              ? "No notes matched your search"
-              : "No notes yet"
-          }
-          description={
-            query || tagFilter
-              ? undefined
-              : isAutoShop
-                ? "Capture your first repair note so your future self (and future techs) can find it again."
-                : "Capture your first note so you can find it again when you need it."
-          }
+          title={hasFilters ? "No notes matched your search" : "No notes yet"}
+          description={hasFilters ? undefined : isAutoShop ? "Capture your first repair note so your future self (and future techs) can find it again." : "Capture your first note so you can find it again when you need it."}
           action={<LinkButton href="/notes/new">Add note</LinkButton>}
         />
-      ) : (
-        <Card>
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-2 font-medium">Title</th>
-                {isAutoShop && (
-                  <th className="px-4 py-2 font-medium w-40">Vehicle</th>
-                )}
-                <th className="px-4 py-2 font-medium w-40">Tags</th>
-                <th className="px-4 py-2 font-medium w-32">Updated</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {notes.map((n) => (
-                <tr key={n.id} className="hover:bg-zinc-50">
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/notes/${n.id}`}
-                      className="font-medium text-zinc-900 hover:underline"
-                    >
-                      {n.title}
-                    </Link>
-                    {(isAutoShop ? n.symptom : n.fix) && (
-                      <div className="text-xs text-zinc-500 line-clamp-1">
-                        {isAutoShop ? n.symptom : n.fix}
-                      </div>
-                    )}
-                  </td>
-                  {isAutoShop && (
-                    <td className="px-4 py-2 text-xs text-zinc-600">
-                      {formatVehicleSpec(n)}
-                    </td>
-                  )}
-                  <td className="px-4 py-2 text-xs">
-                    {n.tags ? (
-                      <div className="flex flex-wrap gap-1">
-                        {n.tags.split(",").map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full bg-zinc-100 text-zinc-700 px-2 py-0.5"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-zinc-600">
-                    {formatDate(n.updatedAt)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+      ) : <NotesList groups={groups} isAutoShop={isAutoShop} />}
     </>
   );
-}
-
-function formatVehicleSpec(n: {
-  yearMin: number | null;
-  yearMax: number | null;
-  make: string | null;
-  model: string | null;
-  engine: string | null;
-}): string {
-  const yr =
-    n.yearMin && n.yearMax && n.yearMin !== n.yearMax
-      ? `${n.yearMin}–${n.yearMax}`
-      : n.yearMin
-        ? String(n.yearMin)
-        : n.yearMax
-          ? String(n.yearMax)
-          : "";
-  const parts = [yr, n.make, n.model].filter(Boolean);
-  if (parts.length === 0) return "Any vehicle";
-  const base = parts.join(" ");
-  return n.engine ? `${base} · ${n.engine}` : base;
 }

@@ -14,6 +14,7 @@ export type NoteInput = {
   partsNotes?: string | null;
   laborHoursEstimate?: number | null;
   tags?: string | null;
+  category?: string | null;
 };
 
 export function normalizeNoteTags(raw?: string | null): string | null {
@@ -36,6 +37,7 @@ export async function createNoteForOrg(orgId: string, input: NoteInput) {
       ...input,
       title: input.title.trim(),
       tags: normalizeNoteTags(input.tags),
+      category: input.category?.trim() || null,
       orgId,
     },
   });

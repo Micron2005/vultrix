@@ -20,7 +20,12 @@ const NoteSchema = z.object({
   partsNotes: z.string().optional().nullable(),
   laborHoursEstimate: z.string().optional().nullable(),
   tags: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
 });
+
+type NoteImageInput = { dataUrl: string; caption?: string | null };
+const MAX_NOTE_IMAGES = 12;
+const MAX_IMAGE_DATA_URL_LENGTH = 4_000_000;
 
 function parseYear(raw: string | null | undefined): number | null {
   if (raw == null) return null;
@@ -57,6 +62,30 @@ function normalizeTags(raw: string | null | undefined): string | null {
   return out.join(",");
 }
 
+function parseImages(raw: FormDataEntryValue | null): NoteImageInput[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.slice(0, MAX_NOTE_IMAGES).flatMap((item): NoteImageInput[] => {
+    if (!item || typeof item !== "object") return [];
+    const dataUrl = "dataUrl" in item && typeof item.dataUrl === "string"
+      ? item.dataUrl
+      : "";
+    if (!dataUrl.startsWith("data:image/") || dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
+      return [];
+    }
+    const caption = "caption" in item && typeof item.caption === "string"
+      ? item.caption.trim().slice(0, 500) || null
+      : null;
+    return [{ dataUrl, caption }];
+  });
+}
+
 function toData(fd: FormData) {
   const raw = NoteSchema.parse(Object.fromEntries(fd.entries()));
   const clean = (s: string | null | undefined) => {
@@ -77,13 +106,20 @@ function toData(fd: FormData) {
     partsNotes: clean(raw.partsNotes),
     laborHoursEstimate: parseFloatOrNull(raw.laborHoursEstimate),
     tags: normalizeTags(raw.tags),
+    category: clean(raw.category),
   };
 }
 
 export async function createNote(fd: FormData) {
   const orgId = await requireOrgId();
   const data = toData(fd);
+  const images = parseImages(fd.get("images"));
   const created = await createNoteForOrg(orgId, data);
+  if (images.length > 0) {
+    await db.noteImage.createMany({
+      data: images.map((image, sortOrder) => ({ ...image, noteId: created.id, orgId, sortOrder })),
+    });
+  }
   revalidatePath("/notes");
   redirect(`/notes/${created.id}`);
 }
@@ -91,7 +127,17 @@ export async function createNote(fd: FormData) {
 export async function updateNote(id: string, fd: FormData) {
   const orgId = await requireOrgId();
   const data = toData(fd);
-  await db.repairNote.updateMany({ where: { id, orgId }, data });
+  const images = parseImages(fd.get("images"));
+  await db.$transaction(async (tx) => {
+    const result = await tx.repairNote.updateMany({ where: { id, orgId }, data });
+    if (result.count === 0) return;
+    await tx.noteImage.deleteMany({ where: { noteId: id, orgId } });
+    if (images.length > 0) {
+      await tx.noteImage.createMany({
+        data: images.map((image, sortOrder) => ({ ...image, noteId: id, orgId, sortOrder })),
+      });
+    }
+  });
   revalidatePath("/notes");
   revalidatePath(`/notes/${id}`);
   redirect(`/notes/${id}`);
