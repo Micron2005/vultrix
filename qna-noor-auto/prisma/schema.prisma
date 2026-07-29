@@ -361,6 +361,18 @@ model Part {
   @@index([orgId])
 }
 
+model Category {
+  id           String       @id @default(cuid())
+  name         String
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
 // Every +/- to qtyOnHand is logged so the user can see why stock changed.
 model StockMove {
   id     String @id @default(cuid())
@@ -762,6 +774,7 @@ model Organization {
   incomes          Income[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
+  categories       Category[]
 
   @@index([status])
 }
