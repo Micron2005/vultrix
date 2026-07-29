@@ -35,6 +35,7 @@ export default async function InventoryPage({
       { name: { contains: q } },
       { partNumber: { contains: q } },
       { source: { contains: q } },
+      { category: { contains: q } },
     ];
   }
 
@@ -160,7 +161,7 @@ export default async function InventoryPage({
           <input
             name="q"
             defaultValue={q}
-            placeholder="Search name, part #, supplier…"
+            placeholder="Search name, part #, supplier, category…"
             className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </form>
