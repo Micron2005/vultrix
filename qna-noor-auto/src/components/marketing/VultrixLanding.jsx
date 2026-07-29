@@ -664,7 +664,6 @@ const Navbar = () => {
           ))}
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <a href={URLS.demo} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>Live demo</a>
           <a href={URLS.login} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>Log in</a>
           <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up <ArrowRight className="ml-1.5 h-4 w-4" /></a>
         </div>
@@ -681,7 +680,6 @@ const Navbar = () => {
           </div>
           <div className="mt-4 flex flex-col gap-2">
             <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up</a>
-            <a href={URLS.demo} className={`${btnBase} w-full h-11 border border-amber-300 bg-amber-50 text-zinc-900 hover:bg-amber-100`}>Try the live demo</a>
             <a href={URLS.login} className={`${btnBase} w-full h-11 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>Log in</a>
           </div>
         </div>
@@ -711,7 +709,6 @@ const Hero = ({ trialDays }) => (
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
             <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
-            <a href={URLS.demo} className={`${btnBase} h-12 px-6 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-zinc-400">
             <span className="font-semibold text-white">Plans from ${PRICING.startingPrice}/mo</span>
@@ -796,7 +793,6 @@ const Audiences = () => (
       <Reveal delay={0.1}>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>Choose your setup <ArrowRight className="ml-2 h-4 w-4" /></a>
-          <a href={URLS.demo} className={`${btnBase} h-11 px-5 border border-zinc-300 text-zinc-800 hover:bg-zinc-50 text-sm`}>Explore the live demo</a>
         </div>
       </Reveal>
     </div>
@@ -1102,7 +1098,6 @@ const Pricing = ({ trialDays }) => {
                   >
                     {p.cta}<ArrowRight className="ml-2 h-4 w-4" />
                   </a>
-                  <a href={URLS.demo} className="mt-3 text-center text-sm font-medium text-zinc-600 underline underline-offset-4 decoration-zinc-300 hover:text-zinc-900 hover:decoration-zinc-500">or try the live demo first</a>
 
                   {p.intro && <div className="mt-6 text-xs font-semibold uppercase tracking-wide text-zinc-400">{p.intro}</div>}
                   <ul className="mt-3 space-y-3">
@@ -1267,7 +1262,6 @@ const FinalCta = ({ trialDays }) => (
         <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {trialDays} days — plans from ${PRICING.startingPrice}/month after that. Cancel anytime.</p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <a href={URLS.signup} className={`${btnBase} h-12 px-7 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
-          <a href={URLS.demo} className={`${btnBase} h-12 px-7 border border-zinc-700 text-white hover:bg-white/10 text-base`}>Try the live demo <ArrowRight className="ml-2 h-4 w-4" /></a>
         </div>
       </Reveal>
     </div>
@@ -1292,7 +1286,6 @@ const Footer = () => {
             <div className="text-sm font-semibold text-white">Get started</div>
             <ul className="mt-4 space-y-3 text-sm">
               <li><a href={URLS.signup} className="text-zinc-400 hover:text-white transition-colors">Start free trial</a></li>
-              <li><a href={URLS.demo} className="text-zinc-400 hover:text-white transition-colors">Live demo</a></li>
               <li><a href={URLS.login} className="text-zinc-400 hover:text-white transition-colors">Log in</a></li>
               <li><a href="#contact" className="text-zinc-400 hover:text-white transition-colors">Contact us</a></li>
               <li><a href={`tel:${SITE.phoneHref}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Phone className="h-4 w-4" /> {SITE.phone}</a></li>
