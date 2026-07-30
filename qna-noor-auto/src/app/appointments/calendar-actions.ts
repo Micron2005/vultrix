@@ -11,6 +11,8 @@ const CalendarEventSchema = z.object({
   date: z.string().min(1, "Date is required"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  startsAtISO: z.string().optional(),
+  endsAtISO: z.string().optional(),
   allDay: z.string().optional(),
   isReminder: z.string().optional(),
   notes: z.string().optional(),
@@ -18,12 +20,18 @@ const CalendarEventSchema = z.object({
 
 function eventData(fd: FormData) {
   const raw = CalendarEventSchema.parse(Object.fromEntries(fd.entries()));
-  const startsAt = raw.allDay
-    ? new Date(`${raw.date}T00:00:00`)
-    : new Date(`${raw.date}T${raw.startTime || "09:00"}`);
-  const endsAt = raw.endTime
-    ? new Date(`${raw.date}T${raw.endTime}`)
-    : null;
+  const parsedStartsAt = raw.startsAtISO ? new Date(raw.startsAtISO) : null;
+  const startsAt = parsedStartsAt && !Number.isNaN(parsedStartsAt.getTime())
+    ? parsedStartsAt
+    : raw.allDay
+      ? new Date(`${raw.date}T00:00:00`)
+      : new Date(`${raw.date}T${raw.startTime || "09:00"}`);
+  const parsedEndsAt = raw.endsAtISO ? new Date(raw.endsAtISO) : null;
+  const endsAt = parsedEndsAt && !Number.isNaN(parsedEndsAt.getTime())
+    ? parsedEndsAt
+    : raw.endTime
+      ? new Date(`${raw.date}T${raw.endTime}`)
+      : null;
   if (Number.isNaN(startsAt.getTime()) || (endsAt && Number.isNaN(endsAt.getTime()))) {
     throw new Error("Invalid date or time");
   }
