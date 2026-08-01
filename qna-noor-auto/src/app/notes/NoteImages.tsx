@@ -40,6 +40,7 @@ export function NoteImages({
   const [items, setItems] = useState<NoteImageItem[]>(initialImages);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -83,11 +84,21 @@ export function NoteImages({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {items.map((item, index) => (
             <div key={`${item.dataUrl.slice(0, 24)}-${index}`} className="group relative aspect-square overflow-hidden rounded-md border border-zinc-200 bg-zinc-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.dataUrl} alt={item.caption ?? "Note attachment"} className="h-full w-full object-cover" />
               <button
                 type="button"
-                onClick={() => setItems((current) => current.filter((_, i) => i !== index))}
+                onClick={() => setLightbox(item.dataUrl)}
+                className="block h-full w-full"
+                aria-label="View note image"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.dataUrl} alt={item.caption ?? "Note attachment"} className="h-full w-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setItems((current) => current.filter((_, i) => i !== index));
+                }}
                 className="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-red-600 opacity-0 shadow-sm group-hover:opacity-100"
                 aria-label="Remove image"
               >
@@ -107,6 +118,30 @@ export function NoteImages({
         {busy ? "Preparing…" : "Add images"}
       </button>
       <input type="hidden" name="images" value={JSON.stringify(items)} />
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt="Note attachment"
+            className="max-h-[90vh] max-w-full object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
