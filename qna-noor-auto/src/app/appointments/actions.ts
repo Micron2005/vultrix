@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
-import { getSetting } from "@/lib/shop";
+import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { APPOINTMENT_STATUSES } from "./constants";
 
 const AppointmentSchema = z.object({
@@ -110,13 +110,8 @@ export async function startRoFromAppointment(id: string) {
     throw new Error("Appointment has no vehicle — edit it and pick one first.");
   }
 
-  // Next RO number
-  const last = await db.repairOrder.findFirst({
-    where: { orgId },
-    orderBy: { roNumber: "desc" },
-    select: { roNumber: true },
-  });
-  const nextNo = (last?.roNumber ?? 1000) + 1;
+  // Next RO number (spans soft-deleted ROs to avoid unique-constraint collisions)
+  const nextNo = await getNextRoNumber(orgId);
 
   const taxRateStr = await getSetting(orgId, "defaultTaxRate");
   const taxRate = taxRateStr ? parseFloat(taxRateStr) || 0 : 0;
