@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
-import { db } from "@/lib/db";
+import { db, dbBase } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
   parseCustomers,
@@ -434,7 +434,10 @@ export async function runInvoicesImport(
       allVehicles.map((v) => [v.vin!, v] as const),
     );
 
-    const existingROs = await db.repairOrder.findMany({
+    // dbBase (not db) so soft-deleted/trashed ROs are included: their
+    // roNumbers still occupy the (orgId, roNumber) unique constraint, so the
+    // import must not reuse them.
+    const existingROs = await dbBase.repairOrder.findMany({
       where: { orgId },
       select: { roNumber: true, notes: true },
     });

@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, dbBase } from "./db";
 
 const DEFAULTS: Record<string, string> = {
   shopName: "",
@@ -53,7 +53,11 @@ export async function setSetting(orgId: string, key: string, value: string) {
 }
 
 export async function getNextRoNumber(orgId: string): Promise<number> {
-  const last = await db.repairOrder.findFirst({
+  // Use dbBase (no soft-delete filter) so the next number also clears
+  // trashed/soft-deleted repair orders. The (orgId, roNumber) unique constraint
+  // spans deleted rows too, so ignoring them here would reuse a number a
+  // trashed ticket still holds and crash the create with a unique violation.
+  const last = await dbBase.repairOrder.findFirst({
     where: { orgId },
     orderBy: { roNumber: "desc" },
     select: { roNumber: true },
