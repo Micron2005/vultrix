@@ -28,6 +28,20 @@ export function parseMileage(
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Parse a user-entered decimal / money value, tolerating currency symbols,
+ * thousands separators, and surrounding whitespace (e.g. "$1,300.50" -> 1300.5).
+ * Returns null when there is no parseable non-negative number.
+ */
+export function parseDecimal(v: string | null | undefined): number | null {
+  if (v == null) return null;
+  const cleaned = String(v).replace(/[^0-9.\-]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === ".") return null;
+  const n = parseFloat(cleaned);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 /** Format a number of miles with thousands separators (e.g. 123456 -> "123,456"). */
 export function formatMileage(n: number | null | undefined): string {
   if (typeof n !== "number" || !isFinite(n)) return "";

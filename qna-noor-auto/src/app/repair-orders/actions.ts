@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db, dbBase } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
-import { parseMileage } from "@/lib/utils";
+import { parseDecimal, parseMileage } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 import { computeRoTotal } from "@/lib/roTotal";
 import type { RoBulkSavePayload } from "./roBulkSave";
@@ -60,7 +60,7 @@ export async function createRepairOrder(fd: FormData) {
   }
 
   const roNumber = await getNextRoNumber(orgId);
-  const defaultTax = parseFloat(await getSetting(orgId, "defaultTaxRate")) || 0;
+  const defaultTax = parseDecimal(await getSetting(orgId, "defaultTaxRate")) ?? 0;
 
   const created = await db.repairOrder.create({
     data: {
@@ -130,8 +130,8 @@ export async function updateRepairOrder(id: string, fd: FormData) {
     notes: parsed.notes,
     mileageIn: parseMileage(parsed.mileageIn),
     mileageOut: parseMileage(parsed.mileageOut),
-    taxRate: parsed.taxRate ? parseFloat(parsed.taxRate) || 0 : 0,
-    discount: parsed.discount ? parseFloat(parsed.discount) || 0 : 0,
+    taxRate: parseDecimal(parsed.taxRate) ?? 0,
+    discount: parseDecimal(parsed.discount) ?? 0,
   };
   if (parsed.status) {
     data.status = parsed.status;
@@ -201,8 +201,8 @@ export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload)
       notes: parsed.notes,
       mileageIn: parseMileage(parsed.mileageIn),
       mileageOut: parseMileage(parsed.mileageOut),
-      taxRate: parsed.taxRate ? parseFloat(parsed.taxRate) || 0 : 0,
-      discount: parsed.discount ? parseFloat(parsed.discount) || 0 : 0,
+      taxRate: parseDecimal(parsed.taxRate) ?? 0,
+      discount: parseDecimal(parsed.discount) ?? 0,
     },
   });
 
@@ -210,12 +210,7 @@ export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload)
   const lineEditsLocked =
     ro.status === "INVOICED" || ro.status === "PAID" || ro.status === "CANCELLED";
   if (!lineEditsLocked) {
-    const num = (v: string | undefined) => {
-      const s = String(v ?? "").trim();
-      if (s === "") return undefined;
-      const n = parseFloat(s);
-      return !Number.isNaN(n) && n >= 0 ? n : undefined;
-    };
+    const num = (v: string | undefined) => parseDecimal(v) ?? undefined;
 
     for (const l of payload.labor ?? []) {
       const f = l.fields ?? {};
@@ -244,8 +239,8 @@ export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload)
         const costRaw = String(f.costPrice ?? "").trim();
         if (costRaw === "") data.costPrice = null;
         else {
-          const c = parseFloat(costRaw);
-          if (!Number.isNaN(c) && c >= 0) data.costPrice = c;
+          const c = parseDecimal(costRaw);
+          if (c !== null) data.costPrice = c;
         }
       }
       if ("partNumber" in f) {
@@ -454,12 +449,12 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
   await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
-  const hours = parseFloat(String(fd.get("hours") ?? "0")) || 0;
+  const hours = parseDecimal(String(fd.get("hours") ?? "0")) ?? 0;
   const technicianId = String(fd.get("technicianId") ?? "").trim() || null;
   const jobId = String(fd.get("jobId") ?? "").trim() || null;
 
   // If no rate given, use tech's default rate; else shop default.
-  let rate = parseFloat(String(fd.get("rate") ?? "0")) || 0;
+  let rate = parseDecimal(String(fd.get("rate") ?? "0")) ?? 0;
   if (rate === 0 && technicianId) {
     const tech = await db.technician.findFirst({
       where: { id: technicianId, orgId },
@@ -468,7 +463,7 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
     if (tech?.defaultRate) rate = tech.defaultRate;
   }
   if (rate === 0) {
-    rate = parseFloat(await getSetting(orgId, "defaultLaborRate")) || 0;
+    rate = parseDecimal(await getSetting(orgId, "defaultLaborRate")) ?? 0;
   }
 
   const max = await db.laborLine.findFirst({
@@ -546,12 +541,12 @@ export async function updateLaborLine(
   const data: Record<string, unknown> = {};
   if (description) data.description = description;
   if (hoursRaw !== "") {
-    const h = parseFloat(hoursRaw);
-    if (!Number.isNaN(h) && h >= 0) data.hours = h;
+    const h = parseDecimal(hoursRaw);
+    if (h !== null) data.hours = h;
   }
   if (rateRaw !== "") {
-    const r = parseFloat(rateRaw);
-    if (!Number.isNaN(r) && r >= 0) data.rate = r;
+    const r = parseDecimal(rateRaw);
+    if (r !== null) data.rate = r;
   }
   if (Object.keys(data).length === 0) return;
   await db.laborLine.updateMany({ where: { id, repairOrderId }, data });
@@ -584,22 +579,19 @@ export async function addPartLine(repairOrderId: string, fd: FormData) {
   if (!description) return;
   const partNumber =
     catalog?.partNumber ?? (String(fd.get("partNumber") ?? "").trim() || null);
-  const quantity = parseFloat(String(fd.get("quantity") ?? "1")) || 1;
+  const quantity = parseDecimal(String(fd.get("quantity") ?? "1")) ?? 1;
 
   const rawUnit = String(fd.get("unitPrice") ?? "").trim();
   const unitPrice =
     rawUnit === ""
       ? (catalog?.unitPrice ?? 0)
-      : parseFloat(rawUnit) || 0;
+      : parseDecimal(rawUnit) ?? 0;
 
   const rawCost = String(fd.get("costPrice") ?? "").trim();
   const costPrice =
     rawCost === ""
       ? (catalog?.costPrice ?? null)
-      : (() => {
-          const v = parseFloat(rawCost);
-          return Number.isNaN(v) ? null : v;
-        })();
+      : parseDecimal(rawCost);
 
   const source =
     String(fd.get("source") ?? "").trim() || catalog?.source || null;
@@ -652,7 +644,7 @@ export async function addFeeLine(repairOrderId: string, fd: FormData) {
   await assertROEditable(orgId, repairOrderId);
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
-  const amount = parseFloat(String(fd.get("amount") ?? "0")) || 0;
+  const amount = parseDecimal(String(fd.get("amount") ?? "0")) ?? 0;
   const jobId = String(fd.get("jobId") ?? "").trim() || null;
 
   const max = await db.feeLine.findFirst({
@@ -693,19 +685,19 @@ export async function updatePartLine(
   const data: Record<string, unknown> = {};
   if (description) data.description = description;
   if (qtyRaw !== "") {
-    const q = parseFloat(qtyRaw);
-    if (!Number.isNaN(q) && q >= 0) data.quantity = q;
+    const q = parseDecimal(qtyRaw);
+    if (q !== null) data.quantity = q;
   }
   if (priceRaw !== "") {
-    const p = parseFloat(priceRaw);
-    if (!Number.isNaN(p) && p >= 0) data.unitPrice = p;
+    const p = parseDecimal(priceRaw);
+    if (p !== null) data.unitPrice = p;
   }
   if (fd.has("costPrice")) {
     if (costRaw === "") {
       data.costPrice = null;
     } else {
-      const c = parseFloat(costRaw);
-      if (!Number.isNaN(c) && c >= 0) data.costPrice = c;
+      const c = parseDecimal(costRaw);
+      if (c !== null) data.costPrice = c;
     }
   }
   if (fd.has("partNumber")) {
@@ -733,8 +725,8 @@ export async function updateFeeLine(
   const data: Record<string, unknown> = {};
   if (description) data.description = description;
   if (amountRaw !== "") {
-    const a = parseFloat(amountRaw);
-    if (!Number.isNaN(a) && a >= 0) data.amount = Math.round(a * 100) / 100;
+    const a = parseDecimal(amountRaw);
+    if (a !== null) data.amount = Math.round(a * 100) / 100;
   }
   if (Object.keys(data).length === 0) return;
   await db.feeLine.updateMany({ where: { id, repairOrderId }, data });
@@ -785,8 +777,8 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
     select: { id: true },
   });
   if (!ownedRO) return;
-  const amount = parseFloat(String(fd.get("amount") ?? "0"));
-  if (!Number.isFinite(amount) || amount <= 0) return;
+  const amount = parseDecimal(String(fd.get("amount") ?? "0"));
+  if (amount === null || amount <= 0) return;
 
   const rawMethod = String(fd.get("method") ?? "CASH").toUpperCase();
   const method = (PAYMENT_METHODS as readonly string[]).includes(rawMethod)
