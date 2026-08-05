@@ -6,7 +6,6 @@ import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import {
   formatDate,
-  formatDateTime,
   formatMoney,
   fullName,
   vehicleLabel,

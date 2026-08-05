@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import {
   Button,
   Card,
@@ -16,16 +17,6 @@ import { adjustStock, deletePart, toggleArchived } from "../actions";
 import { SupplierLinks } from "@/app/vehicle-search/SupplierLinks";
 
 export const dynamic = "force-dynamic";
-
-function formatDateTime(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
-}
 
 function reasonLabel(reason: string): string {
   switch (reason) {
@@ -280,7 +271,7 @@ export default async function PartDetailPage({
                 {part.stockMoves.map((m) => (
                   <tr key={m.id}>
                     <td className="px-4 py-2 text-xs text-zinc-600 whitespace-nowrap">
-                      {formatDateTime(m.createdAt)}
+                      <LocalDateTime value={m.createdAt} />
                     </td>
                     <td className="px-4 py-2 text-xs">
                       <div>{reasonLabel(m.reason)}</div>
@@ -342,8 +333,8 @@ export default async function PartDetailPage({
                     </td>
                     <td className="px-4 py-2 text-xs text-zinc-600">
                       {l.repairOrder
-                        ? formatDateTime(l.repairOrder.openedAt)
-                        : formatDateTime(l.createdAt)}
+                        ? <LocalDateTime value={l.repairOrder.openedAt} />
+                        : <LocalDateTime value={l.createdAt} />}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
                       {l.quantity}
