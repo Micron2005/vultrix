@@ -15,6 +15,7 @@ import {
 import { MileageInput } from "@/components/MileageInput";
 import { SaveButton } from "@/components/SaveButton";
 import { SaveAllButton } from "@/components/SaveAllButton";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
@@ -26,7 +27,6 @@ import { applyCannedJobFormAction } from "@/app/canned-jobs/actions";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import {
   formatDate,
-  formatDateTime,
   formatMoney,
   fullName,
   vehicleLabel,
@@ -583,7 +583,7 @@ export default async function RepairOrderDetailPage({
                 <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-900">
                   <span className="font-medium">✓ Approved by customer</span>
                   {" — "}
-                  {formatDateTime(ro.approvedAt)}
+                  <LocalDateTime value={ro.approvedAt} />
                   {ro.customerResponseNote && (
                     <div className="mt-1 text-xs text-emerald-800 whitespace-pre-line">
                       &ldquo;{ro.customerResponseNote}&rdquo;
@@ -598,7 +598,12 @@ export default async function RepairOrderDetailPage({
                       <span className="font-medium">
                         {ro.signatureName?.trim() || fullName(ro.customer)}
                       </span>
-                      {ro.signedAt && <> · {formatDateTime(ro.signedAt)}</>}
+                      {ro.signedAt && (
+                        <>
+                          {" · "}
+                          <LocalDateTime value={ro.signedAt} />
+                        </>
+                      )}
                       {" — appears on the printed / emailed PDF and the shared link."}
                     </div>
                   )}
@@ -607,7 +612,7 @@ export default async function RepairOrderDetailPage({
                 <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-red-900">
                   <span className="font-medium">Declined by customer</span>
                   {" — "}
-                  {formatDateTime(ro.estimateDeclinedAt)}
+                  <LocalDateTime value={ro.estimateDeclinedAt} />
                   {ro.customerResponseNote && (
                     <div className="mt-1 text-xs text-red-800 whitespace-pre-line">
                       &ldquo;{ro.customerResponseNote}&rdquo;

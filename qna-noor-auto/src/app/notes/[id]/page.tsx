@@ -7,7 +7,7 @@ import {
   LinkButton,
   PageHeader,
 } from "@/components/ui";
-import { formatDateTime } from "@/lib/utils";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { deleteNote } from "../actions";
 import { NoteGallery } from "../NoteGallery";
 
@@ -45,7 +45,7 @@ export default async function NotePage({
             )}
             <span className="text-xs text-zinc-400">
               {isAutoShop ? "· " : ""}
-              updated {formatDateTime(note.updatedAt)}
+              updated <LocalDateTime value={note.updatedAt} />
             </span>
           </div>
         }

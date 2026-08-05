@@ -1,3 +1,4 @@
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { LinkButton, StatusBadge } from "@/components/ui";
 import { revertInvoiceToRepairOrder, transitionRepairOrder } from "../actions";
 import { PaidActions } from "./PaidActions";
@@ -159,28 +160,17 @@ export function LifecycleTimeline({
     cancelledAt: Date | null;
   };
 }) {
-  const fmt = (d: Date | null | undefined) =>
-    d
-      ? new Date(d).toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : null;
-
-  const events: { label: string; at: string | null; color: string }[] = [
-    { label: "Opened as estimate", at: fmt(ro.openedAt), color: "bg-zinc-400" },
-    { label: "Work started", at: fmt(ro.startedAt), color: "bg-blue-500" },
-    { label: "Work completed", at: fmt(ro.completedAt), color: "bg-emerald-500" },
-    { label: "Invoiced", at: fmt(ro.invoicedAt), color: "bg-indigo-500" },
-    { label: "Paid", at: fmt(ro.paidAt), color: "bg-green-500" },
+  const events: { label: string; at: Date | null; color: string }[] = [
+    { label: "Opened as estimate", at: ro.openedAt, color: "bg-zinc-400" },
+    { label: "Work started", at: ro.startedAt, color: "bg-blue-500" },
+    { label: "Work completed", at: ro.completedAt, color: "bg-emerald-500" },
+    { label: "Invoiced", at: ro.invoicedAt, color: "bg-indigo-500" },
+    { label: "Paid", at: ro.paidAt, color: "bg-green-500" },
   ];
   if (ro.cancelledAt)
     events.push({
       label: "Cancelled",
-      at: fmt(ro.cancelledAt),
+      at: ro.cancelledAt,
       color: "bg-red-500",
     });
 
@@ -198,7 +188,7 @@ export function LifecycleTimeline({
             {e.label}
           </span>
           <span className="ml-auto text-xs text-zinc-500 tabular-nums">
-            {e.at ?? "—"}
+            {e.at ? <LocalDateTime value={e.at} /> : "—"}
           </span>
         </li>
       ))}

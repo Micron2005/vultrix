@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
-import { formatDateTime, fullName, vehicleLabel } from "@/lib/utils";
+import { fullName, vehicleLabel } from "@/lib/utils";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -114,7 +115,7 @@ export default async function PublicReminderPage({
         <div className="mt-4 text-center text-xs text-zinc-500 print:hidden">
           <PrintButton />
           <div className="mt-2 text-[11px] text-zinc-500">
-            Saved {formatDateTime(appt.createdAt)}
+            Saved <LocalDateTime value={appt.createdAt} />
           </div>
         </div>
       </div>

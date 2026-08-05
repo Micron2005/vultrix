@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import {
   formatDate,
-  formatDateTime,
   formatMoney,
   fullName,
   vehicleLabel,
@@ -578,7 +578,7 @@ export default async function PublicEstimatePage({
               </div>
               <div className="mt-1 text-emerald-800">
                 Thanks — we received your approval on{" "}
-                {formatDateTime(ro.approvedAt)}. We&rsquo;ll be in touch when your
+                <LocalDateTime value={ro.approvedAt} />. We&rsquo;ll be in touch when your
                 vehicle is ready.
               </div>
               {ro.customerResponseNote && (
@@ -607,7 +607,12 @@ export default async function PublicEstimatePage({
                     <span className="font-medium">
                       {ro.signatureName?.trim() || fullName(ro.customer)}
                     </span>
-                    {ro.signedAt && <> on {formatDateTime(ro.signedAt)}</>}
+                    {ro.signedAt && (
+                      <>
+                        {" on "}
+                        <LocalDateTime value={ro.signedAt} />
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -619,7 +624,7 @@ export default async function PublicEstimatePage({
               <div className="font-semibold text-red-900">Estimate declined</div>
               <div className="mt-1 text-red-800">
                 You declined this estimate on{" "}
-                {formatDateTime(ro.estimateDeclinedAt)}. Give us a call if
+                <LocalDateTime value={ro.estimateDeclinedAt} />. Give us a call if
                 anything changes or if you have questions.
               </div>
               {ro.customerResponseNote && (

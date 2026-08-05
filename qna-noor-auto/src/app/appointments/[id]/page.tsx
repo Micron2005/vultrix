@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
-import { fullName, formatDateTime, vehicleLabel } from "@/lib/utils";
+import { fullName, vehicleLabel } from "@/lib/utils";
 import {
   deleteAppointment,
   setAppointmentStatus,
@@ -65,7 +66,7 @@ export default async function AppointmentDetailPage({
               {prettyStatus(appt.status)}
             </span>
             <span className="text-zinc-700">
-              {formatDateTime(appt.startsAt)}
+              <LocalDateTime value={appt.startsAt} />
             </span>
             <span className="text-xs text-zinc-500">
               · {appt.durationMinutes} min · until {timeLabel(endsAt)}

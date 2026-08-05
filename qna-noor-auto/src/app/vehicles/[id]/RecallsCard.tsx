@@ -1,6 +1,6 @@
 import { Button, Card, CardHeader } from "@/components/ui";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { parseCachedRecalls } from "@/lib/nhtsa";
-import { formatDateTime } from "@/lib/utils";
 import { refreshRecallsAction } from "../recalls";
 
 export function RecallsCard({
@@ -56,7 +56,8 @@ export function RecallsCard({
           <p className="text-zinc-600">
             No active recalls for {cached.year} {cached.make} {cached.model}.
             <span className="ml-2 text-xs text-zinc-500">
-              Last checked {recallsFetchedAt ? formatDateTime(recallsFetchedAt) : ""}
+              Last checked{" "}
+              {recallsFetchedAt ? <LocalDateTime value={recallsFetchedAt} /> : ""}
             </span>
           </p>
         ) : (
@@ -64,7 +65,7 @@ export function RecallsCard({
             <p className="text-xs text-zinc-500 mb-3">
               {cached.count} recall{cached.count === 1 ? "" : "s"} from NHTSA ·
               last checked{" "}
-              {recallsFetchedAt ? formatDateTime(recallsFetchedAt) : ""}
+              {recallsFetchedAt ? <LocalDateTime value={recallsFetchedAt} /> : ""}
             </p>
             <ul className="space-y-3">
               {cached.recalls.map((r) => (
