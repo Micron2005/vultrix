@@ -913,6 +913,7 @@ export default async function RepairOrderDetailPage({
             <div className="col-span-2">
               <Field label="Amount">
                 <Input
+                  key={balance.toFixed(2)}
                   name="amount"
                   inputMode="decimal"
                   defaultValue={balance.toFixed(2)}
