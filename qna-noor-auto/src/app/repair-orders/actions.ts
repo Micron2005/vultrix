@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, dbBase } from "@/lib/db";
@@ -273,6 +273,9 @@ export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload)
   revalidatePath("/repair-orders");
   revalidatePath("/");
   if (payload.exit) redirect("/");
+  // This action is invoked programmatically from a client component, so
+  // revalidation alone leaves the client router showing stale totals.
+  refresh();
 }
 
 export async function setRepairOrderStatus(id: string, status: string) {
