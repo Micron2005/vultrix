@@ -20,6 +20,7 @@ import { deleteCustomer } from "../actions";
 import { PortalCard } from "./PortalCard";
 import { BulkPaymentCard } from "./BulkPaymentCard";
 import { SelectableROList, type ROItem } from "./SelectableROList";
+import { getAllSettings } from "@/lib/shop";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export default async function CustomerDetailPage({
   const { id } = await params;
   const customer = await loadCustomer(orgId, id);
   if (!customer) notFound();
+  const shopSettings = await getAllSettings(orgId);
+  const shopName = shopSettings.shopName || "QNA / Noor Auto Repair";
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
     orgId,
@@ -266,7 +269,14 @@ export default async function CustomerDetailPage({
         </Card>
       </div>
 
-      <PortalCard customerId={customer.id} token={customer.portalToken} />
+      <PortalCard
+        customerId={customer.id}
+        token={customer.portalToken}
+        customerName={fullName(customer)}
+        customerEmail={customer.email}
+        customerPhone={customer.phone}
+        shopName={shopName}
+      />
 
       {/* Bulk Payment */}
       {openInvoices.length > 0 && (

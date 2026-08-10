@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Row of share actions under the ShareLinkPanel: Email, Text, and Open-in-
- * new-tab (for print). All three build off the same /e/<token> URL, which
- * ShareLinkPanel also uses, so the customer sees the same page however we
- * deliver it.
+ * Row of share actions: Email, Text, and Open-in-new-tab (for print). The
+ * caller supplies the path and message builders so the same controls can be
+ * used for different customer-facing links.
  *
  * Historically this component relied on bare `mailto:` / `sms:` links. On a
  * desktop browser with no handler registered for those schemes, clicking
@@ -26,18 +25,16 @@ export function ShareActions({
   customerEmail,
   customerPhone,
   customerName,
-  roNumber,
-  shopName,
-  docLabel = "Invoice",
   compact = false,
+  pathPrefix = "/e/",
+  emailSubject,
+  buildEmailBody,
+  buildSmsBody,
 }: {
   token: string;
   customerEmail: string | null | undefined;
   customerPhone: string | null | undefined;
   customerName: string;
-  roNumber: number;
-  shopName: string;
-  docLabel?: "Estimate" | "Invoice";
   /**
    * `compact` skips the Open-in-new-tab / Print buttons and just renders
    * Email + Text. Used by the top-right lifecycle action bar where the
@@ -45,6 +42,10 @@ export function ShareActions({
    * open-in-new-tab + print flow.
    */
   compact?: boolean;
+  pathPrefix?: string;
+  emailSubject: string;
+  buildEmailBody: (shareUrl: string) => string;
+  buildSmsBody: (shareUrl: string) => string;
 }) {
   const [origin, setOrigin] = useState("");
 
@@ -52,20 +53,9 @@ export function ShareActions({
     if (typeof window !== "undefined") setOrigin(window.location.origin);
   }, []);
 
-  const shareUrl = origin ? `${origin}/e/${token}` : "";
-
-  const firstName = customerName.split(" ")[0] || "there";
-  const verb = docLabel === "Estimate" ? "estimate" : "invoice";
-  const subject = `${shopName} — ${docLabel} #${roNumber}`;
-  const body =
-    `Hi ${firstName},\n\n` +
-    `Here's your ${verb} for RO #${roNumber}:\n${shareUrl}\n\n` +
-    (docLabel === "Estimate"
-      ? `You can review the details, approve the estimate, and see your balance.\n\n`
-      : `You can review the itemized charges, print a copy, or reply to this message with any questions.\n\n`) +
-    `Thanks,\n${shopName}`;
-
-  const smsBody = `${shopName} — ${verb} for RO #${roNumber}: ${shareUrl}`;
+  const shareUrl = origin ? `${origin}${pathPrefix}${token}` : "";
+  const body = buildEmailBody(shareUrl);
+  const smsBody = buildSmsBody(shareUrl);
 
   function openPrint() {
     if (!shareUrl) return;
@@ -114,7 +104,7 @@ export function ShareActions({
         title={`Send email to ${customerName}`}
         recipientLabel={customerEmail ?? ""}
         defaultBody={body}
-        subject={subject}
+        subject={emailSubject}
         channel="email"
         recipient={customerEmail ?? ""}
       />

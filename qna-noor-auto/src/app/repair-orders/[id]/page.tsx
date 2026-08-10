@@ -16,10 +16,10 @@ import { MileageInput } from "@/components/MileageInput";
 import { SaveButton } from "@/components/SaveButton";
 import { SaveAllButton } from "@/components/SaveAllButton";
 import { LocalDateTime } from "@/components/LocalDateTime";
+import { ROShareActions } from "@/components/ROShareActions";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
 import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
-import { ShareActions } from "./ShareActions";
 import { RoPhotos } from "./RoPhotos";
 import { getAllSettings } from "@/lib/shop";
 import { ApplyPresetForm } from "./ApplyPresetForm";
@@ -267,7 +267,7 @@ export default async function RepairOrderDetailPage({
               cleared={ro.clearedAt != null}
             />
             {ro.shareToken && (
-              <ShareActions
+              <ROShareActions
                 token={ro.shareToken}
                 customerEmail={ro.customer.email}
                 customerPhone={ro.customer.phone}
@@ -570,7 +570,7 @@ export default async function RepairOrderDetailPage({
           {ro.shareToken ? (
             <>
               <ShareLinkPanel token={ro.shareToken} />
-              <ShareActions
+              <ROShareActions
                 token={ro.shareToken}
                 customerEmail={ro.customer.email}
                 customerPhone={ro.customer.phone}

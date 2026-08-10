@@ -7,13 +7,22 @@ import {
   regeneratePortalToken,
   revokePortalToken,
 } from "../portal";
+import { ShareActions } from "@/components/ShareActions";
 
 export function PortalCard({
   customerId,
   token,
+  customerName,
+  customerEmail,
+  customerPhone,
+  shopName,
 }: {
   customerId: string;
   token: string | null;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  shopName: string;
 }) {
   const [copied, setCopied] = useState(false);
   const url =
@@ -22,6 +31,8 @@ export function PortalCard({
       : token
         ? `/p/${token}`
         : null;
+  const portalEmailSubject = `${shopName} — Your customer portal`;
+  const firstName = customerName.split(" ")[0] || "there";
 
   async function copy() {
     if (!url) return;
@@ -76,6 +87,23 @@ export function PortalCard({
               >
                 Preview ↗
               </a>
+              <ShareActions
+                token={token}
+                customerEmail={customerEmail}
+                customerPhone={customerPhone}
+                customerName={customerName}
+                compact
+                pathPrefix="/p/"
+                emailSubject={portalEmailSubject}
+                buildEmailBody={(shareUrl) =>
+                  `Hi ${firstName},\n\n` +
+                  `Here's your customer portal to view invoices, service history, and pay online:\n${shareUrl}\n\n` +
+                  `Thanks,\n${shopName}`
+                }
+                buildSmsBody={(shareUrl) =>
+                  `${shopName} — Your customer portal: ${shareUrl}`
+                }
+              />
             </div>
             <div className="mt-3 flex gap-2">
               <form
