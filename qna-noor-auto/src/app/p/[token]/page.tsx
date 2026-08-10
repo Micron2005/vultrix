@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -34,6 +34,7 @@ export default async function CustomerPortalPage({
         orderBy: { createdAt: "desc" },
       },
       repairOrders: {
+        where: ACTIVE_RO_WHERE,
         orderBy: { openedAt: "desc" },
         include: {
           vehicle: true,
