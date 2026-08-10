@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -56,6 +56,7 @@ export async function GET(
     include: {
       vehicles: { orderBy: { createdAt: "desc" } },
       repairOrders: {
+        where: ACTIVE_RO_WHERE,
         orderBy: { openedAt: "desc" },
         include: {
           vehicle: true,

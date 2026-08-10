@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
   Card,
@@ -41,6 +41,7 @@ export default async function RemindersPage({
       include: {
         vehicles: { orderBy: { updatedAt: "desc" } },
         repairOrders: {
+          where: ACTIVE_RO_WHERE,
           orderBy: { openedAt: "desc" },
           take: 1,
           include: { vehicle: true },

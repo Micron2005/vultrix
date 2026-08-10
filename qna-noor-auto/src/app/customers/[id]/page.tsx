@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
   Button,
@@ -32,6 +32,7 @@ async function loadCustomer(orgId: string, id: string) {
     include: {
       vehicles: { orderBy: { createdAt: "desc" } },
       repairOrders: {
+        where: ACTIVE_RO_WHERE,
         orderBy: { openedAt: "desc" },
         include: {
           vehicle: true,

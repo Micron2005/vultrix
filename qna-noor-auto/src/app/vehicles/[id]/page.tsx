@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
   Button,
@@ -38,6 +38,7 @@ export default async function VehicleDetailPage({
     include: {
       customer: true,
       repairOrders: {
+        where: ACTIVE_RO_WHERE,
         orderBy: { openedAt: "desc" },
         include: { laborLines: true, partLines: true, feeLines: true },
       },

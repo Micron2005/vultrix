@@ -17,11 +17,17 @@ export const dbBase =
 if (process.env.NODE_ENV !== "production") globalForPrisma.prismaBase = dbBase;
 
 /**
- * Default app client. A query extension hides soft-deleted repair orders
- * (deletedAt != null) from every normal read (findMany / findFirst / count /
- * aggregate / groupBy), so a deleted ticket disappears from lists, dashboards,
- * duplicate review, reports, etc. without editing dozens of call sites — and
- * critically, the row still exists and can be restored from Trash.
+ * Active RepairOrder predicate for nested relation reads. The query extension
+ * below only filters top-level RepairOrder operations; nested relation reads
+ * and relation counts must pass this predicate explicitly.
+ */
+export const ACTIVE_RO_WHERE = { deletedAt: null };
+
+/**
+ * Default app client. A query extension hides soft-deleted repair orders from
+ * top-level RepairOrder reads. RepairOrders read through another model's
+ * include/select or counted via _count are not intercepted and must use
+ * ACTIVE_RO_WHERE explicitly.
  *
  * Writes are untouched. findUnique is intentionally left unfiltered because its
  * `where` only accepts unique fields (public share/pay lookups still resolve).

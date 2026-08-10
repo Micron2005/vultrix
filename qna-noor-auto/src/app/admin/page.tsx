@@ -6,7 +6,7 @@ import {
   Input,
   PageHeader,
 } from "@/components/ui";
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireSuperadmin } from "@/lib/session";
 import { APP_NAME } from "@/lib/branding";
 import { describeBilling } from "@/lib/billing";
@@ -43,7 +43,11 @@ export default async function AdminPage({
     orderBy: [{ status: "asc" }, { name: "asc" }],
     include: {
       _count: {
-        select: { users: true, customers: true, repairOrders: true },
+        select: {
+          users: true,
+          customers: true,
+          repairOrders: { where: ACTIVE_RO_WHERE },
+        },
       },
       users: {
         orderBy: { createdAt: "asc" },

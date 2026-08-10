@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { CustomerList } from "./CustomerList";
@@ -32,7 +32,12 @@ export default async function CustomersPage({
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     include: {
-      _count: { select: { vehicles: true, repairOrders: true } },
+      _count: {
+        select: {
+          vehicles: true,
+          repairOrders: { where: ACTIVE_RO_WHERE },
+        },
+      },
     },
     take: 500,
   });
