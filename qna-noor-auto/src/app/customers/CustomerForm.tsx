@@ -1,6 +1,47 @@
+"use client";
+
+import { useState } from "react";
 import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
-import type { Customer } from "@prisma/client";
+import type { Customer, CustomerContact } from "@prisma/client";
+
+type ContactRow = {
+  key: string;
+  value: string;
+  label: string;
+  isPrimary: boolean;
+};
+
+type CustomerWithContacts = Partial<Customer> & {
+  contacts?: Pick<CustomerContact, "kind" | "value" | "label" | "isPrimary">[];
+};
+
+function initialRows(
+  customer: CustomerWithContacts | undefined,
+  kind: "EMAIL" | "PHONE",
+): ContactRow[] {
+  const contacts =
+    customer?.contacts
+      ?.filter((contact) => contact.kind === kind)
+      .map((contact, index) => ({
+        key: `${kind}-${index}`,
+        value: contact.value,
+        label: contact.label ?? "",
+        isPrimary: contact.isPrimary,
+      })) ?? [];
+  if (contacts.length > 0) return contacts;
+
+  const legacy =
+    kind === "EMAIL" ? customer?.email : [customer?.phone, customer?.altPhone];
+  return (Array.isArray(legacy) ? legacy : [legacy])
+    .filter((value): value is string => Boolean(value))
+    .map((value, index) => ({
+      key: `${kind}-legacy-${index}`,
+      value,
+      label: "",
+      isPrimary: index === 0,
+    }));
+}
 
 export function CustomerForm({
   action,
@@ -9,11 +50,60 @@ export function CustomerForm({
   defaultType,
 }: {
   action: (fd: FormData) => void | Promise<void>;
-  customer?: Partial<Customer>;
+  customer?: CustomerWithContacts;
   submitLabel?: string;
   defaultType?: "INDIVIDUAL" | "BUSINESS";
 }) {
   const type = customer?.type ?? defaultType ?? "INDIVIDUAL";
+  const [emails, setEmails] = useState(() => initialRows(customer, "EMAIL"));
+  const [phones, setPhones] = useState(() => initialRows(customer, "PHONE"));
+
+  function addRow(kind: "EMAIL" | "PHONE") {
+    const setter = kind === "EMAIL" ? setEmails : setPhones;
+    setter((rows) => [
+      ...rows,
+      {
+        key: `${kind}-${Date.now()}-${rows.length}`,
+        value: "",
+        label: "",
+        isPrimary: rows.length === 0,
+      },
+    ]);
+  }
+
+  function removeRow(kind: "EMAIL" | "PHONE", key: string) {
+    const setter = kind === "EMAIL" ? setEmails : setPhones;
+    setter((rows) => {
+      const remaining = rows.filter((row) => row.key !== key);
+      if (remaining.length > 0 && !remaining.some((row) => row.isPrimary)) {
+        return remaining.map((row, index) => ({
+          ...row,
+          isPrimary: index === 0,
+        }));
+      }
+      return remaining;
+    });
+  }
+
+  function updateRow(
+    kind: "EMAIL" | "PHONE",
+    key: string,
+    field: "value" | "label",
+    value: string,
+  ) {
+    const setter = kind === "EMAIL" ? setEmails : setPhones;
+    setter((rows) =>
+      rows.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
+    );
+  }
+
+  function setPrimary(kind: "EMAIL" | "PHONE", key: string) {
+    const setter = kind === "EMAIL" ? setEmails : setPhones;
+    setter((rows) =>
+      rows.map((row) => ({ ...row, isPrimary: row.key === key })),
+    );
+  }
+
   return (
     <form action={action} className="space-y-6">
       <Field label="Customer type *">
@@ -48,15 +138,22 @@ export function CustomerForm({
         <Field label="Company name" className="md:col-span-2">
           <Input name="companyName" defaultValue={customer?.companyName ?? ""} />
         </Field>
-        <Field label="Phone">
-          <Input name="phone" defaultValue={customer?.phone ?? ""} />
-        </Field>
-        <Field label="Alt phone">
-          <Input name="altPhone" defaultValue={customer?.altPhone ?? ""} />
-        </Field>
-        <Field label="Email" className="md:col-span-2">
-          <Input type="email" name="email" defaultValue={customer?.email ?? ""} />
-        </Field>
+        <ContactList
+          kind="PHONE"
+          rows={phones}
+          onAdd={() => addRow("PHONE")}
+          onRemove={(key) => removeRow("PHONE", key)}
+          onUpdate={(key, field, value) => updateRow("PHONE", key, field, value)}
+          onPrimary={(key) => setPrimary("PHONE", key)}
+        />
+        <ContactList
+          kind="EMAIL"
+          rows={emails}
+          onAdd={() => addRow("EMAIL")}
+          onRemove={(key) => removeRow("EMAIL", key)}
+          onUpdate={(key, field, value) => updateRow("EMAIL", key, field, value)}
+          onPrimary={(key) => setPrimary("EMAIL", key)}
+        />
         <Field label="Street" className="md:col-span-2">
           <Input name="street" defaultValue={customer?.street ?? ""} />
         </Field>
@@ -79,5 +176,80 @@ export function CustomerForm({
         <SaveButton>{submitLabel}</SaveButton>
       </div>
     </form>
+  );
+}
+
+function ContactList({
+  kind,
+  rows,
+  onAdd,
+  onRemove,
+  onUpdate,
+  onPrimary,
+}: {
+  kind: "EMAIL" | "PHONE";
+  rows: ContactRow[];
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+  onUpdate: (key: string, field: "value" | "label", value: string) => void;
+  onPrimary: (key: string) => void;
+}) {
+  const isEmail = kind === "EMAIL";
+  const valueName = isEmail ? "emailValue" : "phoneValue";
+  const labelName = isEmail ? "emailLabel" : "phoneLabel";
+  const primaryName = isEmail ? "emailPrimary" : "phonePrimary";
+
+  return (
+    <Field label={isEmail ? "Emails" : "Phones"}>
+      <div className="space-y-2">
+        {rows.map((row, index) => (
+          <div key={row.key} className="flex flex-wrap items-center gap-2">
+            <Input
+              name={valueName}
+              type={isEmail ? "email" : "tel"}
+              value={row.value}
+              onChange={(event) =>
+                onUpdate(row.key, "value", event.target.value)
+              }
+              placeholder={isEmail ? "name@example.com" : "(555) 555-5555"}
+              className="min-w-0 flex-1"
+            />
+            <Input
+              name={labelName}
+              value={row.label}
+              onChange={(event) =>
+                onUpdate(row.key, "label", event.target.value)
+              }
+              placeholder="Label (optional)"
+              className="w-36"
+            />
+            <label className="inline-flex items-center gap-1 text-xs text-zinc-600 whitespace-nowrap">
+              <input
+                type="radio"
+                name={primaryName}
+                value={index}
+                checked={row.isPrimary}
+                onChange={() => onPrimary(row.key)}
+              />
+              Primary
+            </label>
+            <button
+              type="button"
+              onClick={() => onRemove(row.key)}
+              className="text-xs text-zinc-500 underline hover:text-zinc-900"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={onAdd}
+          className="text-sm text-zinc-700 underline hover:text-zinc-900"
+        >
+          + Add {isEmail ? "email" : "phone"}
+        </button>
+      </div>
+    </Field>
   );
 }

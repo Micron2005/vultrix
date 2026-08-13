@@ -86,6 +86,7 @@ export default async function SearchPage({
       { email: { contains: t } },
       { phone: { contains: t } },
       { altPhone: { contains: t } },
+      { contacts: { some: { value: { contains: t } } } },
     ],
   }));
 
