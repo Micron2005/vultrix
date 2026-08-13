@@ -13,12 +13,14 @@ type VehicleOption = {
 
 type Props = {
   customerId: string;
+  customerType: "INDIVIDUAL" | "BUSINESS";
   action: (fd: FormData) => void | Promise<void>;
   vehicles: VehicleOption[];
 };
 
 export function VehiclePickerOrCreate({
   customerId,
+  customerType,
   action,
   vehicles,
 }: Props) {
@@ -35,6 +37,7 @@ export function VehiclePickerOrCreate({
   const [color, setColor] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
   const [licenseState, setLicenseState] = useState("");
+  const [unitNumber, setUnitNumber] = useState("");
   const [vinMsg, setVinMsg] = useState<string | null>(null);
   const [isDecoding, startDecode] = useTransition();
 
@@ -213,6 +216,19 @@ export function VehiclePickerOrCreate({
               <MileageInput name="mileage" />
             </Field>
           </div>
+          {customerType === "BUSINESS" && (
+            <Field label="Fleet / unit number">
+              <Input
+                name="unitNumber"
+                value={unitNumber}
+                onChange={(e) => setUnitNumber(e.target.value)}
+                placeholder="e.g. FedEx unit 4821"
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                The customer’s own number for this vehicle (for example, FedEx unit 4821).
+              </p>
+            </Field>
+          )}
           <p className="text-xs text-zinc-500">
             Tip: paste a VIN and click <em>Decode VIN</em> to auto-fill
             year / make / model / trim / engine.

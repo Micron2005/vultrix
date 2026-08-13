@@ -22,6 +22,7 @@ type VehicleInit = {
   color?: string | null;
   licensePlate?: string | null;
   licenseState?: string | null;
+  unitNumber?: string | null;
   mileage?: number | null;
   notes?: string | null;
 };
@@ -30,11 +31,13 @@ export function VehicleForm({
   action,
   vehicle,
   customerId,
+  customerType,
   submitLabel = "Save",
 }: {
   action: (fd: FormData) => void | Promise<void>;
   vehicle?: VehicleInit;
   customerId?: string;
+  customerType?: "INDIVIDUAL" | "BUSINESS";
   submitLabel?: string;
 }) {
   const [vinMsg, setVinMsg] = useState<string | null>(null);
@@ -186,6 +189,18 @@ export function VehicleForm({
             className="uppercase"
           />
         </Field>
+        {customerType === "BUSINESS" && (
+          <Field label="Fleet / unit number">
+            <Input
+              name="unitNumber"
+              defaultValue={vehicle?.unitNumber ?? ""}
+              placeholder="e.g. FedEx unit 4821"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              The customer’s own number for this vehicle (for example, FedEx unit 4821).
+            </p>
+          </Field>
+        )}
         <Field label="Plate state">
           <Input
             name="licenseState"

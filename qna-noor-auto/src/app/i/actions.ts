@@ -97,7 +97,7 @@ export async function createIntakeVehicle(fd: FormData) {
   // Make sure the customer belongs to this org.
   const customer = await db.customer.findFirst({
     where: { id: customerId, orgId },
-    select: { id: true },
+    select: { id: true, type: true },
   });
   if (!customer) redirect(step(orgId, k, {}));
 
@@ -137,6 +137,7 @@ export async function createIntakeVehicle(fd: FormData) {
       color: orNull(fd, "color"),
       licensePlate: plate ? plate.toUpperCase() : null,
       licenseState: lstate ? lstate.toUpperCase() : null,
+      unitNumber: orNull(fd, "unitNumber"),
       mileage: parseMileage(str(fd, "mileage")),
     },
     select: { id: true },

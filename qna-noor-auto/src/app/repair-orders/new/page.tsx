@@ -205,6 +205,7 @@ export default async function NewRepairOrderPage({
           color: get("color"),
           licensePlate: plate ? plate.toUpperCase() : null,
           licenseState: state ? state.toUpperCase() : null,
+          unitNumber: get("unitNumber"),
           mileage: parseMileage(mileageStr),
         },
       });
@@ -213,7 +214,7 @@ export default async function NewRepairOrderPage({
 
     const vehicles = customer.vehicles.map((v) => ({
       id: v.id,
-      label: `${vehicleLabel(v)}${v.licensePlate ? ` · ${v.licensePlate}` : ""}`,
+      label: `${vehicleLabel(v)}${v.licensePlate ? ` · ${v.licensePlate}` : ""}${v.unitNumber ? ` · Unit ${v.unitNumber}` : ""}`,
     }));
 
     return (
@@ -225,6 +226,7 @@ export default async function NewRepairOrderPage({
         <Card className="p-6">
           <VehiclePickerOrCreate
             customerId={customer.id}
+            customerType={customer.type === "BUSINESS" ? "BUSINESS" : "INDIVIDUAL"}
             action={pickOrCreateVehicle}
             vehicles={vehicles}
           />

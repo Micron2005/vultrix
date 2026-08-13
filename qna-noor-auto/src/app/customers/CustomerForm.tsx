@@ -55,6 +55,7 @@ export function CustomerForm({
   defaultType?: "INDIVIDUAL" | "BUSINESS";
 }) {
   const type = customer?.type ?? defaultType ?? "INDIVIDUAL";
+  const [selectedType, setSelectedType] = useState(type);
   const [emails, setEmails] = useState(() => initialRows(customer, "EMAIL"));
   const [phones, setPhones] = useState(() => initialRows(customer, "PHONE"));
 
@@ -113,7 +114,8 @@ export function CustomerForm({
               type="radio"
               name="type"
               value="INDIVIDUAL"
-              defaultChecked={type === "INDIVIDUAL"}
+              checked={selectedType === "INDIVIDUAL"}
+              onChange={() => setSelectedType("INDIVIDUAL")}
             />
             Individual
           </label>
@@ -122,7 +124,8 @@ export function CustomerForm({
               type="radio"
               name="type"
               value="BUSINESS"
-              defaultChecked={type === "BUSINESS"}
+              checked={selectedType === "BUSINESS"}
+              onChange={() => setSelectedType("BUSINESS")}
             />
             Business
           </label>
@@ -135,9 +138,13 @@ export function CustomerForm({
         <Field label="Last name *">
           <Input name="lastName" required defaultValue={customer?.lastName ?? ""} />
         </Field>
-        <Field label="Company name" className="md:col-span-2">
-          <Input name="companyName" defaultValue={customer?.companyName ?? ""} />
-        </Field>
+        {selectedType === "BUSINESS" ? (
+          <Field label="Company name" className="md:col-span-2">
+            <Input name="companyName" defaultValue={customer?.companyName ?? ""} />
+          </Field>
+        ) : (
+          <input type="hidden" name="companyName" value="" />
+        )}
         <ContactList
           kind="PHONE"
           rows={phones}

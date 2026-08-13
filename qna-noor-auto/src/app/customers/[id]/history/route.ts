@@ -192,6 +192,7 @@ export async function GET(
       const parts = [vehicleLabel(v)];
       if (v.vin) parts.push(`VIN ${v.vin}`);
       if (v.licensePlate) parts.push(`Plate ${v.licensePlate}`);
+      if (v.unitNumber) parts.push(`Unit ${v.unitNumber}`);
       if (typeof v.mileage === "number") parts.push(`${v.mileage.toLocaleString()} mi`);
       page.drawText(parts.join("  ·  "), { x: MARGIN, y, size: 10, font, color: black });
       y -= 12;

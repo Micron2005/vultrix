@@ -109,6 +109,7 @@ export default async function SearchPage({
       {
         licensePlate: { contains: t, mode: "insensitive" as const },
       },
+      { unitNumber: { contains: t, mode: "insensitive" as const } },
       { color: { contains: t, mode: "insensitive" as const } },
       { notes: { contains: t, mode: "insensitive" as const } },
       {
@@ -176,6 +177,11 @@ export default async function SearchPage({
         {
           vehicle: {
             licensePlate: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        {
+          vehicle: {
+            unitNumber: { contains: t, mode: "insensitive" as const },
           },
         },
         ...(customerIdsByToken[index].length > 0

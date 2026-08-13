@@ -29,6 +29,7 @@ const HEADER_HINTS: Record<LogicalField, RegExp[]> = {
   make: [/make/i, /manufacturer/i],
   model: [/^model$/i, /vehicle.*model/i],
   licensePlate: [/plate/i, /tag/i, /license/i],
+  unitNumber: [/unit/i, /fleet/i, /fleet.*number/i],
   mileage: [/mileage/i, /odometer/i],
   vehicleNotes: [/vehicle.*note/i, /veh.*note/i],
 };

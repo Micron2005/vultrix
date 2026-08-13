@@ -33,6 +33,7 @@ export default async function NewVehiclePage({
           <VehicleForm
             action={createVehicle}
             customerId={customer.id}
+            customerType={customer.type === "BUSINESS" ? "BUSINESS" : "INDIVIDUAL"}
             submitLabel="Create vehicle"
           />
         </Card>

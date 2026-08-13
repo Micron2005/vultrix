@@ -16,6 +16,7 @@ export type LogicalField =
   | "make"
   | "model"
   | "licensePlate"
+  | "unitNumber"
   | "mileage"
   | "vehicleNotes";
 
@@ -43,6 +44,7 @@ export const LOGICAL_FIELDS: {
   { key: "make", label: "Make", group: "vehicle" },
   { key: "model", label: "Model", group: "vehicle" },
   { key: "licensePlate", label: "License plate", group: "vehicle" },
+  { key: "unitNumber", label: "Fleet / unit number", group: "vehicle" },
   { key: "mileage", label: "Mileage", group: "vehicle" },
   { key: "vehicleNotes", label: "Vehicle notes", group: "vehicle" },
 ];

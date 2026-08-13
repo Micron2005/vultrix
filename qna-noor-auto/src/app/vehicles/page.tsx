@@ -35,6 +35,7 @@ export default async function VehiclesPage({
           OR: [
             { vin: { contains: query, mode: "insensitive" } },
             { licensePlate: { contains: query, mode: "insensitive" } },
+            { unitNumber: { contains: query, mode: "insensitive" } },
             { make: { contains: query, mode: "insensitive" } },
             { model: { contains: query, mode: "insensitive" } },
             { customer: { lastName: { contains: query, mode: "insensitive" } } },
@@ -90,6 +91,7 @@ export default async function VehiclesPage({
                 <th className="px-4 py-2 font-medium">Customer</th>
                 <th className="px-4 py-2 font-medium">VIN</th>
                 <th className="px-4 py-2 font-medium">Plate</th>
+                <th className="px-4 py-2 font-medium">Fleet / unit</th>
                 <th className="px-4 py-2 font-medium text-right">Mileage</th>
               </tr>
             </thead>
@@ -122,6 +124,9 @@ export default async function VehiclesPage({
                   </td>
                   <td className="px-4 py-2 text-zinc-600">
                     {v.licensePlate ?? "—"}
+                  </td>
+                  <td className="px-4 py-2 text-zinc-600">
+                    {v.unitNumber ?? ""}
                   </td>
                   <td className="px-4 py-2 text-right text-zinc-600">
                     {v.mileage?.toLocaleString() ?? "—"}
