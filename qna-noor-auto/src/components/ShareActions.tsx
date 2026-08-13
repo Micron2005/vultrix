@@ -379,9 +379,7 @@ function SendPopover({
                 ? multipleContacts
                   ? "Each selected number opens separately, one message each."
                   : "On a phone, Open SMS app drops this into your messages. On a computer, use WhatsApp or tap Copy and paste into whichever app you prefer."
-                : selectedContacts.length === 0
-                  ? "Select at least one recipient."
-                  : "Open mail app uses your default email client (Outlook / Apple Mail). If that doesn't open, use Open Gmail or Copy the text."}
+                : "Open mail app uses your default email client (Outlook / Apple Mail). If that doesn't open, use Open Gmail or Copy the text."}
             </p>
           </div>
         </div>
