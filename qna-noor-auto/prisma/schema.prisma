@@ -47,6 +47,7 @@ model Customer {
   vehicles     Vehicle[]
   repairOrders RepairOrder[]
   appointments Appointment[]
+  contacts     CustomerContact[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -54,6 +55,27 @@ model Customer {
   @@unique([orgId, externalId])
   @@index([lastName, firstName])
   @@index([type])
+  @@index([orgId])
+}
+
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  orgId     String
+  kind      String // EMAIL | PHONE
+  value     String
+  label     String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, kind])
   @@index([orgId])
 }
 
@@ -777,6 +799,7 @@ model Organization {
 
   users            User[]
   customers        Customer[]
+  customerContacts CustomerContact[]
   vehicles         Vehicle[]
   repairOrders     RepairOrder[]
   payments         Payment[]

@@ -12,7 +12,10 @@ export default async function EditCustomerPage({
 }) {
   const orgId = await requireOrgId();
   const { id } = await params;
-  const customer = await db.customer.findFirst({ where: { id, orgId } });
+  const customer = await db.customer.findFirst({
+    where: { id, orgId },
+    include: { contacts: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] } },
+  });
   if (!customer) notFound();
 
   const action = updateCustomer.bind(null, customer.id);

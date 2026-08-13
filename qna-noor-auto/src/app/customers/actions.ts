@@ -6,15 +6,16 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { computeRoTotal } from "@/lib/roTotal";
+import {
+  replaceCustomerContacts,
+  type CustomerContactInput,
+} from "@/lib/customerContacts";
 
 const CustomerSchema = z.object({
   type: z.enum(["INDIVIDUAL", "BUSINESS"]).default("INDIVIDUAL"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   companyName: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().optional().nullable(),
-  altPhone: z.string().optional().nullable(),
   street: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
@@ -32,13 +33,60 @@ function cleanEmpty<T extends Record<string, unknown>>(obj: T): T {
 
 function parseFormData(fd: FormData) {
   const obj = Object.fromEntries(fd.entries());
-  return CustomerSchema.parse(cleanEmpty(obj));
+  const data = CustomerSchema.parse(cleanEmpty(obj));
+  const contactRows = (
+    kind: CustomerContactInput["kind"],
+    valueName: string,
+    labelName: string,
+    primaryName: string,
+  ): CustomerContactInput[] => {
+    const values = fd.getAll(valueName);
+    const labels = fd.getAll(labelName);
+    const primaryIndex = Number(fd.get(primaryName));
+    const rows = values
+      .map((value, index) => ({
+        value: typeof value === "string" ? value.trim() : "",
+        label:
+          typeof labels[index] === "string" ? labels[index].trim() || null : null,
+        index,
+      }))
+      .filter((row) => row.value);
+    const validRows =
+      kind === "EMAIL"
+        ? z
+            .array(
+              z.object({
+                value: z.string().email("Enter a valid email address"),
+                label: z.string().nullable(),
+                index: z.number(),
+              }),
+            )
+            .parse(rows)
+        : rows;
+    return validRows.map((row, index) => ({
+      kind,
+      value: row.value,
+      label: row.label,
+      isPrimary: row.index === primaryIndex,
+      sortOrder: index,
+    }));
+  };
+
+  const contacts = [
+    ...contactRows("EMAIL", "emailValue", "emailLabel", "emailPrimary"),
+    ...contactRows("PHONE", "phoneValue", "phoneLabel", "phonePrimary"),
+  ];
+  return { data, contacts };
 }
 
 export async function createCustomer(fd: FormData) {
   const orgId = await requireOrgId();
-  const data = parseFormData(fd);
-  const created = await db.customer.create({ data: { ...data, orgId } });
+  const { data, contacts } = parseFormData(fd);
+  const created = await db.$transaction(async (tx) => {
+    const customer = await tx.customer.create({ data: { ...data, orgId } });
+    await replaceCustomerContacts(tx, customer.id, orgId, contacts);
+    return customer;
+  });
   revalidatePath("/customers");
   revalidatePath("/");
   redirect(`/customers/${created.id}`);
@@ -46,8 +94,11 @@ export async function createCustomer(fd: FormData) {
 
 export async function updateCustomer(id: string, fd: FormData) {
   const orgId = await requireOrgId();
-  const data = parseFormData(fd);
-  await db.customer.update({ where: { id, orgId }, data });
+  const { data, contacts } = parseFormData(fd);
+  await db.$transaction(async (tx) => {
+    await tx.customer.update({ where: { id, orgId }, data });
+    await replaceCustomerContacts(tx, id, orgId, contacts);
+  });
   revalidatePath(`/customers/${id}`);
   revalidatePath("/customers");
   redirect(`/customers/${id}`);

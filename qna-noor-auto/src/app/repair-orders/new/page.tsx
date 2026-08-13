@@ -13,6 +13,10 @@ import { MileageInput } from "@/components/MileageInput";
 import { createRepairOrder } from "../actions";
 import { fullName, parseMileage, vehicleLabel } from "@/lib/utils";
 import { openROsForVehicle, pastROsForVehicle } from "@/lib/duplicates";
+import {
+  contactsFromScalarFields,
+  replaceCustomerContacts,
+} from "@/lib/customerContacts";
 import { DuplicateROBanner } from "@/components/DuplicateROBanner";
 import { VehiclePickerOrCreate } from "./VehiclePickerOrCreate";
 import { CustomerPickerOrCreate } from "./CustomerPickerOrCreate";
@@ -78,17 +82,29 @@ export default async function NewRepairOrderPage({
         // no-op rather than a crash.
         if (!firstName || !lastName) return;
         const type = get("type") === "BUSINESS" ? "BUSINESS" : "INDIVIDUAL";
-        const created = await db.customer.create({
-          data: {
-            orgId: innerOrgId,
-            type,
-            firstName,
-            lastName,
-            companyName: get("companyName"),
-            phone: get("phone"),
-            altPhone: get("altPhone"),
-            email: get("email"),
-          },
+        const phone = get("phone");
+        const altPhone = get("altPhone");
+        const email = get("email");
+        const created = await db.$transaction(async (tx) => {
+          const customer = await tx.customer.create({
+            data: {
+              orgId: innerOrgId,
+              type,
+              firstName,
+              lastName,
+              companyName: get("companyName"),
+              phone,
+              altPhone,
+              email,
+            },
+          });
+          await replaceCustomerContacts(
+            tx,
+            customer.id,
+            innerOrgId,
+            contactsFromScalarFields(email, phone, altPhone),
+          );
+          return customer;
         });
         revalidatePath("/customers");
         revalidatePath("/");

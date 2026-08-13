@@ -31,6 +31,7 @@ async function loadCustomer(orgId: string, id: string) {
     where: { id, orgId },
     include: {
       vehicles: { orderBy: { createdAt: "desc" } },
+      contacts: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] },
       repairOrders: {
         where: ACTIVE_RO_WHERE,
         orderBy: { openedAt: "desc" },
@@ -233,9 +234,7 @@ export default async function CustomerDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <Card className="p-4 text-sm lg:col-span-2">
           <div className="grid grid-cols-2 gap-3 text-zinc-700">
-            <Detail label="Phone" value={customer.phone} />
-            <Detail label="Alt phone" value={customer.altPhone} />
-            <Detail label="Email" value={customer.email} />
+            <ContactDetails customer={customer} />
             <Detail label="Company" value={customer.companyName} />
             <Detail
               label="Address"
@@ -380,6 +379,60 @@ function Detail({
         {label}
       </div>
       <div className="mt-1">{value ?? "—"}</div>
+    </div>
+  );
+}
+
+function ContactDetails({
+  customer,
+}: {
+  customer: Awaited<ReturnType<typeof loadCustomer>>;
+}) {
+  if (!customer) return null;
+  const emails = customer.contacts.filter((contact) => contact.kind === "EMAIL");
+  const phones = customer.contacts.filter((contact) => contact.kind === "PHONE");
+
+  return (
+    <>
+      <ContactGroup label="Phone" contacts={phones} />
+      <ContactGroup label="Email" contacts={emails} />
+    </>
+  );
+}
+
+function ContactGroup({
+  label,
+  contacts,
+}: {
+  label: string;
+  contacts: { value: string; label: string | null; isPrimary: boolean }[];
+}) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wider text-zinc-500 font-medium">
+        {label}
+      </div>
+      <div className="mt-1 space-y-1">
+        {contacts.length === 0 ? (
+          <div className="text-zinc-400">—</div>
+        ) : (
+          contacts.map((contact) => (
+            <div key={`${label}-${contact.value}-${contact.label ?? ""}`}>
+              <span>{contact.value}</span>
+              {contact.label && (
+                <span className="ml-2 text-xs text-zinc-500">
+                  ({contact.label})
+                </span>
+              )}
+              {contact.isPrimary && (
+                <span className="ml-2 text-xs font-medium text-zinc-500">
+                  (primary)
+                </span>
+              )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
