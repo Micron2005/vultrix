@@ -123,6 +123,7 @@ export function ShareActions({
 }
 
 type Channel = "email" | "sms";
+type PopoverStep = "recipients" | "message";
 
 /**
  * A small inline popover that lets the operator edit the pre-filled
@@ -154,12 +155,14 @@ function SendPopover({
   contacts: CustomerContactOption[];
 }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<PopoverStep>(
+    contacts.length > 1 ? "recipients" : "message",
+  );
   const [msg, setMsg] = useState(defaultBody);
   const [copied, setCopied] = useState(false);
-  const [selectedIndexes, setSelectedIndexes] = useState<number[]>(() => {
-    const primaryIndex = contacts.findIndex((contact) => contact.isPrimary);
-    return [primaryIndex >= 0 ? primaryIndex : 0];
-  });
+  const [selectedIndexes, setSelectedIndexes] = useState<number[]>(() =>
+    initialSelectedIndexes(contacts),
+  );
   const rootRef = useRef<HTMLDivElement | null>(null);
   const multipleContacts = contacts.length > 1;
 
@@ -184,6 +187,26 @@ function SendPopover({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  function resetFlow() {
+    setOpen(false);
+    setStep(multipleContacts ? "recipients" : "message");
+    setSelectedIndexes(initialSelectedIndexes(contacts));
+    setMsg(defaultBody);
+    setCopied(false);
+  }
+
+  function toggleOpen() {
+    if (open) {
+      resetFlow();
+      return;
+    }
+    setStep(multipleContacts ? "recipients" : "message");
+    setSelectedIndexes(initialSelectedIndexes(contacts));
+    setMsg(defaultBody);
+    setCopied(false);
+    setOpen(true);
+  }
 
   if (!available) {
     return (
@@ -229,6 +252,10 @@ function SendPopover({
     setSelectedIndexes(contacts.map((_, index) => index));
   }
 
+  function nextStep() {
+    if (selectedIndexes.length > 0) setStep("message");
+  }
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(msg);
@@ -256,7 +283,7 @@ function SendPopover({
     <div ref={rootRef} className="relative inline-block">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800"
       >
         {label}
@@ -265,7 +292,7 @@ function SendPopover({
         <div className="absolute right-0 z-20 mt-2 w-[min(420px,90vw)] rounded-lg border border-zinc-200 bg-white shadow-lg">
           <div className="p-3 border-b border-zinc-200">
             <div className="text-sm font-medium text-zinc-900">{title}</div>
-            {multipleContacts ? (
+            {step === "recipients" ? (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between text-xs text-zinc-500">
                   <span>Recipients</span>
@@ -299,91 +326,112 @@ function SendPopover({
                     Select at least one recipient.
                   </p>
                 )}
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={selectedContacts.length === 0}
+                  className="mt-2 inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
               </div>
             ) : (
               <div className="text-xs text-zinc-500">
-                To: <span className="font-mono">{recipientLabel}</span>
+                <div className="flex items-center justify-between gap-2">
+                  {multipleContacts && (
+                    <button
+                      type="button"
+                      onClick={() => setStep("recipients")}
+                      className="text-zinc-900 underline"
+                    >
+                      Back
+                    </button>
+                  )}
+                  <span className={multipleContacts ? "ml-auto" : ""}>
+                    To: <span className="font-mono">{recipientLabel}</span>
+                  </span>
+                </div>
               </div>
             )}
           </div>
-          <div className="p-3 space-y-2">
-            <label className="text-xs text-zinc-500">Message</label>
-            <textarea
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              rows={channel === "sms" ? 3 : 6}
-              className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            />
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={copy}
-                className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
-              >
-                {copied ? "Copied!" : "Copy"}
-              </button>
-              {channel === "sms" ? (
-                <>
-                  {selectedContacts.length === 0 ? (
-                    <span className="text-[11px] text-zinc-500">
-                      Select at least one recipient.
-                    </span>
-                  ) : (
-                    selectedContacts.map((contact, index) => (
-                      <Fragment key={`${contact.value}-${index}`}>
-                        <a
-                          href={phoneHref(contact, "sms")}
-                          className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800"
-                        >
-                          {multipleContacts
-                            ? `Open SMS: ${contact.label || contact.value}`
-                            : "Open SMS app"}
-                        </a>
-                        <a
-                          href={phoneHref(contact, "whatsapp")}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700"
-                        >
-                          {multipleContacts
-                            ? `Open WhatsApp: ${contact.label || contact.value}`
-                            : "Open WhatsApp"}
-                        </a>
-                      </Fragment>
-                    ))
-                  )}
-                </>
-              ) : (
-                <>
-                  <a
-                    href={selectedContacts.length > 0 ? mailtoHref : undefined}
-                    aria-disabled={selectedContacts.length === 0}
-                    className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                  >
-                    Open mail app
-                  </a>
-                  <a
-                    href={selectedContacts.length > 0 ? gmailHref : undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-disabled={selectedContacts.length === 0}
-                    className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50 aria-disabled:pointer-events-none aria-disabled:opacity-50"
-                  >
-                    Open Gmail ↗
-                  </a>
-                </>
-              )}
+          {step === "message" && (
+            <div className="p-3 space-y-2">
+              <label className="text-xs text-zinc-500">Message</label>
+              <textarea
+                value={msg}
+                onChange={(e) => setMsg(e.target.value)}
+                rows={channel === "sms" ? 3 : 6}
+                className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              />
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={copy}
+                  className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+                {channel === "sms" ? (
+                  selectedContacts.map((contact, index) => (
+                    <Fragment key={`${contact.value}-${index}`}>
+                      <a
+                        href={phoneHref(contact, "sms")}
+                        className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                      >
+                        {multipleContacts
+                          ? `Open SMS: ${contact.label || contact.value}`
+                          : "Open SMS app"}
+                      </a>
+                      <a
+                        href={phoneHref(contact, "whatsapp")}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700"
+                      >
+                        {multipleContacts
+                          ? `Open WhatsApp: ${contact.label || contact.value}`
+                          : "Open WhatsApp"}
+                      </a>
+                    </Fragment>
+                  ))
+                ) : (
+                  <>
+                    <a
+                      href={mailtoHref}
+                      className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                    >
+                      Open mail app
+                    </a>
+                    <a
+                      href={gmailHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50"
+                    >
+                      Open Gmail ↗
+                    </a>
+                  </>
+                )}
+              </div>
+              <p className="pt-1 text-[11px] text-zinc-500 leading-snug">
+                {channel === "sms"
+                  ? multipleContacts
+                    ? "Each selected number opens separately, one message each."
+                    : "On a phone, Open SMS app drops this into your messages. On a computer, use WhatsApp or tap Copy and paste into whichever app you prefer."
+                  : "Open mail app uses your default email client (Outlook / Apple Mail). If that doesn't open, use Open Gmail or Copy the text."}
+              </p>
             </div>
-            <p className="pt-1 text-[11px] text-zinc-500 leading-snug">
-              {channel === "sms"
-                ? multipleContacts
-                  ? "Each selected number opens separately, one message each."
-                  : "On a phone, Open SMS app drops this into your messages. On a computer, use WhatsApp or tap Copy and paste into whichever app you prefer."
-                : "Open mail app uses your default email client (Outlook / Apple Mail). If that doesn't open, use Open Gmail or Copy the text."}
-            </p>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function initialSelectedIndexes(
+  contacts: CustomerContactOption[],
+): number[] {
+  if (contacts.length === 0) return [];
+  const primaryIndex = contacts.findIndex((contact) => contact.isPrimary);
+  return [primaryIndex >= 0 ? primaryIndex : 0];
 }
