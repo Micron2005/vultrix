@@ -32,10 +32,10 @@ export default async function InventoryPage({
   }
   if (q) {
     where.OR = [
-      { name: { contains: q } },
-      { partNumber: { contains: q } },
-      { source: { contains: q } },
-      { category: { contains: q } },
+      { name: { contains: q, mode: "insensitive" } },
+      { partNumber: { contains: q, mode: "insensitive" } },
+      { source: { contains: q, mode: "insensitive" } },
+      { category: { contains: q, mode: "insensitive" } },
     ];
   }
 

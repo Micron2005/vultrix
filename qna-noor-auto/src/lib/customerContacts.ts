@@ -174,3 +174,24 @@ export async function replaceCustomerContacts(
     data: { email: primaryEmail, phone: primaryPhone, altPhone },
   });
 }
+
+export async function ensureCustomerContactsFromScalarFields(
+  customerId: string,
+  orgId: string,
+  email: string | null,
+  phone: string | null,
+  altPhone: string | null,
+) {
+  await db.$transaction(async (tx) => {
+    const count = await tx.customerContact.count({
+      where: { customerId, orgId },
+    });
+    if (count > 0) return;
+    await replaceCustomerContacts(
+      tx,
+      customerId,
+      orgId,
+      contactsFromScalarFields(email, phone, altPhone),
+    );
+  });
+}

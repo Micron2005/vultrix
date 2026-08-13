@@ -8,6 +8,7 @@ import {
   LinkButton,
   PageHeader,
 } from "@/components/ui";
+import { findNormalizedSearchMatches } from "@/lib/search";
 import { fullName, vehicleLabel } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,11 @@ export default async function VehiclesPage({
   const orgId = await requireOrgId();
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
+  const { vehicleIdsByToken } = await findNormalizedSearchMatches(
+    orgId,
+    query ? [query] : [],
+  );
+  const normalizedVehicleIds = vehicleIdsByToken[0] ?? [];
 
   const vehicles = await db.vehicle.findMany({
     where: {
@@ -38,6 +44,9 @@ export default async function VehiclesPage({
                 companyName: { contains: query, mode: "insensitive" },
               },
             },
+            ...(normalizedVehicleIds.length > 0
+              ? [{ id: { in: normalizedVehicleIds } }]
+              : []),
           ],
         }
       : {}),

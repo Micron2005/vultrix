@@ -1,6 +1,7 @@
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
+import { findNormalizedSearchMatches } from "@/lib/search";
 import { CustomerList } from "./CustomerList";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,11 @@ export default async function CustomersPage({
   const orgId = await requireOrgId();
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
+  const { customerIdsByToken } = await findNormalizedSearchMatches(
+    orgId,
+    query ? [query] : [],
+  );
+  const normalizedCustomerIds = customerIdsByToken[0] ?? [];
 
   const customers = await db.customer.findMany({
     where: {
@@ -21,11 +27,15 @@ export default async function CustomersPage({
       ...(query
         ? {
             OR: [
-              { firstName: { contains: query } },
-              { lastName: { contains: query } },
-              { companyName: { contains: query } },
-              { email: { contains: query } },
-              { phone: { contains: query } },
+              { firstName: { contains: query, mode: "insensitive" } },
+              { lastName: { contains: query, mode: "insensitive" } },
+              { companyName: { contains: query, mode: "insensitive" } },
+              { email: { contains: query, mode: "insensitive" } },
+              { phone: { contains: query, mode: "insensitive" } },
+              { altPhone: { contains: query, mode: "insensitive" } },
+              ...(normalizedCustomerIds.length > 0
+                ? [{ id: { in: normalizedCustomerIds } }]
+                : []),
             ],
           }
         : {}),

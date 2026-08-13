@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
+import { findNormalizedSearchMatches } from "@/lib/search";
 import {
   formatDate,
   formatMoney,
@@ -63,6 +64,12 @@ export default async function RepairOrdersPage({
   // whose complaint/VIN/plate happens to contain "1234".
   const numericQuery =
     query && /^\d+$/.test(query) ? parseInt(query, 10) : null;
+  const normalizedMatches =
+    query && numericQuery === null
+      ? await findNormalizedSearchMatches(orgId, [query])
+      : { customerIdsByToken: [[]], vehicleIdsByToken: [[]] };
+  const normalizedCustomerIds = normalizedMatches.customerIdsByToken[0];
+  const normalizedVehicleIds = normalizedMatches.vehicleIdsByToken[0];
 
   const ros = await db.repairOrder.findMany({
     where: {
@@ -107,6 +114,12 @@ export default async function RepairOrdersPage({
                   },
                 },
                 { complaint: { contains: query, mode: "insensitive" } },
+                ...(normalizedCustomerIds.length > 0
+                  ? [{ customerId: { in: normalizedCustomerIds } }]
+                  : []),
+                ...(normalizedVehicleIds.length > 0
+                  ? [{ vehicleId: { in: normalizedVehicleIds } }]
+                  : []),
               ],
             }
           : {}),
