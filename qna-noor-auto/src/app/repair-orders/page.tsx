@@ -65,7 +65,7 @@ export default async function RepairOrdersPage({
   const numericQuery =
     query && /^\d+$/.test(query) ? parseInt(query, 10) : null;
   const normalizedMatches =
-    query && numericQuery === null
+    query
       ? await findNormalizedSearchMatches(orgId, [query])
       : { customerIdsByToken: [[]], vehicleIdsByToken: [[]] };
   const normalizedCustomerIds = normalizedMatches.customerIdsByToken[0];
@@ -82,7 +82,18 @@ export default async function RepairOrdersPage({
           ? {}
           : { status: { in: OPEN_STATUSES } }),
       ...(numericQuery !== null
-        ? { roNumber: numericQuery }
+        ? {
+            OR: [
+              { roNumber: numericQuery },
+              { vehicle: { unitNumber: { contains: query, mode: "insensitive" } } },
+              ...(normalizedCustomerIds.length > 0
+                ? [{ customerId: { in: normalizedCustomerIds } }]
+                : []),
+              ...(normalizedVehicleIds.length > 0
+                ? [{ vehicleId: { in: normalizedVehicleIds } }]
+                : []),
+            ],
+          }
         : query
           ? {
               OR: [
@@ -111,6 +122,11 @@ export default async function RepairOrdersPage({
                 {
                   vehicle: {
                     licensePlate: { contains: query, mode: "insensitive" },
+                  },
+                },
+                {
+                  vehicle: {
+                    unitNumber: { contains: query, mode: "insensitive" },
                   },
                 },
                 { complaint: { contains: query, mode: "insensitive" } },

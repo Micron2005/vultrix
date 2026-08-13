@@ -247,6 +247,11 @@ export default async function CustomerPortalPage({
                         {r.vehicle.licensePlate}
                       </span>
                     )}
+                    {r.vehicle.unitNumber && (
+                      <span className="ml-2 text-xs text-zinc-500">
+                        Unit {r.vehicle.unitNumber}
+                      </span>
+                    )}
                   </div>
                   <ul className="mt-2 space-y-1">
                     {r.dueItems.map((i) => (
@@ -312,6 +317,7 @@ export default async function CustomerPortalPage({
                     </td>
                     <td className="px-4 py-2 text-zinc-700">
                       {ro.vehicle && vehicleLabel(ro.vehicle)}
+                      {ro.vehicle?.unitNumber && ` · Unit ${ro.vehicle.unitNumber}`}
                     </td>
                     <td className="px-4 py-2 text-right text-zinc-700 tabular-nums">
                       {formatMoney(ro.total)}

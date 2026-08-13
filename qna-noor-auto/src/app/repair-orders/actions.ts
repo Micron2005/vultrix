@@ -973,6 +973,7 @@ const VehicleInlineSchema = z.object({
   vin: z.string().optional().nullable(),
   licensePlate: z.string().optional().nullable(),
   licenseState: z.string().optional().nullable(),
+  unitNumber: z.string().optional().nullable(),
   mileage: z.string().optional().nullable(),
 });
 
@@ -999,6 +1000,9 @@ export async function updateROVehicleInfo(fd: FormData) {
       vin: parsed.vin?.toUpperCase() ?? null,
       licensePlate: parsed.licensePlate?.toUpperCase() ?? null,
       licenseState: parsed.licenseState?.toUpperCase() ?? null,
+      ...(parsed.unitNumber !== undefined
+        ? { unitNumber: parsed.unitNumber ?? null }
+        : {}),
       mileage: parseMileage(parsed.mileage),
     },
   });

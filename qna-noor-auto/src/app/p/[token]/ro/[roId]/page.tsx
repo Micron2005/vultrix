@@ -162,6 +162,11 @@ export default async function CustomerPortalROPage({
                   Plate: {ro.vehicle.licensePlate}
                 </div>
               )}
+              {ro.vehicle.unitNumber && (
+                <div className="text-zinc-600">
+                  Unit: {ro.vehicle.unitNumber}
+                </div>
+              )}
               {ro.vehicle.vin && (
                 <div className="font-mono text-xs text-zinc-500">
                   VIN: {ro.vehicle.vin}

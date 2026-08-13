@@ -144,7 +144,7 @@ export default async function IntakePage({
   if (sp.customerId && sp.vehicleId) {
     const customer = await db.customer.findFirst({
       where: { id: sp.customerId, orgId },
-      select: { firstName: true, lastName: true, companyName: true },
+      select: { firstName: true, lastName: true, companyName: true, type: true },
     });
     const vehicle = await db.vehicle.findFirst({
       where: { id: sp.vehicleId, orgId, customerId: sp.customerId },
@@ -220,7 +220,7 @@ export default async function IntakePage({
   if (sp.customerId) {
     const customer = await db.customer.findFirst({
       where: { id: sp.customerId, orgId },
-      select: { firstName: true, lastName: true, companyName: true },
+      select: { firstName: true, lastName: true, companyName: true, type: true },
     });
     if (!customer) {
       return (
@@ -241,6 +241,7 @@ export default async function IntakePage({
         model: true,
         trim: true,
         licensePlate: true,
+        unitNumber: true,
       },
     });
     return (
@@ -272,6 +273,11 @@ export default async function IntakePage({
                   {v.licensePlate ? (
                     <span className="text-xs text-zinc-500">
                       {v.licensePlate}
+                    </span>
+                  ) : null}
+                  {v.unitNumber ? (
+                    <span className="ml-2 text-xs text-zinc-500">
+                      Unit {v.unitNumber}
                     </span>
                   ) : null}
                 </button>
@@ -322,6 +328,15 @@ export default async function IntakePage({
                 <input name="licenseState" maxLength={2} className={fieldCls} />
               </div>
             </div>
+            {customer.type === "BUSINESS" ? (
+              <div>
+                <label className={labelCls}>Fleet / unit number</label>
+                <input name="unitNumber" className={fieldCls} placeholder="e.g. FedEx unit 4821" />
+                <p className="mt-1 text-xs text-zinc-500">
+                  The customer’s own number for this vehicle.
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>VIN</label>

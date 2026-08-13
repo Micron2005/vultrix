@@ -60,6 +60,8 @@ async function vehicleIdsForToken(orgId: string, token: string) {
           LIKE ${pattern}
         OR lower(regexp_replace(COALESCE("vin", ''), '[^a-zA-Z0-9]', '', 'g'))
           LIKE ${pattern}
+        OR lower(regexp_replace(COALESCE("unitNumber", ''), '[^a-zA-Z0-9]', '', 'g'))
+          LIKE ${pattern}
       )
   `);
 

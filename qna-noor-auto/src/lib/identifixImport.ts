@@ -58,6 +58,7 @@ export type ParsedVehicle = {
   color: string | null;
   licensePlate: string | null;
   licenseState: string | null;
+  unitNumber: string | null;
   mileage: number | null; // not in B, always null
 };
 
@@ -325,6 +326,7 @@ export function parseVehicles(
       color: clean(row["Color"]),
       licensePlate: clean(row["LicensePlate"])?.toUpperCase() ?? null,
       licenseState: clean(row["LicenseState"])?.toUpperCase() ?? null,
+      unitNumber: clean(row["UnitNumber"]),
       mileage: null,
     });
   }

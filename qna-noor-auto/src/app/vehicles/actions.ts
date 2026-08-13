@@ -22,6 +22,7 @@ const VehicleSchema = z.object({
   color: z.string().optional().nullable(),
   licensePlate: z.string().optional().nullable(),
   licenseState: z.string().optional().nullable(),
+  unitNumber: z.string().optional().nullable(),
   mileage: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
@@ -45,6 +46,7 @@ function prepare(fd: FormData) {
     color: parsed.color ?? null,
     licensePlate: parsed.licensePlate?.toUpperCase() ?? null,
     licenseState: parsed.licenseState?.toUpperCase() ?? null,
+    unitNumber: parsed.unitNumber ?? null,
     mileage: parseMileage(parsed.mileage),
     notes: parsed.notes ?? null,
   };

@@ -101,6 +101,7 @@ model Vehicle {
   color        String?
   licensePlate String?
   licenseState String?
+  unitNumber   String?
   mileage      Int?
   notes        String?
 

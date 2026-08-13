@@ -144,7 +144,8 @@ export async function runImport(
       const make = get("make");
       const model = get("model");
       const plate = get("licensePlate")?.toUpperCase();
-      if (vin || year || make || model || plate) {
+      const unitNumber = get("unitNumber");
+      if (vin || year || make || model || plate || unitNumber) {
         // Try to avoid dupe by VIN or plate for this customer
         const existingVehicle = vin
           ? await db.vehicle.findFirst({ where: { orgId, customerId, vin } })
@@ -163,6 +164,7 @@ export async function runImport(
             make: make ?? null,
             model: model ?? null,
             licensePlate: plate ?? null,
+            unitNumber: unitNumber ?? null,
             mileage: get("mileage")
               ? parseInt(get("mileage")!.replace(/[^0-9]/g, ""), 10) || null
               : null,

@@ -391,6 +391,7 @@ export async function runVehiclesImport(
           color: v.color,
           licensePlate: v.licensePlate,
           licenseState: v.licenseState,
+          unitNumber: v.unitNumber,
         })),
         skipDuplicates: true,
       });
@@ -411,6 +412,7 @@ export async function runVehiclesImport(
             color: v.color,
             licensePlate: v.licensePlate,
             licenseState: v.licenseState,
+            ...(v.unitNumber ? { unitNumber: v.unitNumber } : {}),
           },
         });
       });

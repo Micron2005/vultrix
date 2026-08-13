@@ -173,6 +173,7 @@ export async function GET(
     vLines.push(
       `Plate: ${ro.vehicle.licensePlate}${ro.vehicle.licenseState ? ` (${ro.vehicle.licenseState})` : ""}`,
     );
+  if (ro.vehicle?.unitNumber) vLines.push(`Unit: ${ro.vehicle.unitNumber}`);
   if (ro.mileageIn) vLines.push(`Mileage in: ${ro.mileageIn.toLocaleString()}`);
   if (ro.mileageOut)
     vLines.push(`Mileage out: ${ro.mileageOut.toLocaleString()}`);

@@ -313,6 +313,7 @@ export default async function CustomerDetailPage({
                 <th className="px-4 py-2 font-medium">Vehicle</th>
                 <th className="px-4 py-2 font-medium">VIN</th>
                 <th className="px-4 py-2 font-medium">Plate</th>
+                <th className="px-4 py-2 font-medium">Fleet / unit</th>
                 <th className="px-4 py-2 font-medium text-right">Mileage</th>
               </tr>
             </thead>
@@ -337,6 +338,9 @@ export default async function CustomerDetailPage({
                   </td>
                   <td className="px-4 py-2 text-zinc-600">
                     {v.licensePlate ?? "—"}
+                  </td>
+                  <td className="px-4 py-2 text-zinc-600">
+                    {v.unitNumber ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-right text-zinc-600">
                     {v.mileage?.toLocaleString() ?? "—"}

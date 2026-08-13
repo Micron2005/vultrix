@@ -115,6 +115,9 @@ export default async function VehicleDetailPage({
                 : null
             }
           />
+          {vehicle.unitNumber ? (
+            <Detail label="Fleet / unit number" value={vehicle.unitNumber} />
+          ) : null}
           <Detail
             label="Mileage"
             value={vehicle.mileage?.toLocaleString() ?? null}

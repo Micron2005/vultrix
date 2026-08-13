@@ -13,7 +13,10 @@ export default async function EditVehiclePage({
 }) {
   const orgId = await requireOrgId();
   const { id } = await params;
-  const vehicle = await db.vehicle.findFirst({ where: { id, orgId } });
+  const vehicle = await db.vehicle.findFirst({
+    where: { id, orgId },
+    include: { customer: { select: { type: true } } },
+  });
   if (!vehicle) notFound();
 
   const action = updateVehicle.bind(null, vehicle.id);
@@ -22,7 +25,14 @@ export default async function EditVehiclePage({
     <>
       <PageHeader title={`Edit ${vehicleLabel(vehicle)}`} />
       <Card className="p-6">
-        <VehicleForm action={action} vehicle={vehicle} submitLabel="Save changes" />
+        <VehicleForm
+          action={action}
+          vehicle={vehicle}
+          customerType={
+            vehicle.customer.type === "BUSINESS" ? "BUSINESS" : "INDIVIDUAL"
+          }
+          submitLabel="Save changes"
+        />
       </Card>
     </>
   );

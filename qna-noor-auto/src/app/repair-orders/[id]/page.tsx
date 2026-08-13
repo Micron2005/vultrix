@@ -373,6 +373,20 @@ export default async function RepairOrderDetailPage({
               />
             </Field>
           </div>
+          {ro.customer.type === "BUSINESS" && (
+            <div className="md:col-span-2">
+              <Field label="Fleet / unit number">
+                <Input
+                  name="unitNumber"
+                  defaultValue={ro.vehicle.unitNumber ?? ""}
+                  placeholder="e.g. FedEx unit 4821"
+                />
+                <p className="mt-1 text-xs text-zinc-500">
+                  The customer’s own number for this vehicle.
+                </p>
+              </Field>
+            </div>
+          )}
           <div className="md:col-span-1">
             <SaveButton fullWidth>Save</SaveButton>
           </div>
