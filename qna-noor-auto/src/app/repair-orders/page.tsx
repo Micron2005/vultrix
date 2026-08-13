@@ -86,6 +86,9 @@ export default async function RepairOrdersPage({
             OR: [
               { roNumber: numericQuery },
               { vehicle: { unitNumber: { contains: query, mode: "insensitive" } } },
+              ...(normalizedCustomerIds.length > 0
+                ? [{ customerId: { in: normalizedCustomerIds } }]
+                : []),
               ...(normalizedVehicleIds.length > 0
                 ? [{ vehicleId: { in: normalizedVehicleIds } }]
                 : []),

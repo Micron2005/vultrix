@@ -318,15 +318,6 @@ export default async function IntakePage({
                 <input name="engine" className={fieldCls} />
               </div>
             </div>
-            {customer.type === "BUSINESS" ? (
-              <div>
-                <label className={labelCls}>Fleet / unit number</label>
-                <input name="unitNumber" className={fieldCls} placeholder="e.g. FedEx unit 4821" />
-                <p className="mt-1 text-xs text-zinc-500">
-                  The customer’s own number for this vehicle.
-                </p>
-              </div>
-            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>License plate</label>
@@ -337,6 +328,15 @@ export default async function IntakePage({
                 <input name="licenseState" maxLength={2} className={fieldCls} />
               </div>
             </div>
+            {customer.type === "BUSINESS" ? (
+              <div>
+                <label className={labelCls}>Fleet / unit number</label>
+                <input name="unitNumber" className={fieldCls} placeholder="e.g. FedEx unit 4821" />
+                <p className="mt-1 text-xs text-zinc-500">
+                  The customer’s own number for this vehicle.
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>VIN</label>

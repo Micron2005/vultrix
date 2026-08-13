@@ -189,6 +189,14 @@ export function VehicleForm({
             className="uppercase"
           />
         </Field>
+        <Field label="Plate state">
+          <Input
+            name="licenseState"
+            defaultValue={vehicle?.licenseState ?? ""}
+            maxLength={2}
+            className="uppercase"
+          />
+        </Field>
         {customerType === "BUSINESS" && (
           <Field label="Fleet / unit number">
             <Input
@@ -201,14 +209,6 @@ export function VehicleForm({
             </p>
           </Field>
         )}
-        <Field label="Plate state">
-          <Input
-            name="licenseState"
-            defaultValue={vehicle?.licenseState ?? ""}
-            maxLength={2}
-            className="uppercase"
-          />
-        </Field>
         <Field label="Mileage">
           <MileageInput name="mileage" defaultValue={vehicle?.mileage ?? null} />
         </Field>

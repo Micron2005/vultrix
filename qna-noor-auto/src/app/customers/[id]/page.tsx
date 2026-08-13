@@ -340,7 +340,7 @@ export default async function CustomerDetailPage({
                     {v.licensePlate ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-zinc-600">
-                    {v.unitNumber ?? ""}
+                    {v.unitNumber ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-right text-zinc-600">
                     {v.mileage?.toLocaleString() ?? "—"}
