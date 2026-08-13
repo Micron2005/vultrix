@@ -15,6 +15,29 @@ export type CustomerContactInput = {
   sortOrder: number;
 };
 
+export type CustomerContactOption = Pick<
+  CustomerContactInput,
+  "value" | "label" | "isPrimary"
+>;
+
+export type CustomerContactLists = {
+  emails: CustomerContactOption[];
+  phones: CustomerContactOption[];
+};
+
+type CustomerWithContactData = {
+  email: string | null;
+  phone: string | null;
+  altPhone: string | null;
+  contacts?: Array<{
+    kind: string;
+    value: string;
+    label: string | null;
+    isPrimary: boolean;
+    sortOrder: number;
+  }>;
+};
+
 export function contactsFromScalarFields(
   email: string | null,
   phone: string | null,
@@ -55,6 +78,39 @@ export function contactsFromScalarFields(
         ]
       : []),
   ];
+}
+
+export function getCustomerContactLists(
+  customer: CustomerWithContactData,
+): CustomerContactLists {
+  if (!customer.contacts || customer.contacts.length === 0) {
+    const contacts = contactsFromScalarFields(
+      customer.email,
+      customer.phone,
+      customer.altPhone,
+    );
+    return {
+      emails: contacts
+        .filter((contact) => contact.kind === "EMAIL")
+        .map(({ value, label, isPrimary }) => ({ value, label, isPrimary })),
+      phones: contacts
+        .filter((contact) => contact.kind === "PHONE")
+        .map(({ value, label, isPrimary }) => ({ value, label, isPrimary })),
+    };
+  }
+
+  return {
+    emails: customer.contacts
+      .filter((contact) => contact.kind === "EMAIL")
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(({ value, label, isPrimary }) => ({ value, label, isPrimary })),
+    phones: customer.contacts
+      .filter((contact) => contact.kind === "PHONE")
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(({ value, label, isPrimary }) => ({ value, label, isPrimary })),
+  };
 }
 
 /**

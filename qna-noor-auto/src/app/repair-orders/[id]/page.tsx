@@ -74,6 +74,7 @@ import {
   excludeShopFeeFromRO,
   readdShopFeeToRO,
 } from "@/app/settings/shop-fees-actions";
+import { getCustomerContactLists } from "@/lib/customerContacts";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,13 @@ export default async function RepairOrderDetailPage({
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     include: {
-      customer: true,
+      customer: {
+        include: {
+          contacts: {
+            orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
+          },
+        },
+      },
       vehicle: true,
       jobs: {
         orderBy: { sortOrder: "asc" },
@@ -111,6 +118,7 @@ export default async function RepairOrderDetailPage({
     },
   });
   if (!ro) notFound();
+  const contactLists = getCustomerContactLists(ro.customer);
 
   // Filter out lines from declined jobs before computing totals.
   const filtered = excludeDeclinedJobLines(ro);
@@ -269,8 +277,7 @@ export default async function RepairOrderDetailPage({
             {ro.shareToken && (
               <ROShareActions
                 token={ro.shareToken}
-                customerEmail={ro.customer.email}
-                customerPhone={ro.customer.phone}
+                contactLists={contactLists}
                 customerName={fullName(ro.customer)}
                 roNumber={ro.roNumber}
                 shopName={shopName}
@@ -572,8 +579,7 @@ export default async function RepairOrderDetailPage({
               <ShareLinkPanel token={ro.shareToken} />
               <ROShareActions
                 token={ro.shareToken}
-                customerEmail={ro.customer.email}
-                customerPhone={ro.customer.phone}
+                contactLists={contactLists}
                 customerName={fullName(ro.customer)}
                 roNumber={ro.roNumber}
                 shopName={shopName}

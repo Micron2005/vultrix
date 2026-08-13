@@ -1,11 +1,11 @@
 "use client";
 
 import { ShareActions } from "./ShareActions";
+import type { CustomerContactLists } from "@/lib/customerContacts";
 
 export function ROShareActions({
   token,
-  customerEmail,
-  customerPhone,
+  contactLists,
   customerName,
   roNumber,
   shopName,
@@ -13,8 +13,7 @@ export function ROShareActions({
   compact = false,
 }: {
   token: string;
-  customerEmail: string | null | undefined;
-  customerPhone: string | null | undefined;
+  contactLists: CustomerContactLists;
   customerName: string;
   roNumber: number;
   shopName: string;
@@ -27,8 +26,7 @@ export function ROShareActions({
   return (
     <ShareActions
       token={token}
-      customerEmail={customerEmail}
-      customerPhone={customerPhone}
+      contactLists={contactLists}
       customerName={customerName}
       compact={compact}
       emailSubject={`${shopName} — ${docLabel} #${roNumber}`}
