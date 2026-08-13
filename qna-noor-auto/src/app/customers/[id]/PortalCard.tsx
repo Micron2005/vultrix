@@ -8,20 +8,19 @@ import {
   revokePortalToken,
 } from "../portal";
 import { ShareActions } from "@/components/ShareActions";
+import type { CustomerContactLists } from "@/lib/customerContacts";
 
 export function PortalCard({
   customerId,
   token,
   customerName,
-  customerEmail,
-  customerPhone,
+  contactLists,
   shopName,
 }: {
   customerId: string;
   token: string | null;
   customerName: string;
-  customerEmail: string | null;
-  customerPhone: string | null;
+  contactLists: CustomerContactLists;
   shopName: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -89,8 +88,7 @@ export function PortalCard({
               </a>
               <ShareActions
                 token={token}
-                customerEmail={customerEmail}
-                customerPhone={customerPhone}
+                contactLists={contactLists}
                 customerName={customerName}
                 compact
                 pathPrefix="/p/"

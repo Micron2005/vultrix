@@ -21,6 +21,7 @@ import { PortalCard } from "./PortalCard";
 import { BulkPaymentCard } from "./BulkPaymentCard";
 import { SelectableROList, type ROItem } from "./SelectableROList";
 import { getAllSettings } from "@/lib/shop";
+import { getCustomerContactLists } from "@/lib/customerContacts";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,7 @@ export default async function CustomerDetailPage({
   if (!customer) notFound();
   const shopSettings = await getAllSettings(orgId);
   const shopName = shopSettings.shopName || "QNA / Noor Auto Repair";
+  const contactLists = getCustomerContactLists(customer);
 
   const shopFeesByRO = await loadAppliedShopFeesForROs(
     orgId,
@@ -273,8 +275,7 @@ export default async function CustomerDetailPage({
         customerId={customer.id}
         token={customer.portalToken}
         customerName={fullName(customer)}
-        customerEmail={customer.email}
-        customerPhone={customer.phone}
+        contactLists={contactLists}
         shopName={shopName}
       />
 
