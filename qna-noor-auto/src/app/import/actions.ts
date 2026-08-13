@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { decodeVin } from "@/lib/vin";
+import { ensureCustomerContactsFromScalarFields } from "@/lib/customerContacts";
 import type { ColumnMap, LogicalField } from "./fields";
 
 /**
@@ -129,6 +130,13 @@ export async function runImport(
         }
         customerCache.set(dedupeKey, customerId);
       }
+      await ensureCustomerContactsFromScalarFields(
+        customerId,
+        orgId,
+        customerData.email,
+        customerData.phone,
+        customerData.altPhone,
+      );
 
       // Vehicle (optional)
       const vin = get("vin")?.toUpperCase();

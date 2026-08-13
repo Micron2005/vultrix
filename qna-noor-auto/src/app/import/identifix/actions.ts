@@ -10,6 +10,7 @@ import {
   parseInvoices,
   type ParsedInvoice,
 } from "@/lib/identifixImport";
+import { ensureCustomerContactsFromScalarFields } from "@/lib/customerContacts";
 
 export type StepResult = {
   ok: boolean;
@@ -261,8 +262,43 @@ export async function runCustomersImport(
             zip: c.zip,
           },
         });
+        const customerId = existingByExt.get(c.externalId);
+        if (customerId) {
+          await ensureCustomerContactsFromScalarFields(
+            customerId,
+            orgId,
+            c.email,
+            c.phone,
+            c.altPhone,
+          );
+        }
       });
       res.stats.updated = toUpdate.length;
+    }
+
+    if (toCreate.length > 0) {
+      const created = await db.customer.findMany({
+        where: {
+          orgId,
+          externalId: { in: toCreate.map((c) => c.externalId) },
+        },
+        select: { id: true, externalId: true },
+      });
+      const createdByExt = new Map(
+        created.map((c) => [c.externalId!, c.id] as const),
+      );
+      await mapConcurrent(toCreate, 10, async (c) => {
+        const customerId = createdByExt.get(c.externalId);
+        if (customerId) {
+          await ensureCustomerContactsFromScalarFields(
+            customerId,
+            orgId,
+            c.email,
+            c.phone,
+            c.altPhone,
+          );
+        }
+      });
     }
 
     res.message = `Imported ${res.stats.imported} new + ${res.stats.updated} updated customers.`;

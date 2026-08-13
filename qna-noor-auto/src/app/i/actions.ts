@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { verifyOrgIntake } from "@/lib/intakeTokens";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { parseMileage } from "@/lib/utils";
+import { replaceCustomerContacts, contactsFromScalarFields } from "@/lib/customerContacts";
 import {
   MAX_INTAKE_PHOTOS,
   MAX_INTAKE_DATAURL_BYTES,
@@ -58,20 +59,29 @@ export async function createIntakeCustomer(fd: FormData) {
     redirect(step(orgId, k, { mode: "new", error: "required" }));
   }
 
-  const created = await db.customer.create({
-    data: {
+  const created = await db.$transaction(async (tx) => {
+    const customer = await tx.customer.create({
+      data: {
+        orgId,
+        type: "INDIVIDUAL",
+        firstName,
+        lastName,
+        phone,
+        email,
+        street,
+        city,
+        state,
+        zip,
+      },
+      select: { id: true },
+    });
+    await replaceCustomerContacts(
+      tx,
+      customer.id,
       orgId,
-      type: "INDIVIDUAL",
-      firstName,
-      lastName,
-      phone,
-      email,
-      street,
-      city,
-      state,
-      zip,
-    },
-    select: { id: true },
+      contactsFromScalarFields(email, phone, null),
+    );
+    return customer;
   });
 
   revalidatePath("/customers");

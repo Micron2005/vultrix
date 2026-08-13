@@ -7,6 +7,7 @@ import {
   fullName,
   vehicleLabel,
 } from "@/lib/utils";
+import { findNormalizedSearchMatches } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
@@ -77,65 +78,127 @@ export default async function SearchPage({
   }
 
   const tokens = q.split(/\s+/).filter((t) => t.length > 0);
+  const { customerIdsByToken, vehicleIdsByToken } =
+    await findNormalizedSearchMatches(orgId, tokens);
 
-  const customerAnd = tokens.map((t) => ({
+  const customerAnd = tokens.map((t, index) => ({
     OR: [
-      { firstName: { contains: t } },
-      { lastName: { contains: t } },
-      { companyName: { contains: t } },
-      { email: { contains: t } },
-      { phone: { contains: t } },
-      { altPhone: { contains: t } },
-      { contacts: { some: { value: { contains: t } } } },
+      { firstName: { contains: t, mode: "insensitive" as const } },
+      { lastName: { contains: t, mode: "insensitive" as const } },
+      { companyName: { contains: t, mode: "insensitive" as const } },
+      { email: { contains: t, mode: "insensitive" as const } },
+      {
+        contacts: {
+          some: { value: { contains: t, mode: "insensitive" as const } },
+        },
+      },
+      { phone: { contains: t, mode: "insensitive" as const } },
+      { altPhone: { contains: t, mode: "insensitive" as const } },
+      ...(customerIdsByToken[index].length > 0
+        ? [{ id: { in: customerIdsByToken[index] } }]
+        : []),
     ],
   }));
 
-  const vehicleAnd = tokens.map((t) => ({
+  const vehicleAnd = tokens.map((t, index) => ({
     OR: [
-      { vin: { contains: t } },
-      { make: { contains: t } },
-      { model: { contains: t } },
-      { trim: { contains: t } },
-      { licensePlate: { contains: t } },
-      { color: { contains: t } },
-      { notes: { contains: t } },
-      { customer: { firstName: { contains: t } } },
-      { customer: { lastName: { contains: t } } },
-      { customer: { companyName: { contains: t } } },
+      { vin: { contains: t, mode: "insensitive" as const } },
+      { make: { contains: t, mode: "insensitive" as const } },
+      { model: { contains: t, mode: "insensitive" as const } },
+      { trim: { contains: t, mode: "insensitive" as const } },
+      {
+        licensePlate: { contains: t, mode: "insensitive" as const },
+      },
+      { color: { contains: t, mode: "insensitive" as const } },
+      { notes: { contains: t, mode: "insensitive" as const } },
+      {
+        customer: {
+          firstName: { contains: t, mode: "insensitive" as const },
+        },
+      },
+      {
+        customer: {
+          lastName: { contains: t, mode: "insensitive" as const },
+        },
+      },
+      {
+        customer: {
+          companyName: { contains: t, mode: "insensitive" as const },
+        },
+      },
+      ...(customerIdsByToken[index].length > 0
+        ? [{ customerId: { in: customerIdsByToken[index] } }]
+        : []),
+      ...(vehicleIdsByToken[index].length > 0
+        ? [{ id: { in: vehicleIdsByToken[index] } }]
+        : []),
     ],
   }));
 
-  const roAnd = tokens.map((t) => {
-    const asNumber = /^\d+$/.test(t) ? parseInt(t, 10) : null;
+  const roAnd = tokens.map((t, index) => {
+    const parsedNumber = /^\d+$/.test(t) ? Number(t) : null;
+    const asNumber =
+      parsedNumber !== null &&
+      Number.isSafeInteger(parsedNumber) &&
+      parsedNumber <= 2147483647
+        ? parsedNumber
+        : null;
     return {
       OR: [
         ...(asNumber !== null ? [{ roNumber: asNumber }] : []),
-        { complaint: { contains: t } },
-        { cause: { contains: t } },
-        { correction: { contains: t } },
-        { notes: { contains: t } },
-        { customer: { firstName: { contains: t } } },
-        { customer: { lastName: { contains: t } } },
-        { customer: { companyName: { contains: t } } },
-        { vehicle: { make: { contains: t } } },
-        { vehicle: { model: { contains: t } } },
-        { vehicle: { vin: { contains: t } } },
-        { vehicle: { licensePlate: { contains: t } } },
+        { complaint: { contains: t, mode: "insensitive" as const } },
+        { cause: { contains: t, mode: "insensitive" as const } },
+        { correction: { contains: t, mode: "insensitive" as const } },
+        { notes: { contains: t, mode: "insensitive" as const } },
+        {
+          customer: {
+            firstName: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        {
+          customer: {
+            lastName: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        {
+          customer: {
+            companyName: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        {
+          customer: {
+            email: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        { vehicle: { make: { contains: t, mode: "insensitive" as const } } },
+        { vehicle: { model: { contains: t, mode: "insensitive" as const } } },
+        { vehicle: { vin: { contains: t, mode: "insensitive" as const } } },
+        {
+          vehicle: {
+            licensePlate: { contains: t, mode: "insensitive" as const },
+          },
+        },
+        ...(customerIdsByToken[index].length > 0
+          ? [{ customerId: { in: customerIdsByToken[index] } }]
+          : []),
+        ...(vehicleIdsByToken[index].length > 0
+          ? [{ vehicleId: { in: vehicleIdsByToken[index] } }]
+          : []),
       ],
     };
   });
 
   const noteAnd = tokens.map((t) => ({
     OR: [
-      { title: { contains: t } },
-      { make: { contains: t } },
-      { model: { contains: t } },
-      { engine: { contains: t } },
-      { symptom: { contains: t } },
-      { diagnosis: { contains: t } },
-      { fix: { contains: t } },
-      { partsNotes: { contains: t } },
-      { tags: { contains: t } },
+      { title: { contains: t, mode: "insensitive" as const } },
+      { make: { contains: t, mode: "insensitive" as const } },
+      { model: { contains: t, mode: "insensitive" as const } },
+      { engine: { contains: t, mode: "insensitive" as const } },
+      { symptom: { contains: t, mode: "insensitive" as const } },
+      { diagnosis: { contains: t, mode: "insensitive" as const } },
+      { fix: { contains: t, mode: "insensitive" as const } },
+      { partsNotes: { contains: t, mode: "insensitive" as const } },
+      { tags: { contains: t, mode: "insensitive" as const } },
     ],
   }));
 
@@ -143,6 +206,7 @@ export default async function SearchPage({
     db.customer.findMany({
       where: { orgId, AND: customerAnd },
       orderBy: { lastName: "asc" },
+      include: { contacts: { orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] } },
       take: 20,
     }),
     db.vehicle.findMany({
@@ -201,11 +265,21 @@ export default async function SearchPage({
                     {highlight(fullName(c), tokens)}
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
-                    {[c.phone, c.email].filter(Boolean).map((v) => (
-                      <span key={v as string} className="mr-3">
-                        {highlight(v as string, tokens)}
-                      </span>
-                    ))}
+                    {[
+                      ...c.contacts.map((contact) => contact.value),
+                      c.phone,
+                      c.altPhone,
+                      c.email,
+                    ]
+                      .filter(
+                        (value, index, values) =>
+                          value && values.indexOf(value) === index,
+                      )
+                      .map((v) => (
+                        <span key={v as string} className="mr-3">
+                          {highlight(v as string, tokens)}
+                        </span>
+                      ))}
                   </div>
                 </Link>
               </li>
