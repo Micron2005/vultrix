@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import VultrixLanding from "@/components/marketing/VultrixLanding";
 import { Card, CardHeader, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
+import { StatCard } from "@/components/StatCard";
+import { MoneyOwedCard } from "@/components/MoneyOwedCard";
 import { TRIAL_DAYS } from "@/lib/billing";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -206,6 +208,31 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   const moneyOwedBusinesses = outstandingWithBalance
     .filter((x) => x.ro.customer.type === "BUSINESS")
     .reduce((s, x) => s + x.balance, 0);
+  const owedByCustomer = new Map<
+    string,
+    { id: string; name: string; amount: number; invoiceCount: number }
+  >();
+  for (const { ro, balance } of outstandingWithBalance) {
+    const existing = owedByCustomer.get(ro.customerId);
+    if (existing) {
+      existing.amount += balance;
+      existing.invoiceCount += 1;
+    } else {
+      owedByCustomer.set(ro.customerId, {
+        id: ro.customerId,
+        name: fullName(ro.customer),
+        amount: balance,
+        invoiceCount: 1,
+      });
+    }
+  }
+  const owedCustomers = Array.from(owedByCustomer.values())
+    .sort((a, b) => b.amount - a.amount)
+    .map((customer) => ({
+      ...customer,
+      amount: Math.round(customer.amount * 100) / 100,
+      amountLabel: formatMoney(customer.amount),
+    }));
 
   // Hours this week by tech. Week starts Sunday 00:00 local time.
   const weekStart = new Date();
@@ -313,19 +340,22 @@ async function Dashboard({ user }: { user: CurrentUser }) {
           </>
         )}
         {hasInvoices && (
-          <StatCard
+          <MoneyOwedCard
             label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
             value={formatMoney(moneyOwed)}
-            highlight={moneyOwed > 0}
             sublines={
               moneyOwed > 0
                 ? [
                     `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
                     `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
-                  ]
+                ]
                 : undefined
             }
-            />
+            customers={owedCustomers.map(({ amountLabel, ...customer }) => ({
+              ...customer,
+              amount: amountLabel,
+            }))}
+          />
           )}
         {personalFinancialSummary && (
           <>
@@ -807,67 +837,6 @@ async function Dashboard({ user }: { user: CurrentUser }) {
       )}
     </>
   );
-}
-
-function StatCard({
-  label,
-  value,
-  href,
-  highlight,
-  sublines,
-}: {
-  label: string;
-  value: string;
-  href?: string;
-  highlight?: boolean;
-  sublines?: string[];
-}) {
-  const body = (
-    <div
-      className={
-        "rounded-lg border p-4 shadow-sm " +
-        (highlight
-          ? "border-amber-200 bg-amber-50"
-          : "border-zinc-200 bg-white")
-      }
-    >
-      <div
-        className={
-          "text-xs font-medium uppercase tracking-wider " +
-          (highlight ? "text-amber-800" : "text-zinc-500")
-        }
-      >
-        {label}
-      </div>
-      <div
-        className={
-          "mt-2 text-2xl font-semibold " +
-          (highlight ? "text-amber-900" : "text-zinc-900")
-        }
-      >
-        {value}
-      </div>
-      {sublines && sublines.length > 0 && (
-        <div
-          className={
-            "mt-2 space-y-0.5 text-xs " +
-            (highlight ? "text-amber-800" : "text-zinc-500")
-          }
-        >
-          {sublines.map((s, i) => (
-            <div key={i}>{s}</div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-  if (href)
-    return (
-      <Link href={href} className="block hover:shadow-md transition-shadow">
-        {body}
-      </Link>
-    );
-  return body;
 }
 
 function ymd(date: Date): string {
