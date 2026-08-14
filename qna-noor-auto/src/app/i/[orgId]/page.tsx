@@ -332,9 +332,6 @@ export default async function IntakePage({
               <div>
                 <label className={labelCls}>Fleet / unit number</label>
                 <input name="unitNumber" className={fieldCls} placeholder="e.g. FedEx unit 4821" />
-                <p className="mt-1 text-xs text-zinc-500">
-                  The customer’s own number for this vehicle.
-                </p>
               </div>
             ) : null}
             <div className="grid grid-cols-2 gap-3">
