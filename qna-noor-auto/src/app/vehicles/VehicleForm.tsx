@@ -204,9 +204,6 @@ export function VehicleForm({
               defaultValue={vehicle?.unitNumber ?? ""}
               placeholder="e.g. FedEx unit 4821"
             />
-            <p className="mt-1 text-xs text-zinc-500">
-              The customer’s own number for this vehicle (for example, FedEx unit 4821).
-            </p>
           </Field>
         )}
         <Field label="Mileage">

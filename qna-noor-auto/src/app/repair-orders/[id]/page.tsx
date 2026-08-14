@@ -381,9 +381,6 @@ export default async function RepairOrderDetailPage({
                   defaultValue={ro.vehicle.unitNumber ?? ""}
                   placeholder="e.g. FedEx unit 4821"
                 />
-                <p className="mt-1 text-xs text-zinc-500">
-                  The customer’s own number for this vehicle.
-                </p>
               </Field>
             </div>
           )}
