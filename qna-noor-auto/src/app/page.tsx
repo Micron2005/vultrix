@@ -229,9 +229,10 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   const owedCustomers = Array.from(owedByCustomer.values())
     .sort((a, b) => b.amount - a.amount)
     .map((customer) => ({
-      ...customer,
-      amount: Math.round(customer.amount * 100) / 100,
-      amountLabel: formatMoney(customer.amount),
+      id: customer.id,
+      name: customer.name,
+      amount: formatMoney(customer.amount),
+      invoiceCount: customer.invoiceCount,
     }));
 
   // Hours this week by tech. Week starts Sunday 00:00 local time.
@@ -343,20 +344,18 @@ async function Dashboard({ user }: { user: CurrentUser }) {
           <MoneyOwedCard
             label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
             value={formatMoney(moneyOwed)}
+            highlight={moneyOwed > 0}
             sublines={
               moneyOwed > 0
                 ? [
                     `Individuals · ${formatMoney(moneyOwedIndividuals)}`,
                     `Businesses · ${formatMoney(moneyOwedBusinesses)}`,
-                ]
+                  ]
                 : undefined
             }
-            customers={owedCustomers.map(({ amountLabel, ...customer }) => ({
-              ...customer,
-              amount: amountLabel,
-            }))}
+            customers={owedCustomers}
           />
-          )}
+        )}
         {personalFinancialSummary && (
           <>
             <StatCard

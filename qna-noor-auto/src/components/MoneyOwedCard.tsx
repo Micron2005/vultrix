@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StatCard } from "./StatCard";
 
 type OwedCustomer = {
@@ -14,16 +14,37 @@ type OwedCustomer = {
 export function MoneyOwedCard({
   label,
   value,
+  highlight,
   sublines,
   customers,
 }: {
   label: string;
   value: string;
+  highlight: boolean;
   sublines?: string[];
   customers: OwedCustomer[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const canExpand = customers.length > 0;
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setExpanded(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded]);
 
   const card = (
     <StatCard
@@ -41,13 +62,13 @@ export function MoneyOwedCard({
         </span>
       }
       value={value}
-      highlight
+      highlight={highlight}
       sublines={sublines}
     />
   );
 
   return (
-    <div>
+    <div ref={wrapperRef} className="relative">
       {canExpand ? (
         <button
           type="button"
@@ -62,7 +83,7 @@ export function MoneyOwedCard({
         card
       )}
       {expanded && (
-        <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-sm">
+        <div className="absolute right-0 top-full z-50 mt-2 max-h-64 min-w-[20rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-lg">
           {customers.map((customer) => (
             <Link
               key={customer.id}
