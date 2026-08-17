@@ -91,9 +91,13 @@ export default async function TechnicianDetailPage({
       <PageHeader
         title={tech.name}
         description={
-          tech.active
-            ? `Technician · ${tech.initials ?? "—"}`
-            : `Inactive · ${tech.initials ?? "—"}`
+          [
+            tech.role,
+            tech.active ? "Technician" : "Inactive",
+            tech.initials ?? "—",
+          ]
+            .filter(Boolean)
+            .join(" · ")
         }
         actions={
           <div className="flex gap-2">

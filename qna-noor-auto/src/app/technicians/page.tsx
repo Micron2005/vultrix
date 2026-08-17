@@ -67,6 +67,7 @@ export default async function TechniciansPage() {
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Role</th>
                 <th className="px-4 py-2 font-medium w-20">Initials</th>
                 <th className="px-4 py-2 font-medium w-28">Default rate</th>
                 <th className="px-4 py-2 font-medium w-24 text-right">
@@ -93,6 +94,9 @@ export default async function TechniciansPage() {
                         {t.notes}
                       </div>
                     )}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-zinc-600">
+                    {t.role ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-xs text-zinc-600">
                     {t.initials ?? "—"}
