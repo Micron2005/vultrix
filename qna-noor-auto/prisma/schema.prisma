@@ -271,6 +271,7 @@ model Technician {
   id          String  @id @default(cuid())
   name        String
   initials    String?
+  role        String?
   defaultRate Float? // optional — used as default when adding labor lines for this tech
   active      Boolean @default(true)
   notes       String?

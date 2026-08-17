@@ -9,6 +9,7 @@ import { requireOrgId } from "@/lib/session";
 const TechSchema = z.object({
   name: z.string().min(1, "Name is required"),
   initials: z.string().optional().nullable(),
+  role: z.string().optional().nullable(),
   defaultRate: z.string().optional().nullable(),
   active: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -42,6 +43,7 @@ function toData(fd: FormData) {
   return {
     name,
     initials,
+    role: cleanStr(raw.role),
     defaultRate: parseFloatOrNull(raw.defaultRate),
     active: raw.active !== "off" && raw.active !== "false" && raw.active !== null,
     notes: cleanStr(raw.notes),

@@ -32,6 +32,14 @@ export function TechForm({
         </Field>
       </div>
 
+      <Field label="Role / title">
+        <Input
+          name="role"
+          defaultValue={tech?.role ?? ""}
+          placeholder="e.g. General technician, Shop manager, Helper"
+        />
+      </Field>
+
       <Field label="Default labor rate ($/hr)">
         <Input
           name="defaultRate"
