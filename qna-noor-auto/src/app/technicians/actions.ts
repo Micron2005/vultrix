@@ -10,7 +10,6 @@ const TechSchema = z.object({
   name: z.string().min(1, "Name is required"),
   initials: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
-  customRole: z.string().optional().nullable(),
   defaultRate: z.string().optional().nullable(),
   active: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -41,11 +40,10 @@ function toData(fd: FormData) {
   const raw = TechSchema.parse(Object.fromEntries(fd.entries()));
   const name = raw.name.trim();
   const initials = cleanStr(raw.initials)?.toUpperCase().slice(0, 4) ?? autoInitials(name);
-  const role = cleanStr(raw.role === "__OTHER__" ? raw.customRole : raw.role);
   return {
     name,
     initials,
-    role,
+    role: cleanStr(raw.role),
     defaultRate: parseFloatOrNull(raw.defaultRate),
     active: raw.active !== "off" && raw.active !== "false" && raw.active !== null,
     notes: cleanStr(raw.notes),
