@@ -130,7 +130,12 @@ async function AutoReportsPage({
       include: {
         customer: true,
         vehicle: true,
-        laborLines: { include: { technician: true } },
+        laborLines: {
+          include: {
+            technician: true,
+            techAssignments: { include: { technician: true } },
+          },
+        },
         partLines: { include: { part: true } },
         feeLines: true,
         payments: true,
@@ -317,10 +322,19 @@ async function AutoReportsPage({
   const techRows = allTechs.map((tech) => {
     const lines = rosInRange.flatMap((ro) =>
       ro.laborLines
-        .filter((l) => l.technicianId === tech.id)
-        .map((l) => ({ l, ro })),
+        .flatMap((l) => {
+          const assignments =
+            l.techAssignments.length > 0
+              ? l.techAssignments
+              : l.technician
+                ? [{ technician: l.technician, hours: l.hours }]
+                : [];
+          return assignments
+            .filter((assignment) => assignment.technician.id === tech.id)
+            .map((assignment) => ({ l, ro, hours: assignment.hours }));
+        }),
     );
-    const hours = lines.reduce((s, { l }) => s + (l.hours ?? 0), 0);
+    const hours = lines.reduce((s, line) => s + (line.hours ?? 0), 0);
     const roIds = new Set(lines.map((x) => x.ro.id));
     const avgHoursPerRO = roIds.size > 0 ? hours / roIds.size : 0;
     return {

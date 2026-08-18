@@ -241,10 +241,9 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
   const weekLaborLines = hasTechnicians
-    ? await db.laborLine.findMany({
+    ? await db.laborLineTech.findMany({
         where: {
-          technicianId: { not: null },
-          repairOrder: { orgId, openedAt: { gte: weekStart } },
+          laborLine: { repairOrder: { orgId, openedAt: { gte: weekStart } } },
         },
         include: { technician: true },
       })
@@ -253,15 +252,15 @@ async function Dashboard({ user }: { user: CurrentUser }) {
     string,
     { id: string; name: string; hours: number }
   >();
-  for (const l of weekLaborLines) {
-    if (!l.technician) continue;
-    const cur = techHoursMap.get(l.technician.id);
-    if (cur) cur.hours += l.hours;
+  for (const assignment of weekLaborLines) {
+    const tech = assignment.technician;
+    const cur = techHoursMap.get(tech.id);
+    if (cur) cur.hours += assignment.hours;
     else
-      techHoursMap.set(l.technician.id, {
-        id: l.technician.id,
-        name: l.technician.name,
-        hours: l.hours,
+      techHoursMap.set(tech.id, {
+        id: tech.id,
+        name: tech.name,
+        hours: assignment.hours,
       });
   }
   const hoursThisWeek = Array.from(techHoursMap.values()).sort(

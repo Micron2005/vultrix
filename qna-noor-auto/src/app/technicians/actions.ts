@@ -81,6 +81,7 @@ export async function deleteTechnician(id: string) {
     where: { technicianId: id },
     data: { technicianId: null },
   });
+  await db.laborLineTech.deleteMany({ where: { technicianId: id } });
   await db.technician.delete({ where: { id } });
   revalidatePath("/technicians");
   revalidatePath("/repair-orders");

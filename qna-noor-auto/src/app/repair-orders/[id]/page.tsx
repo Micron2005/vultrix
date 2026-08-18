@@ -18,7 +18,6 @@ import { SaveAllButton } from "@/components/SaveAllButton";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { ROShareActions } from "@/components/ROShareActions";
 import { LifecycleActions, LifecycleTimeline } from "./LifecycleActions";
-import { TechLineSelect } from "./TechLineSelect";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { RoPhotos } from "./RoPhotos";
 import { getAllSettings } from "@/lib/shop";
@@ -46,7 +45,6 @@ import {
   updateFeeLine,
   updateJob,
   updateLaborLine,
-  updateLaborLineTech,
   updatePartLine,
   updateRepairOrder,
   saveRepairOrderAll,
@@ -101,7 +99,10 @@ export default async function RepairOrderDetailPage({
         include: {
           laborLines: {
             orderBy: { sortOrder: "asc" },
-            include: { technician: true },
+            include: {
+              technician: true,
+              techAssignments: { include: { technician: true } },
+            },
           },
           partLines: { orderBy: { sortOrder: "asc" } },
           feeLines: { orderBy: { sortOrder: "asc" } },
@@ -109,7 +110,10 @@ export default async function RepairOrderDetailPage({
       },
       laborLines: {
         orderBy: { sortOrder: "asc" },
-        include: { technician: true },
+        include: {
+          technician: true,
+          techAssignments: { include: { technician: true } },
+        },
       },
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
@@ -187,16 +191,25 @@ export default async function RepairOrderDetailPage({
     { id: string; name: string; initials: string | null; hours: number }
   >();
   for (const l of ro.laborLines) {
-    if (!l.technician) continue;
-    const cur = techSummaryMap.get(l.technician.id);
-    if (cur) cur.hours += l.hours;
-    else
-      techSummaryMap.set(l.technician.id, {
-        id: l.technician.id,
-        name: l.technician.name,
-        initials: l.technician.initials,
-        hours: l.hours,
-      });
+    const assignments =
+      l.techAssignments.length > 0
+        ? l.techAssignments
+        : l.technician
+          ? [{ technician: l.technician, hours: l.hours }]
+          : [];
+    for (const assignment of assignments) {
+      const tech = assignment.technician;
+      if (!tech) continue;
+      const cur = techSummaryMap.get(tech.id);
+      if (cur) cur.hours += assignment.hours ?? 0;
+      else
+        techSummaryMap.set(tech.id, {
+          id: tech.id,
+          name: tech.name,
+          initials: tech.initials,
+          hours: assignment.hours ?? 0,
+        });
+    }
   }
   const techSummary = Array.from(techSummaryMap.values()).sort(
     (a, b) => b.hours - a.hours,

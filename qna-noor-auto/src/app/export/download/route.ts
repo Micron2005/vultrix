@@ -27,6 +27,7 @@ export async function GET() {
     vehicles,
     repairOrders,
     laborLines,
+    laborLineTech,
     partLines,
     payments,
     parts,
@@ -46,6 +47,10 @@ export async function GET() {
     db.laborLine.findMany({
       where: { repairOrder: { orgId } },
       orderBy: { createdAt: "asc" },
+    }),
+    db.laborLineTech.findMany({
+      where: { laborLine: { repairOrder: { orgId } } },
+      orderBy: { laborLineId: "asc" },
     }),
     db.partLine.findMany({
       where: { repairOrder: { orgId } },
@@ -182,6 +187,17 @@ export async function GET() {
         source: p.source ?? "",
         sortOrder: p.sortOrder,
         createdAt: toIso(p.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "labor-line-tech.csv",
+    csv(
+      laborLineTech.map((assignment) => ({
+        laborLineId: assignment.laborLineId,
+        technicianId: assignment.technicianId,
+        hours: assignment.hours,
       })),
     ),
   );
@@ -374,6 +390,7 @@ export async function GET() {
     "  repair-orders.id → labor-lines.repairOrderId, part-lines.repairOrderId, payments.repairOrderId, appointments.repairOrderId",
     "  inventory-parts.id → part-lines.partId, stock-moves.partId, canned-job-parts.partId",
     "  technicians.id → labor-lines.technicianId",
+    "  labor-lines.id + technicians.id → labor-line-tech.laborLineId + labor-line-tech.technicianId",
     "  canned-jobs.id → canned-job-labor.cannedJobId, canned-job-parts.cannedJobId",
     "",
     "Open any CSV in Excel, Google Sheets, Numbers, or any spreadsheet app.",
