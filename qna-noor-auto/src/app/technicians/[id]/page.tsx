@@ -39,20 +39,24 @@ export default async function TechnicianDetailPage({
   const tech = await db.technician.findFirst({
     where: { id, orgId },
     include: {
-      laborLines: {
+      laborLineAssignments: {
         include: {
-          repairOrder: {
-            select: {
-              id: true,
-              roNumber: true,
-              openedAt: true,
-              status: true,
-              customer: { select: { firstName: true, lastName: true } },
-              vehicle: { select: { year: true, make: true, model: true } },
+          laborLine: {
+            include: {
+              repairOrder: {
+                select: {
+                  id: true,
+                  roNumber: true,
+                  openedAt: true,
+                  status: true,
+                  customer: { select: { firstName: true, lastName: true } },
+                  vehicle: { select: { year: true, make: true, model: true } },
+                },
+              },
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { laborLine: { createdAt: "desc" } },
         take: 200,
       },
     },
@@ -66,9 +70,10 @@ export default async function TechnicianDetailPage({
   let weekHours = 0;
   let monthHours = 0;
   let allDollars = 0;
-  for (const l of tech.laborLines) {
+  for (const assignment of tech.laborLineAssignments) {
+    const l = assignment.laborLine;
     const ts = l.repairOrder?.openedAt ?? l.createdAt;
-    const h = l.hours || 0;
+    const h = assignment.hours || 0;
     const d = h * (l.rate || 0);
     allHours += h;
     allDollars += d;
@@ -131,7 +136,9 @@ export default async function TechnicianDetailPage({
         <Card>
           <div className="p-4">
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              All-time ({tech.laborLines.length} lines)
+              All-time (
+                {new Set(tech.laborLineAssignments.map((a) => a.laborLineId)).size}{" "}
+                lines)
             </div>
             <div className="mt-2 text-2xl font-semibold text-zinc-900 tabular-nums">
               {allHours.toFixed(1)}
@@ -145,7 +152,7 @@ export default async function TechnicianDetailPage({
 
       <Card className="mb-6">
         <CardHeader title="Labor history" />
-        {tech.laborLines.length === 0 ? (
+        {tech.laborLineAssignments.length === 0 ? (
           <EmptyState
             title="No labor logged yet"
             description="Assign this tech to a labor line on a repair order to start tracking hours."
@@ -164,7 +171,8 @@ export default async function TechnicianDetailPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
-              {tech.laborLines.map((l) => {
+              {tech.laborLineAssignments.map((assignment) => {
+                const l = assignment.laborLine;
                 const ro = l.repairOrder;
                 const v = ro?.vehicle;
                 return (
@@ -196,13 +204,13 @@ export default async function TechnicianDetailPage({
                     </td>
                     <td className="px-4 py-2">{l.description}</td>
                     <td className="px-4 py-2 text-right tabular-nums">
-                      {l.hours.toFixed(2)}
+                      {assignment.hours.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-zinc-600">
                       ${l.rate.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
-                      {formatMoney(l.hours * l.rate)}
+                      {formatMoney(assignment.hours * l.rate)}
                     </td>
                   </tr>
                 );

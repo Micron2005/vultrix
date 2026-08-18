@@ -453,16 +453,28 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
   const description = String(fd.get("description") ?? "").trim();
   if (!description) return;
   const hours = parseDecimal(String(fd.get("hours") ?? "0")) ?? 0;
-  const technicianId = String(fd.get("technicianId") ?? "").trim() || null;
+  const technicianIds = fd.getAll("technicianId[]").map((value) => String(value).trim());
+  const legacyTechnicianId = String(fd.get("technicianId") ?? "").trim();
+  const assignmentIds = Array.from(
+    new Set(
+      (technicianIds.length > 0 ? technicianIds : legacyTechnicianId ? [legacyTechnicianId] : [])
+        .filter(Boolean),
+    ),
+  );
+  const technicians = assignmentIds.length
+    ? await db.technician.findMany({
+        where: { id: { in: assignmentIds }, orgId },
+        select: { id: true, defaultRate: true },
+      })
+    : [];
+  if (technicians.length !== assignmentIds.length) return;
+  const technicianId = assignmentIds[0] ?? null;
   const jobId = String(fd.get("jobId") ?? "").trim() || null;
 
   // If no rate given, use tech's default rate; else shop default.
   let rate = parseDecimal(String(fd.get("rate") ?? "0")) ?? 0;
   if (rate === 0 && technicianId) {
-    const tech = await db.technician.findFirst({
-      where: { id: technicianId, orgId },
-      select: { defaultRate: true },
-    });
+    const tech = technicians.find((t) => t.id === technicianId);
     if (tech?.defaultRate) rate = tech.defaultRate;
   }
   if (rate === 0) {
@@ -483,6 +495,9 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
       rate,
       technicianId,
       sortOrder: (max?.sortOrder ?? 0) + 1,
+      techAssignments: {
+        create: assignmentIds.map((id) => ({ technicianId: id, hours })),
+      },
     },
   });
   revalidatePath(`/repair-orders/${repairOrderId}`);
@@ -491,21 +506,54 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
 export async function updateLaborLineTech(
   id: string,
   repairOrderId: string,
-  technicianId: string | null,
+  assignments: { technicianId: string; hours: number | string | null }[],
 ) {
   const orgId = await requireOrgId();
   await assertROEditable(orgId, repairOrderId);
-  const clean = technicianId && technicianId.trim() !== "" ? technicianId : null;
-  if (clean) {
-    const tech = await db.technician.findFirst({
-      where: { id: clean, orgId },
-      select: { id: true },
-    });
-    if (!tech) return;
-  }
-  await db.laborLine.updateMany({
+  const line = await db.laborLine.findFirst({
     where: { id, repairOrderId },
-    data: { technicianId: clean },
+    select: { id: true, hours: true },
+  });
+  if (!line) return;
+  const deduped = new Map<string, number>();
+  for (const assignment of assignments) {
+    const technicianId = String(assignment.technicianId ?? "").trim();
+    if (!technicianId || deduped.has(technicianId)) continue;
+    const rawHours = assignment.hours == null ? "" : String(assignment.hours).trim();
+    const commaDecimal =
+      !rawHours.includes(".") &&
+      (rawHours.match(/,/g) ?? []).length === 1 &&
+      /,\d{1,2}$/.test(rawHours);
+    const parsedHours =
+      rawHours === ""
+        ? null
+        : parseDecimal(commaDecimal ? rawHours.replace(",", ".") : rawHours);
+    const hours = parsedHours ?? (line.hours ?? 0);
+    if (!Number.isFinite(hours) || hours < 0) return;
+    deduped.set(technicianId, hours);
+  }
+  const ids = Array.from(deduped.keys());
+  if (ids.length > 0) {
+    const valid = await db.technician.count({
+      where: { id: { in: ids }, orgId },
+    });
+    if (valid !== ids.length) return;
+  }
+  await db.$transaction(async (tx) => {
+    await tx.laborLineTech.deleteMany({ where: { laborLineId: id } });
+    if (ids.length > 0) {
+      await tx.laborLineTech.createMany({
+        data: ids.map((technicianId) => ({
+          laborLineId: id,
+          technicianId,
+          hours: deduped.get(technicianId)!,
+        })),
+      });
+    }
+    await tx.laborLine.update({
+      where: { id },
+      data: { technicianId: ids[0] ?? null },
+    });
   });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
@@ -552,7 +600,31 @@ export async function updateLaborLine(
     if (r !== null) data.rate = r;
   }
   if (Object.keys(data).length === 0) return;
-  await db.laborLine.updateMany({ where: { id, repairOrderId }, data });
+  const line = await db.laborLine.findFirst({
+    where: { id, repairOrderId },
+    include: { techAssignments: true },
+  });
+  if (!line) return;
+  const nextHours =
+    typeof data.hours === "number" ? data.hours : line.hours ?? 0;
+  await db.$transaction(async (tx) => {
+    await tx.laborLine.update({ where: { id }, data });
+    if (typeof data.hours === "number" && nextHours !== line.hours) {
+      for (const assignment of line.techAssignments) {
+        if (assignment.hours === (line.hours ?? 0)) {
+          await tx.laborLineTech.update({
+            where: {
+              laborLineId_technicianId: {
+                laborLineId: id,
+                technicianId: assignment.technicianId,
+              },
+            },
+            data: { hours: nextHours },
+          });
+        }
+      }
+    }
+  });
   revalidatePath(`/repair-orders/${repairOrderId}`);
 }
 

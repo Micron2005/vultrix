@@ -491,6 +491,27 @@ async function seedTechniciansIfEmpty(orgId: string) {
       data: { technicianId: carlos.id },
     });
   }
+  const assignedLines = await db.laborLine.findMany({
+    where: { repairOrder: { orgId }, technicianId: { not: null } },
+    select: { id: true, technicianId: true, hours: true },
+  });
+  for (const line of assignedLines) {
+    if (!line.technicianId) continue;
+    await db.laborLineTech.upsert({
+      where: {
+        laborLineId_technicianId: {
+          laborLineId: line.id,
+          technicianId: line.technicianId,
+        },
+      },
+      create: {
+        laborLineId: line.id,
+        technicianId: line.technicianId,
+        hours: line.hours,
+      },
+      update: {},
+    });
+  }
   console.log("Seeded 2 technicians.");
 }
 

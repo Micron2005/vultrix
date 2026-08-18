@@ -76,12 +76,37 @@ export async function deleteTechnician(id: string) {
     select: { id: true },
   });
   if (!owned) redirect("/technicians");
-  // Null out labor-line references first (preserve historical labor lines).
-  await db.laborLine.updateMany({
+  const assignedLines = await db.laborLineTech.findMany({
     where: { technicianId: id },
-    data: { technicianId: null },
+    select: { laborLineId: true },
   });
-  await db.technician.delete({ where: { id } });
+  await db.$transaction(async (tx) => {
+    // Null out scalar references first (preserve historical labor lines).
+    await tx.laborLine.updateMany({
+      where: { technicianId: id },
+      data: { technicianId: null },
+    });
+    await tx.laborLineTech.deleteMany({ where: { technicianId: id } });
+
+    const remaining = await tx.laborLineTech.findMany({
+      where: { laborLineId: { in: assignedLines.map((line) => line.laborLineId) } },
+      orderBy: { technicianId: "asc" },
+      select: { laborLineId: true, technicianId: true },
+    });
+    const primaryByLine = new Map<string, string>();
+    for (const assignment of remaining) {
+      if (!primaryByLine.has(assignment.laborLineId)) {
+        primaryByLine.set(assignment.laborLineId, assignment.technicianId);
+      }
+    }
+    for (const [laborLineId, technicianId] of primaryByLine) {
+      await tx.laborLine.update({
+        where: { id: laborLineId },
+        data: { technicianId },
+      });
+    }
+    await tx.technician.delete({ where: { id } });
+  });
   revalidatePath("/technicians");
   revalidatePath("/repair-orders");
   redirect("/technicians");

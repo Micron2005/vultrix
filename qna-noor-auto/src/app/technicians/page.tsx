@@ -24,9 +24,13 @@ export default async function TechniciansPage() {
     where: { orgId },
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: {
-      laborLines: {
+      laborLineAssignments: {
         include: {
-          repairOrder: { select: { id: true, roNumber: true, openedAt: true } },
+          laborLine: {
+            include: {
+              repairOrder: { select: { id: true, roNumber: true, openedAt: true } },
+            },
+          },
         },
       },
     },
@@ -37,14 +41,20 @@ export default async function TechniciansPage() {
   const rows = techs.map((t) => {
     let allHours = 0;
     let weekHours = 0;
-    for (const l of t.laborLines) {
-      allHours += l.hours || 0;
+    for (const assignment of t.laborLineAssignments) {
+      const l = assignment.laborLine;
+      allHours += assignment.hours || 0;
       const ts = l.repairOrder?.openedAt ?? l.createdAt;
       if (ts && new Date(ts) >= weekStart) {
-        weekHours += l.hours || 0;
+        weekHours += assignment.hours || 0;
       }
     }
-    return { t, allHours, weekHours, jobs: t.laborLines.length };
+    return {
+      t,
+      allHours,
+      weekHours,
+      jobs: new Set(t.laborLineAssignments.map((a) => a.laborLineId)).size,
+    };
   });
 
   return (

@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardHeader,
-  Field,
-  Input,
-  Select,
-} from "@/components/ui";
+import { Card, CardHeader, Field, Input, Select } from "@/components/ui";
 import { TechLineSelect } from "./TechLineSelect";
+import { LaborTechPicker } from "./LaborTechPicker";
 import { SaveButton } from "@/components/SaveButton";
 import { RemoteSaveButton } from "@/components/RemoteSaveButton";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
@@ -44,6 +39,11 @@ type LaborLineData = {
   rate: number;
   technicianId: string | null;
   technician: { id: string; name: string; initials: string | null } | null;
+  techAssignments: {
+    technicianId: string;
+    hours: number;
+    technician: { id: string; name: string; initials: string | null };
+  }[];
 };
 
 type PartLineData = {
@@ -302,7 +302,16 @@ export function JobCard({
                       <tr key={l.id}>
                         <td className="py-1.5">{l.description}</td>
                         <td className="py-1.5 text-zinc-600 text-xs">
-                          {l.technician?.name ?? "—"}
+                          {l.techAssignments.length > 0
+                            ? l.techAssignments.map((assignment) => (
+                                <div key={assignment.technicianId}>
+                                  {assignment.technician.name}
+                                  {assignment.technician.initials
+                                    ? ` (${assignment.technician.initials})`
+                                    : ""}
+                                </div>
+                              ))
+                            : l.technician?.name ?? "—"}
                         </td>
                         <td className="py-1.5 text-right">{l.hours}</td>
                         <td className="py-1.5 text-right">{formatMoney(l.rate)}</td>
@@ -337,10 +346,25 @@ export function JobCard({
                         <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
                           <LineField label="Tech">
                             <TechLineSelect
+                              key={`${l.id}-${l.hours ?? 0}-${l.techAssignments
+                                .map((assignment) => `${assignment.technicianId}:${assignment.hours}`)
+                                .join(",")}`}
                               laborLineId={l.id}
                               repairOrderId={roId}
-                              currentId={l.technicianId}
-                              currentName={l.technician?.name ?? null}
+                              lineHours={l.hours ?? 0}
+                              assignments={
+                                l.techAssignments.length > 0
+                                  ? l.techAssignments
+                                  : l.technician
+                                    ? [
+                                        {
+                                          technicianId: l.technician.id,
+                                          hours: l.hours ?? 0,
+                                          technician: l.technician,
+                                        },
+                                      ]
+                                    : []
+                              }
                               techs={activeTechs}
                             />
                           </LineField>
@@ -682,14 +706,7 @@ export function JobCard({
                     </div>
                     <div className="col-span-2">
                       <Field label="Tech">
-                        <Select name="technicianId" defaultValue="">
-                          <option value="">— None —</option>
-                          {activeTechs.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name}
-                            </option>
-                          ))}
-                        </Select>
+                        <LaborTechPicker techs={activeTechs} />
                       </Field>
                     </div>
                     <div className="col-span-1">

@@ -259,6 +259,7 @@ model LaborLine {
 
   technicianId String?
   technician   Technician? @relation(fields: [technicianId], references: [id])
+  techAssignments LaborLineTech[]
 
   createdAt DateTime @default(now())
 
@@ -280,6 +281,7 @@ model Technician {
   updatedAt DateTime @updatedAt
 
   laborLines LaborLine[]
+  laborLineAssignments LaborLineTech[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -287,6 +289,19 @@ model Technician {
   @@index([active])
   @@index([name])
   @@index([orgId])
+}
+
+model LaborLineTech {
+  laborLineId  String
+  technicianId String
+  hours        Float  @default(0)
+
+  laborLine  LaborLine  @relation(fields: [laborLineId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@id([laborLineId, technicianId])
+  @@index([laborLineId])
+  @@index([technicianId])
 }
 
 model PartLine {

@@ -325,7 +325,16 @@ export async function seedDemo(): Promise<void> {
       signedAt: daysAgo(3),
       laborLines: {
         create: [
-          { description: "Replace front brake pads & rotors, inspect calipers", hours: 1.8, rate: 150, sortOrder: 1, technicianId: carlos.id },
+          {
+            description: "Replace front brake pads & rotors, inspect calipers",
+            hours: 1.8,
+            rate: 150,
+            sortOrder: 1,
+            technicianId: carlos.id,
+            techAssignments: {
+              create: [{ technicianId: carlos.id, hours: 1.8 }],
+            },
+          },
         ],
       },
       partLines: {
@@ -369,7 +378,16 @@ export async function seedDemo(): Promise<void> {
       shareToken: randomBytes(16).toString("base64url"),
       laborLines: {
         create: [
-          { description: "Diagnostic — retrieve DTCs and evaluate", hours: 1.0, rate: 150, sortOrder: 1, technicianId: dana.id },
+          {
+            description: "Diagnostic — retrieve DTCs and evaluate",
+            hours: 1.0,
+            rate: 150,
+            sortOrder: 1,
+            technicianId: dana.id,
+            techAssignments: {
+              create: [{ technicianId: dana.id, hours: 1.0 }],
+            },
+          },
         ],
       },
     },
@@ -390,8 +408,26 @@ export async function seedDemo(): Promise<void> {
       startedAt: daysAgo(1),
       laborLines: {
         create: [
-          { description: "Full synthetic oil & filter change", hours: 0.6, rate: 150, sortOrder: 1, technicianId: dana.id },
-          { description: "Multipoint inspection", hours: 0.4, rate: 150, sortOrder: 2, technicianId: dana.id },
+          {
+            description: "Full synthetic oil & filter change",
+            hours: 0.6,
+            rate: 150,
+            sortOrder: 1,
+            technicianId: dana.id,
+            techAssignments: {
+              create: [{ technicianId: dana.id, hours: 0.6 }],
+            },
+          },
+          {
+            description: "Multipoint inspection",
+            hours: 0.4,
+            rate: 150,
+            sortOrder: 2,
+            technicianId: dana.id,
+            techAssignments: {
+              create: [{ technicianId: dana.id, hours: 0.4 }],
+            },
+          },
         ],
       },
       partLines: {
@@ -425,7 +461,16 @@ export async function seedDemo(): Promise<void> {
       closedAt: daysAgo(6),
       laborLines: {
         create: [
-          { description: "Scheduled fleet service", hours: 2.0, rate: 150, sortOrder: 1, technicianId: carlos.id },
+          {
+            description: "Scheduled fleet service",
+            hours: 2.0,
+            rate: 150,
+            sortOrder: 1,
+            technicianId: carlos.id,
+            techAssignments: {
+              create: [{ technicianId: carlos.id, hours: 2.0 }],
+            },
+          },
         ],
       },
       partLines: {
