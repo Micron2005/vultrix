@@ -56,7 +56,7 @@ export default async function TechnicianDetailPage({
             },
           },
         },
-        orderBy: { laborLineId: "desc" },
+        orderBy: { laborLine: { createdAt: "desc" } },
         take: 200,
       },
     },

@@ -27,10 +27,12 @@ export function TechLineSelect({
 }) {
   const [pending, start] = useTransition();
   const [rows, setRows] = useState<AssignmentRow[]>(
-    assignments.map((assignment) => ({
-      ...assignment,
-      hoursText: assignment.hours == null ? "" : String(assignment.hours),
-    })),
+    assignments.length > 0
+      ? assignments.map((assignment) => ({
+          ...assignment,
+          hoursText: assignment.hours == null ? "" : String(assignment.hours),
+        }))
+      : [{ technicianId: "", hours: lineHours, hoursText: String(lineHours), technician: null }],
   );
 
   function save(next: AssignmentRow[]) {
@@ -38,7 +40,7 @@ export function TechLineSelect({
       .filter((assignment) => assignment.technicianId)
       .map(({ technicianId, hoursText }) => ({
         technicianId,
-        hours: hoursText.trim() === "" ? null : Number(hoursText),
+        hours: hoursText.trim() === "" ? null : hoursText,
       }));
     start(() => updateLaborLineTech(laborLineId, repairOrderId, valid));
   }
@@ -126,15 +128,17 @@ export function TechLineSelect({
               }}
               className="w-16 px-2 py-1 text-right"
             />
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => removeRow(index)}
-              className="px-1 text-zinc-400 hover:text-red-600 disabled:opacity-60"
-              aria-label="Remove technician"
-            >
-              ×
-            </button>
+            {(rows.length > 1 || row.technicianId) && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => removeRow(index)}
+                className="px-1 text-zinc-400 hover:text-red-600 disabled:opacity-60"
+                aria-label="Remove technician"
+              >
+                ×
+              </button>
+            )}
           </div>
         );
       })}

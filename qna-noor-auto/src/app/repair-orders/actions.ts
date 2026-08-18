@@ -506,7 +506,7 @@ export async function addLaborLine(repairOrderId: string, fd: FormData) {
 export async function updateLaborLineTech(
   id: string,
   repairOrderId: string,
-  assignments: { technicianId: string; hours: number | null }[],
+  assignments: { technicianId: string; hours: number | string | null }[],
 ) {
   const orgId = await requireOrgId();
   await assertROEditable(orgId, repairOrderId);
@@ -519,10 +519,16 @@ export async function updateLaborLineTech(
   for (const assignment of assignments) {
     const technicianId = String(assignment.technicianId ?? "").trim();
     if (!technicianId || deduped.has(technicianId)) continue;
-    const hours =
-      assignment.hours == null || Number.isNaN(assignment.hours)
-        ? line.hours ?? 0
-        : assignment.hours;
+    const rawHours = assignment.hours == null ? "" : String(assignment.hours).trim();
+    const commaDecimal =
+      !rawHours.includes(".") &&
+      (rawHours.match(/,/g) ?? []).length === 1 &&
+      /,\d{1,2}$/.test(rawHours);
+    const parsedHours =
+      rawHours === ""
+        ? null
+        : parseDecimal(commaDecimal ? rawHours.replace(",", ".") : rawHours);
+    const hours = parsedHours ?? (line.hours ?? 0);
     if (!Number.isFinite(hours) || hours < 0) return;
     deduped.set(technicianId, hours);
   }
