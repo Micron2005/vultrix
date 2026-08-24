@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Card, CardHeader, Button, Input, Select } from "@/components/ui";
-import { formatMoney } from "@/lib/utils";
+import { useMemo, useState } from "react";
+import { Card, CardHeader, Button, Input, Select, Textarea } from "@/components/ui";
+import { formatMoney, parseDecimal } from "@/lib/utils";
 import { recordBulkPayment } from "../actions";
 
 type Invoice = {
@@ -14,6 +14,11 @@ type Invoice = {
   balance: number;
 };
 
+type Ticket = Invoice & {
+  status: string;
+  cleared: boolean;
+};
+
 type Allocation = {
   roId: string;
   roNumber: number;
@@ -21,6 +26,43 @@ type Allocation = {
   balance: number;
   applied: number;
 };
+
+type InvoiceRejection = {
+  number: number;
+  reason: string;
+};
+
+function parseInvoiceNumbers(input: string): {
+  numbers: number[];
+  capped: boolean;
+} {
+  const tokens = input.match(/#?\d+(?:\s*-\s*#?\d+)?/g) ?? [];
+  const numbers: number[] = [];
+  const seen = new Set<number>();
+  let capped = false;
+
+  for (const token of tokens) {
+    const parts = token.replace(/#/g, "").split(/\s*-\s*/);
+    const start = Number(parts[0]);
+    const end = parts.length > 1 ? Number(parts[1]) : start;
+    if (!Number.isInteger(start) || !Number.isInteger(end)) continue;
+
+    const low = Math.min(start, end);
+    const high = Math.max(start, end);
+    const count = high - low + 1;
+    const limit = Math.min(count, 500);
+    if (count > 500) capped = true;
+    for (let offset = 0; offset < limit; offset++) {
+      const number = low + offset;
+      if (!seen.has(number)) {
+        seen.add(number);
+        numbers.push(number);
+      }
+    }
+  }
+
+  return { numbers, capped };
+}
 
 /**
  * Smart allocation: find the best combination of invoices to cover the payment.
@@ -124,14 +166,19 @@ function allocatePayment(invoices: Invoice[], amount: number): Allocation[] {
 export function BulkPaymentCard({
   customerId,
   invoices,
+  tickets,
   totalOwed,
 }: {
   customerId: string;
   invoices: Invoice[];
+  tickets: Ticket[];
   totalOwed: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"AMOUNT" | "INVOICE">("AMOUNT");
   const [amount, setAmount] = useState("");
+  const [invoiceInput, setInvoiceInput] = useState("");
+  const [checkAmount, setCheckAmount] = useState("");
   const [method, setMethod] = useState("CASH");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
@@ -146,25 +193,82 @@ export function BulkPaymentCard({
   );
 
   const totalAllocated = preview.reduce((s, a) => s + a.applied, 0);
+  const parsedInvoices = useMemo(
+    () => parseInvoiceNumbers(invoiceInput),
+    [invoiceInput],
+  );
+  const invoiceByNumber = useMemo(
+    () => new Map(invoices.map((invoice) => [invoice.roNumber, invoice])),
+    [invoices],
+  );
+  const ticketByNumber = useMemo(
+    () => new Map(tickets.map((ticket) => [ticket.roNumber, ticket])),
+    [tickets],
+  );
+  const invoicePreview = useMemo(
+    () =>
+      parsedInvoices.numbers
+        .map((number) => invoiceByNumber.get(number))
+        .filter((invoice): invoice is Invoice => invoice != null),
+    [invoiceByNumber, parsedInvoices.numbers],
+  );
+  const invoiceRejections = useMemo<InvoiceRejection[]>(
+    () =>
+      parsedInvoices.numbers.flatMap((number) => {
+        if (invoiceByNumber.has(number)) return [];
+        const ticket = ticketByNumber.get(number);
+        if (!ticket) return [{ number, reason: "No such invoice for this customer." }];
+        if (ticket.status === "PAID" && ticket.cleared) {
+          return [{ number, reason: "Already cleared." }];
+        }
+        if (ticket.status === "PAID") {
+          return [{ number, reason: "Already paid." }];
+        }
+        if (ticket.status === "CANCELLED") {
+          return [{ number, reason: "Cancelled." }];
+        }
+        if (ticket.status === "ESTIMATE" || ticket.status === "IN_PROGRESS") {
+          return [{ number, reason: "Not invoiced yet (estimate or in-progress RO)." }];
+        }
+        if (ticket.balance <= 0) {
+          return [{ number, reason: "No remaining balance." }];
+        }
+        return [{ number, reason: "Not invoiced yet." }];
+      }),
+    [invoiceByNumber, parsedInvoices.numbers, ticketByNumber],
+  );
+  const invoiceTotal = invoicePreview.reduce((sum, invoice) => sum + invoice.balance, 0);
+  const parsedCheckAmount = parseDecimal(checkAmount) ?? 0;
+  const checkMismatch =
+    checkAmount.trim() !== "" &&
+    Math.round(parsedCheckAmount * 100) !== Math.round(invoiceTotal * 100);
 
   async function handleSubmit() {
-    if (parsedAmount <= 0 || preview.length === 0) return;
+    const paymentAmount = mode === "INVOICE" ? invoiceTotal : parsedAmount;
+    const paymentAllocations =
+      mode === "INVOICE"
+        ? invoicePreview.map((invoice) => ({
+            roId: invoice.roId,
+            applied: invoice.balance,
+          }))
+        : preview.map((a) => ({ roId: a.roId, applied: a.applied }));
+    if (paymentAmount <= 0 || paymentAllocations.length === 0) return;
     setSubmitting(true);
     setResult(null);
     try {
       const fd = new FormData();
       fd.set("customerId", customerId);
-      fd.set("amount", String(parsedAmount));
+      fd.set("amount", String(paymentAmount));
       fd.set("method", method);
       fd.set("reference", reference);
       fd.set("note", note);
-      fd.set("allocations", JSON.stringify(
-        preview.map((a) => ({ roId: a.roId, applied: a.applied })),
-      ));
+      fd.set("allocations", JSON.stringify(paymentAllocations));
       const res = await recordBulkPayment(fd);
       setResult(res);
       if (res.ok) {
         setAmount("");
+        setInvoiceInput("");
+        setCheckAmount("");
         setReference("");
         setNote("");
       }
@@ -198,7 +302,22 @@ export function BulkPaymentCard({
         </Button>
       </CardHeader>
       <div className="p-4 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-700 mb-1">Payment mode</label>
+            <Select
+              value={mode}
+              onChange={(e) => {
+                const nextMode = e.target.value as "AMOUNT" | "INVOICE";
+                setMode(nextMode);
+                if (nextMode === "INVOICE") setMethod("CHECK");
+              }}
+            >
+              <option value="AMOUNT">By amount</option>
+              <option value="INVOICE">By invoice #</option>
+            </Select>
+          </div>
+          {mode === "AMOUNT" ? (
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">Amount</label>
             <Input
@@ -212,6 +331,18 @@ export function BulkPaymentCard({
               autoFocus
             />
           </div>
+          ) : (
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Invoice numbers</label>
+              <Textarea
+                rows={2}
+                placeholder="1, 2, 3 or 1042-1045"
+                value={invoiceInput}
+                onChange={(e) => setInvoiceInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">Method</label>
             <Select value={method} onChange={(e) => setMethod(e.target.value)}>
@@ -240,8 +371,92 @@ export function BulkPaymentCard({
           </div>
         </div>
 
-        {/* Allocation preview */}
-        {parsedAmount > 0 && preview.length > 0 && (
+        {mode === "INVOICE" && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-full sm:w-48">
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Check amount <span className="font-normal text-zinc-500">(optional)</span>
+                </label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={checkAmount}
+                  onChange={(e) => setCheckAmount(e.target.value)}
+                />
+              </div>
+              <div className="text-lg font-bold text-zinc-900">
+                Selected total: {formatMoney(invoiceTotal)}
+              </div>
+            </div>
+            {parsedInvoices.capped && (
+              <p className="text-sm text-amber-700">
+                A range was capped at 500 invoice numbers to prevent an accidental huge selection.
+              </p>
+            )}
+            {checkMismatch && (
+              <p className="rounded-md bg-amber-50 p-3 text-sm font-medium text-amber-800">
+                Check amount {formatMoney(parsedCheckAmount)} does not match the selected invoice total of{" "}
+                {formatMoney(invoiceTotal)}. You can still apply this payment.
+              </p>
+            )}
+            {invoicePreview.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-zinc-700 uppercase tracking-wider mb-2">
+                  Invoice Preview
+                </h3>
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">RO #</th>
+                      <th className="px-3 py-2 font-medium">Vehicle</th>
+                      <th className="px-3 py-2 font-medium text-right">Remaining balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {invoicePreview.map((invoice) => (
+                      <tr key={invoice.roId}>
+                        <td className="px-3 py-2 font-medium">#{invoice.roNumber}</td>
+                        <td className="px-3 py-2">{invoice.vehicle}</td>
+                        <td className="px-3 py-2 text-right font-medium">
+                          {formatMoney(invoice.balance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {invoiceRejections.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                <h3 className="text-sm font-semibold text-amber-900">Not included</h3>
+                <ul className="mt-1 space-y-1 text-sm text-amber-800">
+                  {invoiceRejections.map((rejection) => (
+                    <li key={rejection.number}>
+                      <span className="font-medium">#{rejection.number}</span>: {rejection.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {invoiceInput.trim() !== "" &&
+              parsedInvoices.numbers.length === 0 && (
+                <p className="text-sm text-amber-700">
+                  Enter invoice numbers separated by commas, spaces, or new lines.
+                </p>
+              )}
+            {invoiceInput.trim() !== "" &&
+              parsedInvoices.numbers.length > 0 &&
+              invoicePreview.length === 0 && (
+                <p className="text-sm text-amber-700">
+                  No payable invoices matched this selection. Nothing will be applied.
+                </p>
+              )}
+          </div>
+        )}
+
+        {/* Amount-driven allocation preview */}
+        {mode === "AMOUNT" && parsedAmount > 0 && preview.length > 0 && (
           <div>
             <h3 className="text-xs font-medium text-zinc-700 uppercase tracking-wider mb-2">
               Allocation Preview
@@ -305,7 +520,7 @@ export function BulkPaymentCard({
           </div>
         )}
 
-        {parsedAmount > totalOwed && (
+        {mode === "AMOUNT" && parsedAmount > totalOwed && (
           <p className="text-sm text-amber-600">
             Payment exceeds total owed ({formatMoney(totalOwed)}). Only {formatMoney(totalOwed)} will be applied.
           </p>
@@ -326,9 +541,16 @@ export function BulkPaymentCard({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={parsedAmount <= 0 || preview.length === 0 || submitting}
+            disabled={
+              (mode === "AMOUNT"
+                ? parsedAmount <= 0 || preview.length === 0
+                : invoiceTotal <= 0 || invoicePreview.length === 0) ||
+              submitting
+            }
           >
-            {submitting ? "Processing…" : `Apply ${formatMoney(Math.min(parsedAmount, totalOwed))}`}
+            {submitting
+              ? "Processing…"
+              : `Apply ${formatMoney(mode === "INVOICE" ? invoiceTotal : Math.min(parsedAmount, totalOwed))}`}
           </Button>
         </div>
       </div>
