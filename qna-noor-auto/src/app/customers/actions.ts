@@ -182,8 +182,10 @@ export async function recordBulkPayment(
   const missingIds = allocations
     .filter((allocation) => !roById.has(allocation.roId))
     .map((allocation) => allocation.roId);
-  for (const roId of missingIds) {
-    skipped.push(`an unknown invoice (${roId})`);
+  if (missingIds.length > 0) {
+    skipped.push(
+      `${missingIds.length} invoice${missingIds.length !== 1 ? "s" : ""} that no longer belong to this customer`,
+    );
   }
 
   if (ros.length === 0) {
