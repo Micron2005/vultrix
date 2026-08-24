@@ -132,26 +132,35 @@ export default async function CustomerDetailPage({
     total: number;
     paid: number;
     balance: number;
-  }): ROItem => ({
-    roId: d.ro.id,
-    roNumber: d.ro.roNumber,
-    vehicle: vehicleLabel(d.ro.vehicle),
-    status: d.ro.status,
-    openedAt:
-      d.ro.openedAt instanceof Date
-        ? d.ro.openedAt.toISOString()
-        : String(d.ro.openedAt),
-    total: d.total,
-    paid: d.paid,
-    balance: d.balance,
-    cleared: d.ro.clearedAt != null,
-    clearedAt:
-      d.ro.clearedAt == null
-        ? null
-        : d.ro.clearedAt instanceof Date
-          ? d.ro.clearedAt.toISOString()
-          : String(d.ro.clearedAt),
-  });
+  }): ROItem => {
+    const paidAt = d.ro.paidAt ?? d.ro.closedAt;
+    return {
+      roId: d.ro.id,
+      roNumber: d.ro.roNumber,
+      vehicle: vehicleLabel(d.ro.vehicle),
+      status: d.ro.status,
+      openedAt:
+        d.ro.openedAt instanceof Date
+          ? d.ro.openedAt.toISOString()
+          : String(d.ro.openedAt),
+      total: d.total,
+      paid: d.paid,
+      balance: d.balance,
+      cleared: d.ro.clearedAt != null,
+      clearedAt:
+        d.ro.clearedAt == null
+          ? null
+          : d.ro.clearedAt instanceof Date
+            ? d.ro.clearedAt.toISOString()
+            : String(d.ro.clearedAt),
+      paidAt:
+        paidAt == null
+          ? null
+          : paidAt instanceof Date
+            ? paidAt.toISOString()
+            : String(paidAt),
+    };
+  };
 
   const ticketSections = [
     {
@@ -169,6 +178,7 @@ export default async function CustomerDetailPage({
       key: "paid",
       title: `Paid (${paidROs.length})`,
       items: paidROs.map(toItem),
+      showPaid: true,
     },
     ...(clearedROs.length > 0
       ? [
@@ -176,6 +186,7 @@ export default async function CustomerDetailPage({
             key: "cleared",
             title: `Cleared (${clearedROs.length})`,
             items: clearedROs.map(toItem),
+            showPaid: true,
             showCleared: true,
             defaultCollapsed: true,
           },
