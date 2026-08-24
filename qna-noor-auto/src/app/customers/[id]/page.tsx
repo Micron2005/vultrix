@@ -116,6 +116,16 @@ export default async function CustomerDetailPage({
     paid: d.paid,
     balance: d.balance,
   }));
+  const ticketsForPayment = roData.map((d) => ({
+    roId: d.ro.id,
+    roNumber: d.ro.roNumber,
+    vehicle: vehicleLabel(d.ro.vehicle),
+    status: d.ro.status,
+    cleared: d.ro.clearedAt != null,
+    total: d.total,
+    paid: d.paid,
+    balance: d.balance,
+  }));
 
   const toItem = (d: {
     ro: ROWithLines;
@@ -284,6 +294,7 @@ export default async function CustomerDetailPage({
         <BulkPaymentCard
           customerId={customer.id}
           invoices={invoicesForPayment}
+          tickets={ticketsForPayment}
           totalOwed={totalOwed}
         />
       )}

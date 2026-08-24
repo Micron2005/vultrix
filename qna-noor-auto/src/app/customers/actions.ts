@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { computeRoTotal } from "@/lib/roTotal";
+import { parseDecimal } from "@/lib/utils";
 import {
   replaceCustomerContacts,
   type CustomerContactInput,
@@ -135,38 +136,98 @@ export async function recordBulkPayment(
   const reference = String(fd.get("reference") ?? "").trim() || null;
   const note = String(fd.get("note") ?? "").trim() || null;
 
-  let allocations: { roId: string; applied: number }[];
+  let rawAllocations: unknown;
   try {
-    allocations = JSON.parse(String(fd.get("allocations") ?? "[]"));
+    rawAllocations = JSON.parse(String(fd.get("allocations") ?? "[]"));
   } catch {
     return { ok: false, message: "Invalid allocation data." };
   }
 
-  if (!Array.isArray(allocations) || allocations.length === 0) {
+  if (!Array.isArray(rawAllocations) || rawAllocations.length === 0) {
     return { ok: false, message: "No invoices to allocate payment to." };
+  }
+  const allocations: { roId: string; applied: number }[] = [];
+  const seenAllocationIds = new Set<string>();
+  for (const value of rawAllocations) {
+    if (!value || typeof value !== "object") continue;
+    const candidate = value as { roId?: unknown; applied?: unknown };
+    const roId = String(candidate.roId ?? "").trim();
+    const applied = parseDecimal(String(candidate.applied ?? ""));
+    if (!roId || applied == null || applied <= 0 || seenAllocationIds.has(roId)) {
+      continue;
+    }
+    seenAllocationIds.add(roId);
+    allocations.push({ roId, applied });
+  }
+
+  if (allocations.length === 0) {
+    return { ok: false, message: "No valid invoices found for this customer." };
   }
 
   // Verify all ROs belong to this customer
   const roIds = allocations.map((a) => a.roId);
   const ros = await db.repairOrder.findMany({
     where: { id: { in: roIds }, customerId, orgId },
-    select: { id: true },
+    select: {
+      id: true,
+      roNumber: true,
+      status: true,
+      invoicedAt: true,
+      clearedAt: true,
+    },
   });
-  const validIds = new Set(ros.map((r) => r.id));
-  const validAllocations = allocations.filter(
-    (a) => validIds.has(a.roId) && a.applied > 0,
-  );
+  const roById = new Map(ros.map((ro) => [ro.id, ro]));
+  const skipped: string[] = [];
+  const adjusted: string[] = [];
+  const missingIds = allocations
+    .filter((allocation) => !roById.has(allocation.roId))
+    .map((allocation) => allocation.roId);
+  for (const roId of missingIds) {
+    skipped.push(`an unknown invoice (${roId})`);
+  }
 
-  if (validAllocations.length === 0) {
-    return { ok: false, message: "No valid invoices found for this customer." };
+  if (ros.length === 0) {
+    return {
+      ok: false,
+      message: `No valid invoices found for this customer.${skipped.length > 0 ? ` Skipped: ${skipped.join(", ")}.` : ""}`,
+    };
   }
 
   const paidAt = new Date();
   let appliedCount = 0;
   let clearedCount = 0;
+  let totalApplied = 0;
 
-  for (const alloc of validAllocations) {
-    const paymentAmount = Math.round(alloc.applied * 100) / 100;
+  const processedIds: string[] = [];
+  for (const alloc of allocations) {
+    const ro = roById.get(alloc.roId);
+    if (!ro) continue;
+    if (ro.status === "PAID") {
+      skipped.push(`#${ro.roNumber} (${ro.clearedAt ? "already cleared" : "already paid"})`);
+      continue;
+    }
+    if (ro.status === "CANCELLED") {
+      skipped.push(`#${ro.roNumber} (cancelled)`);
+      continue;
+    }
+
+    const [payments, total] = await Promise.all([
+      db.payment.findMany({
+        where: { repairOrderId: alloc.roId, orgId },
+        select: { amount: true },
+      }),
+      computeRoTotal(orgId, alloc.roId),
+    ]);
+    const alreadyPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const balance = Math.round(Math.max(0, total - alreadyPaid) * 100) / 100;
+    if (balance <= 0) {
+      skipped.push(`#${ro.roNumber} (no remaining balance)`);
+      continue;
+    }
+    const paymentAmount = Math.round(Math.min(alloc.applied, balance) * 100) / 100;
+    if (paymentAmount < alloc.applied) {
+      adjusted.push(`#${ro.roNumber} (capped at remaining balance ${formatMoney(balance)})`);
+    }
     if (paymentAmount <= 0) continue;
 
     // Record the payment on this RO
@@ -185,33 +246,24 @@ export async function recordBulkPayment(
     });
 
     appliedCount++;
+    totalApplied += paymentAmount;
+    processedIds.push(alloc.roId);
 
     // Check if this RO is now fully paid
-    const [ro, payments, total] = await Promise.all([
-      db.repairOrder.findFirst({ where: { id: alloc.roId, orgId } }),
-      db.payment.findMany({
-        where: { repairOrderId: alloc.roId, orgId },
-        select: { amount: true },
-      }),
-      computeRoTotal(orgId, alloc.roId),
-    ]);
-
-    if (ro) {
-      const paid = payments.reduce((s, p) => s + p.amount, 0);
-      const data: Record<string, unknown> = {};
-      if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
-        data.status = "INVOICED";
-        if (!ro.invoicedAt) data.invoicedAt = paidAt;
-      }
-      if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
-        data.status = "PAID";
-        data.paidAt = paidAt;
-        data.closedAt = paidAt;
-        clearedCount++;
-      }
-      if (Object.keys(data).length > 0) {
-        await db.repairOrder.update({ where: { id: alloc.roId, orgId }, data });
-      }
+    const paid = alreadyPaid + paymentAmount;
+    const data: Record<string, unknown> = {};
+    if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
+      data.status = "INVOICED";
+      if (!ro.invoicedAt) data.invoicedAt = paidAt;
+    }
+    if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
+      data.status = "PAID";
+      data.paidAt = paidAt;
+      data.closedAt = paidAt;
+      clearedCount++;
+    }
+    if (Object.keys(data).length > 0) {
+      await db.repairOrder.update({ where: { id: alloc.roId, orgId }, data });
     }
   }
 
@@ -219,14 +271,21 @@ export async function recordBulkPayment(
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/repair-orders");
   revalidatePath("/");
-  for (const alloc of validAllocations) {
-    revalidatePath(`/repair-orders/${alloc.roId}`);
+  for (const roId of processedIds) {
+    revalidatePath(`/repair-orders/${roId}`);
   }
 
-  const totalApplied = validAllocations.reduce((s, a) => s + a.applied, 0);
+  if (appliedCount === 0) {
+    return {
+      ok: false,
+      message: `No invoices had an outstanding balance.${skipped.length > 0 ? ` Skipped: ${skipped.join(", ")}.` : ""}`,
+    };
+  }
+  const skippedMessage = skipped.length > 0 ? ` Skipped: ${skipped.join(", ")}.` : "";
+  const adjustedMessage = adjusted.length > 0 ? ` Adjusted: ${adjusted.join(", ")}.` : "";
   return {
     ok: true,
-    message: `Applied ${formatMoney(totalApplied)} across ${appliedCount} invoice${appliedCount !== 1 ? "s" : ""}. ${clearedCount} fully cleared.`,
+    message: `Applied ${formatMoney(totalApplied)} across ${appliedCount} invoice${appliedCount !== 1 ? "s" : ""}. ${clearedCount} fully cleared.${skippedMessage}${adjustedMessage}`,
   };
 }
 
