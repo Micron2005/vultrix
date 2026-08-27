@@ -7,6 +7,7 @@
 // See README-VULTRIX-LANDING.md for wiring + the CSS snippet + Prisma model.
 
 import { useEffect, useRef, useState } from "react";
+import { SUPPORT_EMAIL } from "@/lib/branding";
 import {
   Wrench, FileText, Car, Search, Boxes, Package, QrCode, Bell, Calendar,
   UserCog, Building2, Receipt, BarChart3, Upload, ClipboardList, Users,
@@ -27,7 +28,7 @@ const SITE = {
   price: 45,
   trialDays: 60,
   annualMonthsFree: 2,
-  supportEmail: "micron.alam18@gmail.com", // empty = hide email, route to the form
+  supportEmail: SUPPORT_EMAIL, // empty = hide email, route to the form
   phone: "571-320-9425",
   phoneHref: "+15713209425",
 };
