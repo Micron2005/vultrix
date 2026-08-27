@@ -16,15 +16,13 @@ import {
   Globe,
 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { APP_NAME } from "@/lib/branding";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/branding";
 import { PRICE_USD, TRIAL_DAYS } from "@/lib/billing";
 import { requireUser } from "@/lib/session";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
 
-// Owner contact details printed on the flyer.
-const CONTACT_EMAIL = "micron.alam18@gmail.com";
 const CONTACT_PHONE = "571-320-9425";
 
 const FEATURES = [
@@ -174,11 +172,11 @@ export default async function FlyerPage() {
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <a
-              href={`mailto:${CONTACT_EMAIL}`}
+              href={`mailto:${SUPPORT_EMAIL}`}
               className="inline-flex items-center gap-2 text-zinc-200 hover:text-white"
               data-testid="flyer-email"
             >
-              <Mail className="h-4 w-4 text-amber-400" /> {CONTACT_EMAIL}
+              <Mail className="h-4 w-4 text-amber-400" /> {SUPPORT_EMAIL}
             </a>
             <a
               href={`tel:${CONTACT_PHONE.replace(/[^0-9]/g, "")}`}

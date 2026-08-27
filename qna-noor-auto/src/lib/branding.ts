@@ -15,6 +15,10 @@ export const APP_OWNER_LINE = `${APP_NAME} is owned by ${APP_OWNER}`;
 export const LEGAL_CONTACT_EMAIL =
   process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL?.trim() || "support@vultrix.net";
 
+/** Public support/sales contact shown on the marketing site and flyer. */
+export const SUPPORT_EMAIL =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@vultrix.net";
+
 /** Jurisdiction whose law governs the Terms (override per deploy). */
 export const LEGAL_GOVERNING_LAW =
   process.env.NEXT_PUBLIC_LEGAL_GOVERNING_LAW?.trim() ||
