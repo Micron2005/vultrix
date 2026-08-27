@@ -386,7 +386,7 @@ export function AssistantClient({
       setEntries((current) => [...current, { role: "user", content: trimmed }]);
       try {
         const history = entries
-          .slice(-10)
+          .slice(-20)
           .map(({ role, content }) => ({ role, content }));
         const response = await fetch("/api/assistant/chat", {
           method: "POST",
