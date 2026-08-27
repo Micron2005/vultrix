@@ -19,7 +19,6 @@ import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { PRICE_USD, TRIAL_DAYS } from "@/lib/billing";
 import { requireUser } from "@/lib/session";
-import { isMarketingOwnerOrg } from "@/lib/marketing";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -53,15 +52,13 @@ async function resolveOrigin(): Promise<string> {
 
 /**
  * Printable marketing flyer / sell-sheet for selling Vultrix to other shops.
- * Restricted to the platform owner (SUPERADMIN) and the owner's own shop org —
- * tenant shops must never see it. Includes a QR code to the marketing
- * landing page (homepage), where prospects can read the pitch and sign up.
+ * Restricted to the platform owner (SUPERADMIN). Includes a QR code to the
+ * marketing landing page (homepage), where prospects can read the pitch and
+ * sign up.
  */
 export default async function FlyerPage() {
   const user = await requireUser();
-  const allowed =
-    user.role === "SUPERADMIN" || (await isMarketingOwnerOrg(user.orgId));
-  if (!allowed) redirect("/");
+  if (user.role !== "SUPERADMIN") redirect("/");
 
   const origin = await resolveOrigin();
   const base = origin || "https://vultrix.net";
