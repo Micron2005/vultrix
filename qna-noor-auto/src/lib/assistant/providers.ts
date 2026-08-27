@@ -203,7 +203,7 @@ async function callAnthropic(request: ProviderRequest): Promise<ProviderResponse
     },
     body: JSON.stringify({
       model: request.model,
-      max_tokens: 1536,
+      max_tokens: 4096,
       system: request.systemPrompt,
       messages,
       tools: request.tools.map((tool) => ({

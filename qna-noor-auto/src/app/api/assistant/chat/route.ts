@@ -45,6 +45,13 @@ import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+const OPENAI_MODEL =
+  process.env.ASSISTANT_OPENAI_MODEL?.trim() || "gpt-4o";
+const ANTHROPIC_MODEL =
+  process.env.ASSISTANT_ANTHROPIC_MODEL?.trim() ||
+  "claude-3-5-sonnet-latest";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.1:8b";
+
 const requestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
   timezone: z.string().trim().min(1).max(64).optional(),
@@ -355,11 +362,12 @@ function buildSystemPrompt(assistantName: string, timezone: string, now: Date): 
     `The current date and time is ${describeNow(timezone, now)}. Use it to resolve relative dates like "tomorrow" or "next week".`,
     "",
     "You do two things well:",
-    "1. Have a normal, helpful conversation — answer questions, explain things, brainstorm, help with writing, planning, coding, and ideas, just like a capable general assistant.",
+    "1. Be a full general-purpose assistant: answer any question — facts, explanations, advice, math, writing, coding, brainstorming, recipes, how-tos, and more — at whatever length the question deserves, exactly like ChatGPT. The app tools are an extra capability, not your only purpose.",
     "2. Take actions in the user's app using the available tools.",
     "",
     "Guidelines:",
-    "- For general questions or chit-chat, just reply naturally. Do NOT call a tool unless the user wants to read or change their own data.",
+    "- For a general question or chit-chat, answer directly and naturally without calling a tool; only call a tool when the user wants to read or change their own data in this app.",
+    "- Never refuse or deflect a general question by saying you can only help with the app. If you don't know something, say so plainly rather than inventing details.",
     "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending.",
     "- Act on clear requests right away; you may pass natural-language dates/times to tools (they're resolved against the current time above).",
     "- After a tool runs, confirm what happened briefly and naturally, in your own words. Never claim success if a tool returned an error.",
@@ -449,10 +457,10 @@ export async function POST(request: Request) {
   const systemPrompt = buildSystemPrompt(org.aiAssistantName, timezone, now);
   const model =
     provider === "OLLAMA"
-      ? process.env.OLLAMA_MODEL ?? "llama3.1:8b"
+      ? OLLAMA_MODEL
       : provider === "OPENAI"
-        ? "gpt-4o-mini"
-        : "claude-3-5-haiku-latest";
+        ? OPENAI_MODEL
+        : ANTHROPIC_MODEL;
 
   const callProvider: ProviderCaller = (conversationMessages) =>
     runAssistantProvider({
