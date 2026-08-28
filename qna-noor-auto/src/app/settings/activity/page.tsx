@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card, CardHeader, PageHeader, Select } from "@/components/ui";
 import { LocalDateTime } from "@/components/LocalDateTime";
+import { activityLabel } from "@/lib/activity";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 
@@ -94,7 +95,7 @@ export default async function ActivityPage({
               <option value="">All actions</option>
               {actions.map((entry) => (
                 <option key={entry.action} value={entry.action}>
-                  {entry.action}
+                  {activityLabel(entry.action)}
                 </option>
               ))}
             </Select>
@@ -132,11 +133,8 @@ export default async function ActivityPage({
                     {entry.username}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-600">
-                    <div>{entry.action}</div>
-                    <div className="text-xs text-zinc-400">
-                      {entry.entity}
-                      {entry.entityId ? ` · ${entry.entityId}` : ""}
-                    </div>
+                    <div>{activityLabel(entry.action)}</div>
+                    <div className="text-xs text-zinc-400">{entry.entity}</div>
                   </td>
                   <td className="min-w-[20rem] px-4 py-3 text-zinc-700">
                     {entry.summary}

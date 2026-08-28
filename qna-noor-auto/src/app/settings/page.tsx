@@ -57,7 +57,7 @@ export default async function SettingsPage({
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
   const isPersonal = accountType === "PERSONAL";
-  const canManageAssistant = Boolean(
+  const canManageOrgSettings = Boolean(
     user && (user.role === "OWNER" || user.role === "ADMIN"),
   );
   const aiKeyConfigured = isAiKeyEncryptionConfigured();
@@ -175,7 +175,7 @@ export default async function SettingsPage({
         </form>
       </Card>
 
-      {canManageAssistant && (
+      {canManageOrgSettings && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="Activity log" />
           <div className="space-y-3 p-4">
@@ -192,7 +192,7 @@ export default async function SettingsPage({
         </Card>
       )}
 
-      {isPersonal && canManageAssistant && (
+      {isPersonal && canManageOrgSettings && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="AI assistant" />
           <form action={saveAiAssistantSettings} className="space-y-4 p-6">

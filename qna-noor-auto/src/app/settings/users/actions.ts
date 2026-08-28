@@ -52,7 +52,7 @@ export async function createUser(formData: FormData) {
       },
     });
     await logActivity({
-      orgId: me.orgId!,
+      orgId: me.orgId,
       user: me,
       action: "user.create",
       entity: "User",
@@ -87,7 +87,7 @@ export async function setUserActive(formData: FormData) {
 
   await db.user.update({ where: { id: userId }, data: { isActive: active } });
   await logActivity({
-    orgId: me.orgId!,
+    orgId: me.orgId,
     user: me,
     action: active ? "user.activate" : "user.deactivate",
     entity: "User",
@@ -115,7 +115,7 @@ export async function resetPassword(formData: FormData) {
     data: { passwordHash: hashPassword(password) },
   });
   await logActivity({
-    orgId: me.orgId!,
+    orgId: me.orgId,
     user: me,
     action: "user.password_reset",
     entity: "User",
@@ -145,7 +145,7 @@ export async function deleteUser(formData: FormData) {
 
   await db.user.delete({ where: { id: userId } });
   await logActivity({
-    orgId: me.orgId!,
+    orgId: me.orgId,
     user: me,
     action: "user.delete",
     entity: "User",
