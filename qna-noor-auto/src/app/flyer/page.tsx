@@ -17,7 +17,12 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { APP_NAME, SUPPORT_EMAIL } from "@/lib/branding";
-import { PRICE_USD, TRIAL_DAYS } from "@/lib/billing";
+import {
+  GENERAL_PRICE_USD,
+  PERSONAL_BASIC_PRICE_USD,
+  PRICE_USD,
+  TRIAL_DAYS,
+} from "@/lib/billing";
 import { requireUser } from "@/lib/session";
 import { PrintButton } from "./PrintButton";
 
@@ -102,12 +107,15 @@ export default async function FlyerPage() {
             </div>
           </div>
           <h2 className="mt-6 max-w-2xl font-display text-4xl font-extrabold leading-tight tracking-tight">
-            Run your whole business for{" "}
-            <span className="text-amber-400">${PRICE_USD}/month</span> — flat.
+            Run your whole business from{" "}
+            <span className="text-amber-400">
+              ${PERSONAL_BASIC_PRICE_USD}/month
+            </span>{" "}
+            — flat.
           </h2>
           <p className="mt-3 text-lg text-zinc-300">
-            Built by a business owner, for business owners. One simple price, every tool
-            included.
+            Built by a business owner, for business owners. One simple monthly
+            price, every tool included.
           </p>
         </div>
 
@@ -135,8 +143,28 @@ export default async function FlyerPage() {
               <div className="text-sm text-zinc-500 line-through">
                 $150–$400+ / month elsewhere
               </div>
-              <div className="font-display text-lg font-extrabold text-zinc-900">
-                One flat ${PRICE_USD}/month · no contract · cancel anytime
+              <div className="mt-2 space-y-1.5 text-sm text-zinc-700">
+                <div className="flex items-center justify-between gap-4">
+                  <span>Auto repair shop</span>
+                  <span className="font-display text-base font-extrabold text-zinc-900">
+                    ${PRICE_USD}/mo
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>Any other business</span>
+                  <span className="font-display text-base font-extrabold text-zinc-900">
+                    ${GENERAL_PRICE_USD}/mo
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>Personal</span>
+                  <span className="font-display text-base font-extrabold text-zinc-900">
+                    ${PERSONAL_BASIC_PRICE_USD}/mo
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-zinc-500">
+                No contract · cancel anytime
               </div>
             </div>
           </div>
