@@ -25,7 +25,6 @@ const SITE = {
   brand: "Vultrix",
   owner: "M.S.A.M Enterprise",
   tagline: "One system to run your business — and your life.",
-  price: 45,
   trialDays: 60,
   annualMonthsFree: 2,
   supportEmail: SUPPORT_EMAIL, // empty = hide email, route to the form
