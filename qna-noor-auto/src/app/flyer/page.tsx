@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Smartphone,
   Infinity,
+  Check,
   Store,
   Mail,
   Phone,
@@ -121,7 +122,7 @@ export default async function FlyerPage() {
               {FEATURES.map((f) => (
                 <li key={f.text} className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
-                    <f.icon className="h-4 w-4" />
+                    <Check className="h-4 w-4" />
                   </span>
                   <span className="text-[15px] font-medium text-zinc-800">
                     {f.text}
