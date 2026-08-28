@@ -9,7 +9,7 @@ import {
   Select,
 } from "@/components/ui";
 import { db } from "@/lib/db";
-import { getCurrentUser, canManageUsers } from "@/lib/session";
+import { canManageUsers, getCurrentUser, roleLabel } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,7 @@ export default async function UsersPage({
             <Field label="Role">
               <Select name="role" defaultValue="STAFF">
                 <option value="STAFF">Staff</option>
-                <option value="ADMIN">Admin</option>
+                <option value="ADMIN">Manager</option>
                 <option value="OWNER">Owner</option>
               </Select>
             </Field>
@@ -104,7 +104,7 @@ export default async function UsersPage({
                       )}
                     </div>
                     <div className="text-xs text-zinc-500">
-                      {u.role.charAt(0) + u.role.slice(1).toLowerCase()}
+                      {roleLabel(u.role)}
                       {!u.isActive && (
                         <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
                           On hold

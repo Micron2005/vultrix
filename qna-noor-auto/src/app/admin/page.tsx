@@ -7,7 +7,7 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
-import { requireSuperadmin } from "@/lib/session";
+import { requireSuperadmin, roleLabel } from "@/lib/session";
 import { APP_NAME } from "@/lib/branding";
 import { describeBilling } from "@/lib/billing";
 import {
@@ -249,7 +249,7 @@ export default async function AdminPage({
                             {u.username}
                             <span className="text-zinc-400">
                               {" "}
-                              · {u.role.toLowerCase()}
+                              · {roleLabel(u.role)}
                             </span>
                           </span>
                           <input

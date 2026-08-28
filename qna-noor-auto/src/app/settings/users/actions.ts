@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import { getCurrentUser, canManageUsers, type Role } from "@/lib/session";
+import {
+  canManageUsers,
+  getCurrentUser,
+  roleLabel,
+  type Role,
+} from "@/lib/session";
 import { logActivity } from "@/lib/activity";
 
 const ASSIGNABLE_ROLES: Role[] = ["OWNER", "ADMIN", "STAFF"];
@@ -57,7 +62,7 @@ export async function createUser(formData: FormData) {
       action: "user.create",
       entity: "User",
       entityId: created.id,
-      summary: `Login ${created.username} created with ${created.role} role`,
+      summary: `Login ${created.username} created with ${roleLabel(created.role)} role`,
     });
   } catch (e: unknown) {
     if (

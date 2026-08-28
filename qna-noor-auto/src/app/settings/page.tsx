@@ -529,7 +529,7 @@ export default async function SettingsPage({
 function assistantErrorMessage(code: string): string {
   switch (code) {
     case "not_allowed":
-      return "Only an owner or admin can change assistant settings.";
+      return "Only an owner or manager can change assistant settings.";
     case "key_unavailable":
       return "Own-key storage is unavailable until AI_KEY_SECRET is configured.";
     case "key_required":

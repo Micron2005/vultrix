@@ -125,7 +125,7 @@ const GENERAL_FEATURES = [
   { icon: Calendar, title: "Scheduling & calendar", desc: "Plan your day and week and set reminders so nothing important slips through." },
   { icon: ClipboardList, title: "Notes & knowledge", desc: "Capture notes, checklists, and reference info you can search back through later." },
   { icon: Upload, title: "Import & export", desc: "Bring your data in by CSV and take it with you anytime. No lock-in, ever." },
-  { icon: UserCog, title: "Multi-user roles", desc: "Add your whole team with roles for owners, admins, and staff." },
+  { icon: UserCog, title: "Multi-user roles", desc: "Add your whole team with roles for owners, managers, and staff." },
 ];
 
 // Features that only make sense for — and are only shown to — auto repair shops.
@@ -251,7 +251,7 @@ const FAQS = [
   { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions. It's live on Personal accounts today for $10/month — or bring your own OpenAI/Anthropic key for free. Support for business and shop accounts is coming next." },
   { q: "Can I export my data?", a: "Yes. You can import and export by CSV whenever you like. Your data is yours — there's no lock-in." },
   { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on a computer, your phone, or a tablet." },
-  { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, admins, and staff." },
+  { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, managers, and staff." },
   { q: "Is my payment secure?", a: "Billing is handled by Stripe, an industry-leading payment processor. We never see or store your card details." },
   { q: "Can my customers pay online?", a: "Yes. On accounts with invoicing, customers can pay right from their phone or a shared link — no extra setup on your end." },
   { q: "Do you offer discounts?", a: "From time to time, yes. When we're running a promotion you'll get a code to enter at checkout, and the discount applies automatically." },

@@ -1,16 +1,16 @@
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import {
-  Wrench,
   FileText,
-  ScanLine,
-  Car,
   Boxes,
   Bell,
   CreditCard,
   Users,
+  CalendarDays,
+  Smartphone,
+  Infinity,
   Check,
-  HardHat,
+  Store,
   Mail,
   Phone,
   Globe,
@@ -26,14 +26,14 @@ export const dynamic = "force-dynamic";
 const CONTACT_PHONE = "571-320-9425";
 
 const FEATURES = [
-  { icon: Wrench, text: "Repair orders, estimates & invoices" },
-  { icon: ScanLine, text: "On-the-go ticket intake — techs start tickets from their phone" },
+  { icon: FileText, text: "Estimates, invoices & payments in one place" },
   { icon: CreditCard, text: "Customers approve & pay from their phone" },
+  { icon: Users, text: "Customer records & full job history" },
+  { icon: CalendarDays, text: "Schedule and appointment calendar" },
   { icon: Boxes, text: "Inventory with QR shelf labels" },
-  { icon: Car, text: "VIN decode + recalls · find a saved vehicle by plate" },
-  { icon: Users, text: "Customer & vehicle history" },
-  { icon: Bell, text: "Service reminders to win back customers" },
-  { icon: FileText, text: "Unlimited repair orders — price never changes" },
+  { icon: Smartphone, text: "Start and update jobs from your phone" },
+  { icon: Bell, text: "Reminders that bring customers back" },
+  { icon: Infinity, text: "Unlimited invoices — price never changes" },
 ];
 
 async function resolveOrigin(): Promise<string> {
@@ -49,7 +49,7 @@ async function resolveOrigin(): Promise<string> {
 }
 
 /**
- * Printable marketing flyer / sell-sheet for selling Vultrix to other shops.
+ * Printable marketing flyer / sell-sheet for selling Vultrix to other businesses.
  * Restricted to the platform owner (SUPERADMIN). Includes a QR code to the
  * marketing landing page (homepage), where prospects can read the pitch and
  * sign up.
@@ -98,15 +98,15 @@ export default async function FlyerPage() {
               {APP_NAME}
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
-              <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic
+              <Store className="h-3.5 w-3.5" /> Built by a small-business owner
             </div>
           </div>
           <h2 className="mt-6 max-w-2xl font-display text-4xl font-extrabold leading-tight tracking-tight">
-            Run your whole shop for{" "}
+            Run your whole business for{" "}
             <span className="text-amber-400">${PRICE_USD}/month</span> — flat.
           </h2>
           <p className="mt-3 text-lg text-zinc-300">
-            Built by a shop owner, for shop owners. One simple price, every tool
+            Built by a business owner, for business owners. One simple price, every tool
             included.
           </p>
         </div>
