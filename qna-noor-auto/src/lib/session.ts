@@ -5,6 +5,22 @@ import { SESSION_COOKIE, userIdFromToken } from "./auth";
 
 export type Role = "SUPERADMIN" | "OWNER" | "ADMIN" | "STAFF";
 
+export const ROLE_LABELS: Record<Role, string> = {
+  SUPERADMIN: "Platform admin",
+  OWNER: "Owner",
+  ADMIN: "Manager",
+  STAFF: "Staff",
+};
+
+export function roleLabel(role: string): string {
+  const knownLabel = ROLE_LABELS[role as Role];
+  if (knownLabel) return knownLabel;
+  const humanized = role.trim().replace(/[_-]+/g, " ").toLowerCase();
+  return humanized
+    ? humanized.charAt(0).toUpperCase() + humanized.slice(1)
+    : "Unknown role";
+}
+
 export type CurrentUser = {
   id: string;
   username: string;

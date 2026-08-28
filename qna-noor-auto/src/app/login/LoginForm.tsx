@@ -128,7 +128,7 @@ export function LoginForm({
       )}
       {suspended && (
         <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-          This account is on hold. Please contact your administrator.
+          This account is on hold. Please contact your manager.
         </div>
       )}
       {pending && (
