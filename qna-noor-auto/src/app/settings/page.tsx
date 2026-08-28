@@ -11,6 +11,7 @@ import {
 } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import { isAiKeyEncryptionConfigured } from "@/lib/ai-key-crypto";
+import { logActivity } from "@/lib/activity";
 import { getAllSettings, setSetting } from "@/lib/shop";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -79,6 +80,29 @@ export default async function SettingsPage({
   async function save(fd: FormData) {
     "use server";
     const saveOrgId = await requireOrgId();
+    const submittedShopName = fd.get("shopName");
+    const trimmedShopName =
+      typeof submittedShopName === "string" ? submittedShopName.trim() : "";
+    if (trimmedShopName) {
+      const currentOrg = await db.organization.findUnique({
+        where: { id: saveOrgId },
+        select: { name: true },
+      });
+      if (currentOrg && currentOrg.name !== trimmedShopName) {
+        await db.organization.update({
+          where: { id: saveOrgId },
+          data: { name: trimmedShopName },
+        });
+        await logActivity({
+          orgId: saveOrgId,
+          user: await getCurrentUser(),
+          action: "settings.rename",
+          entity: "organization",
+          entityId: saveOrgId,
+          summary: `Business name changed from "${currentOrg.name}" to "${trimmedShopName}"`,
+        });
+      }
+    }
     const keys = [
       "shopName",
       "shopAddress",
@@ -89,10 +113,12 @@ export default async function SettingsPage({
     ];
     for (const k of keys) {
       const v = fd.get(k);
-      if (typeof v === "string") await setSetting(saveOrgId, k, v);
+      if (typeof v === "string") {
+        await setSetting(saveOrgId, k, k === "shopName" ? v.trim() : v);
+      }
     }
     revalidatePath("/settings");
-    revalidatePath("/");
+    revalidatePath("/", "layout");
     redirect("/settings");
   }
 
