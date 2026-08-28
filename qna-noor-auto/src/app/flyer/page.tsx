@@ -10,7 +10,6 @@ import {
   Smartphone,
   Infinity,
   Check,
-  Store,
   Mail,
   Phone,
   Globe,
@@ -102,20 +101,13 @@ export default async function FlyerPage() {
             <div className="font-display text-2xl font-extrabold tracking-tight">
               {APP_NAME}
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
-              <Store className="h-3.5 w-3.5" /> Built by a small-business owner
-            </div>
           </div>
           <h2 className="mt-6 max-w-2xl font-display text-4xl font-extrabold leading-tight tracking-tight">
-            Run your whole business from{" "}
-            <span className="text-amber-400">
-              ${PERSONAL_BASIC_PRICE_USD}/month
-            </span>{" "}
-            — flat.
+            Everything you need to run your business —{" "}
+            <span className="text-amber-400">one flat monthly price</span>.
           </h2>
           <p className="mt-3 text-lg text-zinc-300">
-            Built by a business owner, for business owners. One simple monthly
-            price, every tool included.
+            Estimates, invoices, payments, scheduling and inventory — all in one place.
           </p>
         </div>
 
@@ -151,7 +143,7 @@ export default async function FlyerPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span>Any other business</span>
+                  <span>Other businesses</span>
                   <span className="font-display text-base font-extrabold text-zinc-900">
                     ${GENERAL_PRICE_USD}/mo
                   </span>
