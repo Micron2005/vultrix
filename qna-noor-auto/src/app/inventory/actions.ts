@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { adjustInventoryStock, createInventoryPart } from "@/lib/inventory";
+import { logActivity } from "@/lib/activity";
 
 const PartSchema = z.object({
   partNumber: z.string().optional().nullable(),
@@ -74,9 +75,18 @@ function toData(fd: FormData) {
 
 export async function createPart(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const data = toData(fd);
   const { qtyOnHand, ...partData } = data;
   const part = await createInventoryPart(orgId, partData, qtyOnHand);
+  await logActivity({
+    orgId,
+    user,
+    action: "inventory.part_create",
+    entity: "Part",
+    entityId: part.id,
+    summary: `Inventory part "${part.name}" created`,
+  });
 
   revalidatePath("/inventory");
   revalidatePath("/");
@@ -100,9 +110,10 @@ export async function updatePart(id: string, fd: FormData) {
 
 export async function deletePart(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const owned = await db.part.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
   if (!owned) redirect("/inventory");
   // Null out partId on any historical PartLines (preserve historical invoices).
@@ -111,6 +122,14 @@ export async function deletePart(id: string) {
     data: { partId: null },
   });
   await db.part.delete({ where: { id } });
+  await logActivity({
+    orgId,
+    user,
+    action: "inventory.part_delete",
+    entity: "Part",
+    entityId: owned.id,
+    summary: `Inventory part "${owned.name}" deleted`,
+  });
   revalidatePath("/inventory");
   revalidatePath("/");
   redirect("/inventory");
@@ -156,6 +175,7 @@ export async function toggleArchived(id: string, archived: boolean) {
  */
 export async function adjustStock(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const deltaRaw = String(fd.get("delta") ?? "").trim();
   const reason = String(fd.get("reason") ?? "RECEIVE").trim() || "RECEIVE";
   const note = cleanStr(String(fd.get("note") ?? ""));
@@ -167,11 +187,19 @@ export async function adjustStock(id: string, fd: FormData) {
 
   const owned = await db.part.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
   if (!owned) return;
 
   await adjustInventoryStock(orgId, id, delta, reason, note);
+  await logActivity({
+    orgId,
+    user,
+    action: "inventory.stock_adjust",
+    entity: "Part",
+    entityId: id,
+    summary: `Stock adjusted by ${delta > 0 ? "+" : ""}${delta} for "${owned.name}"${note ? ` (${note})` : ""}`,
+  });
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
@@ -189,6 +217,7 @@ export async function adjustStock(id: string, fd: FormData) {
  */
 export async function scanAdjustStock(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   let deltaRaw = String(fd.get("delta") ?? "").trim();
   const setToRaw = String(fd.get("setTo") ?? "").trim();
   const reason = String(fd.get("reason") ?? "ADJUST").trim() || "ADJUST";
@@ -208,7 +237,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
 
   const owned = await db.part.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
   if (!owned) redirect("/inventory");
 
@@ -220,6 +249,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
       ? reason
       : "ADJUST";
 
+  let appliedDelta = 0;
   if (setToRaw !== "") {
     const target = parseFloat(setToRaw);
     if (!Number.isFinite(target)) return;
@@ -230,7 +260,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
     // makes the setTo flow idempotent: whichever tx commits last wins and
     // the part ends at exactly `target`. The logged StockMove delta reflects
     // what this scan saw, which is accurate audit for this specific request.
-    const appliedDelta = await db.$transaction(async (tx) => {
+    appliedDelta = await db.$transaction(async (tx) => {
       const part = await tx.part.findUnique({
         where: { id },
         select: { qtyOnHand: true },
@@ -263,10 +293,19 @@ export async function scanAdjustStock(id: string, fd: FormData) {
     await db.stockMove.create({
       data: { partId: id, delta: d, reason: safeReason, note },
     });
+    appliedDelta = d;
   } else {
     redirect(`/s/${id}`);
   }
 
+  await logActivity({
+    orgId,
+    user,
+    action: "inventory.scan_adjust",
+    entity: "Part",
+    entityId: id,
+    summary: `Quick-scan stock adjustment of ${appliedDelta > 0 ? "+" : ""}${appliedDelta} for "${owned.name}"${note ? ` (${note})` : ""}`,
+  });
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
   revalidatePath(`/s/${id}`);
@@ -291,7 +330,13 @@ export async function undoScanMove(fd: FormData) {
 
   const move = await db.stockMove.findUnique({
     where: { id: moveId },
-    select: { id: true, partId: true, delta: true, undone: true },
+    select: {
+      id: true,
+      partId: true,
+      delta: true,
+      undone: true,
+      part: { select: { orgId: true, name: true } },
+    },
   });
   if (!move || move.partId !== partId) {
     redirect(`/q/${partId}/done`);
@@ -327,6 +372,14 @@ export async function undoScanMove(fd: FormData) {
   });
 
   if (appliedInverse !== 0) {
+    await logActivity({
+      orgId: move.part.orgId,
+      user: null,
+      action: "inventory.scan_undo",
+      entity: "Part",
+      entityId: partId,
+      summary: `Quick-scan stock adjustment undone for "${move.part.name}"`,
+    });
     revalidatePath("/inventory");
     revalidatePath(`/inventory/${partId}`);
     revalidatePath(`/s/${partId}`);

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { getCurrentUser, canManageUsers, type Role } from "@/lib/session";
+import { logActivity } from "@/lib/activity";
 
 const ASSIGNABLE_ROLES: Role[] = ["OWNER", "ADMIN", "STAFF"];
 
@@ -41,7 +42,7 @@ export async function createUser(formData: FormData) {
   if (existing) back({ error: "That username is already taken." });
 
   try {
-    await db.user.create({
+    const created = await db.user.create({
       data: {
         username,
         usernameLower,
@@ -49,6 +50,14 @@ export async function createUser(formData: FormData) {
         role,
         orgId: me.orgId,
       },
+    });
+    await logActivity({
+      orgId: me.orgId!,
+      user: me,
+      action: "user.create",
+      entity: "User",
+      entityId: created.id,
+      summary: `Login ${created.username} created with ${created.role} role`,
     });
   } catch (e: unknown) {
     if (
@@ -77,6 +86,14 @@ export async function setUserActive(formData: FormData) {
   if (!target || target.orgId !== me.orgId) back({ error: "User not found." });
 
   await db.user.update({ where: { id: userId }, data: { isActive: active } });
+  await logActivity({
+    orgId: me.orgId!,
+    user: me,
+    action: active ? "user.activate" : "user.deactivate",
+    entity: "User",
+    entityId: target.id,
+    summary: `Login ${target.username} ${active ? "reactivated" : "deactivated"}`,
+  });
   revalidatePath("/settings/users");
   back({ saved: "1" });
 }
@@ -96,6 +113,14 @@ export async function resetPassword(formData: FormData) {
   await db.user.update({
     where: { id: userId },
     data: { passwordHash: hashPassword(password) },
+  });
+  await logActivity({
+    orgId: me.orgId!,
+    user: me,
+    action: "user.password_reset",
+    entity: "User",
+    entityId: target.id,
+    summary: `Password reset for login ${target.username}`,
   });
   revalidatePath("/settings/users");
   back({ saved: "1" });
@@ -119,6 +144,14 @@ export async function deleteUser(formData: FormData) {
   }
 
   await db.user.delete({ where: { id: userId } });
+  await logActivity({
+    orgId: me.orgId!,
+    user: me,
+    action: "user.delete",
+    entity: "User",
+    entityId: target.id,
+    summary: `Login ${target.username} deleted`,
+  });
   revalidatePath("/settings/users");
   back({ deleted: "1" });
 }

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { logActivity } from "@/lib/activity";
 
 const TechSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -52,8 +53,17 @@ function toData(fd: FormData) {
 
 export async function createTechnician(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const data = toData(fd);
   const created = await db.technician.create({ data: { ...data, orgId } });
+  await logActivity({
+    orgId,
+    user,
+    action: "technician.create",
+    entity: "Technician",
+    entityId: created.id,
+    summary: `Technician ${created.name} created`,
+  });
   revalidatePath("/technicians");
   revalidatePath("/repair-orders");
   redirect(`/technicians/${created.id}`);
@@ -71,9 +81,10 @@ export async function updateTechnician(id: string, fd: FormData) {
 
 export async function deleteTechnician(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const owned = await db.technician.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
   if (!owned) redirect("/technicians");
   const assignedLines = await db.laborLineTech.findMany({
@@ -106,6 +117,14 @@ export async function deleteTechnician(id: string) {
       });
     }
     await tx.technician.delete({ where: { id } });
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "technician.delete",
+    entity: "Technician",
+    entityId: owned.id,
+    summary: `Technician ${owned.name} deleted`,
   });
   revalidatePath("/technicians");
   revalidatePath("/repair-orders");

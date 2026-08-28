@@ -175,6 +175,23 @@ export default async function SettingsPage({
         </form>
       </Card>
 
+      {canManageAssistant && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Activity log" />
+          <div className="space-y-3 p-4">
+            <p className="text-sm text-zinc-600">
+              Review who created, changed, and removed records in your business.
+            </p>
+            <Link
+              href="/settings/activity"
+              className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Open activity log →
+            </Link>
+          </div>
+        </Card>
+      )}
+
       {isPersonal && canManageAssistant && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="AI assistant" />

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { computeRoTotal } from "@/lib/roTotal";
-import { parseDecimal } from "@/lib/utils";
+import { fullName, parseDecimal } from "@/lib/utils";
+import { logActivity } from "@/lib/activity";
 import {
   replaceCustomerContacts,
   type CustomerContactInput,
@@ -82,11 +83,20 @@ function parseFormData(fd: FormData) {
 
 export async function createCustomer(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const { data, contacts } = parseFormData(fd);
   const created = await db.$transaction(async (tx) => {
     const customer = await tx.customer.create({ data: { ...data, orgId } });
     await replaceCustomerContacts(tx, customer.id, orgId, contacts);
     return customer;
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "customer.create",
+    entity: "Customer",
+    entityId: created.id,
+    summary: `Customer ${fullName(created)} created`,
   });
   revalidatePath("/customers");
   revalidatePath("/");
@@ -107,7 +117,24 @@ export async function updateCustomer(id: string, fd: FormData) {
 
 export async function deleteCustomer(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id, orgId },
+    select: { id: true, firstName: true, lastName: true, companyName: true },
+  });
+  if (!customer) {
+    await db.customer.delete({ where: { id, orgId } });
+    return;
+  }
   await db.customer.delete({ where: { id, orgId } });
+  await logActivity({
+    orgId,
+    user,
+    action: "customer.delete",
+    entity: "Customer",
+    entityId: customer.id,
+    summary: `Customer ${fullName(customer)} deleted`,
+  });
   revalidatePath("/customers");
   revalidatePath("/");
   redirect("/customers");
@@ -129,12 +156,17 @@ export async function recordBulkPayment(
   }
 
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const rawMethod = String(fd.get("method") ?? "CASH").toUpperCase();
   const method = (PAYMENT_METHODS as readonly string[]).includes(rawMethod)
     ? rawMethod
     : "OTHER";
   const reference = String(fd.get("reference") ?? "").trim() || null;
   const note = String(fd.get("note") ?? "").trim() || null;
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
 
   let rawAllocations: unknown;
   try {
@@ -285,6 +317,14 @@ export async function recordBulkPayment(
   }
   const skippedMessage = skipped.length > 0 ? ` Skipped: ${skipped.join(", ")}.` : "";
   const adjustedMessage = adjusted.length > 0 ? ` Adjusted: ${adjusted.join(", ")}.` : "";
+  await logActivity({
+    orgId,
+    user,
+    action: "payment.bulk_create",
+    entity: "Customer",
+    entityId: customerId,
+    summary: `Bulk payment ${formatMoney(totalApplied)} applied to ${appliedCount} invoice${appliedCount !== 1 ? "s" : ""} for ${customer ? fullName(customer) : "customer"}`,
+  });
   return {
     ok: true,
     message: `Applied ${formatMoney(totalApplied)} across ${appliedCount} invoice${appliedCount !== 1 ? "s" : ""}. ${clearedCount} fully cleared.${skippedMessage}${adjustedMessage}`,
@@ -311,6 +351,11 @@ export async function bulkDeleteRepairOrders(
     return { ok: false, message: "No tickets selected." };
   }
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
 
   // Only delete ROs that actually belong to this customer.
   const ros = await db.repairOrder.findMany({
@@ -331,6 +376,14 @@ export async function bulkDeleteRepairOrders(
     if (r.vehicleId) revalidatePath(`/vehicles/${r.vehicleId}`);
   }
 
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.bulk_delete",
+    entity: "Customer",
+    entityId: customerId,
+    summary: `Bulk deleted ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""} for ${customer ? fullName(customer) : "customer"}`,
+  });
   return {
     ok: true,
     message: `Deleted ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""}.`,
@@ -358,6 +411,11 @@ export async function paySelectedRepairOrders(
     : "CASH";
 
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
   const ros = await db.repairOrder.findMany({
     where: { id: { in: roIds }, customerId, orgId },
     select: { id: true, status: true, invoicedAt: true },
@@ -422,6 +480,14 @@ export async function paySelectedRepairOrders(
   if (clearedCount === 0) {
     return { ok: false, message: "Selected tickets had no outstanding balance." };
   }
+  await logActivity({
+    orgId,
+    user,
+    action: "payment.bulk_selected",
+    entity: "Customer",
+    entityId: customerId,
+    summary: `Paid ${formatMoney(totalApplied)} across ${clearedCount} selected ticket${clearedCount !== 1 ? "s" : ""} for ${customer ? fullName(customer) : "customer"}`,
+  });
   return {
     ok: true,
     message: `Paid ${formatMoney(totalApplied)} across ${clearedCount} ticket${clearedCount !== 1 ? "s" : ""}.`,
@@ -442,6 +508,11 @@ export async function clearSelectedRepairOrders(
   }
 
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
   const ros = await db.repairOrder.findMany({
     where: {
       id: { in: roIds },
@@ -472,6 +543,14 @@ export async function clearSelectedRepairOrders(
     revalidatePath(`/repair-orders/${id}`);
   }
 
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.bulk_clear",
+    entity: "Customer",
+    entityId: customerId,
+    summary: `Cleared ${validIds.length} selected ticket${validIds.length !== 1 ? "s" : ""} for ${customer ? fullName(customer) : "customer"}`,
+  });
   return {
     ok: true,
     message: `Cleared ${validIds.length} ticket${validIds.length !== 1 ? "s" : ""}.`,
@@ -493,6 +572,11 @@ export async function removeBulkSelectionPayments(
   }
 
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
   const ros = await db.repairOrder.findMany({
     where: { id: { in: roIds }, customerId, orgId, status: "PAID" },
     select: { id: true },
@@ -534,6 +618,14 @@ export async function removeBulkSelectionPayments(
     revalidatePath(`/repair-orders/${id}`);
   }
 
+  await logActivity({
+    orgId,
+    user,
+    action: "payment.bulk_remove",
+    entity: "Customer",
+    entityId: customerId,
+    summary: `Removed ${formatMoney(removedTotal)} in duplicate payments from ${affectedIds.length} ticket${affectedIds.length !== 1 ? "s" : ""} for ${customer ? fullName(customer) : "customer"}`,
+  });
   return {
     ok: true,
     message: `Removed ${formatMoney(removedTotal)} in duplicate payment${dupPayments.length !== 1 ? "s" : ""} from ${affectedIds.length} ticket${affectedIds.length !== 1 ? "s" : ""} (still marked paid).`,
