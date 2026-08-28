@@ -831,8 +831,25 @@ model Organization {
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
   categories       Category[]
+  activityLogs     ActivityLog[]
 
   @@index([status])
+}
+
+model ActivityLog {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId       String?
+  username     String
+  action       String
+  entity       String
+  entityId     String?
+  summary      String
+  createdAt    DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, action])
 }
 
 model CalendarEvent {

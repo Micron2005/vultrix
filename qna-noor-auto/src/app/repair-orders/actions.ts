@@ -6,9 +6,10 @@ import { z } from "zod";
 import { db, dbBase } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
-import { parseDecimal, parseMileage } from "@/lib/utils";
+import { formatMoney, fullName, parseDecimal, parseMileage, vehicleLabel } from "@/lib/utils";
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 import { computeRoTotal } from "@/lib/roTotal";
+import { logActivity } from "@/lib/activity";
 import type { RoBulkSavePayload } from "./roBulkSave";
 
 const RO_STATUSES = [
@@ -84,6 +85,18 @@ export async function createRepairOrder(fd: FormData) {
     });
   }
 
+  const customer = await db.customer.findFirst({
+    where: { id: parsed.customerId, orgId },
+    select: { firstName: true, lastName: true, companyName: true },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.create",
+    entity: "RepairOrder",
+    entityId: created.id,
+    summary: `RO #${created.roNumber} created for ${customer ? fullName(customer) : "customer"}`,
+  });
   revalidatePath("/repair-orders");
   revalidatePath("/");
   revalidatePath(`/customers/${parsed.customerId}`);
@@ -280,10 +293,15 @@ export async function saveRepairOrderAll(id: string, payload: RoBulkSavePayload)
 
 export async function setRepairOrderStatus(id: string, status: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   if (!(RO_STATUSES as readonly string[]).includes(status)) return;
   const owned = await db.repairOrder.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: {
+      id: true,
+      roNumber: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!owned) return;
   const data: Record<string, unknown> = { status };
@@ -303,6 +321,14 @@ export async function setRepairOrderStatus(id: string, status: string) {
   if (status === "COMPLETED" || status === "PAID") {
     await autoLogServicesForRO(id);
   }
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.status_change",
+    entity: "RepairOrder",
+    entityId: id,
+    summary: `RO #${owned.roNumber} changed to ${status} (${fullName(owned.customer)})`,
+  });
   revalidatePath(`/repair-orders/${id}`);
   revalidatePath("/repair-orders");
   revalidatePath("/");
@@ -319,13 +345,28 @@ export async function transitionRepairOrder(id: string, target: string) {
 
 export async function deleteRepairOrder(id: string) {
   const orgId = await requireOrgId();
-  const ro = await db.repairOrder.findFirst({ where: { id, orgId } });
+  const user = await requireUser();
+  const ro = await db.repairOrder.findFirst({
+    where: { id, orgId },
+    include: {
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+      vehicle: { select: { year: true, make: true, model: true, trim: true } },
+    },
+  });
   if (!ro) return;
   // Soft delete: move the ticket to Trash (recoverable) instead of destroying
   // it and its invoice / line items. Restore from /repair-orders/trash.
   await db.repairOrder.update({
     where: { id },
     data: { deletedAt: new Date() },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.delete",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `RO #${ro.roNumber} deleted (${vehicleLabel(ro.vehicle)} — ${fullName(ro.customer)})`,
   });
   revalidatePath("/repair-orders");
   revalidatePath("/repair-orders/trash");
@@ -340,13 +381,26 @@ export async function deleteRepairOrder(id: string) {
 /** Restore a soft-deleted repair order from Trash. */
 export async function restoreRepairOrder(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ro = await dbBase.repairOrder.findFirst({
     where: { id, orgId, deletedAt: { not: null } },
+    include: {
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+      vehicle: { select: { year: true, make: true, model: true, trim: true } },
+    },
   });
   if (!ro) redirect("/repair-orders/trash?error=not_found");
   await dbBase.repairOrder.update({
     where: { id },
     data: { deletedAt: null },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.restore",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `RO #${ro.roNumber} restored (${vehicleLabel(ro.vehicle)} — ${fullName(ro.customer)})`,
   });
   revalidatePath("/repair-orders");
   revalidatePath("/repair-orders/trash");
@@ -359,15 +413,28 @@ export async function restoreRepairOrder(id: string) {
 /** Permanently delete a ticket from Trash (irreversible). Requires "DELETE". */
 export async function purgeRepairOrder(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const confirm = String(fd.get("confirm") ?? "").trim();
   if (confirm !== "DELETE") {
     redirect("/repair-orders/trash?error=confirm_required");
   }
   const ro = await dbBase.repairOrder.findFirst({
     where: { id, orgId, deletedAt: { not: null } },
+    include: {
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+      vehicle: { select: { year: true, make: true, model: true, trim: true } },
+    },
   });
   if (!ro) redirect("/repair-orders/trash?error=not_found");
   await dbBase.repairOrder.delete({ where: { id } });
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.purge",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `RO #${ro.roNumber} permanently deleted (${vehicleLabel(ro.vehicle)} — ${fullName(ro.customer)})`,
+  });
   revalidatePath("/repair-orders/trash");
   redirect("/repair-orders/trash?purged=1");
 }
@@ -847,9 +914,14 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export async function recordPayment(repairOrderId: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ownedRO = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
-    select: { id: true },
+    select: {
+      id: true,
+      roNumber: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!ownedRO) return;
   const amount = parseDecimal(String(fd.get("amount") ?? "0"));
@@ -866,7 +938,7 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
   const rawPaidAt = String(fd.get("paidAt") ?? "").trim();
   const paidAt = rawPaidAt ? new Date(rawPaidAt) : new Date();
 
-  await db.payment.create({
+  const payment = await db.payment.create({
     data: {
       orgId,
       repairOrderId,
@@ -907,6 +979,14 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
     }
   }
 
+  await logActivity({
+    orgId,
+    user,
+    action: "payment.create",
+    entity: "Payment",
+    entityId: payment.id,
+    summary: `Payment of ${formatMoney(payment.amount)} recorded for RO #${ownedRO.roNumber} (${fullName(ownedRO.customer)})`,
+  });
   revalidatePath(`/repair-orders/${repairOrderId}`);
   revalidatePath("/repair-orders");
   revalidatePath("/");
@@ -914,11 +994,20 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
 
 export async function deletePayment(id: string, repairOrderId: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ownedRO = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
-    select: { id: true },
+    select: {
+      id: true,
+      roNumber: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!ownedRO) return;
+  const payment = await db.payment.findFirst({
+    where: { id, repairOrderId },
+    select: { id: true, amount: true },
+  });
   await db.payment.deleteMany({ where: { id, repairOrderId } });
 
   // If deleting the payment drops us back below the total, reopen from PAID
@@ -941,6 +1030,16 @@ export async function deletePayment(id: string, repairOrderId: string) {
     }
   }
 
+  if (payment) {
+    await logActivity({
+      orgId,
+      user,
+      action: "payment.delete",
+      entity: "Payment",
+      entityId: payment.id,
+      summary: `Payment of ${formatMoney(payment.amount)} deleted from RO #${ownedRO.roNumber} (${fullName(ownedRO.customer)})`,
+    });
+  }
   revalidatePath(`/repair-orders/${repairOrderId}`);
   revalidatePath("/repair-orders");
   revalidatePath("/");
@@ -953,9 +1052,17 @@ export async function deletePayment(id: string, repairOrderId: string) {
  */
 export async function undoPaid(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
-    select: { id: true, status: true, customerId: true, clearedAt: true },
+    select: {
+      id: true,
+      status: true,
+      roNumber: true,
+      customerId: true,
+      clearedAt: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!ro || ro.status !== "PAID") return;
   // A cleared ticket is final — it can't be unpaid.
@@ -974,6 +1081,14 @@ export async function undoPaid(id: string) {
     });
   });
 
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.undo_paid",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `RO #${ro.roNumber} marked unpaid again (${fullName(ro.customer)})`,
+  });
   revalidatePath(`/repair-orders/${id}`);
   revalidatePath("/repair-orders");
   revalidatePath(`/customers/${ro.customerId}`);
@@ -987,9 +1102,16 @@ export async function undoPaid(id: string) {
  */
 export async function clearRepairOrder(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
-    select: { id: true, status: true, customerId: true },
+    select: {
+      id: true,
+      status: true,
+      roNumber: true,
+      customerId: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!ro || ro.status !== "PAID") return;
 
@@ -998,6 +1120,14 @@ export async function clearRepairOrder(id: string) {
     data: { clearedAt: new Date() },
   });
 
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.clear",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `RO #${ro.roNumber} cleared (${fullName(ro.customer)})`,
+  });
   revalidatePath(`/repair-orders/${id}`);
   revalidatePath("/repair-orders");
   revalidatePath(`/customers/${ro.customerId}`);
@@ -1012,9 +1142,16 @@ export async function clearRepairOrder(id: string) {
  */
 export async function revertInvoiceToRepairOrder(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
-    select: { id: true, status: true, customerId: true },
+    select: {
+      id: true,
+      status: true,
+      roNumber: true,
+      customerId: true,
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
   });
   if (!ro || ro.status !== "INVOICED") return;
 
@@ -1027,6 +1164,14 @@ export async function revertInvoiceToRepairOrder(id: string) {
     },
   });
 
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.revert_invoice",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary: `Invoice for RO #${ro.roNumber} reverted to repair order (${fullName(ro.customer)})`,
+  });
   revalidatePath(`/repair-orders/${id}`);
   revalidatePath("/repair-orders");
   revalidatePath(`/customers/${ro.customerId}`);

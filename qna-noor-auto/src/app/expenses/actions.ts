@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { createExpenseForOrg } from "@/lib/expenses";
+import { logActivity } from "@/lib/activity";
+import { formatMoney } from "@/lib/utils";
 
 function parseMoney(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? ""));
@@ -31,6 +33,7 @@ function parseCategory(v: FormDataEntryValue | null): string {
 
 export async function createExpense(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -41,7 +44,7 @@ export async function createExpense(fd: FormData) {
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
-  await createExpenseForOrg(orgId, {
+  const expense = await createExpenseForOrg(orgId, {
     amount,
     category,
     paidAt,
@@ -49,6 +52,14 @@ export async function createExpense(fd: FormData) {
     reference,
     method,
     note,
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "expense.create",
+    entity: "Expense",
+    entityId: expense.id,
+    summary: `Expense ${formatMoney(amount)} recorded for ${vendor || category}`,
   });
 
   revalidatePath("/expenses");
@@ -58,6 +69,7 @@ export async function createExpense(fd: FormData) {
 
 export async function updateExpense(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -68,10 +80,24 @@ export async function updateExpense(id: string, fd: FormData) {
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
+  const existing = await db.expense.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
   await db.expense.updateMany({
     where: { id, orgId },
     data: { amount, category, paidAt, vendor, reference, method, note },
   });
+  if (existing) {
+    await logActivity({
+      orgId,
+      user,
+      action: "expense.update",
+      entity: "Expense",
+      entityId: existing.id,
+      summary: `Expense ${formatMoney(amount)} updated for ${vendor || category}`,
+    });
+  }
 
   revalidatePath("/expenses");
   revalidatePath("/reports");
@@ -80,7 +106,22 @@ export async function updateExpense(id: string, fd: FormData) {
 
 export async function deleteExpense(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  const existing = await db.expense.findFirst({
+    where: { id, orgId },
+    select: { id: true, amount: true, category: true, vendor: true },
+  });
   await db.expense.deleteMany({ where: { id, orgId } });
+  if (existing) {
+    await logActivity({
+      orgId,
+      user,
+      action: "expense.delete",
+      entity: "Expense",
+      entityId: existing.id,
+      summary: `Expense ${formatMoney(existing.amount)} deleted (${existing.vendor || existing.category})`,
+    });
+  }
   revalidatePath("/expenses");
   revalidatePath("/reports");
   redirect("/expenses");

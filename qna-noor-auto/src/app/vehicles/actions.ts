@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
-import { parseMileage } from "@/lib/utils";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { fullName, parseMileage } from "@/lib/utils";
 import { decodeVin, type VinDecodeResult } from "@/lib/vin";
+import { logActivity } from "@/lib/activity";
 
 const VehicleSchema = z.object({
   customerId: z.string().min(1),
@@ -52,15 +53,39 @@ function prepare(fd: FormData) {
   };
 }
 
+function vehicleDescription(vehicle: {
+  year?: number | null;
+  make?: string | null;
+  model?: string | null;
+  licensePlate?: string | null;
+  unitNumber?: string | null;
+}) {
+  return (
+    [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") ||
+    vehicle.licensePlate ||
+    vehicle.unitNumber ||
+    "vehicle"
+  );
+}
+
 export async function createVehicle(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const data = prepare(fd);
   const customer = await db.customer.findFirst({
     where: { id: data.customerId, orgId },
-    select: { id: true },
+    select: { id: true, firstName: true, lastName: true, companyName: true },
   });
   if (!customer) throw new Error("Customer not found");
   const created = await db.vehicle.create({ data: { ...data, orgId } });
+  await logActivity({
+    orgId,
+    user,
+    action: "vehicle.create",
+    entity: "Vehicle",
+    entityId: created.id,
+    summary: `Vehicle ${vehicleDescription(created)} created for ${fullName(customer)}`,
+  });
   revalidatePath(`/customers/${data.customerId}`);
   revalidatePath("/vehicles");
   revalidatePath("/");
@@ -83,9 +108,23 @@ export async function updateVehicle(id: string, fd: FormData) {
 
 export async function deleteVehicle(id: string) {
   const orgId = await requireOrgId();
-  const v = await db.vehicle.findFirst({ where: { id, orgId } });
+  const user = await requireUser();
+  const v = await db.vehicle.findFirst({
+    where: { id, orgId },
+    include: {
+      customer: { select: { firstName: true, lastName: true, companyName: true } },
+    },
+  });
   if (!v) return;
   await db.vehicle.delete({ where: { id, orgId } });
+  await logActivity({
+    orgId,
+    user,
+    action: "vehicle.delete",
+    entity: "Vehicle",
+    entityId: v.id,
+    summary: `Vehicle ${vehicleDescription(v)} deleted for ${fullName(v.customer)}`,
+  });
   revalidatePath(`/customers/${v.customerId}`);
   revalidatePath("/vehicles");
   redirect(`/customers/${v.customerId}`);
