@@ -114,8 +114,8 @@ export default async function FlyerPage() {
             — flat.
           </h2>
           <p className="mt-3 text-lg text-zinc-300">
-            Built by a business owner, for business owners. One simple price, every tool
-            included.
+            Built by a business owner, for business owners. One simple monthly
+            price, every tool included.
           </p>
         </div>
 
