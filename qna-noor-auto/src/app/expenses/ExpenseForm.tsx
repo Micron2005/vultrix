@@ -1,5 +1,6 @@
 import { Field, Input, Select, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
+import { RepeatFields } from "./RepeatFields";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_METHODS,
@@ -28,6 +29,10 @@ export function ExpenseForm({
     reference?: string | null;
     method?: string | null;
     note?: string | null;
+    interval?: string;
+    startDate?: Date | null;
+    endDate?: Date | null;
+    autoPost?: boolean;
   };
 }) {
   const isAutoShop = accountType === "AUTO_SHOP";
@@ -106,6 +111,12 @@ export function ExpenseForm({
           placeholder="Anything worth remembering about this expense"
         />
       </Field>
+      <RepeatFields
+        initialInterval={initial?.interval}
+        initialStartDate={initial?.startDate ?? initial?.paidAt}
+        initialEndDate={initial?.endDate}
+        initialAutoPost={initial?.autoPost}
+      />
       <div className="flex gap-2 pt-2 border-t border-zinc-200">
         <SaveButton>Save expense</SaveButton>
       </div>

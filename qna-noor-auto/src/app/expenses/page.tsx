@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import {
   Card,
+  CardHeader,
   EmptyState,
   LinkButton,
   PageHeader,
@@ -10,8 +11,22 @@ import {
 import { formatDate, formatMoney } from "@/lib/utils";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
-import { prettyCategory, prettyFrequency, prettyMethod } from "./categories";
+import {
+  prettyCategory,
+  prettyFrequency,
+  prettyInterval,
+  prettyMethod,
+  repeatDescription,
+} from "./categories";
 import { enabledFeatureSet } from "@/lib/features";
+import {
+  deleteRecurring,
+  postAllConfirmed,
+  postConfirmed,
+  skipConfirmed,
+  toggleRecurring,
+} from "./recurring-actions";
+import { postDueForOrg } from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +44,7 @@ export default async function ExpensesListPage({
   const from = sp.from ? new Date(sp.from) : null;
   const to = sp.to ? new Date(sp.to) : null;
   const category = sp.category?.trim() || null;
+  const recurringResult = await postDueForOrg(orgId, { includeConfirm: true });
 
   const where: {
     orgId: string;
@@ -60,8 +76,13 @@ export default async function ExpensesListPage({
     invoicedROs,
     incomeEntries,
     mtdIncome,
+    recurringEntries,
   ] = await Promise.all([
-    db.expense.findMany({ where, orderBy: { paidAt: "desc" } }),
+    db.expense.findMany({
+      where,
+      orderBy: { paidAt: "desc" },
+      include: { recurring: true },
+    }),
     showIncome
       ? Promise.resolve([])
       : db.payment.findMany({
@@ -87,6 +108,7 @@ export default async function ExpensesListPage({
       ? db.income.findMany({
           where: { orgId },
           orderBy: { receivedAt: "desc" },
+          include: { recurring: true },
         })
       : Promise.resolve([]),
     showIncome
@@ -95,6 +117,10 @@ export default async function ExpensesListPage({
           select: { amount: true },
         })
       : Promise.resolve([]),
+    db.recurringEntry.findMany({
+      where: { orgId },
+      orderBy: [{ active: "desc" }, { nextRunAt: "asc" }],
+    }),
   ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
@@ -125,6 +151,7 @@ export default async function ExpensesListPage({
     arTotal += Math.max(0, grand - paid);
   }
   const arCount = invoicedROs.length;
+  const dueConfirm = recurringResult.dueConfirm;
 
   return (
     <>
@@ -165,6 +192,160 @@ export default async function ExpensesListPage({
           sub={showIncome ? "Money in − expenses" : "Revenue − expenses"}
         />
       </div>
+
+      {dueConfirm.length > 0 && (
+        <Card className="mb-4 border-amber-200">
+          <CardHeader title="Due now">
+            <form action={postAllConfirmed}>
+              <button
+                type="submit"
+                className="text-sm font-medium text-amber-800 hover:underline"
+              >
+                Post all
+              </button>
+            </form>
+          </CardHeader>
+          <div className="divide-y divide-zinc-200">
+            {dueConfirm.map((due) => (
+              <div
+                key={`${due.recurringId}-${due.occurrence.toISOString()}`}
+                className="flex flex-col gap-3 p-4 md:flex-row md:items-end"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-zinc-900">
+                    {due.kind === "INCOME"
+                      ? `Income from ${due.source || "income"}`
+                      : `Expense for ${due.vendor || due.category || "other"}`}
+                  </div>
+                  <div className="text-sm text-zinc-500">
+                    {formatDate(due.occurrence)} · {prettyInterval(due.interval)}
+                  </div>
+                </div>
+                <form action={postConfirmed} className="flex items-end gap-2">
+                  <input type="hidden" name="recurringId" value={due.recurringId} />
+                  <input type="hidden" name="occurrence" value={due.occurrence.toISOString()} />
+                  <label className="text-xs text-zinc-600">
+                    Amount
+                    <input
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      defaultValue={due.amount}
+                      className="mt-1 block w-28 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="h-9 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white"
+                  >
+                    Post
+                  </button>
+                </form>
+                <form action={skipConfirmed}>
+                  <input type="hidden" name="recurringId" value={due.recurringId} />
+                  <input type="hidden" name="occurrence" value={due.occurrence.toISOString()} />
+                  <button
+                    type="submit"
+                    className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700"
+                  >
+                    Skip
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="mb-4">
+        <CardHeader title="Repeating">
+          <div className="flex gap-2">
+            <LinkButton href="/expenses/recurring/new" size="sm">
+              + Expense
+            </LinkButton>
+            {showIncome && (
+              <LinkButton
+                href="/expenses/recurring/new?kind=INCOME"
+                size="sm"
+                variant="secondary"
+              >
+                + Income
+              </LinkButton>
+            )}
+            </div>
+        </CardHeader>
+        {recurringEntries.length === 0 ? (
+          <p className="p-4 text-sm text-zinc-500">No repeating entries yet.</p>
+        ) : (
+          <div className="divide-y divide-zinc-200">
+            {recurringEntries.map((series) => (
+              <div
+                key={series.id}
+                className="flex flex-col gap-3 p-4 md:flex-row md:items-center"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-zinc-900">
+                    {series.kind === "INCOME"
+                      ? `Income from ${series.source || "income"}`
+                      : `Expense for ${series.vendor || series.category || "other"}`}
+                  </div>
+                  <div className="text-sm text-zinc-500">
+                    {formatMoney(series.amount)} · {repeatDescription(series.interval)} · next{" "}
+                    {formatDate(series.nextRunAt)}
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${
+                    series.autoPost
+                      ? "bg-green-100 text-green-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {series.autoPost ? "Auto" : "Ask"}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-1 text-xs ${
+                    series.active
+                      ? "bg-zinc-100 text-zinc-700"
+                      : "bg-zinc-200 text-zinc-500"
+                  }`}
+                >
+                  {series.active ? "Active" : "Paused"}
+                </span>
+                <LinkButton
+                  href={`/expenses/recurring/${series.id}/edit`}
+                  size="sm"
+                  variant="secondary"
+                >
+                  Edit
+                </LinkButton>
+                <form action={toggleRecurring}>
+                  <input type="hidden" name="id" value={series.id} />
+                  <button
+                    type="submit"
+                    className="h-8 rounded-md border border-zinc-300 px-3 text-sm text-zinc-700"
+                  >
+                    {series.active ? "Pause" : "Resume"}
+                  </button>
+                </form>
+                <form action={deleteRecurring}>
+                  <input type="hidden" name="id" value={series.id} />
+                  <button
+                    type="submit"
+                    className="h-8 rounded-md border border-red-200 px-3 text-sm text-red-700"
+                  >
+                    Delete
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">
+          Deleting a repeating entry keeps all existing posted expenses and income.
+        </p>
+      </Card>
 
       {showIncome && (
         <>
@@ -207,7 +388,7 @@ export default async function ExpensesListPage({
                         {income.source}
                       </td>
                       <td className="px-4 py-2 text-zinc-500">
-                        {prettyFrequency(income.frequency)}
+                        {prettyFrequency(income.recurring?.interval ?? income.frequency)}
                       </td>
                       <td className="px-4 py-2 text-zinc-500">
                         {income.note ?? "—"}

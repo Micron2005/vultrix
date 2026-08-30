@@ -1,9 +1,6 @@
-import { Field, Input, Select, Textarea } from "@/components/ui";
+import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
-import {
-  INCOME_FREQUENCIES,
-  prettyFrequency,
-} from "./categories";
+import { RepeatFields } from "./RepeatFields";
 
 function toDateInput(d: Date | null | undefined): string {
   if (!d) return new Date().toISOString().slice(0, 10);
@@ -21,6 +18,9 @@ export function IncomeForm({
     source?: string;
     frequency?: string;
     note?: string | null;
+    startDate?: Date | null;
+    endDate?: Date | null;
+    autoPost?: boolean;
   };
 }) {
   return (
@@ -54,15 +54,6 @@ export function IncomeForm({
           />
         </Field>
       </div>
-      <Field label="Frequency">
-        <Select name="frequency" defaultValue={initial?.frequency ?? "ONE_TIME"}>
-          {INCOME_FREQUENCIES.map((frequency) => (
-            <option key={frequency} value={frequency}>
-              {prettyFrequency(frequency)}
-            </option>
-          ))}
-        </Select>
-      </Field>
       <Field label="Note">
         <Textarea
           name="note"
@@ -71,6 +62,12 @@ export function IncomeForm({
           placeholder="Anything worth remembering about this income"
         />
       </Field>
+      <RepeatFields
+        initialInterval={initial?.frequency}
+        initialStartDate={initial?.startDate ?? initial?.receivedAt}
+        initialEndDate={initial?.endDate}
+        initialAutoPost={initial?.autoPost}
+      />
       <div className="flex gap-2 pt-2 border-t border-zinc-200">
         <SaveButton>Save income</SaveButton>
       </div>

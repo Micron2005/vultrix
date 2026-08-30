@@ -7,6 +7,11 @@ import { requireOrgId, requireUser } from "@/lib/session";
 import { createExpenseForOrg } from "@/lib/expenses";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
+import {
+  nthOccurrence,
+  RECURRING_INTERVALS,
+  type RecurringInterval,
+} from "@/lib/recurring";
 
 function parseMoney(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? ""));
@@ -31,6 +36,20 @@ function parseCategory(v: FormDataEntryValue | null): string {
   return s || "MISC";
 }
 
+function parseInterval(v: FormDataEntryValue | null): string {
+  const value = String(v ?? "").trim().toUpperCase();
+  return value === "ONE_TIME" || RECURRING_INTERVALS.includes(value as RecurringInterval)
+    ? value
+    : "ONE_TIME";
+}
+
+function parseDateOnly(v: FormDataEntryValue | null, fallback: Date): Date {
+  const value = String(v ?? "").trim();
+  if (!value) return fallback;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
 export async function createExpense(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
@@ -41,8 +60,45 @@ export async function createExpense(fd: FormData) {
   const reference = cleanStr(fd.get("reference"));
   const method = cleanStr(fd.get("method"));
   const note = cleanStr(fd.get("note"));
+  const interval = parseInterval(fd.get("interval"));
+  const startDate = parseDateOnly(fd.get("startDate"), paidAt);
+  const endDateValue = cleanStr(fd.get("endDate"));
+  const endDate = endDateValue
+    ? parseDateOnly(endDateValue, startDate)
+    : null;
+  const autoPost = String(fd.get("autoPost") ?? "true") !== "false";
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
+
+  if (interval !== "ONE_TIME") {
+    const recurring = await db.recurringEntry.create({
+      data: {
+        orgId,
+        kind: "EXPENSE",
+        amount,
+        interval,
+        startDate,
+        endDate,
+        nextRunAt: startDate,
+        autoPost,
+        category,
+        vendor,
+        reference,
+        method,
+        note,
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "recurring.create",
+      entity: "RecurringEntry",
+      entityId: recurring.id,
+      summary: `Recurring expense ${formatMoney(amount)} created`,
+    });
+    revalidatePath("/expenses");
+    redirect("/expenses");
+  }
 
   const expense = await createExpenseForOrg(orgId, {
     amount,
@@ -77,13 +133,77 @@ export async function updateExpense(id: string, fd: FormData) {
   const reference = cleanStr(fd.get("reference"));
   const method = cleanStr(fd.get("method"));
   const note = cleanStr(fd.get("note"));
+  const interval = parseInterval(fd.get("interval"));
+  const startDate = parseDateOnly(fd.get("startDate"), paidAt);
+  const endDateValue = cleanStr(fd.get("endDate"));
+  const endDate = endDateValue ? parseDateOnly(endDateValue, startDate) : null;
+  const autoPost = String(fd.get("autoPost") ?? "true") !== "false";
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
   const existing = await db.expense.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, recurringId: true },
   });
+  if (interval !== "ONE_TIME") {
+    const recurring = existing?.recurringId
+      ? await db.recurringEntry.updateMany({
+          where: { id: existing.recurringId, orgId },
+          data: {
+            amount,
+            interval,
+            startDate,
+            endDate,
+            autoPost,
+            category,
+            vendor,
+            reference,
+            method,
+            note,
+          },
+        })
+      : null;
+    if (!recurring) {
+      const created = await db.recurringEntry.create({
+        data: {
+          orgId,
+          kind: "EXPENSE",
+          amount,
+          interval,
+          startDate,
+          endDate,
+          nextRunAt: nthOccurrence(startDate, interval as RecurringInterval, 1),
+          autoPost,
+          category,
+          vendor,
+          reference,
+          method,
+          note,
+        },
+      });
+      await db.expense.updateMany({
+        where: { id, orgId },
+        data: { recurringId: created.id },
+      });
+      await logActivity({
+        orgId,
+        user,
+        action: "recurring.create",
+        entity: "RecurringEntry",
+        entityId: created.id,
+        summary: `Recurring expense ${formatMoney(amount)} created`,
+      });
+    } else {
+      await logActivity({
+        orgId,
+        user,
+        action: "recurring.update",
+        entity: "RecurringEntry",
+        entityId: existing?.recurringId,
+        summary: `Recurring expense ${formatMoney(amount)} updated`,
+      });
+    }
+  }
   await db.expense.updateMany({
     where: { id, orgId },
     data: { amount, category, paidAt, vendor, reference, method, note },
@@ -96,6 +216,12 @@ export async function updateExpense(id: string, fd: FormData) {
       entity: "Expense",
       entityId: existing.id,
       summary: `Expense ${formatMoney(amount)} updated for ${vendor || category}`,
+    });
+  }
+  if (interval === "ONE_TIME" && existing?.recurringId) {
+    await db.recurringEntry.updateMany({
+      where: { id: existing.recurringId, orgId },
+      data: { active: false },
     });
   }
 

@@ -8,8 +8,13 @@ import { enabledFeatureSet } from "@/lib/features";
 import { createIncomeForOrg } from "@/lib/income";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
+import {
+  nthOccurrence,
+  RECURRING_INTERVALS,
+  type RecurringInterval,
+} from "@/lib/recurring";
 
-async function requireIncomeOrgId(): Promise<string> {
+export async function requireIncomeOrgId(): Promise<string> {
   const user = await requireUser();
   if (!user.orgId) redirect("/admin");
   const features = enabledFeatureSet(user);
@@ -44,6 +49,24 @@ function parseFrequency(v: FormDataEntryValue | null): string {
     : "ONE_TIME";
 }
 
+function parseInterval(v: FormDataEntryValue | null): string {
+  const value = String(v ?? "").trim().toUpperCase();
+  return value === "ONE_TIME" || RECURRING_INTERVALS.includes(value as RecurringInterval)
+    ? value
+    : "ONE_TIME";
+}
+
+function parseDateOnly(v: FormDataEntryValue | null, fallback: Date): Date {
+  const value = String(v ?? "").trim();
+  if (!value) return fallback;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function frequencyForInterval(interval: string): string {
+  return ["WEEKLY", "BIWEEKLY", "MONTHLY"].includes(interval) ? interval : "ONE_TIME";
+}
+
 export async function createIncome(fd: FormData) {
   const orgId = await requireIncomeOrgId();
   const user = await requireUser();
@@ -52,9 +75,41 @@ export async function createIncome(fd: FormData) {
   const source = cleanStr(fd.get("source"));
   const frequency = parseFrequency(fd.get("frequency"));
   const note = cleanStr(fd.get("note"));
+  const interval = parseInterval(fd.get("interval") ?? fd.get("frequency"));
+  const startDate = parseDateOnly(fd.get("startDate"), receivedAt);
+  const endDateValue = cleanStr(fd.get("endDate"));
+  const endDate = endDateValue ? parseDateOnly(endDateValue, startDate) : null;
+  const autoPost = String(fd.get("autoPost") ?? "true") !== "false";
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
   if (!source) throw new Error("Source is required");
+
+  if (interval !== "ONE_TIME") {
+    const recurring = await db.recurringEntry.create({
+      data: {
+        orgId,
+        kind: "INCOME",
+        amount,
+        interval,
+        startDate,
+        endDate,
+        nextRunAt: startDate,
+        autoPost,
+        source,
+        note,
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "recurring.create",
+      entity: "RecurringEntry",
+      entityId: recurring.id,
+      summary: `Recurring income ${formatMoney(amount)} created`,
+    });
+    revalidatePath("/expenses");
+    redirect("/expenses");
+  }
 
   const income = await createIncomeForOrg(orgId, {
     amount,
@@ -85,17 +140,73 @@ export async function updateIncome(id: string, fd: FormData) {
   const source = cleanStr(fd.get("source"));
   const frequency = parseFrequency(fd.get("frequency"));
   const note = cleanStr(fd.get("note"));
+  const interval = parseInterval(fd.get("interval") ?? fd.get("frequency"));
+  const startDate = parseDateOnly(fd.get("startDate"), receivedAt);
+  const endDateValue = cleanStr(fd.get("endDate"));
+  const endDate = endDateValue ? parseDateOnly(endDateValue, startDate) : null;
+  const autoPost = String(fd.get("autoPost") ?? "true") !== "false";
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
   if (!source) throw new Error("Source is required");
 
   const existing = await db.income.findFirst({
     where: { id, orgId },
-    select: { id: true },
+    select: { id: true, recurringId: true },
   });
+  if (interval !== "ONE_TIME") {
+    const recurring = existing?.recurringId
+      ? await db.recurringEntry.updateMany({
+          where: { id: existing.recurringId, orgId },
+          data: { amount, interval, startDate, endDate, autoPost, source, note },
+        })
+      : null;
+    if (!recurring) {
+      const created = await db.recurringEntry.create({
+        data: {
+          orgId,
+          kind: "INCOME",
+          amount,
+          interval,
+          startDate,
+          endDate,
+          nextRunAt: nthOccurrence(startDate, interval as RecurringInterval, 1),
+          autoPost,
+          source,
+          note,
+        },
+      });
+      await db.income.updateMany({
+        where: { id, orgId },
+        data: { recurringId: created.id },
+      });
+      await logActivity({
+        orgId,
+        user,
+        action: "recurring.create",
+        entity: "RecurringEntry",
+        entityId: created.id,
+        summary: `Recurring income ${formatMoney(amount)} created`,
+      });
+    } else {
+      await logActivity({
+        orgId,
+        user,
+        action: "recurring.update",
+        entity: "RecurringEntry",
+        entityId: existing?.recurringId,
+        summary: `Recurring income ${formatMoney(amount)} updated`,
+      });
+    }
+  }
   await db.income.updateMany({
     where: { id, orgId },
-    data: { amount, receivedAt, source, frequency, note },
+    data: {
+      amount,
+      receivedAt,
+      source,
+      frequency: interval === "ONE_TIME" ? frequency : frequencyForInterval(interval),
+      note,
+    },
   });
   if (existing) {
     await logActivity({
@@ -105,6 +216,12 @@ export async function updateIncome(id: string, fd: FormData) {
       entity: "Income",
       entityId: existing.id,
       summary: `Income ${formatMoney(amount)} updated from ${source}`,
+    });
+  }
+  if (interval === "ONE_TIME" && existing?.recurringId) {
+    await db.recurringEntry.updateMany({
+      where: { id: existing.recurringId, orgId },
+      data: { active: false },
     });
   }
 
