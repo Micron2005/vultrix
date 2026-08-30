@@ -45,13 +45,8 @@ function dateOnlyValue(date: Date): number {
   return utcMidnight(date).getTime();
 }
 
-export function startOfTodayUTC(now = new Date()): Date {
-  const day = utcMidnight(now);
-  return day;
-}
-
 export function endOfTodayUTC(now = new Date()): Date {
-  const day = startOfTodayUTC(now);
+  const day = utcMidnight(now);
   return new Date(day.getTime() + 24 * 60 * 60 * 1000 - 1);
 }
 
@@ -108,18 +103,6 @@ function nextOccurrenceAfter(series: RecurringLike): Date {
     if (n > 100000) throw new Error("Could not advance recurring series");
   }
   return candidate;
-}
-
-export function advance<T extends RecurringLike>(series: T): T & {
-  nextRunAt: Date;
-  active: boolean;
-} {
-  const nextRunAt = nextOccurrenceAfter(series);
-  return {
-    ...series,
-    nextRunAt,
-    active: !(series.endDate && nextRunAt.getTime() > series.endDate.getTime()),
-  };
 }
 
 function dueOccurrences(
@@ -476,7 +459,11 @@ export async function postDueForOrg(
         continue;
       }
       const postedHere = await postOne(
-        { ...entry, kind: entry.kind as RecurringKind },
+        {
+          ...entry,
+          kind: entry.kind as RecurringKind,
+          nextRunAt: current,
+        },
         current,
         entry.amount,
       );

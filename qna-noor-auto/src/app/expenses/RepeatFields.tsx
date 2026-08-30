@@ -4,8 +4,12 @@ import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui";
 import { REPEAT_OPTIONS } from "./categories";
 
-function toDateInput(d: Date | null | undefined): string {
-  return d ? new Date(d).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+function toDateInput(
+  d: Date | null | undefined,
+  fallbackToday = true,
+): string {
+  if (d) return new Date(d).toISOString().slice(0, 10);
+  return fallbackToday ? new Date().toISOString().slice(0, 10) : "";
 }
 
 export function RepeatFields({
@@ -49,7 +53,7 @@ export function RepeatFields({
         <Input
           type="date"
           name="endDate"
-          defaultValue={toDateInput(initialEndDate)}
+          defaultValue={toDateInput(initialEndDate, false)}
         />
       </Field>
       <fieldset disabled={!repeating} className={!repeating ? "opacity-50" : ""}>

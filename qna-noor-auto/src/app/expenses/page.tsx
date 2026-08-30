@@ -273,7 +273,7 @@ export default async function ExpensesListPage({
                 + Income
               </LinkButton>
             )}
-            </div>
+          </div>
         </CardHeader>
         {recurringEntries.length === 0 ? (
           <p className="p-4 text-sm text-zinc-500">No repeating entries yet.</p>

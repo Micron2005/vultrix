@@ -145,64 +145,36 @@ export async function updateExpense(id: string, fd: FormData) {
     where: { id, orgId },
     select: { id: true, recurringId: true },
   });
-  if (interval !== "ONE_TIME") {
-    const recurring = existing?.recurringId
-      ? await db.recurringEntry.updateMany({
-          where: { id: existing.recurringId, orgId },
-          data: {
-            amount,
-            interval,
-            startDate,
-            endDate,
-            autoPost,
-            category,
-            vendor,
-            reference,
-            method,
-            note,
-          },
-        })
-      : null;
-    if (!recurring) {
-      const created = await db.recurringEntry.create({
-        data: {
-          orgId,
-          kind: "EXPENSE",
-          amount,
-          interval,
-          startDate,
-          endDate,
-          nextRunAt: nthOccurrence(startDate, interval as RecurringInterval, 1),
-          autoPost,
-          category,
-          vendor,
-          reference,
-          method,
-          note,
-        },
-      });
-      await db.expense.updateMany({
-        where: { id, orgId },
-        data: { recurringId: created.id },
-      });
-      await logActivity({
+  if (interval !== "ONE_TIME" && !existing?.recurringId) {
+    const created = await db.recurringEntry.create({
+      data: {
         orgId,
-        user,
-        action: "recurring.create",
-        entity: "RecurringEntry",
-        entityId: created.id,
-        summary: `Recurring expense ${formatMoney(amount)} created`,
-      });
-    } else {
-      await logActivity({
-        orgId,
-        user,
-        action: "recurring.update",
-        entity: "RecurringEntry",
-        entityId: existing?.recurringId,
-        summary: `Recurring expense ${formatMoney(amount)} updated`,
-      });
-    }
+        kind: "EXPENSE",
+        amount,
+        interval,
+        startDate,
+        endDate,
+        nextRunAt: nthOccurrence(startDate, interval as RecurringInterval, 1),
+        autoPost,
+        category,
+        vendor,
+        reference,
+        method,
+        note,
+      },
+    });
+    await db.expense.updateMany({
+      where: { id, orgId },
+      data: { recurringId: created.id },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "recurring.create",
+      entity: "RecurringEntry",
+      entityId: created.id,
+      summary: `Recurring expense ${formatMoney(amount)} created`,
+    });
   }
   await db.expense.updateMany({
     where: { id, orgId },
@@ -218,13 +190,6 @@ export async function updateExpense(id: string, fd: FormData) {
       summary: `Expense ${formatMoney(amount)} updated for ${vendor || category}`,
     });
   }
-  if (interval === "ONE_TIME" && existing?.recurringId) {
-    await db.recurringEntry.updateMany({
-      where: { id: existing.recurringId, orgId },
-      data: { active: false },
-    });
-  }
-
   revalidatePath("/expenses");
   revalidatePath("/reports");
   redirect("/expenses");

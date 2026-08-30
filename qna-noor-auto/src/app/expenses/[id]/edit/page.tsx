@@ -51,6 +51,7 @@ export default async function EditExpensePage({
             startDate: exp.recurring?.startDate ?? exp.paidAt,
             endDate: exp.recurring?.endDate,
             autoPost: exp.recurring?.autoPost,
+            recurringId: exp.recurringId,
           }}
           accountType={user?.accountType}
         />

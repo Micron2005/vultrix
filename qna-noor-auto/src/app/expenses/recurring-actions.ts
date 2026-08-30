@@ -11,6 +11,7 @@ import {
   postConfirmedOccurrence,
   skipConfirmedOccurrence,
   getDueConfirmOccurrences,
+  nthOccurrence,
   RECURRING_INTERVALS,
   type RecurringInterval,
 } from "@/lib/recurring";
@@ -29,6 +30,36 @@ function dateOnly(value: string | null, fallback = new Date()): Date {
   if (!value) return fallback;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? fallback : date;
+}
+
+function utcMidnight(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+function nextRunAfterScheduleChange(
+  startDate: Date,
+  interval: RecurringInterval,
+  lastPostedAt: Date | null,
+  createdAt: Date,
+): Date {
+  const today = utcMidnight(new Date());
+  const minimumDate = Math.max(
+    today.getTime(),
+    lastPostedAt ? utcMidnight(lastPostedAt).getTime() + 1 : 0,
+    utcMidnight(createdAt).getTime(),
+  );
+  let occurrenceNumber = 0;
+  let occurrence = nthOccurrence(startDate, interval, occurrenceNumber);
+  while (occurrence.getTime() < minimumDate) {
+    occurrenceNumber += 1;
+    occurrence = nthOccurrence(startDate, interval, occurrenceNumber);
+    if (occurrenceNumber > 100000) {
+      throw new Error("Could not find next recurring occurrence");
+    }
+  }
+  return occurrence;
 }
 
 function interval(fd: FormData): RecurringInterval {
@@ -50,7 +81,6 @@ function recurringData(fd: FormData) {
     interval: interval(fd),
     startDate,
     endDate: hasEndDate ? endDate : null,
-    nextRunAt: startDate,
     autoPost: text(fd, "autoPost") !== "false",
     category: text(fd, "category"),
     vendor: text(fd, "vendor"),
@@ -74,7 +104,9 @@ export async function createRecurring(fd: FormData) {
   if (data.kind === "INCOME" && !data.source) throw new Error("Source is required");
   if (data.kind === "EXPENSE" && !data.category) data.category = "MISC";
 
-  const series = await db.recurringEntry.create({ data: { ...data, orgId } });
+  const series = await db.recurringEntry.create({
+    data: { ...data, orgId, nextRunAt: data.startDate },
+  });
   await logActivity({
     orgId,
     user: null,
@@ -97,7 +129,25 @@ export async function updateRecurring(id: string, fd: FormData) {
   if (data.kind !== existing.kind) data.kind = existing.kind;
   if (data.kind === "INCOME" && !data.source) throw new Error("Source is required");
   if (data.kind === "EXPENSE" && !data.category) data.category = "MISC";
-  await db.recurringEntry.updateMany({ where: { id, orgId }, data });
+  const scheduleChanged =
+    existing.interval !== data.interval ||
+    existing.startDate.getTime() !== data.startDate.getTime();
+  await db.recurringEntry.updateMany({
+    where: { id, orgId },
+    data: {
+      ...data,
+      ...(scheduleChanged
+        ? {
+            nextRunAt: nextRunAfterScheduleChange(
+              data.startDate,
+              data.interval,
+              existing.lastPostedAt,
+              existing.createdAt,
+            ),
+          }
+        : {}),
+    },
+  });
   await logActivity({
     orgId,
     user: null,

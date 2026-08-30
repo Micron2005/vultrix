@@ -21,6 +21,7 @@ export function IncomeForm({
     startDate?: Date | null;
     endDate?: Date | null;
     autoPost?: boolean;
+    recurringId?: string | null;
   };
 }) {
   return (
@@ -62,12 +63,25 @@ export function IncomeForm({
           placeholder="Anything worth remembering about this income"
         />
       </Field>
-      <RepeatFields
-        initialInterval={initial?.frequency}
-        initialStartDate={initial?.startDate ?? initial?.receivedAt}
-        initialEndDate={initial?.endDate}
-        initialAutoPost={initial?.autoPost}
-      />
+      {initial?.recurringId ? (
+        <p className="border-t border-zinc-200 pt-4 text-sm text-zinc-600">
+          This income is part of a repeating entry.{" "}
+          <a
+            href={`/expenses/recurring/${initial.recurringId}/edit`}
+            className="font-medium text-zinc-900 underline"
+          >
+            Edit the repeating entry
+          </a>
+          .
+        </p>
+      ) : (
+        <RepeatFields
+          initialInterval={initial?.frequency}
+          initialStartDate={initial?.startDate ?? initial?.receivedAt}
+          initialEndDate={initial?.endDate}
+          initialAutoPost={initial?.autoPost}
+        />
+      )}
       <div className="flex gap-2 pt-2 border-t border-zinc-200">
         <SaveButton>Save income</SaveButton>
       </div>

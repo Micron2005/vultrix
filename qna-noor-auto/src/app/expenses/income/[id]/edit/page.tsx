@@ -53,6 +53,7 @@ export default async function EditIncomePage({
             startDate: income.recurring?.startDate ?? income.receivedAt,
             endDate: income.recurring?.endDate,
             autoPost: income.recurring?.autoPost,
+            recurringId: income.recurringId,
           }}
         />
       </Card>

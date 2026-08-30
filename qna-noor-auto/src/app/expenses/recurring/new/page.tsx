@@ -11,7 +11,8 @@ export default async function NewRecurringPage({
   searchParams: Promise<{ kind?: string }>;
 }) {
   const user = await requireUser();
-  const kind = searchParams ? (await searchParams).kind === "INCOME" ? "INCOME" : "EXPENSE" : "EXPENSE";
+  const requestedKind = (await searchParams).kind;
+  const kind = requestedKind === "INCOME" ? "INCOME" : "EXPENSE";
   if (kind === "INCOME") {
     const features = enabledFeatureSet(user);
     if (!user.orgId || !features.has("financials") || features.has("invoices")) {

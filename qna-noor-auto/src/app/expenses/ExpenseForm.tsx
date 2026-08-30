@@ -33,6 +33,7 @@ export function ExpenseForm({
     startDate?: Date | null;
     endDate?: Date | null;
     autoPost?: boolean;
+    recurringId?: string | null;
   };
 }) {
   const isAutoShop = accountType === "AUTO_SHOP";
@@ -111,12 +112,25 @@ export function ExpenseForm({
           placeholder="Anything worth remembering about this expense"
         />
       </Field>
-      <RepeatFields
-        initialInterval={initial?.interval}
-        initialStartDate={initial?.startDate ?? initial?.paidAt}
-        initialEndDate={initial?.endDate}
-        initialAutoPost={initial?.autoPost}
-      />
+      {initial?.recurringId ? (
+        <p className="border-t border-zinc-200 pt-4 text-sm text-zinc-600">
+          This expense is part of a repeating entry.{" "}
+          <a
+            href={`/expenses/recurring/${initial.recurringId}/edit`}
+            className="font-medium text-zinc-900 underline"
+          >
+            Edit the repeating entry
+          </a>
+          .
+        </p>
+      ) : (
+        <RepeatFields
+          initialInterval={initial?.interval}
+          initialStartDate={initial?.startDate ?? initial?.paidAt}
+          initialEndDate={initial?.endDate}
+          initialAutoPost={initial?.autoPost}
+        />
+      )}
       <div className="flex gap-2 pt-2 border-t border-zinc-200">
         <SaveButton>Save expense</SaveButton>
       </div>
