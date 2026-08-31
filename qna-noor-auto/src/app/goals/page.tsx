@@ -27,6 +27,7 @@ import {
   statusLabel,
 } from "@/lib/goalStatus";
 import { loadGoalDatasets, OVERVIEW_GOAL_LIMIT } from "@/lib/goalsOverview";
+import { TodayChecklist } from "@/app/routines/TodayChecklist";
 import { localCalendarDay } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { archiveGoal, createGoal, restoreGoal, toggleHabitCheckIn } from "./actions";
@@ -275,6 +276,7 @@ export default async function GoalsPage() {
           </LinkButton>
         }
       />
+      <TodayChecklist orgId={user.orgId} timezone={timezone} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Active goals" value={String(counts.total)} />

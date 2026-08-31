@@ -25,6 +25,7 @@ import {
   loadActiveGoals,
 } from "@/lib/goals";
 import { orgTimeZone } from "@/lib/orgTimezone";
+import { TodayChecklist } from "@/app/routines/TodayChecklist";
 
 export const dynamic = "force-dynamic";
 
@@ -328,6 +329,9 @@ async function Dashboard({ user }: { user: CurrentUser }) {
           ) : undefined
         }
       />
+      {user.role !== "STAFF" && (
+        <TodayChecklist orgId={orgId} timezone={timezone} />
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {hasCustomers && (

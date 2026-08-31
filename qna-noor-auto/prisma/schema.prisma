@@ -786,9 +786,70 @@ model Goal {
 
   checkIns GoalCheckIn[]
   entries GoalEntry[]
+  routines Routine[]
 
   @@index([orgId])
   @@index([archived])
+}
+
+model Routine {
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  goalId       String?
+  goal         Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  title        String
+  kind         String
+  weekdays     String?
+  day          String?
+  dueTime      String?
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items     RoutineItem[]
+  checkOffs RoutineCheckOff[]
+
+  @@index([orgId])
+  @@index([goalId])
+}
+
+model RoutineItem {
+  id        String   @id @default(cuid())
+  routineId String
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  label     String
+  target    Float?
+  unit      String?
+  dueTime   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  checkOffs RoutineCheckOff[]
+
+  @@index([routineId, position])
+  @@index([orgId])
+}
+
+model RoutineCheckOff {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      RoutineItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  routineId String
+  routine   Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  day       String
+  late      Boolean  @default(false)
+  note      String?
+  value     Float?
+  createdAt DateTime @default(now())
+
+  @@unique([itemId, day])
+  @@index([routineId, day])
+  @@index([orgId])
 }
 
 model GoalCheckIn {
@@ -1058,6 +1119,9 @@ model Organization {
   goals             Goal[]
   goalCheckIns      GoalCheckIn[]
   goalEntries       GoalEntry[]
+  routines          Routine[]
+  routineItems      RoutineItem[]
+  routineCheckOffs  RoutineCheckOff[]
 
   @@index([status])
 }
