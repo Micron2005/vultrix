@@ -17,6 +17,7 @@ import {
 } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
+import { prettyCategory } from "@/app/expenses/categories";
 import { RangeForm } from "../RangeForm";
 
 export const dynamic = "force-dynamic";
@@ -354,23 +355,36 @@ async function InvoiceProfitReport({
         show gross profit rather than net profit.
       </p>
 
-      <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        {partsCostUnknownLines} part{" "}
-        {partsCostUnknownLines === 1 ? "line has" : "lines have"} no cost
-        recorded and {laborCostUnknownLines} labor{" "}
-        {laborCostUnknownLines === 1 ? "assignment has" : "assignments have"}{" "}
-        no pay rate — those are counted as $0 cost, so profit is overstated for
-        those jobs.
-        {laborCostUnknownLines > 0 && (
-          <>
-            {" "}
-            <Link href="/technicians" className="font-medium underline">
-              Add technician pay rates
-            </Link>
-            .
-          </>
-        )}
-      </div>
+      {(partsCostUnknownLines > 0 || laborCostUnknownLines > 0) && (
+        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {partsCostUnknownLines > 0 && (
+            <>
+              {partsCostUnknownLines} part{" "}
+              {partsCostUnknownLines === 1 ? "line has" : "lines have"} no cost
+              recorded
+            </>
+          )}
+          {partsCostUnknownLines > 0 && laborCostUnknownLines > 0 && " and "}
+          {laborCostUnknownLines > 0 && (
+            <>
+              {laborCostUnknownLines} labor{" "}
+              {laborCostUnknownLines === 1 ? "assignment has" : "assignments have"}{" "}
+              no pay rate
+            </>
+          )}{" "}
+          — those are counted as $0 cost, so profit is overstated for those
+          jobs.
+          {laborCostUnknownLines > 0 && (
+            <>
+              {" "}
+              <Link href="/technicians" className="font-medium underline">
+                Add technician pay rates
+              </Link>
+              .
+            </>
+          )}
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardHeader title="By job" />
@@ -630,7 +644,7 @@ async function GeneralProfitReport({
                     key={category}
                     className="flex items-center justify-between border-b border-zinc-100 py-2"
                   >
-                    <span>{category}</span>
+                    <span>{prettyCategory(category)}</span>
                     <span className="tabular-nums">{formatMoney(amount)}</span>
                   </div>
                 ))}

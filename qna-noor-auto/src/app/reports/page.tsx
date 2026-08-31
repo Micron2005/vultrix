@@ -937,7 +937,7 @@ async function GeneralReportsPage({
         description={`Financial metrics · ${label}`}
         actions={
           <LinkButton href="/reports/profit" variant="secondary">
-            Profit by source
+            Income by source
           </LinkButton>
         }
       />
