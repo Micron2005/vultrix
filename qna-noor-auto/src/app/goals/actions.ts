@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { enabledFeatureSet } from "@/lib/features";
+import { metricAllowed } from "@/lib/goalAvailability";
 import { logActivity } from "@/lib/activity";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { requireUser } from "@/lib/session";
-import { dateInputInTimeZone, isDateInput } from "@/lib/timezone";
+import {
+  dateInputInTimeZone,
+  isDateInput,
+  localCalendarDay,
+} from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
 import { GOAL_METRICS, type GoalMetric, type GoalPeriod } from "@/lib/goals";
@@ -19,28 +24,26 @@ async function requireGoalsContext(): Promise<{
   timezone: string;
   accountType: string;
   hasInvoices: boolean;
+  features: Set<string>;
 }> {
   const user = await requireUser();
   assertCanViewFinancials(user.role);
   if (!user.orgId) redirect("/admin");
-  const features = enabledFeatureSet(user);
-  if (!features.has("financials")) {
-    redirect("/");
-  }
   const organization = await db.organization.findUnique({
     where: { id: user.orgId },
     select: { accountType: true, features: true },
   });
   const accountType = organization?.accountType ?? user.accountType ?? "AUTO_SHOP";
-  const hasInvoices = enabledFeatureSet({
+  const features = enabledFeatureSet({
     accountType,
     features: organization?.features ?? user.features ?? [],
-  }).has("invoices");
+  });
   return {
     orgId: user.orgId,
     timezone: await orgTimeZone(user.orgId),
     accountType,
-    hasInvoices,
+    hasInvoices: features.has("invoices"),
+    features,
   };
 }
 
@@ -71,13 +74,12 @@ function optionalDateFromForm(
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
-function metricAllowed(metric: GoalMetric, hasInvoices: boolean): boolean {
-  if (metric === "JOBS") return hasInvoices;
-  if (metric === "UNITS_SOLD") return !hasInvoices;
-  return true;
-}
-
-function goalInput(fd: FormData, timezone: string, hasInvoices: boolean) {
+function goalInput(
+  fd: FormData,
+  timezone: string,
+  accountType: string,
+  features: Set<string>,
+) {
   const title = text(fd, "title");
   const metric = text(fd, "metric") as GoalMetric;
   const period = text(fd, "period") as GoalPeriod;
@@ -89,10 +91,19 @@ function goalInput(fd: FormData, timezone: string, hasInvoices: boolean) {
   const manualProgress = manualProgressValue
     ? parseDecimal(manualProgressValue)
     : null;
+  const requestedDirection = text(fd, "direction");
+  const direction =
+    metric === "SPENDING"
+      ? "AT_MOST"
+      : ["LOGGED_TOTAL", "LOGGED_LATEST"].includes(metric) &&
+          requestedDirection === "AT_MOST"
+        ? "AT_MOST"
+        : "AT_LEAST";
+  const unit = text(fd, "unit") || null;
 
   if (!title) throw new Error("Goal name is required.");
   if (!GOAL_METRICS.includes(metric)) throw new Error("Goal type is invalid.");
-  if (!metricAllowed(metric, hasInvoices)) {
+  if (!metricAllowed(metric, { accountType, features })) {
     throw new Error("That goal type is not available for this account.");
   }
   if (!GOAL_PERIODS.includes(period)) throw new Error("Goal period is invalid.");
@@ -115,13 +126,17 @@ function goalInput(fd: FormData, timezone: string, hasInvoices: boolean) {
     startDate,
     dueDate: period === "BY_DATE" ? dueDate : null,
     manualProgress: metric === "MANUAL" ? manualProgress : null,
+    direction,
+    unit: ["LOGGED_TOTAL", "LOGGED_LATEST", "HABIT", "MANUAL"].includes(metric)
+      ? unit
+      : null,
   };
 }
 
 export async function createGoal(fd: FormData) {
-  const { orgId, timezone, hasInvoices } = await requireGoalsContext();
+  const { orgId, timezone, accountType, features } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, hasInvoices);
+  const input = goalInput(fd, timezone, accountType, features);
   const goal = await db.goal.create({ data: { orgId, ...input } });
   await logActivity({
     orgId,
@@ -137,9 +152,9 @@ export async function createGoal(fd: FormData) {
 }
 
 export async function updateGoal(id: string, fd: FormData) {
-  const { orgId, timezone, hasInvoices } = await requireGoalsContext();
+  const { orgId, timezone, accountType, features } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, hasInvoices);
+  const input = goalInput(fd, timezone, accountType, features);
   const goal = await db.goal.updateMany({
     where: { id, orgId },
     data: input,
@@ -156,6 +171,71 @@ export async function updateGoal(id: string, fd: FormData) {
   revalidatePath("/goals");
   revalidatePath("/");
   redirect("/goals");
+}
+
+export async function toggleHabitCheckIn(fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const id = text(fd, "goalId");
+  if (!id) throw new Error("Goal not found.");
+  const day = localCalendarDay(new Date(), timezone);
+  await db.$transaction(async (tx) => {
+    const goal = await tx.goal.findFirst({
+      where: { id, orgId },
+      select: { metric: true },
+    });
+    if (!goal || goal.metric !== "HABIT") throw new Error("Habit goal not found.");
+    const existing = await tx.goalCheckIn.findUnique({
+      where: { goalId_day: { goalId: id, day } },
+    });
+    if (existing) {
+      await tx.goalCheckIn.delete({ where: { id: existing.id } });
+    } else {
+      await tx.goalCheckIn.create({ data: { goalId: id, orgId, day } });
+    }
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
+}
+
+export async function logGoalEntry(fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const goalId = text(fd, "goalId");
+  const value = parseDecimal(text(fd, "value"));
+  const day = text(fd, "day") || localCalendarDay(new Date(), timezone);
+  const note = text(fd, "note") || null;
+  if (!goalId) throw new Error("Goal not found.");
+  if (value == null) throw new Error("Value must be a valid number.");
+  if (!isDateInput(day)) throw new Error("Date is invalid.");
+  const parsedDay = dateInputInTimeZone(day, timezone, new Date(Number.NaN));
+  if (
+    Number.isNaN(parsedDay.getTime()) ||
+    localCalendarDay(parsedDay, timezone) !== day
+  ) {
+    throw new Error("Date is invalid.");
+  }
+  const goal = await db.goal.findFirst({
+    where: { id: goalId, orgId },
+    select: { metric: true },
+  });
+  if (
+    !goal ||
+    !["LOGGED_TOTAL", "LOGGED_LATEST"].includes(goal.metric)
+  ) {
+    throw new Error("Logged-number goal not found.");
+  }
+  await db.goalEntry.create({ data: { goalId, orgId, day, value, note } });
+  revalidatePath("/goals");
+  revalidatePath("/");
+}
+
+export async function deleteGoalEntry(fd: FormData) {
+  const { orgId } = await requireGoalsContext();
+  const id = text(fd, "id");
+  const goalId = text(fd, "goalId");
+  if (!id || !goalId) throw new Error("Entry not found.");
+  await db.goalEntry.deleteMany({ where: { id, goalId, orgId } });
+  revalidatePath("/goals");
+  revalidatePath("/");
 }
 
 export async function archiveGoal(fd: FormData) {

@@ -777,12 +777,46 @@ model Goal {
   startDate      DateTime
   dueDate        DateTime?
   manualProgress Float?
+  direction      String   @default("AT_LEAST")
+  unit           String?
   archived       Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  checkIns GoalCheckIn[]
+  entries GoalEntry[]
+
   @@index([orgId])
   @@index([archived])
+}
+
+model GoalCheckIn {
+  id           String       @id @default(cuid())
+  goalId       String
+  goal         Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  day          String
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  @@unique([goalId, day])
+  @@index([orgId])
+}
+
+model GoalEntry {
+  id           String       @id @default(cuid())
+  goalId       String
+  goal         Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  day          String
+  value        Float
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  @@index([goalId, day])
+  @@index([orgId])
 }
 
 model Budget {
@@ -1021,6 +1055,8 @@ model Organization {
   recurringInvoices RecurringInvoice[]
   sales             Sale[]
   goals             Goal[]
+  goalCheckIns      GoalCheckIn[]
+  goalEntries       GoalEntry[]
 
   @@index([status])
 }
