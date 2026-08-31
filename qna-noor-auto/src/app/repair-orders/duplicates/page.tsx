@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { Card, CardHeader, PageHeader, StatusBadge } from "@/components/ui";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -220,6 +221,8 @@ export default async function DuplicatesPage({
   searchParams: Promise<{ deleted?: string; error?: string }>;
 }) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  if (user.role === "STAFF") redirect("/");
   const { deleted, error } = await searchParams;
   const ros = await loadROs(orgId);
   const clusters = clusterROs(ros);

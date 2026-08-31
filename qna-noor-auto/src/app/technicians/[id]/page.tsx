@@ -9,7 +9,8 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { deleteTechnician, toggleActive } from "../actions";
 
@@ -36,6 +37,7 @@ export default async function TechnicianDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const tech = await db.technician.findFirst({
     where: { id, orgId },
     include: {
@@ -236,15 +238,15 @@ export default async function TechnicianDetailPage({
               </Button>
             </form>
           )}
-          <form action={remove}>
+          {canDelete(user.role) && <form action={remove}>
             <Button type="submit" variant="danger">
               Delete technician
             </Button>
-          </form>
-          <span className="text-xs text-zinc-500">
+          </form>}
+          {canDelete(user.role) && <span className="text-xs text-zinc-500">
             Deleting unassigns this tech from all historical labor lines but
             leaves the lines themselves intact.
-          </span>
+          </span>}
         </div>
       </Card>
     </>

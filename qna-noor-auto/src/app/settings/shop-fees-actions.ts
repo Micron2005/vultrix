@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanManageSettings } from "@/lib/permissions";
 
 function toNum(v: FormDataEntryValue | null, fallback = 0): number {
   if (v == null) return fallback;
@@ -29,6 +30,7 @@ function toBool(v: FormDataEntryValue | null): boolean {
 
 export async function createShopFee(fd: FormData) {
   const orgId = await requireOrgId();
+  assertCanManageSettings((await requireUser()).role);
   const name = String(fd.get("name") ?? "").trim();
   if (!name) redirect("/settings?error=fee_name_required#shop-fees");
   const description = String(fd.get("description") ?? "").trim() || null;
@@ -62,6 +64,7 @@ export async function createShopFee(fd: FormData) {
 
 export async function updateShopFee(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  assertCanManageSettings((await requireUser()).role);
   const name = String(fd.get("name") ?? "").trim();
   if (!name) redirect("/settings?error=fee_name_required#shop-fees");
   await db.shopFee.updateMany({
@@ -83,6 +86,7 @@ export async function updateShopFee(id: string, fd: FormData) {
 
 export async function deleteShopFee(id: string) {
   const orgId = await requireOrgId();
+  assertCanManageSettings((await requireUser()).role);
   await db.shopFee.deleteMany({ where: { id, orgId } });
   revalidatePath("/settings");
   revalidatePath("/repair-orders");

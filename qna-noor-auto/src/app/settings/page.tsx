@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
+import { assertCanManageSettings, requireSettingsAccess } from "@/lib/permissions";
 import { intakeUrl } from "@/lib/intakeTokens";
 import { enabledFeatureSet } from "@/lib/features";
 import {
@@ -53,6 +54,7 @@ export default async function SettingsPage({
   }>;
 }) {
   const orgId = await requireOrgId();
+  await requireSettingsAccess();
   const user = await getCurrentUser();
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
@@ -79,6 +81,8 @@ export default async function SettingsPage({
 
   async function save(fd: FormData) {
     "use server";
+    const saveUser = await requireSettingsAccess();
+    assertCanManageSettings(saveUser.role);
     const saveOrgId = await requireOrgId();
     const submittedShopName = fd.get("shopName");
     const trimmedShopName =

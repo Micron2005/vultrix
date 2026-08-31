@@ -10,6 +10,10 @@ import { formatMoney, fullName, parseDecimal, parseMileage, vehicleLabel } from 
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 import { computeRoTotal } from "@/lib/roTotal";
 import { logActivity } from "@/lib/activity";
+import {
+  assertCanDelete,
+  assertCanManagePayments,
+} from "@/lib/permissions";
 import type { RoBulkSavePayload } from "./roBulkSave";
 
 const RO_STATUSES = [
@@ -118,6 +122,7 @@ const UpdateROSchema = z.object({
 
 export async function updateRepairOrder(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const owned = await db.repairOrder.findFirst({
     where: { id, orgId },
     select: { id: true },
@@ -147,6 +152,7 @@ export async function updateRepairOrder(id: string, fd: FormData) {
     discount: parseDecimal(parsed.discount) ?? 0,
   };
   if (parsed.status) {
+    if (parsed.status === "PAID") assertCanManagePayments(user.role);
     data.status = parsed.status;
     const now = new Date();
     if (parsed.status === "IN_PROGRESS") data.startedAt = now;
@@ -295,6 +301,7 @@ export async function setRepairOrderStatus(id: string, status: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
   if (!(RO_STATUSES as readonly string[]).includes(status)) return;
+  if (status === "PAID") assertCanManagePayments(user.role);
   const owned = await db.repairOrder.findFirst({
     where: { id, orgId },
     select: {
@@ -346,6 +353,7 @@ export async function transitionRepairOrder(id: string, target: string) {
 export async function deleteRepairOrder(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     include: {
@@ -382,6 +390,7 @@ export async function deleteRepairOrder(id: string) {
 export async function restoreRepairOrder(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const ro = await dbBase.repairOrder.findFirst({
     where: { id, orgId, deletedAt: { not: null } },
     include: {
@@ -414,6 +423,7 @@ export async function restoreRepairOrder(id: string) {
 export async function purgeRepairOrder(id: string, fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const confirm = String(fd.get("confirm") ?? "").trim();
   if (confirm !== "DELETE") {
     redirect("/repair-orders/trash?error=confirm_required");
@@ -915,6 +925,7 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export async function recordPayment(repairOrderId: string, fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanManagePayments(user.role);
   const ownedRO = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
     select: {
@@ -995,6 +1006,7 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
 export async function deletePayment(id: string, repairOrderId: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanManagePayments(user.role);
   const ownedRO = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
     select: {
@@ -1053,6 +1065,7 @@ export async function deletePayment(id: string, repairOrderId: string) {
 export async function undoPaid(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanManagePayments(user.role);
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     select: {
@@ -1103,6 +1116,7 @@ export async function undoPaid(id: string) {
 export async function clearRepairOrder(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanManagePayments(user.role);
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     select: {

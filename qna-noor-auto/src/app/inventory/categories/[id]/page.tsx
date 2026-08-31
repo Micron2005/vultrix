@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import {
   Card,
   CardHeader,
@@ -26,6 +27,7 @@ export default async function CategoryDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const category = await db.category.findFirst({
     where: { id, orgId },
   });
@@ -150,7 +152,7 @@ export default async function CategoryDetailPage({
       <Card className="border-red-200">
         <CardHeader title="Danger zone" />
         <div className="flex flex-wrap items-center gap-4 p-4">
-          <DeleteCategoryButton action={boundDelete} />
+          {canDelete(user.role) && <DeleteCategoryButton action={boundDelete} />}
           <span className="text-xs text-zinc-500">
             Parts are kept and become uncategorized.
           </span>

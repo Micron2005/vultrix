@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import Papa from "papaparse";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { requireFinancialAccess } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ function csv<T extends object>(rows: T[]): string {
 }
 
 export async function GET() {
+  await requireFinancialAccess();
   const orgId = await requireOrgId();
   const [
     customers,

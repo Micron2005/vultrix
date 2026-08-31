@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { adjustInventoryStock, createInventoryPart } from "@/lib/inventory";
 import { logActivity } from "@/lib/activity";
+import { assertCanDelete } from "@/lib/permissions";
 
 const PartSchema = z.object({
   partNumber: z.string().optional().nullable(),
@@ -111,6 +112,7 @@ export async function updatePart(id: string, fd: FormData) {
 export async function deletePart(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const owned = await db.part.findFirst({
     where: { id, orgId },
     select: { id: true, name: true },

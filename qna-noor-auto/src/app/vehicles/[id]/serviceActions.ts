@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { parseMileage } from "@/lib/utils";
+import { assertCanDelete } from "@/lib/permissions";
 
 export async function markServiceDone(fd: FormData) {
   const orgId = await requireOrgId();
@@ -45,6 +46,7 @@ export async function markServiceDone(fd: FormData) {
 
 export async function deleteServiceLog(fd: FormData) {
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   const logId = String(fd.get("logId") ?? "");
   const vehicleId = String(fd.get("vehicleId") ?? "");
   if (!logId) return;

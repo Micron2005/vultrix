@@ -9,6 +9,11 @@ import { computeRoTotal } from "@/lib/roTotal";
 import { fullName, parseDecimal } from "@/lib/utils";
 import { logActivity } from "@/lib/activity";
 import {
+  assertCanDelete,
+  canDelete,
+  canManagePayments,
+} from "@/lib/permissions";
+import {
   replaceCustomerContacts,
   type CustomerContactInput,
 } from "@/lib/customerContacts";
@@ -118,6 +123,7 @@ export async function updateCustomer(id: string, fd: FormData) {
 export async function deleteCustomer(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const customer = await db.customer.findFirst({
     where: { id, orgId },
     select: { id: true, firstName: true, lastName: true, companyName: true },
@@ -157,6 +163,9 @@ export async function recordBulkPayment(
 
   const orgId = await requireOrgId();
   const user = await requireUser();
+  if (!canManagePayments(user.role)) {
+    return { ok: false, message: "You don't have permission to do that" };
+  }
   const rawMethod = String(fd.get("method") ?? "CASH").toUpperCase();
   const method = (PAYMENT_METHODS as readonly string[]).includes(rawMethod)
     ? rawMethod
@@ -352,6 +361,9 @@ export async function bulkDeleteRepairOrders(
   }
   const orgId = await requireOrgId();
   const user = await requireUser();
+  if (!canDelete(user.role)) {
+    return { ok: false, message: "You don't have permission to do that" };
+  }
   const customer = await db.customer.findFirst({
     where: { id: customerId, orgId },
     select: { firstName: true, lastName: true, companyName: true },
@@ -412,6 +424,9 @@ export async function paySelectedRepairOrders(
 
   const orgId = await requireOrgId();
   const user = await requireUser();
+  if (!canManagePayments(user.role)) {
+    return { ok: false, message: "You don't have permission to do that" };
+  }
   const customer = await db.customer.findFirst({
     where: { id: customerId, orgId },
     select: { firstName: true, lastName: true, companyName: true },
@@ -509,6 +524,9 @@ export async function clearSelectedRepairOrders(
 
   const orgId = await requireOrgId();
   const user = await requireUser();
+  if (!canManagePayments(user.role)) {
+    return { ok: false, message: "You don't have permission to do that" };
+  }
   const customer = await db.customer.findFirst({
     where: { id: customerId, orgId },
     select: { firstName: true, lastName: true, companyName: true },
@@ -573,6 +591,9 @@ export async function removeBulkSelectionPayments(
 
   const orgId = await requireOrgId();
   const user = await requireUser();
+  if (!canManagePayments(user.role)) {
+    return { ok: false, message: "You don't have permission to do that" };
+  }
   const customer = await db.customer.findFirst({
     where: { id: customerId, orgId },
     select: { firstName: true, lastName: true, companyName: true },

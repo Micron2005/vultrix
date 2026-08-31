@@ -9,6 +9,7 @@ import {
   isAiKeyEncryptionConfigured,
 } from "@/lib/ai-key-crypto";
 import { requireUser } from "@/lib/session";
+import { assertCanManageSettings } from "@/lib/permissions";
 
 const AssistantSettingsSchema = z.object({
   enabled: z.enum(["on"]).optional(),
@@ -21,6 +22,7 @@ const AssistantSettingsSchema = z.object({
 
 export async function saveAiAssistantSettings(formData: FormData) {
   const user = await requireUser();
+  assertCanManageSettings(user.role);
   if (user.role !== "OWNER" && user.role !== "ADMIN") {
     redirect("/settings?assistant_error=not_allowed");
   }

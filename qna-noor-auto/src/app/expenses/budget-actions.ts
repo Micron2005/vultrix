@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/utils";
+import { assertCanViewFinancials } from "@/lib/permissions";
 
 function text(fd: FormData, name: string): string {
   return String(fd.get(name) ?? "").trim();
@@ -23,6 +24,7 @@ function parseBudgetAmount(fd: FormData): number {
 export async function setBudget(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const category = text(fd, "category");
   if (!category) throw new Error("Category is required.");
   const amount = parseBudgetAmount(fd);
@@ -76,6 +78,7 @@ export async function setBudget(fd: FormData) {
 export async function deleteBudget(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const id = text(fd, "id");
   if (!id) return;
   const existing = await db.budget.findFirst({ where: { id, orgId } });

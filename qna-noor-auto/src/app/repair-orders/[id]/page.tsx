@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete, canManagePayments } from "@/lib/permissions";
 import {
   Button,
   Card,
@@ -83,6 +84,7 @@ export default async function RepairOrderDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     include: {
@@ -286,6 +288,7 @@ export default async function RepairOrderDetailPage({
               status={ro.status}
               roNumber={ro.roNumber}
               cleared={ro.clearedAt != null}
+              canManagePayments={canManagePayments(user.role)}
             />
             {ro.shareToken && (
               <ROShareActions
@@ -406,7 +409,11 @@ export default async function RepairOrderDetailPage({
 
       <Card className="mb-4">
         <CardHeader title="Photos" />
-        <RoPhotos repairOrderId={ro.id} photos={ro.photos} />
+        <RoPhotos
+          repairOrderId={ro.id}
+          photos={ro.photos}
+          canDelete={canDelete(user.role)}
+        />
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
@@ -899,7 +906,9 @@ export default async function RepairOrderDetailPage({
                 <th className="px-4 py-2 font-medium w-32">Reference</th>
                 <th className="px-4 py-2 font-medium">Note</th>
                 <th className="px-4 py-2 font-medium text-right w-28">Amount</th>
-                <th className="px-2 py-2 w-10"></th>
+                {canManagePayments(user.role) && (
+                  <th className="px-2 py-2 w-10"></th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
@@ -918,7 +927,7 @@ export default async function RepairOrderDetailPage({
                     <td className="px-4 py-2 text-right font-medium">
                       {formatMoney(p.amount)}
                     </td>
-                    <td className="px-2 py-2">
+                    {canManagePayments(user.role) && <td className="px-2 py-2">
                       <form action={delPay}>
                         <button
                           type="submit"
@@ -928,14 +937,14 @@ export default async function RepairOrderDetailPage({
                           ×
                         </button>
                       </form>
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}
             </tbody>
           </table>
         )}
-        {balance > 0 && (
+        {canManagePayments(user.role) && balance > 0 && (
           <form
             action={recordPay}
             className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
@@ -1002,7 +1011,7 @@ export default async function RepairOrderDetailPage({
             Save &amp; exit
           </SaveAllButton>
         </div>
-        <DeleteROButton action={del} roNumber={ro.roNumber} />
+        {canDelete(user.role) && <DeleteROButton action={del} roNumber={ro.roNumber} />}
       </div>
     </>
   );

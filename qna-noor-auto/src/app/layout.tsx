@@ -4,6 +4,7 @@ import "./globals.css";
 import { Nav } from "@/components/nav";
 import { DemoBanner } from "@/components/DemoBanner";
 import { getCurrentUser, canManageUsers } from "@/lib/session";
+import { canViewFinancials } from "@/lib/permissions";
 import { isDemoOrg } from "@/lib/demo";
 import { APP_NAME } from "@/lib/branding";
 import { enabledFeatureSet } from "@/lib/features";
@@ -45,6 +46,7 @@ export default async function RootLayout({
           <Nav
             orgLabel={orgLabel}
             username={user.username}
+            canViewFinancials={canViewFinancials(user.role)}
             canManageUsers={canManageUsers(user.role)}
             isSuperadmin={user.role === "SUPERADMIN"}
             enabledFeatures={enabledFeatures}

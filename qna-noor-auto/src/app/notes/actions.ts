@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
 import { createNoteForOrg } from "@/lib/notes";
+import { assertCanDelete } from "@/lib/permissions";
 
 const NoteSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -145,6 +146,8 @@ export async function updateNote(id: string, fd: FormData) {
 
 export async function deleteNote(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanDelete(user.role);
   await db.repairNote.deleteMany({ where: { id, orgId } });
   revalidatePath("/notes");
   redirect("/notes");

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
+import { assertCanDelete } from "@/lib/permissions";
 
 const TechSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -84,6 +85,7 @@ export async function updateTechnician(id: string, fd: FormData) {
 export async function deleteTechnician(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const owned = await db.technician.findFirst({
     where: { id, orgId },
     select: { id: true, name: true },

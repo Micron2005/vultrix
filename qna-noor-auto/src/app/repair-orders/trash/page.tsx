@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { dbBase } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { Card, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { formatDate, fullName, vehicleLabel } from "@/lib/utils";
 import { restoreRepairOrder, purgeRepairOrder } from "../actions";
@@ -13,6 +14,8 @@ export default async function TrashPage({
   searchParams: Promise<{ error?: string; purged?: string }>;
 }) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  if (user.role === "STAFF") redirect("/");
   const { error, purged } = await searchParams;
 
   const ros = await dbBase.repairOrder.findMany({

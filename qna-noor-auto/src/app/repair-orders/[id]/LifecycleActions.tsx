@@ -20,11 +20,13 @@ export function LifecycleActions({
   status,
   roNumber,
   cleared = false,
+  canManagePayments = true,
 }: {
   id: string;
   status: string;
   roNumber: number;
   cleared?: boolean;
+  canManagePayments?: boolean;
 }) {
   const current = status as Status;
   const go = (target: Status) => transitionRepairOrder.bind(null, id, target);
@@ -111,11 +113,11 @@ export function LifecycleActions({
               ← Revert to Repair Order
             </button>
           </form>
-          <form action={go("PAID")}>
+          {canManagePayments && <form action={go("PAID")}>
             <button className="inline-flex items-center justify-center rounded-md font-medium h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700">
               Mark Paid ✓
             </button>
-          </form>
+          </form>}
         </>
       )}
 
@@ -130,7 +132,7 @@ export function LifecycleActions({
           >
             Invoice PDF
           </LinkButton>
-          <PaidActions id={id} cleared={cleared} />
+          {canManagePayments && <PaidActions id={id} cleared={cleared} />}
         </>
       )}
 

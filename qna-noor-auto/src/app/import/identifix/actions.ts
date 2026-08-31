@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { db, dbBase } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 import {
   parseCustomers,
   parseVehicles,
@@ -78,6 +79,7 @@ export async function resetImportedData(
     return res;
   }
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   try {
     // Order matters: RO first (has FK to customer/vehicle without cascade),
     // then appointments, then vehicles, then customers.
@@ -120,6 +122,7 @@ export async function wipeOrphans(): Promise<StepResult> {
     errors: [],
   };
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   try {
     // (1) Heal hex-ID-named customers
     const nullExt = await db.customer.findMany({

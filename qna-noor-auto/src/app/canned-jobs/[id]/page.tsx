@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import {
   Button,
   Card,
@@ -20,6 +21,7 @@ export default async function CannedJobDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const job = await db.cannedJob.findFirst({
     where: { id, orgId },
     include: {
@@ -64,11 +66,11 @@ export default async function CannedJobDetailPage({
             >
               Edit
             </LinkButton>
-            <form action={del}>
+            {canDelete(user.role) && <form action={del}>
               <Button type="submit" variant="danger">
                 Delete
               </Button>
-            </form>
+            </form>}
           </>
         }
       />

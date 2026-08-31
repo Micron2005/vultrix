@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 import { getSetting } from "@/lib/shop";
 
 function cleanStr(s: FormDataEntryValue | null): string | null {
@@ -197,6 +198,7 @@ export async function updateCannedJob(id: string, fd: FormData) {
 
 export async function deleteCannedJob(id: string) {
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   await db.cannedJob.deleteMany({ where: { id, orgId } });
   revalidatePath("/canned-jobs");
   redirect("/canned-jobs");
