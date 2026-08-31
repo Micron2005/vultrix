@@ -669,10 +669,13 @@ model Expense {
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recurringId  String?
+  recurring    RecurringEntry? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
 
   @@index([paidAt])
   @@index([category])
   @@index([orgId])
+  @@index([recurringId])
 }
 
 model Income {
@@ -689,9 +692,44 @@ model Income {
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recurringId  String?
+  recurring    RecurringEntry? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
 
   @@index([receivedAt])
   @@index([orgId])
+  @@index([recurringId])
+}
+
+model RecurringEntry {
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  kind       String // EXPENSE | INCOME
+  amount     Float
+  interval   String // DAILY | WEEKLY | BIWEEKLY | MONTHLY | YEARLY
+  startDate  DateTime
+  endDate    DateTime?
+  nextRunAt  DateTime
+  lastPostedAt DateTime?
+  autoPost   Boolean  @default(true)
+  active     Boolean  @default(true)
+
+  category  String?
+  vendor    String?
+  method    String?
+  reference String?
+  source    String?
+  note      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+  incomes  Income[]
+
+  @@index([orgId])
+  @@index([active, nextRunAt])
 }
 
 // Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
@@ -828,6 +866,7 @@ model Organization {
   cannedJobs       CannedJob[]
   expenses         Expense[]
   incomes          Income[]
+  recurringEntries RecurringEntry[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
   categories       Category[]

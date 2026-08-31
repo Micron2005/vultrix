@@ -20,7 +20,10 @@ export default async function EditIncomePage({
     notFound();
   }
   const orgId = user.orgId;
-  const income = await db.income.findFirst({ where: { id, orgId } });
+  const income = await db.income.findFirst({
+    where: { id, orgId },
+    include: { recurring: true },
+  });
   if (!income) notFound();
 
   const update = updateIncome.bind(null, income.id);
@@ -47,6 +50,10 @@ export default async function EditIncomePage({
             source: income.source,
             frequency: income.frequency,
             note: income.note,
+            startDate: income.recurring?.startDate ?? income.receivedAt,
+            endDate: income.recurring?.endDate,
+            autoPost: income.recurring?.autoPost,
+            recurringId: income.recurringId,
           }}
         />
       </Card>

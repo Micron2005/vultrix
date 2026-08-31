@@ -15,7 +15,10 @@ export default async function EditExpensePage({
   const { id } = await params;
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
-  const exp = await db.expense.findFirst({ where: { id, orgId } });
+  const exp = await db.expense.findFirst({
+    where: { id, orgId },
+    include: { recurring: true },
+  });
   if (!exp) notFound();
 
   const upd = updateExpense.bind(null, exp.id);
@@ -44,6 +47,11 @@ export default async function EditExpensePage({
             reference: exp.reference,
             method: exp.method,
             note: exp.note,
+            interval: exp.recurring?.interval ?? "ONE_TIME",
+            startDate: exp.recurring?.startDate ?? exp.paidAt,
+            endDate: exp.recurring?.endDate,
+            autoPost: exp.recurring?.autoPost,
+            recurringId: exp.recurringId,
           }}
           accountType={user?.accountType}
         />
