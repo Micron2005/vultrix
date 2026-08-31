@@ -779,6 +779,7 @@ model Goal {
   manualProgress Float?
   direction      String   @default("AT_LEAST")
   unit           String?
+  notes          String?
   archived       Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

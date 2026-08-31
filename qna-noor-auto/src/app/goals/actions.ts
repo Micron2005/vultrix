@@ -91,6 +91,7 @@ function goalInput(
   const manualProgress = manualProgressValue
     ? parseDecimal(manualProgressValue)
     : null;
+  const notes = text(fd, "notes") || null;
   const requestedDirection = text(fd, "direction");
   const direction =
     metric === "SPENDING"
@@ -130,6 +131,7 @@ function goalInput(
     unit: ["LOGGED_TOTAL", "LOGGED_LATEST", "HABIT", "MANUAL"].includes(metric)
       ? unit
       : null,
+    notes,
   };
 }
 
@@ -169,6 +171,7 @@ export async function updateGoal(id: string, fd: FormData) {
     summary: `Goal updated: ${input.title}`,
   });
   revalidatePath("/goals");
+  revalidatePath(`/goals/${id}`);
   revalidatePath("/");
   redirect("/goals");
 }
@@ -194,6 +197,7 @@ export async function toggleHabitCheckIn(fd: FormData) {
     }
   });
   revalidatePath("/goals");
+  revalidatePath(`/goals/${id}`);
   revalidatePath("/");
 }
 
@@ -225,6 +229,7 @@ export async function logGoalEntry(fd: FormData) {
   }
   await db.goalEntry.create({ data: { goalId, orgId, day, value, note } });
   revalidatePath("/goals");
+  revalidatePath(`/goals/${goalId}`);
   revalidatePath("/");
 }
 
@@ -235,6 +240,7 @@ export async function deleteGoalEntry(fd: FormData) {
   if (!id || !goalId) throw new Error("Entry not found.");
   await db.goalEntry.deleteMany({ where: { id, goalId, orgId } });
   revalidatePath("/goals");
+  revalidatePath(`/goals/${goalId}`);
   revalidatePath("/");
 }
 

@@ -51,6 +51,7 @@ export default async function EditGoalPage({
             manualProgress: goal.manualProgress,
             direction: goal.direction,
             unit: goal.unit,
+            notes: goal.notes,
           }}
         />
       </Card>

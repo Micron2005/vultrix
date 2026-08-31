@@ -228,7 +228,7 @@ export default async function WeeklyReviewPage({
                 <div key={goal.id} className="flex items-center justify-between gap-3 px-5 py-3">
                   <div className="min-w-0">
                     <Link href={`/goals/${goal.id}/edit`} className="font-medium text-zinc-900 dark:text-zinc-900 hover:underline">{goal.title}</Link>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">{goalMetricLabel(goal.metric, user.accountType)} · {goalValueLabel(goal.metric, progress.actual)} of {goalValueLabel(goal.metric, progress.target)}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500">{goalMetricLabel(goal.metric, user.accountType, features.has("invoices"))} · {goalValueLabel(goal.metric, progress.actual)} of {goalValueLabel(goal.metric, progress.target)}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${statusClass(progress.status)}`}>
                     {statusLabel(progress.status)}
