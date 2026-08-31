@@ -51,6 +51,16 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   "goal.update": "Goal updated",
   "goal.archive": "Goal archived",
   "goal.restore": "Goal restored",
+  "routine.create": "Routine created",
+  "routine.update": "Routine updated",
+  "routine.archive": "Routine archived",
+  "routine.restore": "Routine restored",
+  "routine.delete": "Routine deleted",
+  "routine.item_create": "Routine item added",
+  "routine.item_update": "Routine item updated",
+  "routine.item_delete": "Routine item deleted",
+  "routine.check_off": "Routine item checked off",
+  "routine.check_off_delete": "Routine check-off removed",
 };
 
 export function activityLabel(action: string): string {

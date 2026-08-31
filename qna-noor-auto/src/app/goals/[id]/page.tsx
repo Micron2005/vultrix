@@ -34,6 +34,7 @@ import {
   logGoalEntry,
   toggleHabitCheckIn,
 } from "../actions";
+import { TodayChecklist } from "@/app/routines/TodayChecklist";
 
 export default async function GoalDetailPage({
   params,
@@ -88,6 +89,11 @@ export default async function GoalDetailPage({
         })
       : [],
   ]);
+  const linkedRoutines = await db.routine.findMany({
+    where: { orgId: user.orgId, goalId: record.id, archived: false },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true, kind: true },
+  });
   const emptyLatest =
     record.metric === "LOGGED_LATEST" &&
     progress.baseline === null &&
@@ -139,6 +145,45 @@ export default async function GoalDetailPage({
           {progress.periodLabel}
         </span>
       </div>
+      <Card className="mb-6 overflow-hidden dark:border-zinc-700 dark:bg-zinc-900">
+        <CardHeader title="Routines & checklists">
+          <LinkButton
+            href={`/routines?goal=${record.id}#new-routine`}
+            variant="ghost"
+            size="sm"
+          >
+            New routine
+          </LinkButton>
+        </CardHeader>
+        <div className="px-4 pt-4">
+          {linkedRoutines.length ? (
+            <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
+              {linkedRoutines.map((routine) => (
+                <Link
+                  key={routine.id}
+                  href={`/routines/${routine.id}`}
+                  className="flex items-center justify-between gap-3 py-3 text-sm text-zinc-700 hover:underline dark:text-zinc-300"
+                >
+                  <span>{routine.title}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {routine.kind.replace("_", " ")}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              No routines linked yet.
+            </p>
+          )}
+          <p className="py-4 text-sm text-zinc-500 dark:text-zinc-400">
+            <Link href={`/routines?goal=${record.id}#new-routine`} className="underline">
+              Create one for this goal
+            </Link>
+          </p>
+        </div>
+      </Card>
+      <TodayChecklist orgId={user.orgId} timezone={timezone} goalId={record.id} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Current value" value={currentText} />
