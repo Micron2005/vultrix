@@ -19,7 +19,7 @@ import {
   fullName,
   vehicleLabel,
 } from "@/lib/utils";
-import { repairOrderNouns } from "@/lib/features";
+import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +167,11 @@ export default async function RepairOrdersPage({
         description={`All ${nouns.plural.toLowerCase()} across the shop`}
         actions={
           <div className="flex gap-2">
+            {user.role !== "STAFF" && enabledFeatureSet(user).has("invoices") && (
+              <LinkButton href="/repair-orders/recurring" variant="secondary">
+                Recurring {nouns.plural}
+              </LinkButton>
+            )}
             {user.role !== "STAFF" && <Link
               href="/repair-orders/trash"
               className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"

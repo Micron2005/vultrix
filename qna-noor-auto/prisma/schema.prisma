@@ -44,10 +44,11 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicles     Vehicle[]
-  repairOrders RepairOrder[]
-  appointments Appointment[]
-  contacts     CustomerContact[]
+  vehicles          Vehicle[]
+  repairOrders      RepairOrder[]
+  appointments     Appointment[]
+  contacts          CustomerContact[]
+  recurringInvoices RecurringInvoice[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -112,8 +113,9 @@ model Vehicle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  repairOrders RepairOrder[]
-  appointments Appointment[]
+  repairOrders      RepairOrder[]
+  appointments      Appointment[]
+  recurringInvoices RecurringInvoice[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -164,7 +166,10 @@ model RepairOrder {
 
   // Shareable estimate link. Token is a non-guessable random string; if null,
   // the public /e/[token] route doesn't exist for this RO.
-  shareToken           String?   @unique
+  shareToken           String?           @unique
+  recurringInvoiceId   String?
+  recurringOccurrence  DateTime?
+  recurringInvoice     RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id], onDelete: SetNull)
   estimateDeclinedAt   DateTime?
   customerResponseNote String?
 
@@ -189,6 +194,7 @@ model RepairOrder {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, roNumber])
+  @@unique([recurringInvoiceId, recurringOccurrence])
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
@@ -776,6 +782,49 @@ model RecurringEntry {
   @@index([active, nextRunAt])
 }
 
+model RecurringInvoice {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  vehicleId    String?
+  vehicle      Vehicle?     @relation(fields: [vehicleId], references: [id])
+
+  interval     String
+  startDate    DateTime
+  endDate      DateTime?
+  nextRunAt    DateTime
+  lastPostedAt DateTime?
+  autoPost     Boolean   @default(true)
+  active       Boolean   @default(true)
+  taxRate      Float     @default(0)
+  discount     Float     @default(0)
+  label        String?
+  notes        String?
+
+  lines        RecurringInvoiceLine[]
+  repairOrders RepairOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([active, nextRunAt])
+}
+
+model RecurringInvoiceLine {
+  id                 String           @id @default(cuid())
+  recurringInvoiceId String
+  recurringInvoice   RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  kind               String
+  description        String
+  quantity           Float            @default(1)
+  unitPrice          Float            @default(0)
+  partNumber         String?
+  sortOrder          Int              @default(0)
+}
+
 // Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
 // auto-apply to every repair order. Each fee = min(maxCap, partsSubtotal *
 // partsPercent + laborSubtotal * laborPercent). Rendered as its own line on
@@ -918,7 +967,8 @@ model Organization {
   shopSettings     ShopSetting[]
   reminderLogs     ReminderLog[]
   categories       Category[]
-  activityLogs     ActivityLog[]
+  activityLogs      ActivityLog[]
+  recurringInvoices RecurringInvoice[]
 
   @@index([status])
 }
