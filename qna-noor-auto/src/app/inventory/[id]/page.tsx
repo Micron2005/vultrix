@@ -31,6 +31,8 @@ function reasonLabel(reason: string): string {
       return "Adjustment";
     case "INITIAL":
       return "Opening balance";
+    case "SALE":
+      return "Sold";
     default:
       return reason;
   }
@@ -105,6 +107,9 @@ export default async function PartDetailPage({
             </LinkButton>
             <LinkButton href={`/inventory/${id}/edit`} variant="secondary">
               Edit
+            </LinkButton>
+            <LinkButton href={`/sales?partId=${encodeURIComponent(id)}`}>
+              Record sale
             </LinkButton>
             <form action={boundToggleArchive}>
               <Button variant="secondary" type="submit">

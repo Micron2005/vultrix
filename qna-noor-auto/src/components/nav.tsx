@@ -38,6 +38,7 @@ const items = [
   { href: "/inventory", label: "Inventory", feature: "inventory" },
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
+  { href: "/sales", label: "Sales", feature: "financials" },
   { href: "/reports", label: "Reports", feature: "reports" },
   { href: "/import", label: "Import", feature: "import_export" },
   { href: "/export", label: "Export", feature: "import_export" },
@@ -130,7 +131,11 @@ export function Nav({
   ).filter(
     (item) =>
       canViewFinancials ||
-      !["/expenses", "/reports", "/export", "/settings"].includes(item.href),
+      !["/expenses", "/sales", "/reports", "/export", "/settings"].includes(
+        item.href,
+      ),
+  ).filter(
+    (item) => item.href !== "/sales" || !enabledFeatures.includes("invoices"),
   );
 
   // Hide the shop sidebar on public, customer-facing routes and on login.

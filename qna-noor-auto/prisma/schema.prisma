@@ -394,6 +394,7 @@ model Part {
 
   partLines      PartLine[]
   stockMoves     StockMove[]
+  sales          Sale[]
   cannedJobParts CannedJobPart[]
 
   orgId        String
@@ -427,7 +428,7 @@ model StockMove {
 
   // Positive = received / adjustment up; negative = used on RO / adjustment down.
   delta  Float
-  reason String // RECEIVE | USE_RO | RESTOCK_RO | ADJUST | INITIAL
+  reason String // RECEIVE | USE_RO | RESTOCK_RO | ADJUST | INITIAL | SALE
   note   String?
 
   // If the move was caused by a PartLine on an RO, link it here.
@@ -731,10 +732,37 @@ model Income {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   recurringId  String?
   recurring    RecurringEntry? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+  sales        Sale[]
 
   @@index([receivedAt])
   @@index([orgId])
   @@index([recurringId])
+}
+
+model Sale {
+  id        String   @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  soldAt    DateTime @default(now())
+  partId    String?
+  part      Part?    @relation(fields: [partId], references: [id], onDelete: SetNull)
+  itemName  String
+  quantity  Float    @default(1)
+  unitPrice Float
+  unitCost  Float?
+  channel   String?
+  note      String?
+
+  incomeId String?
+  income   Income?  @relation(fields: [incomeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([soldAt])
+  @@index([partId])
 }
 
 model Budget {
@@ -971,6 +999,7 @@ model Organization {
   categories        Category[]
   activityLogs      ActivityLog[]
   recurringInvoices RecurringInvoice[]
+  sales             Sale[]
 
   @@index([status])
 }

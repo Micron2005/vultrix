@@ -45,3 +45,59 @@ export function localCalendarDay(date: Date, timeZone: string): string {
   );
   return `${values.year}-${values.month}-${values.day}`;
 }
+
+/**
+ * Interpret an HTML date input as midnight in the organization's timezone.
+ * Date-only values must not be parsed as UTC because that can move the sale
+ * onto the previous or next local day for businesses outside UTC.
+ */
+export function dateInputInTimeZone(
+  value: string | null | undefined,
+  timeZone: string,
+  fallback = new Date(),
+): Date {
+  const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return fallback;
+  const [, year, month, day] = match;
+  const calendarCheck = new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day)),
+  );
+  if (
+    calendarCheck.getUTCFullYear() !== Number(year) ||
+    calendarCheck.getUTCMonth() !== Number(month) - 1 ||
+    calendarCheck.getUTCDate() !== Number(day)
+  ) {
+    return fallback;
+  }
+  const naiveUtc = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+  );
+  if (!Number.isFinite(naiveUtc)) return fallback;
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: safeTimeZone(timeZone),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(new Date(naiveUtc))
+    .reduce<Record<string, string>>((result, part) => {
+      if (part.type !== "literal") result[part.type] = part.value;
+      return result;
+    }, {});
+  const renderedUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return new Date(naiveUtc - (renderedUtc - naiveUtc));
+}
