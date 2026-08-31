@@ -102,7 +102,11 @@ export async function GET(request: Request) {
     }),
     hasInvoices
       ? db.payment.findMany({
-          where: { orgId, paidAt: { gte: range.from, lte: range.to } },
+          where: {
+            orgId,
+            paidAt: { gte: range.from, lte: range.to },
+            repairOrder: { deletedAt: null },
+          },
           orderBy: { paidAt: "asc" },
           include: {
             repairOrder: {
@@ -165,6 +169,12 @@ export async function GET(request: Request) {
         orgId,
         deletedAt: null,
         status: { in: ["INVOICED", "PAID"] },
+        OR: [
+          { invoicedAt: { gte: range.from, lte: range.to } },
+          { paidAt: { gte: range.from, lte: range.to } },
+          { closedAt: { gte: range.from, lte: range.to } },
+          { openedAt: { gte: range.from, lte: range.to } },
+        ],
       },
       include: {
         customer: true,
@@ -192,8 +202,9 @@ export async function GET(request: Request) {
         { field: "closedAt", value: repairOrder.closedAt },
         { field: "openedAt", value: repairOrder.openedAt },
       ];
-      const invoiceDate = dateOptions.find((option) => option.value)?.value;
-      const dateField = dateOptions.find((option) => option.value)?.field;
+      const selectedDate = dateOptions.find((option) => option.value);
+      const invoiceDate = selectedDate?.value;
+      const dateField = selectedDate?.field;
       if (!invoiceDate || !dateField) return [];
       if (invoiceDate < range.from || invoiceDate > range.to) return [];
 
