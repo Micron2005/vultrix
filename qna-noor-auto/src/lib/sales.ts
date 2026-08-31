@@ -1,5 +1,6 @@
-import { dbBase } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+
+type SalesTransaction = Pick<typeof db, "part" | "stockMove" | "sale" | "income">;
 
 export type SaleInput = {
   soldAt: Date;
@@ -17,7 +18,7 @@ function saleNote(itemName: string): string {
 }
 
 async function getPartForOrg(
-  tx: Prisma.TransactionClient,
+  tx: SalesTransaction,
   orgId: string,
   partId: string,
 ) {
@@ -30,7 +31,7 @@ async function getPartForOrg(
 }
 
 async function writeStockMove(
-  tx: Prisma.TransactionClient,
+  tx: SalesTransaction,
   partId: string,
   delta: number,
   itemName: string,
@@ -71,7 +72,7 @@ function assertSaleInput(input: SaleInput): void {
 
 export async function createSale(orgId: string, input: SaleInput) {
   assertSaleInput(input);
-  return dbBase.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const part = input.partId
       ? await getPartForOrg(tx, orgId, input.partId)
       : null;
@@ -116,7 +117,7 @@ export async function updateSale(
   input: SaleInput,
 ) {
   assertSaleInput(input);
-  return dbBase.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const existing = await tx.sale.findFirst({
       where: { id, orgId },
       select: {
@@ -198,7 +199,7 @@ export async function updateSale(
 }
 
 export async function deleteSale(orgId: string, id: string) {
-  return dbBase.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const sale = await tx.sale.findFirst({
       where: { id, orgId },
       select: {

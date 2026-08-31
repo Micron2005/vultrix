@@ -108,8 +108,10 @@ export function SaleForm({
           <Input
             value={partQuery}
             onChange={(event) => {
-              setPartQuery(event.target.value);
+              const value = event.target.value;
+              setPartQuery(value);
               setSelectedPartId("");
+              setItemName(value);
               setShowPartResults(true);
             }}
             onFocus={() => setShowPartResults(true)}

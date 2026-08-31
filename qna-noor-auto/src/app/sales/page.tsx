@@ -15,6 +15,7 @@ import {
 import { formatMoney } from "@/lib/utils";
 import { RangeForm } from "@/app/reports/RangeForm";
 import { requireSalesOrgId, deleteSaleAction, createSaleAction } from "./actions";
+import { DeleteSaleButton } from "./DeleteSaleButton";
 import { SaleForm } from "./SaleForm";
 
 export const dynamic = "force-dynamic";
@@ -160,8 +161,6 @@ export default async function SalesPage({
   const products = Array.from(productMap.values()).sort(
     (a, b) => b.units - a.units || b.profit - a.profit,
   );
-  const action = createSaleAction;
-
   return (
     <>
       <PageHeader
@@ -194,7 +193,7 @@ export default async function SalesPage({
         <CardHeader title="Record a sale" />
         <div className="p-4">
           <SaleForm
-            action={action}
+            action={createSaleAction}
             parts={parts}
             initial={{
               soldAt: localCalendarDay(new Date(), timezone),
@@ -286,12 +285,7 @@ export default async function SalesPage({
                           <Link href={`/sales/${sale.id}/edit`} className="text-sm text-zinc-700 hover:underline">
                             Edit
                           </Link>
-                          <form action={deleteSaleAction}>
-                            <input type="hidden" name="id" value={sale.id} />
-                            <button type="submit" className="text-sm text-red-700 hover:underline">
-                              Delete
-                            </button>
-                          </form>
+                          <DeleteSaleButton action={deleteSaleAction} saleId={sale.id} />
                         </div>
                       </td>
                     </tr>
