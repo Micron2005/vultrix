@@ -176,12 +176,6 @@ export default async function SettingsPage({
           ? "true"
           : "false",
       };
-      const sendHourValue = Number(fd.get("reminderSendHour"));
-      reminderValues.reminderSendHour = String(
-        Number.isFinite(sendHourValue)
-          ? Math.max(0, Math.min(23, sendHourValue))
-          : 8,
-      );
       for (const [key, value] of Object.entries(reminderValues)) {
         await setSetting(saveOrgId, key, value);
       }
@@ -355,19 +349,10 @@ export default async function SettingsPage({
                 </p>
               </div>
             )}
-            <Field label="Daily reminder send hour">
-              <Input
-                type="number"
-                name="reminderSendHour"
-                min="0"
-                max="23"
-                defaultValue={settings.reminderSendHour}
-              />
-              <p className="mt-1 text-xs text-zinc-500">
-                Past-due and service-due batches send at this local hour.
-                Appointment reminders use their lead-time window.
-              </p>
-            </Field>
+            <p className="text-xs text-zinc-500">
+              Reminders are checked once a day; dates and times use the business
+              timezone.
+            </p>
             {(!process.env.RESEND_API_KEY ||
               !process.env.MAIL_FROM ||
               process.env.MAIL_FROM.includes("onboarding@resend.dev")) && (
