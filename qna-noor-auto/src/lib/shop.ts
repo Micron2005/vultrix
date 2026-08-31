@@ -7,6 +7,12 @@ const DEFAULTS: Record<string, string> = {
   shopEmail: "",
   defaultLaborRate: "150",
   defaultTaxRate: "8.25",
+  remindAppointmentsEnabled: "false",
+  remindAppointmentsHoursBefore: "24",
+  remindPastDueEnabled: "false",
+  remindPastDueDays: "30",
+  remindServiceDueEnabled: "false",
+  reminderSendHour: "8",
 };
 
 export async function getSetting(orgId: string, key: string): Promise<string> {
