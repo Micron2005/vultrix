@@ -68,7 +68,19 @@ export function SignupWizard({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [timezone, setTimezone] = useState("");
   const [stepError, setStepError] = useState("");
+
+  useEffect(() => {
+    let browserTimezone = "";
+    try {
+      browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch {
+      browserTimezone = "";
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTimezone(browserTimezone);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -559,6 +571,7 @@ export function SignupWizard({
 
           <form action={startSignup} className="mt-5">
             <input type="hidden" name="name" value={displayName} />
+            <input type="hidden" name="timezone" value={timezone} />
             <input type="hidden" name="firstName" value={firstName} />
             <input type="hidden" name="lastName" value={lastName} />
             <input type="hidden" name="email" value={email} />

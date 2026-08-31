@@ -24,6 +24,7 @@ import {
 import { sanitizeFeatureKeys } from "@/lib/features";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME } from "@/lib/branding";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export type EnsureResult = {
   orgId: string;
@@ -42,6 +43,7 @@ type Pending = {
   accountType: string;
   features: string[];
   aiHostedEnabled: boolean;
+  timezone?: string;
 };
 
 function isUniqueViolation(e: unknown): boolean {
@@ -80,6 +82,10 @@ function pendingFromMetadata(
   );
   const aiHostedEnabled =
     accountType === "PERSONAL" && String(m.signupAiHosted ?? "") === "1";
+  const submittedTimezone = String(m.signupTimezone ?? "").trim();
+  const timezone = isValidTimeZone(submittedTimezone)
+    ? submittedTimezone
+    : undefined;
   if (!username || !email || !passwordHash) return null;
   return {
     name: name || `${firstName} ${lastName}`.trim() || email,
@@ -92,6 +98,7 @@ function pendingFromMetadata(
     accountType,
     features,
     aiHostedEnabled,
+    ...(timezone ? { timezone } : {}),
   };
 }
 
@@ -177,6 +184,7 @@ export async function materializeAccount(
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,
+        ...(pending.timezone ? { timezone: pending.timezone } : {}),
       },
       select: { id: true },
     });

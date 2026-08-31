@@ -28,21 +28,9 @@ import {
 } from "./shop-fees-actions";
 import { saveAiAssistantSettings } from "./ai-assistant-actions";
 import { VoicePicker } from "./VoicePicker";
+import { TimezonePicker } from "./TimezonePicker";
 
 export const dynamic = "force-dynamic";
-
-const COMMON_TIME_ZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Phoenix",
-  "America/Los_Angeles",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-];
-const TIME_ZONE_OPTIONS = Intl.supportedValuesOf("timeZone").filter(
-  (timezone) => !COMMON_TIME_ZONES.includes(timezone),
-);
 
 async function resolveOrigin(): Promise<string> {
   const hdrs = await headers();
@@ -233,13 +221,7 @@ export default async function SettingsPage({
             </Field>
           </div>
           <Field label="Business timezone">
-            <Select name="timezone" defaultValue={org.timezone}>
-              {TIME_ZONE_OPTIONS.map((timezone) => (
-                <option key={timezone} value={timezone}>
-                  {timezone}
-                </option>
-              ))}
-            </Select>
+            <TimezonePicker name="timezone" defaultValue={org.timezone} />
             <p className="mt-1 text-xs text-zinc-500">
               Appointment dates and scheduled reminder hours use this timezone.
             </p>
