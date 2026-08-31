@@ -13,6 +13,7 @@ const DEFAULTS: Record<string, string> = {
   remindPastDueDays: "30",
   remindServiceDueEnabled: "false",
   reminderSendHour: "8",
+  weeklyReviewEmailEnabled: "false",
 };
 
 export async function getSetting(orgId: string, key: string): Promise<string> {

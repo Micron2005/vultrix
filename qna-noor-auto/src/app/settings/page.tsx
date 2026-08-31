@@ -18,7 +18,11 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
-import { assertCanManageSettings, requireSettingsAccess } from "@/lib/permissions";
+import {
+  assertCanManageSettings,
+  canViewFinancials,
+  requireSettingsAccess,
+} from "@/lib/permissions";
 import { intakeUrl } from "@/lib/intakeTokens";
 import { enabledFeatureSet } from "@/lib/features";
 import { isValidTimeZone } from "@/lib/timezone";
@@ -79,9 +83,17 @@ export default async function SettingsPage({
   const showServiceDueReminders = featureSet.has("vehicles");
   const showReminderSettings =
     showAppointmentReminders || showPastDueReminders || showServiceDueReminders;
+  const showWeeklyReview =
+    Boolean(user && canViewFinancials(user.role)) &&
+    featureSet.has("financials");
   const showIntakeQr = Boolean(user && showAutoSettings);
   const sp = (await searchParams) ?? {};
   const settings = await getAllSettings(orgId);
+  const owner = await db.user.findFirst({
+    where: { orgId, role: "OWNER", isActive: true },
+    select: { email: true },
+    orderBy: { createdAt: "asc" },
+  });
   const origin = await resolveOrigin();
   const intakeLink = intakeUrl(origin, orgId);
   const shopFees = showAutoSettings
@@ -172,6 +184,13 @@ export default async function SettingsPage({
       for (const [key, value] of Object.entries(reminderValues)) {
         await setSetting(saveOrgId, key, value);
       }
+    }
+    if (fd.get("weeklyReviewForm") === "1") {
+      await setSetting(
+        saveOrgId,
+        "weeklyReviewEmailEnabled",
+        fd.has("weeklyReviewEmailEnabled") ? "true" : "false",
+      );
     }
     revalidatePath("/settings");
     revalidatePath("/", "layout");
@@ -358,6 +377,38 @@ export default async function SettingsPage({
               </p>
             )}
             <SaveButton>Save reminder settings</SaveButton>
+          </form>
+        </Card>
+      )}
+
+      {showWeeklyReview && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Weekly review">
+            <span className="text-xs font-normal text-zinc-500">
+              Optional Monday summary
+            </span>
+          </CardHeader>
+          <form action={save} className="space-y-4 p-6">
+            <input type="hidden" name="weeklyReviewForm" value="1" />
+            <label className="flex items-center gap-3 text-sm text-zinc-800">
+              <input
+                type="checkbox"
+                name="weeklyReviewEmailEnabled"
+                value="true"
+                defaultChecked={settings.weeklyReviewEmailEnabled === "true"}
+                className="h-4 w-4 rounded border-zinc-300"
+              />
+              Email me a weekly review on Monday
+            </label>
+            <p className="text-xs text-zinc-500">
+              It will be sent to{" "}
+              {settings.shopEmail ||
+                org.billingEmail ||
+                owner?.email ||
+                "the owner email on your account"}
+              .
+            </p>
+            <SaveButton>Save weekly review settings</SaveButton>
           </form>
         </Card>
       )}
