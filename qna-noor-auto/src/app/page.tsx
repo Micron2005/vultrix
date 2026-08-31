@@ -405,7 +405,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
                       {goal.title}
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {goalMetricLabel(goal.metric, user.accountType)} ·{" "}
+                      {goalMetricLabel(goal.metric, user.accountType, hasInvoices)} ·{" "}
                       {goal.metric === "LOGGED_LATEST" &&
                       progress.baseline !== null
                         ? `${goalValueLabel(goal.metric, progress.baseline, goal.unit)} → ${goalValueLabel(goal.metric, progress.target, goal.unit)}, now ${goalValueLabel(goal.metric, progress.actual, goal.unit)}`

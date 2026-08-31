@@ -24,6 +24,7 @@ type GoalFormProps = {
   }>;
   accountType: string;
   features: string[];
+  hasInvoices: boolean;
   submitLabel?: string;
 };
 
@@ -32,6 +33,7 @@ export function GoalForm({
   initial,
   accountType,
   features,
+  hasInvoices,
   submitLabel = "Create goal",
 }: GoalFormProps) {
   const defaultMetric =
@@ -54,7 +56,7 @@ export function GoalForm({
     HABIT: "Something I do — I'll check it off",
     LOGGED_TOTAL: "A number I add up (miles, hours, pages)",
     LOGGED_LATEST: "A number I track (weight, savings balance)",
-    EVENTS: autoShop ? "Appointments booked" : "Calendar events",
+    EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",
     NOTES_WRITTEN: "Notes written",
     MANUAL: "I'll update this myself",
   };
@@ -66,7 +68,8 @@ export function GoalForm({
   const unitChoice =
     metric === "HABIT" ||
     metric === "LOGGED_TOTAL" ||
-    metric === "LOGGED_LATEST";
+    metric === "LOGGED_LATEST" ||
+    metric === "MANUAL";
 
   return (
     <form action={action} className="space-y-4">

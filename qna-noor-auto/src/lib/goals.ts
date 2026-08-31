@@ -118,7 +118,12 @@ function periodWindow(
     };
   }
   const monthStart = `${today.slice(0, 7)}-01`;
-  const nextMonthStart = `${shiftCalendarDay(monthStart, 31).slice(0, 7)}-01`;
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const nextMonthStart =
+    month === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(month + 1).padStart(2, "0")}-01`;
   return {
     start: parseCalendarDay(monthStart, timezone),
     end: endOfCalendarDay(shiftCalendarDay(nextMonthStart, -1), timezone),
@@ -180,8 +185,8 @@ function statusFor(
   const actualPct = target > 0 ? actual / target : 0;
   const materiallyElapsed = elapsedPct >= 0.1;
   if (target <= 0) {
-      if (ended) return atMost ? (actual <= 0 ? "met" : "behind") : "met";
-      if (!started) return "on_pace";
+    if (ended) return atMost ? (actual <= 0 ? "met" : "behind") : "met";
+    if (!started) return "on_pace";
     return atMost && actual > 0 ? "behind" : "on_pace";
   }
   if (atMost) {
@@ -271,7 +276,7 @@ async function metricActual(
           where: {
             orgId,
             goalId: goal.id,
-            day: { gte: days.start, lte: days.today },
+            day: { gte: shiftCalendarDay(days.today, -400), lte: days.today },
           },
           select: { day: true },
           orderBy: { day: "desc" },
@@ -312,7 +317,7 @@ async function metricActual(
       const [baselineEntry, earliestInWindow, latestEntry] = await Promise.all([
         db.goalEntry.findFirst({
           where: { orgId, goalId: goal.id, day: { lte: days.start } },
-          orderBy: [{ day: "asc" }, { createdAt: "asc" }],
+          orderBy: [{ day: "desc" }, { createdAt: "desc" }],
           select: { value: true },
         }),
         db.goalEntry.findFirst({
@@ -495,6 +500,7 @@ export async function loadActiveGoals(
 export function goalMetricLabel(
   metric: string,
   accountType?: string | null,
+  hasInvoices = (accountType ?? "AUTO_SHOP") === "AUTO_SHOP",
 ): string {
   const repairNouns = repairOrderNouns(accountType);
   const labels: Record<string, string> = {
@@ -510,10 +516,7 @@ export function goalMetricLabel(
     HABIT: "Something I do — I'll check it off",
     LOGGED_TOTAL: "A number I add up (miles, hours, pages)",
     LOGGED_LATEST: "A number I track (weight, savings balance)",
-    EVENTS:
-      (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
-        ? "Appointments booked"
-        : "Calendar events",
+    EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",
     NOTES_WRITTEN: "Notes written",
     MANUAL: "I'll update this myself",
   };

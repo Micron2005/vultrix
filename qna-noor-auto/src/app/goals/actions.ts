@@ -34,13 +34,10 @@ async function requireGoalsContext(): Promise<{
     select: { accountType: true, features: true },
   });
   const accountType = organization?.accountType ?? user.accountType ?? "AUTO_SHOP";
-  const features =
-    accountType === "AUTO_SHOP"
-      ? enabledFeatureSet({
-          accountType,
-          features: organization?.features ?? user.features ?? [],
-        })
-      : new Set(organization?.features ?? user.features ?? []);
+  const features = enabledFeatureSet({
+    accountType,
+    features: organization?.features ?? user.features ?? [],
+  });
   return {
     orgId: user.orgId,
     timezone: await orgTimeZone(user.orgId),
@@ -209,6 +206,13 @@ export async function logGoalEntry(fd: FormData) {
   if (!goalId) throw new Error("Goal not found.");
   if (value == null) throw new Error("Value must be a valid number.");
   if (!isDateInput(day)) throw new Error("Date is invalid.");
+  const parsedDay = dateInputInTimeZone(day, timezone, new Date(Number.NaN));
+  if (
+    Number.isNaN(parsedDay.getTime()) ||
+    localCalendarDay(parsedDay, timezone) !== day
+  ) {
+    throw new Error("Date is invalid.");
+  }
   const goal = await db.goal.findFirst({
     where: { id: goalId, orgId },
     select: { metric: true },

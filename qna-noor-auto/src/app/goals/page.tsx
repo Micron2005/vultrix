@@ -60,12 +60,14 @@ async function GoalCard({
   goal,
   progress,
   accountType,
+  hasInvoices,
   orgId,
   today,
 }: {
   goal: GoalRecord;
   progress: GoalProgress;
   accountType: string;
+  hasInvoices: boolean;
   orgId: string;
   today: string;
 }) {
@@ -98,9 +100,17 @@ async function GoalCard({
         }`
       : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
   const valueText =
-    goal.metric === "LOGGED_LATEST" && progress.baseline !== null
+    goal.metric === "LOGGED_LATEST" &&
+    progress.baseline === null &&
+    progress.actual === 0
+      ? "No numbers logged yet"
+      : goal.metric === "LOGGED_LATEST" && progress.baseline !== null
       ? `${goalValueLabel(goal.metric, progress.baseline, goal.unit)} → ${goalValueLabel(goal.metric, progress.target, goal.unit)}, now ${goalValueLabel(goal.metric, progress.actual, goal.unit)}`
       : `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(goal.metric, progress.target, goal.unit)}`;
+  const hasLatestData =
+    goal.metric !== "LOGGED_LATEST" ||
+    progress.baseline !== null ||
+    progress.actual !== 0;
   const barClass =
     progress.status === "behind"
       ? statusClass(progress.status, goal, progress).includes("red")
@@ -115,7 +125,7 @@ async function GoalCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            {goalMetricLabel(goal.metric, accountType)}
+            {goalMetricLabel(goal.metric, accountType, hasInvoices)}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {goal.title}
@@ -141,16 +151,20 @@ async function GoalCard({
           <span className="font-medium text-zinc-900 dark:text-zinc-100">
             {valueText}
           </span>
-          <span className="text-zinc-500 dark:text-zinc-400">
-            {Math.round(progress.pct)}%
-          </span>
+          {hasLatestData && (
+            <span className="text-zinc-500 dark:text-zinc-400">
+              {Math.round(progress.pct)}%
+            </span>
+          )}
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-          <div
-            className={`h-full rounded-full ${barClass}`}
-            style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
-          />
-        </div>
+        {hasLatestData && (
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <div
+              className={`h-full rounded-full ${barClass}`}
+              style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
+            />
+          </div>
+        )}
         {goal.metric === "HABIT" && (
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
             <form action={toggleHabitCheckIn}>
@@ -171,7 +185,9 @@ async function GoalCard({
         <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
           {goal.metric === "HABIT"
             ? `${Math.round(progress.actual)} of ${Math.round(progress.target)} days`
-            : amountText}
+            : hasLatestData
+              ? amountText
+              : null}
           {progress.perDayNeeded > 0 &&
             progress.status !== "met" &&
             !atMost &&
@@ -190,7 +206,7 @@ async function GoalCard({
         )}
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           Expected by now: {Math.round(progress.expectedPct)}% · actual:{" "}
-          {Math.round(progress.pct)}%
+          {hasLatestData ? `${Math.round(progress.pct)}%` : "No data yet"}
         </p>
         {(goal.metric === "LOGGED_TOTAL" || goal.metric === "LOGGED_LATEST") && (
           <div className="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
@@ -279,17 +295,19 @@ function ArchivedGoal({
   goal,
   progress,
   accountType,
+  hasInvoices,
 }: {
   goal: GoalRecord;
   progress: GoalProgress;
   accountType: string;
+  hasInvoices: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0 dark:border-zinc-700">
       <div>
         <p className="font-medium text-zinc-800 dark:text-zinc-200">{goal.title}</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {goalMetricLabel(goal.metric, accountType)} ·{" "}
+          {goalMetricLabel(goal.metric, accountType, hasInvoices)} ·{" "}
           {goalValueLabel(goal.metric, progress.actual, goal.unit)} of{" "}
           {goalValueLabel(goal.metric, progress.target, goal.unit)}
         </p>
@@ -313,10 +331,7 @@ export default async function GoalsPage() {
   assertCanViewFinancials(user.role);
   if (!user.orgId) return null;
   const accountType = user.accountType ?? "AUTO_SHOP";
-  const features =
-    accountType === "AUTO_SHOP"
-      ? enabledFeatureSet(user)
-      : new Set(user.features ?? []);
+  const features = enabledFeatureSet(user);
   const timezone = await orgTimeZone(user.orgId);
   const hasInvoices = features.has("invoices");
   const active = await loadActiveGoals(user.orgId, timezone, hasInvoices);
@@ -346,6 +361,7 @@ export default async function GoalsPage() {
                   goal={goal}
                   progress={progress}
                   accountType={accountType}
+                  hasInvoices={hasInvoices}
                   orgId={user.orgId!}
                   today={today}
                 />
@@ -362,6 +378,7 @@ export default async function GoalsPage() {
                       key={goal.id}
                       goal={goal as GoalRecord}
                       accountType={accountType}
+                      hasInvoices={hasInvoices}
                       progress={await computeGoalProgress(
                         user.orgId!,
                         goal as GoalRecord,
@@ -383,6 +400,7 @@ export default async function GoalsPage() {
               action={createGoal}
               accountType={accountType}
               features={[...features]}
+              hasInvoices={hasInvoices}
               initial={{ startDate: today }}
             />
           </div>

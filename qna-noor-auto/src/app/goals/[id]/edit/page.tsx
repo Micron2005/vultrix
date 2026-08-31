@@ -29,6 +29,7 @@ export default async function EditGoalPage({
   if (!goal) notFound();
   const timezone = await orgTimeZone(user.orgId);
   const features = enabledFeatureSet(user);
+  const hasInvoices = features.has("invoices");
   return (
     <>
       <PageHeader title={`Edit ${goal.title}`} />
@@ -38,6 +39,7 @@ export default async function EditGoalPage({
           submitLabel="Save goal"
           accountType={user.accountType ?? "AUTO_SHOP"}
           features={[...features]}
+          hasInvoices={hasInvoices}
           initial={{
             title: goal.title,
             metric: goal.metric,
