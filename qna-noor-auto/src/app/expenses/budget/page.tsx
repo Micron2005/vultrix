@@ -258,9 +258,9 @@ export default async function BudgetPage({
       )}
 
       {!isAutoShop && (
-        <Card className="mb-4 p-4">
+        <Card className="mb-4">
           <CardHeader title="Add a budget" />
-          <div className="pt-4">
+          <div className="p-4">
             <AddBudgetForm />
           </div>
         </Card>
