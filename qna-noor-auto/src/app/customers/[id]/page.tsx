@@ -300,6 +300,17 @@ export default async function CustomerDetailPage({
         shopName={shopName}
       />
 
+      <div className="mb-4">
+        <LinkButton
+          href={`/customers/${customer.id}/statement`}
+          variant="secondary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Print statement
+        </LinkButton>
+      </div>
+
       {/* Bulk Payment */}
       {openInvoices.length > 0 && (
         <BulkPaymentCard
