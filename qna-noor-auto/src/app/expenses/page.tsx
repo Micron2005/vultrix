@@ -21,6 +21,11 @@ import {
 } from "./categories";
 import { enabledFeatureSet } from "@/lib/features";
 import {
+  dateInputInTimeZone,
+  isValidTimeZone,
+  localCalendarDay,
+} from "@/lib/timezone";
+import {
   deleteRecurring,
   postAllConfirmed,
   postConfirmed,
@@ -30,6 +35,12 @@ import {
 import { postDueForOrg } from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
+
+function addCalendarDays(value: string, days: number): string {
+  const date = new Date(`${value}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 export default async function ExpensesListPage({
   searchParams,
@@ -41,9 +52,21 @@ export default async function ExpensesListPage({
   const showIncome = Boolean(
     user && !enabledFeatureSet(user).has("invoices"),
   );
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+  const timezone =
+    organization && isValidTimeZone(organization.timezone)
+      ? organization.timezone
+      : "America/New_York";
   const sp = await searchParams;
-  const from = sp.from ? new Date(sp.from) : null;
-  const to = sp.to ? new Date(sp.to) : null;
+  const from = sp.from
+    ? dateInputInTimeZone(sp.from, timezone, new Date(Number.NaN))
+    : null;
+  const to = sp.to
+    ? dateInputInTimeZone(sp.to, timezone, new Date(Number.NaN))
+    : null;
   const category = sp.category?.trim() || null;
   const recurringResult = await postDueForOrg(orgId, { includeConfirm: true });
 
@@ -56,8 +79,12 @@ export default async function ExpensesListPage({
     where.paidAt = {};
     if (from && !isNaN(from.getTime())) where.paidAt.gte = from;
     if (to && !isNaN(to.getTime())) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
+      const endExclusive = dateInputInTimeZone(
+        addCalendarDays(sp.to ?? "", 1),
+        timezone,
+        new Date(Number.NaN),
+      );
+      const end = new Date(endExclusive.getTime() - 1);
       where.paidAt.lte = end;
     }
   }
@@ -66,9 +93,18 @@ export default async function ExpensesListPage({
   // Month-to-date window for the top summary cards. Independent of the
   // filters below so the summary always reflects the current month.
   const now = new Date();
-  const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-  const mtdTo = new Date(now);
-  mtdTo.setHours(23, 59, 59, 999);
+  const today = localCalendarDay(now, timezone);
+  const mtdFrom = dateInputInTimeZone(
+    `${today.slice(0, 7)}-01`,
+    timezone,
+    new Date(Number.NaN),
+  );
+  const mtdEndExclusive = dateInputInTimeZone(
+    addCalendarDays(today, 1),
+    timezone,
+    new Date(Number.NaN),
+  );
+  const mtdTo = new Date(mtdEndExclusive.getTime() - 1);
 
   const [
     expenses,
