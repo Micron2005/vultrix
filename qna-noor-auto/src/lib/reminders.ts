@@ -276,7 +276,6 @@ async function sendAppointmentReminders(
 
 async function sendPastDueReminders(
   orgId: string,
-  timezone: string,
   settings: Record<string, string>,
   organizationName: string | null,
 ): Promise<ReminderCounts> {
@@ -493,7 +492,6 @@ export async function sendDueRemindersForOrg(
       counts,
       await sendPastDueReminders(
         orgId,
-        timezone,
         settings,
         organization?.name ?? null,
       ),
