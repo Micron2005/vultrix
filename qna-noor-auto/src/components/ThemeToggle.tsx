@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
+const THEME_CHANGE_EVENT = "vx-theme-change";
 
 const choices: Array<{ value: ThemeMode; label: string }> = [
   { value: "light", label: "Light" },
@@ -18,6 +19,10 @@ export function ThemeToggle({
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
 
   useEffect(() => {
+    const handleThemeChange = (event: Event) => {
+      const nextTheme = (event as CustomEvent<ThemeMode>).detail;
+      setTheme(nextTheme);
+    };
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const applySystemTheme = () => {
       document.documentElement.classList.toggle(
@@ -26,9 +31,14 @@ export function ThemeToggle({
       );
     };
     applySystemTheme();
-    if (theme !== "system") return;
-    media.addEventListener("change", applySystemTheme);
-    return () => media.removeEventListener("change", applySystemTheme);
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    if (theme === "system") {
+      media.addEventListener("change", applySystemTheme);
+    }
+    return () => {
+      media.removeEventListener("change", applySystemTheme);
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    };
   }, [theme]);
 
   function chooseTheme(nextTheme: ThemeMode) {
@@ -42,6 +52,9 @@ export function ThemeToggle({
       nextTheme === "dark" || systemDark,
     );
     setTheme(nextTheme);
+    window.dispatchEvent(
+      new CustomEvent<ThemeMode>(THEME_CHANGE_EVENT, { detail: nextTheme }),
+    );
   }
 
   return (
