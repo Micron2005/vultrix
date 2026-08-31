@@ -7,6 +7,7 @@ import { hashPassword } from "@/lib/auth";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { resolvePriceId, TRIAL_DAYS } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
+import { isValidTimeZone } from "@/lib/timezone";
 
 function back(params: Record<string, string>): never {
   const qs = new URLSearchParams(params).toString();
@@ -45,6 +46,10 @@ export async function startSignup(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const submittedTimezone = String(formData.get("timezone") ?? "").trim();
+  const timezone = isValidTimeZone(submittedTimezone)
+    ? submittedTimezone
+    : undefined;
   const agreed = formData.get("agree") === "1";
   const accountTypeRaw = String(formData.get("accountType") ?? "AUTO_SHOP")
     .trim()
@@ -117,6 +122,7 @@ export async function startSignup(formData: FormData) {
       signupAccountType: accountType,
       signupFeatures: features.join(","),
       signupAiHosted: aiHostedEnabled ? "1" : "0",
+      ...(timezone ? { signupTimezone: timezone } : {}),
     },
   });
 
