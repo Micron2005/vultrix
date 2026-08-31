@@ -38,7 +38,7 @@ const items = [
   { href: "/inventory", label: "Inventory", feature: "inventory" },
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
-  { href: "/goals", label: "Goals", feature: "financials" },
+  { href: "/goals", label: "Goals" },
   { href: "/review", label: "Review", feature: "financials" },
   { href: "/sales", label: "Sales", feature: "financials" },
   { href: "/reports", label: "Reports", feature: "reports" },

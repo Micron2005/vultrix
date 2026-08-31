@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SaveButton } from "@/components/SaveButton";
 import { Input, Select } from "@/components/ui";
+import { metricAllowed } from "@/lib/goalAvailability";
 import { repairOrderNouns } from "@/lib/features";
 
 type GoalAction = (formData: FormData) => void | Promise<void>;
@@ -18,9 +19,11 @@ type GoalFormProps = {
     startDate: string;
     dueDate: string;
     manualProgress: number | null;
+    direction: string;
+    unit: string | null;
   }>;
   accountType: string;
-  hasInvoices: boolean;
+  features: string[];
   submitLabel?: string;
 };
 
@@ -28,30 +31,47 @@ export function GoalForm({
   action,
   initial,
   accountType,
-  hasInvoices,
+  features,
   submitLabel = "Create goal",
 }: GoalFormProps) {
-  const [metric, setMetric] = useState(initial?.metric ?? "MONEY_IN");
+  const defaultMetric =
+    initial?.metric ??
+    (features.includes("financials") ? "MONEY_IN" : "HABIT");
+  const [metric, setMetric] = useState(defaultMetric);
+  const [direction, setDirection] = useState(initial?.direction ?? "AT_LEAST");
   const [period, setPeriod] = useState(
     initial?.metric === "NET_SAVED" ? "BY_DATE" : initial?.period ?? "MONTH",
   );
   const repairNouns = repairOrderNouns(accountType);
   const autoShop = (accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
-  const metrics = [
-    ["MONEY_IN", "Money in"],
-    ["SPENDING", "Spending"],
-    ["PROFIT", "Profit"],
-    ["NET_SAVED", "Money saved"],
-    ...(hasInvoices
-      ? [["JOBS", autoShop ? "Jobs completed" : `${repairNouns.plural} completed`]]
-      : []),
-    ...(!hasInvoices ? [["UNITS_SOLD", "Units sold"]] : []),
-    ["MANUAL", "I'll update this myself"],
-  ];
+  const labels: Record<string, string> = {
+    MONEY_IN: "Money in",
+    SPENDING: "Spending",
+    PROFIT: "Profit",
+    NET_SAVED: "Money saved",
+    JOBS: autoShop ? "Jobs completed" : `${repairNouns.plural} completed`,
+    UNITS_SOLD: "Units sold",
+    HABIT: "Something I do — I'll check it off",
+    LOGGED_TOTAL: "A number I add up (miles, hours, pages)",
+    LOGGED_LATEST: "A number I track (weight, savings balance)",
+    EVENTS: autoShop ? "Appointments booked" : "Calendar events",
+    NOTES_WRITTEN: "Notes written",
+    MANUAL: "I'll update this myself",
+  };
+  const metrics = Object.keys(labels).filter((value) =>
+    metricAllowed(value, { accountType, features }),
+  );
+  const directionChoice =
+    metric === "LOGGED_TOTAL" || metric === "LOGGED_LATEST";
+  const unitChoice =
+    metric === "HABIT" ||
+    metric === "LOGGED_TOTAL" ||
+    metric === "LOGGED_LATEST";
+
   return (
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label className="block text-xs font-medium text-zinc-700">
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Goal name
           <Input
             name="title"
@@ -61,7 +81,7 @@ export function GoalForm({
             className="mt-1"
           />
         </label>
-        <label className="block text-xs font-medium text-zinc-700">
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           What to track
           <Select
             name="metric"
@@ -69,18 +89,19 @@ export function GoalForm({
             onChange={(event) => {
               const nextMetric = event.target.value;
               setMetric(nextMetric);
+              setDirection("AT_LEAST");
               if (nextMetric === "NET_SAVED") setPeriod("BY_DATE");
             }}
             className="mt-1"
           >
-            {metrics.map(([value, label]) => (
+            {metrics.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {labels[value]}
               </option>
             ))}
           </Select>
         </label>
-        <label className="block text-xs font-medium text-zinc-700">
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Target
           <Input
             name="target"
@@ -91,7 +112,21 @@ export function GoalForm({
             className="mt-1"
           />
         </label>
-        <label className="block text-xs font-medium text-zinc-700">
+        {directionChoice && (
+          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            Direction
+            <Select
+              name="direction"
+              value={direction}
+              onChange={(event) => setDirection(event.target.value)}
+              className="mt-1"
+            >
+              <option value="AT_LEAST">Reach at least</option>
+              <option value="AT_MOST">Stay under</option>
+            </Select>
+          </label>
+        )}
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Timeframe
           <Select
             name="period"
@@ -109,8 +144,19 @@ export function GoalForm({
             <input type="hidden" name="period" value="BY_DATE" />
           )}
         </label>
+        {unitChoice && (
+          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            Unit (optional)
+            <Input
+              name="unit"
+              defaultValue={initial?.unit ?? ""}
+              placeholder={metric === "HABIT" ? "days" : "miles"}
+              className="mt-1"
+            />
+          </label>
+        )}
         {metric === "SPENDING" && (
-          <label className="block text-xs font-medium text-zinc-700">
+          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
             Category (optional)
             <Input
               name="category"
@@ -120,7 +166,7 @@ export function GoalForm({
             />
           </label>
         )}
-        <label className="block text-xs font-medium text-zinc-700">
+        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Starts
           <Input
             name="startDate"
@@ -131,7 +177,7 @@ export function GoalForm({
           />
         </label>
         {period === "BY_DATE" && (
-          <label className="block text-xs font-medium text-zinc-700">
+          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
             Due date
             <Input
               name="dueDate"
@@ -143,7 +189,7 @@ export function GoalForm({
           </label>
         )}
         {metric === "MANUAL" && (
-          <label className="block text-xs font-medium text-zinc-700">
+          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
             Current progress (optional)
             <Input
               name="manualProgress"
@@ -155,7 +201,7 @@ export function GoalForm({
           </label>
         )}
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Goals use the records already in your account automatically. Use the
         manual option for something you want to update yourself.
       </p>

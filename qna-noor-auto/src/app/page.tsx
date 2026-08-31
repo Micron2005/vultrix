@@ -64,11 +64,9 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   dayEnd.setDate(dayEnd.getDate() + 1);
   const weekEnd = new Date(dayStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
-  const timezone = hasFinancials
-    ? await orgTimeZone(orgId)
-    : "America/New_York";
+  const timezone = await orgTimeZone(orgId);
   const activeGoals =
-    hasFinancials && user.role !== "STAFF"
+    user.role !== "STAFF"
       ? await loadActiveGoals(orgId, timezone, hasInvoices, 3)
       : [];
 
@@ -394,25 +392,27 @@ async function Dashboard({ user }: { user: CurrentUser }) {
               View all →
             </LinkButton>
           </CardHeader>
-          <div className="divide-y divide-zinc-200">
+          <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
             {activeGoals.map(({ goal, progress }) => (
               <Link
                 key={goal.id}
                 href={`/goals/${goal.id}/edit`}
-                className="block px-4 py-3 hover:bg-zinc-50"
+                className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-900">
+                    <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       {goal.title}
                     </p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                       {goalMetricLabel(goal.metric, user.accountType)} ·{" "}
-                      {goalValueLabel(goal.metric, progress.actual)} of{" "}
-                      {goalValueLabel(goal.metric, progress.target)}
+                      {goal.metric === "LOGGED_LATEST" &&
+                      progress.baseline !== null
+                        ? `${goalValueLabel(goal.metric, progress.baseline, goal.unit)} → ${goalValueLabel(goal.metric, progress.target, goal.unit)}, now ${goalValueLabel(goal.metric, progress.actual, goal.unit)}`
+                        : `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(goal.metric, progress.target, goal.unit)}`}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold text-zinc-700">
+                  <span className="shrink-0 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                     {Math.round(progress.pct)}%
                   </span>
                 </div>
