@@ -1,11 +1,23 @@
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
+import { enabledFeatureSet } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
+function dateInputValue(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export default async function ExportPage() {
   const orgId = await requireOrgId();
+  const user = await getCurrentUser();
+  const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
+  const now = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1);
   const [
     customers,
     vehicles,
@@ -49,6 +61,63 @@ export default async function ExportPage() {
         title="Export"
         description="Download a full copy of your shop data as one ZIP of CSVs."
       />
+
+      <Card className="mb-4">
+        <CardHeader title="Tax export" />
+        <div className="space-y-4 p-4">
+          <div className="text-sm text-zinc-700">
+            Everything your accountant needs for this period, in a simple ZIP
+            of CSV files.
+          </div>
+          <form
+            action="/export/tax/download"
+            method="get"
+            className="flex flex-wrap items-end gap-3"
+          >
+            <label className="text-sm text-zinc-700">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                From
+              </span>
+              <input
+                type="date"
+                name="from"
+                defaultValue={dateInputValue(yearStart)}
+                className="h-10 rounded-md border border-zinc-300 px-3 text-sm"
+              />
+            </label>
+            <label className="text-sm text-zinc-700">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                To
+              </span>
+              <input
+                type="date"
+                name="to"
+                defaultValue={dateInputValue(now)}
+                className="h-10 rounded-md border border-zinc-300 px-3 text-sm"
+              />
+            </label>
+            <button
+              type="submit"
+              className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Download tax export (.zip)
+            </button>
+          </form>
+          <div className="space-y-1 text-xs text-zinc-500">
+            <p>
+              Income and expenses use cash basis dates. For invoicing accounts,
+              sales tax is tax billed on invoices dated in the period — not tax
+              collected.
+            </p>
+            <p>
+              This ZIP contains{" "}
+              {hasInvoices
+                ? "income-payments.csv, sales-tax-by-invoice.csv, expenses.csv, and summary.csv."
+                : "income.csv, expenses.csv, and summary.csv."}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <Card className="mb-4">
         <CardHeader title="Download everything" />

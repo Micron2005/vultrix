@@ -78,6 +78,8 @@ export function computeTotals(ro: RepairOrderLines) {
     partsSubtotal,
     feesSubtotal,
     shopFeesSubtotal,
+    taxableBase,
+    taxableAfterDiscount: afterDiscount,
     subtotal,
     discount: ro.discount ?? 0,
     tax,
