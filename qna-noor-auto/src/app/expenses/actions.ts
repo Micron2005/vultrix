@@ -50,6 +50,73 @@ function parseDateOnly(v: FormDataEntryValue | null, fallback: Date): Date {
   return isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
+type ExpenseReceiptInput = {
+  id?: string;
+  dataUrl: string;
+};
+
+const MAX_EXPENSE_RECEIPTS = 5;
+const MAX_IMAGE_DATA_URL_LENGTH = 4_000_000;
+
+function parseReceipts(raw: FormDataEntryValue | null): ExpenseReceiptInput[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.slice(0, MAX_EXPENSE_RECEIPTS).flatMap((item): ExpenseReceiptInput[] => {
+    if (!item || typeof item !== "object") return [];
+    const dataUrl =
+      "dataUrl" in item && typeof item.dataUrl === "string" ? item.dataUrl : "";
+    if (
+      !dataUrl.startsWith("data:image/") ||
+      dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH
+    ) {
+      return [];
+    }
+    const id =
+      "id" in item && typeof item.id === "string" ? item.id.trim() : undefined;
+    return [{ dataUrl, ...(id ? { id } : {}) }];
+  });
+}
+
+async function syncExpenseReceipts(
+  expenseId: string,
+  orgId: string,
+  receipts: ExpenseReceiptInput[],
+) {
+  await db.$transaction(async (tx) => {
+    const existing = await tx.expenseReceipt.findMany({
+      where: { expenseId, orgId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((receipt) => receipt.id));
+    const retainedIds = receipts
+      .map((receipt) => receipt.id)
+      .filter((id): id is string => Boolean(id && existingIds.has(id)));
+
+    await tx.expenseReceipt.deleteMany({
+      where: { expenseId, orgId, id: { notIn: retainedIds } },
+    });
+
+    const additions = receipts.filter(
+      (receipt) => !receipt.id || !existingIds.has(receipt.id),
+    );
+    if (additions.length > 0) {
+      await tx.expenseReceipt.createMany({
+        data: additions.map((receipt) => ({
+          expenseId,
+          orgId,
+          dataUrl: receipt.dataUrl,
+        })),
+      });
+    }
+  });
+}
+
 export async function createExpense(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
@@ -109,6 +176,16 @@ export async function createExpense(fd: FormData) {
     method,
     note,
   });
+  const receipts = parseReceipts(fd.get("receipts"));
+  if (receipts.length > 0) {
+    await db.expenseReceipt.createMany({
+      data: receipts.map((receipt) => ({
+        expenseId: expense.id,
+        orgId,
+        dataUrl: receipt.dataUrl,
+      })),
+    });
+  }
   await logActivity({
     orgId,
     user,
@@ -138,6 +215,7 @@ export async function updateExpense(id: string, fd: FormData) {
   const endDateValue = cleanStr(fd.get("endDate"));
   const endDate = endDateValue ? parseDateOnly(endDateValue, startDate) : null;
   const autoPost = String(fd.get("autoPost") ?? "true") !== "false";
+  const receipts = parseReceipts(fd.get("receipts"));
 
   if (amount <= 0) throw new Error("Amount must be greater than zero");
 
@@ -181,6 +259,7 @@ export async function updateExpense(id: string, fd: FormData) {
     data: { amount, category, paidAt, vendor, reference, method, note },
   });
   if (existing) {
+    await syncExpenseReceipts(id, orgId, receipts);
     await logActivity({
       orgId,
       user,
