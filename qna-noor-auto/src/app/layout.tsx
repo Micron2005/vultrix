@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -9,6 +9,7 @@ import { isDemoOrg } from "@/lib/demo";
 import { APP_NAME } from "@/lib/branding";
 import { enabledFeatureSet } from "@/lib/features";
 import { AssistantClient } from "@/app/assistant/AssistantClient";
+import type { ThemeMode } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -36,11 +37,28 @@ export default async function RootLayout({
     );
   }
 
+  const themeCookie = (await cookies()).get("vx-theme")?.value;
+  const theme: ThemeMode =
+    themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   const orgLabel = user.orgName ?? APP_NAME;
   const enabledFeatures = Array.from(enabledFeatureSet(user));
 
   return (
-    <html lang="en" className="h-full">
+    <html
+      lang="en"
+      className={theme === "dark" ? "dark h-full" : "h-full"}
+      suppressHydrationWarning={theme === "system"}
+    >
+      {theme === "system" && (
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                'if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");',
+            }}
+          />
+        </head>
+      )}
       <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
         <div className="flex min-h-screen">
           <Nav
@@ -51,6 +69,7 @@ export default async function RootLayout({
             isSuperadmin={user.role === "SUPERADMIN"}
             enabledFeatures={enabledFeatures}
             accountType={user.accountType}
+            theme={theme}
             aiAssistantEnabled={
               user.accountType === "PERSONAL" && user.aiAssistantEnabled
             }

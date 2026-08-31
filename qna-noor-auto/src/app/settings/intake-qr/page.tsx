@@ -33,7 +33,7 @@ export default async function IntakeQrPage() {
 
   if (!url) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-6">
+      <div className="mx-auto max-w-2xl px-4 py-6" data-force-light>
         <h1 className="text-2xl font-semibold text-zinc-900">Shop intake QR</h1>
         <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           To enable the public intake QR, set an{" "}
@@ -58,7 +58,7 @@ export default async function IntakeQrPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="mx-auto max-w-2xl px-4 py-6" data-force-light>
       <div className="no-print mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">
@@ -98,10 +98,10 @@ export default async function IntakeQrPage() {
       </div>
 
       <style>{`
+        body { background: #fff !important; }
         @media print {
           .no-print { display: none !important; }
           nav, aside, header { display: none !important; }
-          body { background: #fff !important; }
           .intake-poster { border: none !important; margin-top: 0 !important; }
         }
       `}</style>

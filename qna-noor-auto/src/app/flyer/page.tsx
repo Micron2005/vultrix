@@ -76,7 +76,10 @@ export default async function FlyerPage() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-100 px-4 py-8 print:bg-white print:p-0">
+    <div
+      className="min-h-screen bg-zinc-100 px-4 py-8 print:bg-white print:p-0"
+      data-force-light
+    >
       {/* Toolbar (hidden when printing) */}
       <div className="no-print mx-auto mb-6 flex max-w-[820px] items-center justify-between">
         <div>
@@ -210,10 +213,10 @@ export default async function FlyerPage() {
       </div>
 
       <style>{`
+        body { background: #fff !important; }
         @media print {
           .no-print { display: none !important; }
           @page { margin: 0.4in; }
-          body { background: #fff !important; }
         }
       `}</style>
     </div>

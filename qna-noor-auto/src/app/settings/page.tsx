@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import {
   Button,
   Card,
@@ -29,6 +30,7 @@ import {
 import { saveAiAssistantSettings } from "./ai-assistant-actions";
 import { VoicePicker } from "./VoicePicker";
 import { TimezonePicker } from "./TimezonePicker";
+import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,9 @@ export default async function SettingsPage({
   const orgId = await requireOrgId();
   await requireSettingsAccess();
   const user = await getCurrentUser();
+  const themeCookie = (await cookies()).get("vx-theme")?.value;
+  const theme: ThemeMode =
+    themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
@@ -183,6 +188,15 @@ export default async function SettingsPage({
             : "Account configuration"
         }
       />
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader title="Appearance" />
+        <div className="flex items-center justify-between gap-4 p-6">
+          <p className="text-sm text-zinc-600">
+            Choose the color theme for your Vultrix workspace.
+          </p>
+          <ThemeToggle initialTheme={theme} />
+        </div>
+      </Card>
       <Card className="max-w-2xl">
         <CardHeader
           title={

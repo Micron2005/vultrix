@@ -63,7 +63,7 @@ export default async function BinQrPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto max-w-5xl px-4 py-6" data-force-light>
       <div className="no-print mb-4 flex flex-wrap items-center gap-3 justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">
@@ -110,6 +110,7 @@ export default async function BinQrPage() {
       )}
 
       <style>{`
+        body { background: #fff !important; }
         .sheet {
           display: grid;
           gap: 0.125in;
@@ -152,7 +153,6 @@ export default async function BinQrPage() {
         }
         @media print {
           @page { size: letter; margin: 0.5in; }
-          body { background: #fff !important; }
           .no-print { display: none !important; }
           .sheet { background: #fff; padding: 0; }
           .sticker { border-color: transparent; }

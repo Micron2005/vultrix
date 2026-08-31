@@ -221,3 +221,42 @@ html {
     scroll-behavior: auto;
   }
 }
+
+@media screen {
+  html.dark {
+    color-scheme: dark;
+    --color-white: #1b1b1f;
+    --color-black: #ffffff;
+    --color-zinc-50: #101013;
+    --color-zinc-100: #26262b;
+    --color-zinc-200: #33333a;
+    --color-zinc-300: #45454d;
+    --color-zinc-400: #71717a;
+    --color-zinc-500: #a1a1aa;
+    --color-zinc-600: #c4c4cc;
+    --color-zinc-700: #dcdce2;
+    --color-zinc-800: #eeeef2;
+    --color-zinc-900: #f7f7f9;
+    --color-zinc-950: #ffffff;
+    --background: #101013;
+    --foreground: #f7f7f9;
+  }
+}
+
+html.dark [data-force-light] {
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #9f9fa9;
+  --color-zinc-500: #71717b;
+  --color-zinc-600: #52525c;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-800: #27272a;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #09090b;
+  --background: #fafafa;
+  --foreground: #18181b;
+}

@@ -52,7 +52,7 @@ export default async function PartQrPage({
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="mx-auto max-w-2xl px-4 py-6" data-force-light>
       <div className="no-print mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">QR sticker</h1>
@@ -96,6 +96,7 @@ export default async function PartQrPage({
       </div>
 
       <style>{`
+        body { background: #fff !important; }
         .print-sheet {
           display: flex;
           justify-content: center;
@@ -139,7 +140,6 @@ export default async function PartQrPage({
         }
         @media print {
           @page { size: 4in 3in; margin: 0.125in; }
-          body { background: #fff !important; }
           .no-print { display: none !important; }
           .print-sheet { padding: 0 !important; }
           .sticker { border: none !important; }
