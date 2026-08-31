@@ -5,6 +5,11 @@ export type FinancialRange = {
   to: Date;
 };
 
+export type ExpenseCategoryTotal = {
+  category: string;
+  amount: number;
+};
+
 export async function loadMoneyInTotal(
   orgId: string,
   range: FinancialRange,
@@ -42,4 +47,27 @@ export async function loadExpenseTotal(
     select: { amount: true },
   });
   return expenses.reduce((sum, expense) => sum + expense.amount, 0);
+}
+
+export async function loadExpenseCategoryTotals(
+  orgId: string,
+  range: FinancialRange,
+): Promise<ExpenseCategoryTotal[]> {
+  const expenses = await db.expense.findMany({
+    where: {
+      orgId,
+      paidAt: { gte: range.from, lte: range.to },
+    },
+    select: { category: true, amount: true },
+  });
+  const totals = new Map<string, number>();
+  for (const expense of expenses) {
+    totals.set(
+      expense.category,
+      (totals.get(expense.category) ?? 0) + expense.amount,
+    );
+  }
+  return [...totals.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
 }

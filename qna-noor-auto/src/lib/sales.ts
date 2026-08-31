@@ -13,6 +13,37 @@ export type SaleInput = {
   note?: string | null;
 };
 
+export type SellingProduct = {
+  itemName: string;
+  units: number;
+  revenue: number;
+};
+
+export async function loadTopSellingProducts(
+  orgId: string,
+  range: { from: Date; to: Date },
+  limit = 3,
+): Promise<SellingProduct[]> {
+  const sales = await db.sale.findMany({
+    where: { orgId, soldAt: { gte: range.from, lte: range.to } },
+    select: { itemName: true, quantity: true, unitPrice: true },
+  });
+  const totals = new Map<string, SellingProduct>();
+  for (const sale of sales) {
+    const current = totals.get(sale.itemName) ?? {
+      itemName: sale.itemName,
+      units: 0,
+      revenue: 0,
+    };
+    current.units += sale.quantity;
+    current.revenue += sale.quantity * sale.unitPrice;
+    totals.set(sale.itemName, current);
+  }
+  return [...totals.values()]
+    .sort((a, b) => b.revenue - a.revenue || b.units - a.units)
+    .slice(0, limit);
+}
+
 function saleNote(itemName: string): string {
   return `Sale: ${itemName}`;
 }
