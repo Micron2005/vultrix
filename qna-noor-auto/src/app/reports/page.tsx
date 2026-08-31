@@ -2,9 +2,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
+import { loadOpenAR } from "@/lib/ar";
 import { enabledFeatureSet } from "@/lib/features";
-import { computeTotals } from "@/lib/totals";
-import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
 import { prettyCategory } from "../expenses/categories";
@@ -177,28 +176,14 @@ async function AutoReportsPage({
 
   const revenueInRange = paymentsInRange.reduce((s, p) => s + p.amount, 0);
 
-  const arShopFeesByRO = await loadAppliedShopFeesForROs(
-    orgId,
-    allROs
-      .filter((ro) => ro.status === "INVOICED")
-      .map((ro) => {
-        const t = computeTotals(ro);
-        return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
-      }),
-  );
-  let arTotal = 0;
-  let arIndividuals = 0;
-  let arBusinesses = 0;
-  for (const ro of allROs) {
-    if (ro.status !== "INVOICED") continue;
-    const shopFees = arShopFeesByRO.get(ro.id) ?? [];
-    const total = computeTotals({ ...ro, shopFees }).total;
-    const paid = ro.payments.reduce((x, p) => x + p.amount, 0);
-    const balance = Math.max(0, total - paid);
-    arTotal += balance;
-    if (ro.customer.type === "BUSINESS") arBusinesses += balance;
-    else arIndividuals += balance;
-  }
+  const arSummary = await loadOpenAR(orgId);
+  const arTotal = arSummary.total;
+  const arIndividuals = arSummary.customers
+    .filter((summary) => summary.customer.type !== "BUSINESS")
+    .reduce((sum, summary) => sum + summary.total, 0);
+  const arBusinesses = arSummary.customers
+    .filter((summary) => summary.customer.type === "BUSINESS")
+    .reduce((sum, summary) => sum + summary.total, 0);
 
   const completedInRange = allROs.filter(
     (ro) =>
@@ -408,9 +393,14 @@ async function AutoReportsPage({
         title="Reports"
         description={`Business metrics · ${label}`}
         actions={
-          <LinkButton href="/reports/profit" variant="secondary">
-            Profit by job
-          </LinkButton>
+          <>
+            <LinkButton href="/reports/ar" variant="secondary">
+              A/R aging
+            </LinkButton>
+            <LinkButton href="/reports/profit" variant="secondary">
+              Profit by job
+            </LinkButton>
+          </>
         }
       />
 
@@ -864,38 +854,14 @@ async function GeneralReportsPage({
     paymentCount: number;
   }> = [];
   if (hasInvoices) {
-    const invoicedROs = await db.repairOrder.findMany({
-      where: { orgId, status: "INVOICED" },
-      include: {
-        customer: true,
-        laborLines: true,
-        partLines: { include: { part: true } },
-        feeLines: true,
-        payments: true,
-      },
-    });
-    const arShopFeesByRO = await loadAppliedShopFeesForROs(
-      orgId,
-      invoicedROs.map((ro) => {
-        const totals = computeTotals(ro);
-        return {
-          id: ro.id,
-          partsSubtotal: totals.partsSubtotal,
-          laborSubtotal: totals.laborSubtotal,
-        };
-      }),
-    );
-    for (const ro of invoicedROs) {
-      const total = computeTotals({
-        ...ro,
-        shopFees: arShopFeesByRO.get(ro.id) ?? [],
-      }).total;
-      const paid = ro.payments.reduce((sum, payment) => sum + payment.amount, 0);
-      const balance = Math.max(0, total - paid);
-      arTotal += balance;
-      if (ro.customer.type === "BUSINESS") arBusinesses += balance;
-      else arIndividuals += balance;
-    }
+    const arSummary = await loadOpenAR(orgId);
+    arTotal = arSummary.total;
+    arIndividuals = arSummary.customers
+      .filter((summary) => summary.customer.type !== "BUSINESS")
+      .reduce((sum, summary) => sum + summary.total, 0);
+    arBusinesses = arSummary.customers
+      .filter((summary) => summary.customer.type === "BUSINESS")
+      .reduce((sum, summary) => sum + summary.total, 0);
 
     const customerTotals = new Map<
       string,
@@ -936,9 +902,16 @@ async function GeneralReportsPage({
         title="Reports"
         description={`Financial metrics · ${label}`}
         actions={
-          <LinkButton href="/reports/profit" variant="secondary">
-            Income by source
-          </LinkButton>
+          <>
+            {hasInvoices && (
+              <LinkButton href="/reports/ar" variant="secondary">
+                A/R aging
+              </LinkButton>
+            )}
+            <LinkButton href="/reports/profit" variant="secondary">
+              Income by source
+            </LinkButton>
+          </>
         }
       />
 
