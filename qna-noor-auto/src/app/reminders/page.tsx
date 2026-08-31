@@ -39,20 +39,20 @@ export default async function RemindersPage({
 
   const [customers, shopName, shopPhone, organization, reminderLogs] =
     await Promise.all([
-    db.customer.findMany({
-      where: { orgId },
-      include: {
-        vehicles: { orderBy: { updatedAt: "desc" } },
-        repairOrders: {
-          where: ACTIVE_RO_WHERE,
-          orderBy: { openedAt: "desc" },
-          take: 1,
-          include: { vehicle: true },
+      db.customer.findMany({
+        where: { orgId },
+        include: {
+          vehicles: { orderBy: { updatedAt: "desc" } },
+          repairOrders: {
+            where: ACTIVE_RO_WHERE,
+            orderBy: { openedAt: "desc" },
+            take: 1,
+            include: { vehicle: true },
+          },
         },
-      },
-    }),
-    getSetting(orgId, "shopName"),
-    getSetting(orgId, "shopPhone"),
+      }),
+      getSetting(orgId, "shopName"),
+      getSetting(orgId, "shopPhone"),
       db.organization.findUnique({
         where: { id: orgId },
         select: { timezone: true },

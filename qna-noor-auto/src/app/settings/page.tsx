@@ -31,7 +31,18 @@ import { VoicePicker } from "./VoicePicker";
 
 export const dynamic = "force-dynamic";
 
-const TIME_ZONE_OPTIONS = Intl.supportedValuesOf("timeZone");
+const COMMON_TIME_ZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+];
+const TIME_ZONE_OPTIONS = Intl.supportedValuesOf("timeZone").filter(
+  (timezone) => !COMMON_TIME_ZONES.includes(timezone),
+);
 
 async function resolveOrigin(): Promise<string> {
   const hdrs = await headers();
@@ -164,9 +175,6 @@ export default async function SettingsPage({
         remindServiceDueEnabled: fd.has("remindServiceDueEnabled")
           ? "true"
           : "false",
-        reminderSendHour: String(
-          Math.max(0, Math.min(23, Number(fd.get("reminderSendHour")) || 8)),
-        ),
       };
       const sendHourValue = Number(fd.get("reminderSendHour"));
       reminderValues.reminderSendHour = String(

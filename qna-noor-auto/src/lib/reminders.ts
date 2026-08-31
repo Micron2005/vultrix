@@ -81,14 +81,30 @@ function displayName(customer: {
   return customer.companyName || `${customer.firstName} ${customer.lastName}`.trim();
 }
 
-function siteOrigin(): string {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+function siteOrigin(): string | null {
+  const configured =
+    process.env.NEXT_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") ||
+    "https://vultrix.net";
+  try {
+    const parsed = new URL(configured);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? configured
+      : null;
+  } catch {
+    return null;
+  }
 }
 
-function link(path: string): string {
-  return `${siteOrigin()}${path}`;
+function link(path: string): string | null {
+  const origin = siteOrigin();
+  return origin ? `${origin}${path}` : null;
+}
+
+function displayShopName(
+  settings: Record<string, string>,
+  organizationName: string | null,
+): string {
+  return settings.shopName || organizationName || "Vultrix";
 }
 
 async function writeReminder(
@@ -192,6 +208,7 @@ async function sendAppointmentReminders(
   orgId: string,
   timezone: string,
   settings: Record<string, string>,
+  organizationName: string | null,
   now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
@@ -238,7 +255,7 @@ async function sendAppointmentReminders(
     const shareLink = appointment.shareToken
       ? link(`/a/${appointment.shareToken}`)
       : null;
-    const shopName = settings.shopName || "QNA / Noor Auto Repair";
+    const shopName = displayShopName(settings, organizationName);
     mergeCounts(
       counts,
       await writeReminder(
@@ -267,6 +284,7 @@ async function sendPastDueReminders(
   orgId: string,
   timezone: string,
   settings: Record<string, string>,
+  organizationName: string | null,
   now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
@@ -294,12 +312,35 @@ async function sendPastDueReminders(
     },
   });
   const customerById = new Map(customers.map((customer) => [customer.id, customer]));
-  const shopName = settings.shopName || "QNA / Noor Auto Repair";
+  const invoicesByCustomer = new Map<
+    string,
+    typeof ar.invoices
+  >();
   for (const invoice of ar.invoices) {
     if (invoice.daysOutstanding < minimumDays) continue;
-    const customer = customerById.get(invoice.customerId);
+    const customerInvoices = invoicesByCustomer.get(invoice.customerId) ?? [];
+    customerInvoices.push(invoice);
+    invoicesByCustomer.set(invoice.customerId, customerInvoices);
+  }
+  const shopName = displayShopName(settings, organizationName);
+  for (const [customerId, invoices] of invoicesByCustomer) {
+    const customer = customerById.get(customerId);
     if (!customer) continue;
     const email = getEmail(customer);
+    const sortedInvoices = [...invoices].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    const invoiceIds = sortedInvoices.map((invoice) => invoice.id);
+    const totalOwed = sortedInvoices.reduce(
+      (total, invoice) => total + invoice.balance,
+      0,
+    );
+    const invoiceList = sortedInvoices
+      .map(
+        (invoice) =>
+          `<li>Invoice #${invoice.invoiceNumber}: $${invoice.balance.toFixed(2)} outstanding (${invoice.daysOutstanding} days old)</li>`,
+      )
+      .join("");
     const portalLink = customer.portalToken
       ? link(`/p/${customer.portalToken}`)
       : null;
@@ -311,12 +352,13 @@ async function sendPastDueReminders(
       await writeReminder(
         orgId,
         "INVOICE_PAST_DUE",
-        invoice.id,
+        `${customerId}:${invoiceIds.join(",")}`,
         email,
-        `${shopName} — invoice #${invoice.invoiceNumber} past due`,
+        `${shopName} — past-due invoices`,
         `
           <p>Hi ${escapeHtml(displayName(customer))},</p>
-          <p>Invoice #${invoice.invoiceNumber} has an outstanding balance of <strong>$${invoice.balance.toFixed(2)}</strong> and is ${invoice.daysOutstanding} days old.</p>
+          <p>You have ${sortedInvoices.length} past-due invoice${sortedInvoices.length === 1 ? "" : "s"} with a combined outstanding balance of <strong>$${totalOwed.toFixed(2)}</strong>.</p>
+          <ul>${invoiceList}</ul>
           ${portalText}
           <p>Please contact ${escapeHtml(shopName)}${settings.shopPhone ? ` at ${escapeHtml(settings.shopPhone)}` : ""} with any questions.</p>
           <p>Thanks,<br>${escapeHtml(shopName)}</p>
@@ -332,63 +374,98 @@ async function sendServiceDueReminders(
   orgId: string,
   timezone: string,
   settings: Record<string, string>,
+  organizationName: string | null,
   now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
   if (settings.remindServiceDueEnabled !== "true") return counts;
   const sendHour = parseSendHour(settings);
   if (localHour(now, timezone) !== sendHour) return counts;
-  const [vehicles, reminders] = await Promise.all([
-    db.vehicle.findMany({
-      where: { orgId },
-      include: {
-        customer: {
-          include: {
-            contacts: {
-              orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
-            },
+  const reminders = await computeAllVehicleReminders(orgId, now);
+  const dueItemsByVehicle = new Map<
+    string,
+    Array<{
+      item: (typeof reminders)[number]["items"][number];
+      dueMonth: string;
+    }>
+  >();
+  for (const result of reminders) {
+    const dueItems = result.items.flatMap((item) => {
+      const dueByDate = item.dueByDate;
+      if (
+        item.interval.everyMonths == null ||
+        dueByDate == null ||
+        dueByDate > now
+      ) {
+        return [];
+      }
+      return [
+        {
+          item,
+          dueMonth: localCalendarDay(dueByDate, timezone).slice(0, 7),
+        },
+      ];
+    });
+    if (dueItems.length > 0) {
+      dueItemsByVehicle.set(result.vehicle.id, dueItems);
+    }
+  }
+  if (dueItemsByVehicle.size === 0) return counts;
+  const vehicles = await db.vehicle.findMany({
+    where: { orgId, id: { in: [...dueItemsByVehicle.keys()] } },
+    include: {
+      customer: {
+        include: {
+          contacts: {
+            orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
           },
         },
       },
-    }),
-    computeAllVehicleReminders(orgId, now),
-  ]);
+    },
+  });
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
-  const shopName = settings.shopName || "QNA / Noor Auto Repair";
-  for (const result of reminders) {
-    const vehicle = vehicleById.get(result.vehicle.id);
+  const shopName = displayShopName(settings, organizationName);
+  for (const [vehicleId, dueItems] of dueItemsByVehicle) {
+    const vehicle = vehicleById.get(vehicleId);
     if (!vehicle) continue;
-    const dueItems = result.items.filter(
-      (item) =>
-        item.interval.everyMonths != null &&
-        item.dueByDate != null &&
-        item.dueByDate <= now,
-    );
-    for (const item of dueItems) {
-      const dueMonth = localCalendarDay(item.dueByDate!, timezone).slice(0, 7);
-      const targetKey = `${vehicle.id}:${item.interval.key}:${dueMonth}`;
-      const email = getEmail(vehicle.customer);
-      const vehicleName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
-        .filter(Boolean)
-        .join(" ");
-      mergeCounts(
-        counts,
-        await writeReminder(
-          orgId,
-          "SERVICE_DUE",
-          targetKey,
-          email,
-          `${shopName} — ${item.interval.label} due`,
-          `
-            <p>Hi ${escapeHtml(displayName(vehicle.customer))},</p>
-            <p>Our records show that <strong>${escapeHtml(item.interval.label)}</strong> is due for your${vehicleName ? ` ${escapeHtml(vehicleName)}` : " vehicle"}.</p>
-            <p>Please contact ${escapeHtml(shopName)}${settings.shopPhone ? ` at ${escapeHtml(settings.shopPhone)}` : ""} to schedule service.</p>
-            <p>Thanks,<br>${escapeHtml(shopName)}</p>
-          `,
-          settings.shopEmail || undefined,
+    const sortedItems = [...dueItems].sort(
+      (a, b) =>
+        `${a.item.interval.key}@${a.dueMonth}`.localeCompare(
+          `${b.item.interval.key}@${b.dueMonth}`,
         ),
-      );
-    }
+    );
+    const pairs = sortedItems.map(
+      ({ item, dueMonth }) => `${item.interval.key}@${dueMonth}`,
+    );
+    const targetKey = `${vehicle.id}:${pairs.join(",")}`;
+    const email = getEmail(vehicle.customer);
+    const vehicleName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
+      .filter(Boolean)
+      .join(" ");
+    const intervalList = sortedItems
+      .map(
+        ({ item, dueMonth }) =>
+          `<li>${escapeHtml(item.interval.label)} (due ${escapeHtml(dueMonth)})</li>`,
+      )
+      .join("");
+    mergeCounts(
+      counts,
+      await writeReminder(
+        orgId,
+        "SERVICE_DUE",
+        targetKey,
+        email,
+        `${shopName} — service due`,
+        `
+          <p>Hi ${escapeHtml(displayName(vehicle.customer))},</p>
+          <p>Our records show that the following service is due for your${vehicleName ? ` ${escapeHtml(vehicleName)}` : " vehicle"}:</p>
+          <ul>${intervalList}</ul>
+          <p>Please contact ${escapeHtml(shopName)}${settings.shopPhone ? ` at ${escapeHtml(settings.shopPhone)}` : ""} to schedule service.</p>
+          <p>Thanks,<br>${escapeHtml(shopName)}</p>
+        `,
+        settings.shopEmail || undefined,
+      ),
+    );
   }
   return counts;
 }
@@ -400,7 +477,7 @@ export async function sendDueRemindersForOrg(
   const [organization, settings] = await Promise.all([
     db.organization.findUnique({
       where: { id: orgId },
-      select: { timezone: true, accountType: true, features: true },
+      select: { timezone: true, accountType: true, features: true, name: true },
     }),
     getAllSettings(orgId),
   ]);
@@ -413,19 +490,37 @@ export async function sendDueRemindersForOrg(
   if (features.has("schedule")) {
     mergeCounts(
       counts,
-      await sendAppointmentReminders(orgId, timezone, settings, now),
+      await sendAppointmentReminders(
+        orgId,
+        timezone,
+        settings,
+        organization?.name ?? null,
+        now,
+      ),
     );
   }
   if (features.has("invoices")) {
     mergeCounts(
       counts,
-      await sendPastDueReminders(orgId, timezone, settings, now),
+      await sendPastDueReminders(
+        orgId,
+        timezone,
+        settings,
+        organization?.name ?? null,
+        now,
+      ),
     );
   }
   if (features.has("vehicles")) {
     mergeCounts(
       counts,
-      await sendServiceDueReminders(orgId, timezone, settings, now),
+      await sendServiceDueReminders(
+        orgId,
+        timezone,
+        settings,
+        organization?.name ?? null,
+        now,
+      ),
     );
   }
   return counts;
