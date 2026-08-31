@@ -49,6 +49,19 @@ export function TechForm({
         />
       </Field>
 
+      <Field label="Pay rate (per hour)">
+        <Input
+          name="payRate"
+          inputMode="decimal"
+          defaultValue={tech?.payRate ?? ""}
+          placeholder="Leave blank if unknown"
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          What you pay this technician. Used only for job profit calculations;
+          never shown to customers, invoices, or estimates.
+        </p>
+      </Field>
+
       <Field label="Notes">
         <Textarea
           name="notes"

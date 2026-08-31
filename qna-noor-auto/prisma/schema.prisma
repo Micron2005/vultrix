@@ -274,6 +274,7 @@ model Technician {
   initials    String?
   role        String?
   defaultRate Float? // optional — used as default when adding labor lines for this tech
+  payRate     Float? // internal hourly cost used for job-profit calculations
   active      Boolean @default(true)
   notes       String?
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
-import { Card, CardHeader, PageHeader } from "@/components/ui";
+import { Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { enabledFeatureSet } from "@/lib/features";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -407,6 +407,11 @@ async function AutoReportsPage({
       <PageHeader
         title="Reports"
         description={`Business metrics · ${label}`}
+        actions={
+          <LinkButton href="/reports/profit" variant="secondary">
+            Profit by job
+          </LinkButton>
+        }
       />
 
       <Card className="mb-6">
@@ -927,7 +932,15 @@ async function GeneralReportsPage({
 
   return (
     <>
-      <PageHeader title="Reports" description={`Financial metrics · ${label}`} />
+      <PageHeader
+        title="Reports"
+        description={`Financial metrics · ${label}`}
+        actions={
+          <LinkButton href="/reports/profit" variant="secondary">
+            Profit by source
+          </LinkButton>
+        }
+      />
 
       <Card className="mb-6">
         <div className="p-4">

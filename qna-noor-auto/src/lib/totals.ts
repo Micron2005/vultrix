@@ -15,6 +15,28 @@ export type RepairOrderLines = {
   discount: number;
 };
 
+export type InvoiceDateResult = {
+  date: Date;
+  field: "invoicedAt" | "paidAt" | "closedAt" | "openedAt";
+};
+
+export function invoiceDateOf(ro: {
+  invoicedAt?: Date | null;
+  paidAt?: Date | null;
+  closedAt?: Date | null;
+  openedAt?: Date | null;
+}): InvoiceDateResult | null {
+  const candidates: InvoiceDateResult[] = [
+    ...(ro.invoicedAt
+      ? [{ date: ro.invoicedAt, field: "invoicedAt" as const }]
+      : []),
+    ...(ro.paidAt ? [{ date: ro.paidAt, field: "paidAt" as const }] : []),
+    ...(ro.closedAt ? [{ date: ro.closedAt, field: "closedAt" as const }] : []),
+    ...(ro.openedAt ? [{ date: ro.openedAt, field: "openedAt" as const }] : []),
+  ];
+  return candidates[0] ?? null;
+}
+
 /**
  * Filter out labor, part, and fee lines that belong to declined jobs.
  * Returns a new object with the same shape but declined-job lines removed.
