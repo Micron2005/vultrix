@@ -51,7 +51,13 @@ function formatValue(value: number, descriptor: GoalValueDescriptor): string {
     })}`;
   }
   const formatted = value.toLocaleString("en-US", { maximumFractionDigits: 1 });
-  return descriptor.unit ? `${formatted} ${descriptor.unit}` : formatted;
+  if (!descriptor.unit) return formatted;
+  if (descriptor.unit === "%") return `${formatted}%`;
+  return `${formatted} ${descriptor.unit}`;
+}
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
 function shortDay(value: string): string {
@@ -130,17 +136,18 @@ export function GoalChart({
   if (kind === "pie") {
     return (
       <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
+        <PieChart margin={{ top: 24, right: 32, bottom: 8, left: 32 }}>
           <Pie
             data={slices}
             dataKey="value"
             nameKey="label"
             cx="50%"
-            cy="46%"
-            innerRadius={70}
-            outerRadius={105}
+            cy="45%"
+            innerRadius={52}
+            outerRadius={78}
+            labelLine={{ stroke: "var(--color-zinc-300)" }}
             label={({ name, percent }) =>
-              `${name} ${Math.round(Number(percent ?? 0) * 100)}%`
+              `${truncate(String(name ?? ""), 14)} ${Math.round(Number(percent ?? 0) * 100)}%`
             }
           >
             {slices.map((slice, index) => (
@@ -152,7 +159,7 @@ export function GoalChart({
               <GoalTooltip descriptor={valueLabel} />
             }
           />
-          <Legend />
+          <Legend verticalAlign="bottom" height={24} />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -168,7 +175,7 @@ export function GoalChart({
         dataKey="day"
         axisLine={{ stroke: "var(--color-zinc-300)" }}
         tickLine={{ stroke: "var(--color-zinc-300)" }}
-        tickFormatter={shortDay}
+        tickFormatter={(value: string) => truncate(shortDay(value), 14)}
         {...axisProps(data.length)}
       />
       <YAxis

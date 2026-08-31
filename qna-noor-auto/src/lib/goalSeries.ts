@@ -6,6 +6,8 @@ import {
 } from "@/lib/goals";
 import {
   loadExpenseCategoryTotals,
+  loadExpenseTotal,
+  loadMoneyInTotal,
 } from "@/lib/financialMetrics";
 import {
   localCalendarDay,
@@ -22,6 +24,7 @@ export type GoalSeries = {
   points: GoalPoint[];
   cumulative: GoalPoint[];
   pace: GoalPoint[];
+  totalDays: number;
 };
 
 export type GoalSlice = {
@@ -174,10 +177,12 @@ export async function loadGoalSeries(
   hasInvoices: boolean,
 ): Promise<GoalSeries> {
   if (goal.metric === "MANUAL") {
-    return { supported: false, points: [], cumulative: [], pace: [] };
+    return { supported: false, points: [], cumulative: [], pace: [], totalDays: 0 };
   }
   const range = activeGoalWindow(goal, now, timezone);
-  if (!range) return { supported: true, points: [], cumulative: [], pace: [] };
+  if (!range) {
+    return { supported: true, points: [], cumulative: [], pace: [], totalDays: 0 };
+  }
   const days = range.days;
   const buckets = new Map<string, number>();
   let latestData:
@@ -367,7 +372,7 @@ export async function loadGoalSeries(
       break;
     }
     default:
-      return { supported: false, points: [], cumulative: [], pace: [] };
+      return { supported: false, points: [], cumulative: [], pace: [], totalDays: 0 };
   }
 
   if (goal.metric === "LOGGED_LATEST" && latestData) {
@@ -382,6 +387,7 @@ export async function loadGoalSeries(
     const totalDays = fullWindowDayCount(goal, now, timezone);
     return {
       supported: true,
+      totalDays,
       points: latest.points,
       cumulative: latest.cumulative,
       pace:
@@ -397,16 +403,18 @@ export async function loadGoalSeries(
   }
 
   const points = pointsFromBuckets(days, buckets);
+  const totalDays = fullWindowDayCount(goal, now, timezone);
   return {
     supported: true,
+    totalDays,
     points,
     cumulative: cumulativePoints(points),
-    pace: normalPace(
-      days,
-      fullWindowDayCount(goal, now, timezone),
-      goal.target,
-    ),
+    pace: normalPace(days, totalDays, goal.target),
   };
+}
+
+function positiveSlices(slices: GoalSlice[]): GoalSlice[] {
+  return slices.filter((slice) => slice.value > 0);
 }
 
 function isoWeekKey(day: string): string {
@@ -433,27 +441,54 @@ export async function loadGoalBreakdown(
   now: Date,
   timezone: string,
   hasInvoices: boolean,
+  precomputed?: GoalSeries,
 ): Promise<GoalSlice[]> {
   if (goal.metric === "MANUAL") return [];
   const range = activeGoalWindow(goal, now, timezone);
   if (!range) return [];
+  const seriesFor = async () =>
+    precomputed ??
+    (await loadGoalSeries(orgId, goal, now, timezone, hasInvoices));
+
+  if (goal.metric === "PROFIT" || goal.metric === "NET_SAVED") {
+    const [moneyIn, spending] = await Promise.all([
+      loadMoneyInTotal(orgId, dateRange(range), hasInvoices),
+      loadExpenseTotal(orgId, dateRange(range)),
+    ]);
+    return positiveSlices([
+      { label: "Money in", value: moneyIn },
+      { label: "Spending", value: spending },
+    ]);
+  }
   if (goal.metric === "SPENDING" && !goal.category) {
     const totals = await loadExpenseCategoryTotals(orgId, dateRange(range));
-    return totals.map(({ category, amount }) => ({
-      label: category || "Uncategorized",
-      value: amount,
-    }));
+    return positiveSlices(
+      totals.map(({ category, amount }) => ({
+        label: category || "Uncategorized",
+        value: amount,
+      })),
+    );
   }
   if (goal.metric === "HABIT") {
-    const series = await loadGoalSeries(orgId, goal, now, timezone, hasInvoices);
+    const series = await seriesFor();
     const daysChecked = series.points.reduce((sum, point) => sum + point.value, 0);
-    return [
+    return positiveSlices([
       { label: "Done", value: daysChecked },
       { label: "Missed", value: range.days.length - daysChecked },
-    ];
+    ]);
   }
-  const series = await loadGoalSeries(orgId, goal, now, timezone, hasInvoices);
+  const series = await seriesFor();
   if (series.points.length === 0) return [];
+  if (goal.metric === "LOGGED_LATEST") {
+    const weeks = new Map<string, GoalSlice>();
+    for (const point of series.cumulative) {
+      const key = isoWeekKey(point.day);
+      const existing = weeks.get(key);
+      if (existing) existing.value = point.value;
+      else weeks.set(key, { label: `Week ${weeks.size + 1}`, value: point.value });
+    }
+    return positiveSlices([...weeks.values()]);
+  }
   const weeks = new Map<string, GoalSlice>();
   for (const point of series.points) {
     const key = isoWeekKey(point.day);
@@ -462,10 +497,12 @@ export async function loadGoalBreakdown(
     else weeks.set(key, { label: `Week ${weeks.size + 1}`, value: point.value });
   }
   if (weeks.size === 1) {
-    return series.points.map((point) => ({
-      label: weekdayLabel(point.day),
-      value: point.value,
-    }));
+    return positiveSlices(
+      series.points.map((point) => ({
+        label: weekdayLabel(point.day),
+        value: point.value,
+      })),
+    );
   }
-  return [...weeks.values()];
+  return positiveSlices([...weeks.values()]);
 }

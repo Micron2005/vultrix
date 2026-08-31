@@ -7,6 +7,7 @@ import {
   Input,
   LinkButton,
   PageHeader,
+  StatTile,
 } from "@/components/ui";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
@@ -15,12 +16,16 @@ import { db } from "@/lib/db";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   computeGoalProgress,
-  goalIsAtMost,
   goalMetricLabel,
+  goalUsesMoney,
   goalValueLabel,
   type GoalRecord,
 } from "@/lib/goals";
-import { statusClass, statusLabel } from "@/lib/goalStatus";
+import {
+  goalRemainingSummary,
+  statusClass,
+  statusLabel,
+} from "@/lib/goalStatus";
 import { loadGoalBreakdown, loadGoalSeries } from "@/lib/goalSeries";
 import { localCalendarDay } from "@/lib/timezone";
 import {
@@ -29,25 +34,6 @@ import {
   logGoalEntry,
   toggleHabitCheckIn,
 } from "../actions";
-
-function Stat({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-        {label}
-      </p>
-      <p className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-        {value}
-      </p>
-    </div>
-  );
-}
 
 export default async function GoalDetailPage({
   params,
@@ -69,11 +55,18 @@ export default async function GoalDetailPage({
   const hasInvoices = features.has("invoices");
   const now = new Date();
   const record = goal as GoalRecord;
-  const [progress, series, slices] = await Promise.all([
+  const [progress, series] = await Promise.all([
     computeGoalProgress(user.orgId, record, now, timezone, hasInvoices),
     loadGoalSeries(user.orgId, record, now, timezone, hasInvoices),
-    loadGoalBreakdown(user.orgId, record, now, timezone, hasInvoices),
   ]);
+  const slices = await loadGoalBreakdown(
+    user.orgId,
+    record,
+    now,
+    timezone,
+    hasInvoices,
+    series,
+  );
   const today = localCalendarDay(now, timezone);
   const [entries, entryCount, checkIns] = await Promise.all([
     record.metric === "LOGGED_TOTAL" || record.metric === "LOGGED_LATEST"
@@ -95,7 +88,6 @@ export default async function GoalDetailPage({
         })
       : [],
   ]);
-  const atMost = goalIsAtMost(record);
   const emptyLatest =
     record.metric === "LOGGED_LATEST" &&
     progress.baseline === null &&
@@ -105,12 +97,7 @@ export default async function GoalDetailPage({
     : record.metric === "LOGGED_LATEST" && progress.baseline !== null
       ? `${goalValueLabel(record.metric, progress.baseline, record.unit)} → ${goalValueLabel(record.metric, progress.target, record.unit)}, now ${goalValueLabel(record.metric, progress.actual, record.unit)}`
       : goalValueLabel(record.metric, progress.actual, record.unit);
-  const remainingText =
-    progress.remaining > 0
-      ? `${goalValueLabel(record.metric, progress.remaining, record.unit)} ${
-          atMost ? "over target" : "remaining"
-        }`
-      : "Target reached";
+  const remaining = goalRemainingSummary(record, progress);
 
   return (
     <>
@@ -154,13 +141,13 @@ export default async function GoalDetailPage({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Current value" value={currentText} />
-        <Stat
+        <StatTile label="Current value" value={currentText} />
+        <StatTile
           label="Target"
           value={goalValueLabel(record.metric, progress.target, record.unit)}
         />
-        <Stat label={atMost ? "Over target" : "Remaining"} value={remainingText} />
-        <Stat
+        <StatTile label={remaining.label} value={remaining.text} />
+        <StatTile
           label="Complete vs expected"
           value={
             emptyLatest
@@ -169,7 +156,7 @@ export default async function GoalDetailPage({
           }
         />
         {record.metric === "HABIT" && (
-          <Stat
+          <StatTile
             label="Current streak"
             value={`${progress.currentStreak} day${progress.currentStreak === 1 ? "" : "s"}`}
           />
@@ -196,9 +183,7 @@ export default async function GoalDetailPage({
             pace={series.pace}
             slices={slices}
             valueLabel={{
-              money: ["MONEY_IN", "SPENDING", "PROFIT", "NET_SAVED"].includes(
-                record.metric,
-              ),
+              money: goalUsesMoney(record.metric),
               unit: record.unit,
             }}
             emptyMessage={

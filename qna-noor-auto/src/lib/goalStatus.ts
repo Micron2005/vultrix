@@ -1,5 +1,6 @@
 import {
   goalIsAtMost,
+  goalValueLabel,
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
@@ -31,4 +32,37 @@ export function statusClass(
       : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
     met: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   }[status];
+}
+
+export type GoalRemainingSummary = {
+  label: string;
+  text: string;
+};
+
+export function goalRemainingSummary(
+  goal: GoalRecord,
+  progress: GoalProgress,
+): GoalRemainingSummary {
+  const value = (amount: number) =>
+    goalValueLabel(goal.metric, amount, goal.unit);
+  if (!goalIsAtMost(goal)) {
+    return {
+      label: "Remaining",
+      text:
+        progress.remaining > 0
+          ? `${value(progress.remaining)} more needed`
+          : "Target reached",
+    };
+  }
+  const over = progress.actual - progress.target;
+  const spending = goal.metric === "SPENDING";
+  if (over > 0) {
+    return spending
+      ? { label: "Over budget", text: `${value(over)} over budget` }
+      : { label: "Over target", text: `${value(over)} over target` };
+  }
+  const left = progress.target - progress.actual;
+  return spending
+    ? { label: "Left to spend", text: `${value(left)} left to spend` }
+    : { label: "Under target", text: `${value(left)} under target` };
 }

@@ -396,7 +396,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             {activeGoals.map(({ goal, progress }) => (
               <Link
                 key={goal.id}
-                href={`/goals/${goal.id}/edit`}
+                href={`/goals/${goal.id}`}
                 className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
               >
                 <div className="flex items-center justify-between gap-3">
