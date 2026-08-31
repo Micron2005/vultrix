@@ -305,9 +305,9 @@ export default async function CustomerDetailPage({
       {/* Bulk Payment */}
       {openInvoices.length > 0 && canManagePayments(user.role) && (
         <BulkPaymentCard
-        customerId={customer.id}
-        invoices={invoicesForPayment}
-        tickets={ticketsForPayment}
+          customerId={customer.id}
+          invoices={invoicesForPayment}
+          tickets={ticketsForPayment}
           totalOwed={totalOwed}
         />
       )}

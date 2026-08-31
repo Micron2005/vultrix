@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
+
 type NavProps = {
   orgLabel: string;
   canManageUsers?: boolean;

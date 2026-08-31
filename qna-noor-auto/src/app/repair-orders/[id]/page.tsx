@@ -906,7 +906,9 @@ export default async function RepairOrderDetailPage({
                 <th className="px-4 py-2 font-medium w-32">Reference</th>
                 <th className="px-4 py-2 font-medium">Note</th>
                 <th className="px-4 py-2 font-medium text-right w-28">Amount</th>
-                <th className="px-2 py-2 w-10"></th>
+                {canManagePayments(user.role) && (
+                  <th className="px-2 py-2 w-10"></th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
