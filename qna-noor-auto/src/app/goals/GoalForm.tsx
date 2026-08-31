@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SaveButton } from "@/components/SaveButton";
-import { Input, Select } from "@/components/ui";
+import { Input, Select, Textarea } from "@/components/ui";
 import { metricAllowed } from "@/lib/goalAvailability";
 import { repairOrderNouns } from "@/lib/features";
 
@@ -21,6 +21,7 @@ type GoalFormProps = {
     manualProgress: number | null;
     direction: string;
     unit: string | null;
+    notes: string | null;
   }>;
   accountType: string;
   features: string[];
@@ -85,7 +86,7 @@ export function GoalForm({
           />
         </label>
         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-          What to track
+          How should we measure it?
           <Select
             name="metric"
             value={metric}
@@ -103,6 +104,9 @@ export function GoalForm({
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            Name it anything you want above — this just tells Vultrix how to score it.
+          </p>
         </label>
         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Target
@@ -204,6 +208,16 @@ export function GoalForm({
           </label>
         )}
       </div>
+      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        Details (optional)
+        <Textarea
+          name="notes"
+          defaultValue={initial?.notes ?? ""}
+          placeholder="Anything specific — why this matters, how you'll do it"
+          rows={4}
+          className="mt-1"
+        />
+      </label>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Goals use the records already in your account automatically. Use the
         manual option for something you want to update yourself.

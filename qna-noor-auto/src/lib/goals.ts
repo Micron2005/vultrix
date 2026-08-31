@@ -41,6 +41,7 @@ export type GoalRecord = {
   manualProgress: number | null;
   direction: string;
   unit: string | null;
+  notes: string | null;
   archived: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -73,7 +74,7 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function parseCalendarDay(value: string, timezone: string): Date {
+export function parseCalendarDay(value: string, timezone: string): Date {
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
@@ -86,7 +87,7 @@ function dayOfWeek(value: string): number {
   return new Date(`${value}T12:00:00.000Z`).getUTCDay();
 }
 
-type GoalWindow = {
+export type GoalWindow = {
   start: Date;
   end: Date;
   label: string;
@@ -132,7 +133,7 @@ function periodWindow(
   };
 }
 
-function goalWindow(
+export function goalWindow(
   goal: GoalRecord,
   now: Date,
   timezone: string,

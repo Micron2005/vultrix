@@ -13,6 +13,7 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
+import { statusClass, statusLabel } from "@/lib/goalStatus";
 import { localCalendarDay } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
@@ -26,35 +27,6 @@ import {
 import { GoalForm } from "./GoalForm";
 
 export const dynamic = "force-dynamic";
-
-function statusLabel(status: GoalProgress["status"]): string {
-  return {
-    ahead: "Ahead",
-    on_pace: "On pace",
-    behind: "Behind",
-    met: "Met",
-  }[status];
-}
-
-function statusClass(
-  status: GoalProgress["status"],
-  goal: GoalRecord,
-  progress: GoalProgress,
-): string {
-  const ended = new Date() >= progress.windowEnd;
-  const atMost = goalIsAtMost(goal);
-  const red =
-    status === "behind" &&
-    (ended || (atMost && progress.actual > progress.target));
-  return {
-    ahead: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-    on_pace: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-    behind: red
-      ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
-      : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-    met: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  }[status];
-}
 
 async function GoalCard({
   goal,
@@ -128,7 +100,9 @@ async function GoalCard({
             {goalMetricLabel(goal.metric, accountType, hasInvoices)}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            {goal.title}
+            <Link href={`/goals/${goal.id}`} className="hover:underline">
+              {goal.title}
+            </Link>
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {progress.periodLabel}
@@ -271,6 +245,12 @@ async function GoalCard({
         )}
       </div>
       <div className="mt-4 flex gap-3 text-sm">
+        <Link
+          href={`/goals/${goal.id}`}
+          className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+        >
+          View analytics
+        </Link>
         <Link
           href={`/goals/${goal.id}/edit`}
           className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
