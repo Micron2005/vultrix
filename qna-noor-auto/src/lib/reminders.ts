@@ -50,7 +50,7 @@ function mergeCounts(target: ReminderCounts, source: ReminderCounts): void {
   target.skippedNoEmail += source.skippedNoEmail;
 }
 
-function parsePositiveSetting(
+export function parsePositiveSetting(
   settings: Record<string, string>,
   key: string,
   fallback: number,
@@ -75,7 +75,7 @@ function displayName(customer: {
   return customer.companyName || `${customer.firstName} ${customer.lastName}`.trim();
 }
 
-function siteOrigin(): string | null {
+export function siteOrigin(): string | null {
   const configured =
     process.env.NEXT_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") ||
     "https://vultrix.net";

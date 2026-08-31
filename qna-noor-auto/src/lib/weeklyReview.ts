@@ -20,6 +20,7 @@ import { formatMoney, fullName } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { orgTimeZone } from "@/lib/orgTimezone";
+import { parsePositiveSetting, siteOrigin } from "@/lib/reminders";
 
 export type WeeklyReview = {
   weekStartDay: string;
@@ -39,6 +40,7 @@ export type WeeklyReview = {
   receivables: {
     total: number;
     count: number;
+    minimumOverdueDays: number;
     overdueAmount: number;
     overdueCount: number;
   } | null;
@@ -154,6 +156,7 @@ export async function loadWeeklyReview(
       1,
   );
   const [
+    settings,
     moneyIn,
     spending,
     previousMoneyIn,
@@ -164,7 +167,12 @@ export async function loadWeeklyReview(
     upcomingAppointments,
     recurringDue,
     recurringInvoiceDue,
+    completedJobs,
+    receivables,
+    topSellingProducts,
+    unitsSold,
   ] = await Promise.all([
+    getAllSettings(orgId),
     loadMoneyInTotal(orgId, range, hasInvoices),
     loadExpenseTotal(orgId, range),
     loadMoneyInTotal(orgId, previousRange, hasInvoices),
@@ -197,30 +205,35 @@ export async function loadWeeklyReview(
     }),
     getDueConfirmOccurrences(orgId, now),
     getDueInvoiceOccurrences(orgId, now),
+    hasInvoices
+      ? db.repairOrder.count({
+          where: {
+            orgId,
+            deletedAt: null,
+            completedAt: { gte: range.from, lte: range.to },
+          },
+        })
+      : Promise.resolve(null),
+    hasInvoices ? loadOpenAR(orgId) : Promise.resolve(null),
+    hasInvoices
+      ? Promise.resolve(null)
+      : loadTopSellingProducts(orgId, range),
+    hasInvoices
+      ? Promise.resolve(null)
+      : db.sale.aggregate({
+          where: { orgId, soldAt: { gte: range.from, lte: range.to } },
+          _sum: { quantity: true },
+        }),
   ]);
-  const completedJobs = hasInvoices
-    ? await db.repairOrder.count({
-        where: {
-          orgId,
-          deletedAt: null,
-          completedAt: { gte: range.from, lte: range.to },
-        },
-      })
-    : null;
-  const receivables = hasInvoices ? await loadOpenAR(orgId) : null;
-  const topSellingProducts = hasInvoices
-    ? null
-    : await loadTopSellingProducts(orgId, range);
-  const unitsSold = hasInvoices
-    ? null
-    : await db.sale.aggregate({
-        where: { orgId, soldAt: { gte: range.from, lte: range.to } },
-        _sum: { quantity: true },
-      });
   const net = moneyIn - spending;
   const previousNet = previousMoneyIn - previousSpending;
+  const minimumOverdueDays = parsePositiveSetting(
+    settings,
+    "remindPastDueDays",
+    30,
+  );
   const overdue = receivables?.invoices.filter(
-    (invoice) => invoice.daysOutstanding > 0,
+    (invoice) => invoice.daysOutstanding >= minimumOverdueDays,
   );
   const reviewGoals = activeGoals.filter(
     ({ progress }) => progress.status === "behind",
@@ -249,6 +262,7 @@ export async function loadWeeklyReview(
       ? {
           total: round(receivables.total),
           count: receivables.invoices.length,
+          minimumOverdueDays,
           overdueAmount: round(
             overdue?.reduce((sum, invoice) => sum + invoice.balance, 0) ?? 0,
           ),
@@ -271,13 +285,6 @@ export async function loadWeeklyReview(
   };
 }
 
-function emailOrigin(): string {
-  return (
-    process.env.NEXT_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") ||
-    "https://vultrix.net"
-  );
-}
-
 function weeklyReviewEmailHtml(
   review: WeeklyReview,
   timezone: string,
@@ -290,6 +297,10 @@ function weeklyReviewEmailHtml(
         `<li>${escapeHtml(entry.category)}: ${escapeHtml(formatMoney(entry.amount))}</li>`,
     )
     .join("");
+  const origin = siteOrigin();
+  const reviewLink = origin
+    ? `${origin}/review?week=${review.weekStartDay}`
+    : null;
   return `
     <h2 style="margin:0 0 6px;color:#18181b">Weekly review for ${escapeHtml(shopName)}</h2>
     <p style="color:#52525b;margin:0 0 16px">${escapeHtml(week)}</p>
@@ -299,7 +310,7 @@ function weeklyReviewEmailHtml(
       <tr><td style="padding:4px 20px 4px 0">Net</td><td style="padding:4px 0"><strong>${escapeHtml(formatMoney(review.net))}</strong></td></tr>
     </table>
     ${categories ? `<h3 style="color:#18181b">Top spending categories</h3><ul>${categories}</ul>` : ""}
-    <p style="margin-top:20px"><a href="${escapeHtml(`${emailOrigin()}/review?week=${review.weekStartDay}`)}">Open your weekly review</a></p>
+    ${reviewLink ? `<p style="margin-top:20px"><a href="${escapeHtml(reviewLink)}">Open your weekly review</a></p>` : ""}
     <p style="color:#71717a;font-size:12px">Times and dates use ${escapeHtml(timezone)}.</p>
   `;
 }
