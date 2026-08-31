@@ -55,9 +55,9 @@ export default async function CustomerStatementPage({
   const contact = [customer.phone, customer.email].filter(Boolean).join(" · ");
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0">
-      <div className="mx-auto max-w-5xl px-4 print:max-w-full print:px-0">
-        <div className="overflow-hidden rounded-lg bg-white shadow-sm print:rounded-none print:shadow-none">
+    <div>
+      <div className="mx-auto max-w-5xl print:max-w-full">
+        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white print:rounded-none print:border-0">
           <header className="border-b border-zinc-200 px-8 py-6">
             <div className="flex items-start justify-between gap-8">
               <div>
