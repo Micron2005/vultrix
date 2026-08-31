@@ -74,6 +74,7 @@ import {
   readdShopFeeToRO,
 } from "@/app/settings/shop-fees-actions";
 import { getCustomerContactLists } from "@/lib/customerContacts";
+import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,11 @@ export default async function RepairOrderDetailPage({
   });
   if (!ro) notFound();
   const contactLists = getCustomerContactLists(ro.customer);
+  const nouns = repairOrderNouns(user.accountType);
+  const canRepeat =
+    user.role !== "STAFF" &&
+    enabledFeatureSet(user).has("invoices") &&
+    (ro.status === "INVOICED" || ro.status === "PAID");
 
   // Filter out lines from declined jobs before computing totals.
   const filtered = excludeDeclinedJobLines(ro);
@@ -283,6 +289,14 @@ export default async function RepairOrderDetailPage({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {canRepeat && (
+              <Link
+                href={`/repair-orders/recurring/new?sourceId=${ro.id}`}
+                className="inline-flex h-8 items-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Repeat this {nouns.singular.toLowerCase()}
+              </Link>
+            )}
             <LifecycleActions
               id={ro.id}
               status={ro.status}
