@@ -765,6 +765,26 @@ model Sale {
   @@index([partId])
 }
 
+model Goal {
+  id             String   @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title          String
+  metric         String
+  target         Float
+  period         String
+  category       String?
+  startDate      DateTime
+  dueDate        DateTime?
+  manualProgress Float?
+  archived       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([archived])
+}
+
 model Budget {
   id       String   @id @default(cuid())
   orgId    String
@@ -1000,6 +1020,7 @@ model Organization {
   activityLogs      ActivityLog[]
   recurringInvoices RecurringInvoice[]
   sales             Sale[]
+  goals             Goal[]
 
   @@index([status])
 }

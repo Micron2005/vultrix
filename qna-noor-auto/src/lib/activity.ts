@@ -47,6 +47,10 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   "settings.rename": "Business name changed",
   "budget.set": "Budget saved",
   "budget.delete": "Budget removed",
+  "goal.create": "Goal created",
+  "goal.update": "Goal updated",
+  "goal.archive": "Goal archived",
+  "goal.restore": "Goal restored",
 };
 
 export function activityLabel(action: string): string {
