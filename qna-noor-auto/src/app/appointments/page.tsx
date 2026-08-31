@@ -6,6 +6,7 @@ import { fullName, vehicleLabel } from "@/lib/utils";
 import { prettyStatus } from "./AppointmentForm";
 import { statusBadgeClass } from "./status";
 import { PersonalCalendar } from "./PersonalCalendar";
+import { canDelete } from "@/lib/permissions";
 import {
   addDays,
   endOfWeek,
@@ -22,15 +23,22 @@ export default async function AppointmentsPage({
 }) {
   const user = await requireUser();
   if (user.accountType === "PERSONAL") {
-    return <PersonalCalendarPage searchParams={searchParams} />;
+    return (
+      <PersonalCalendarPage
+        searchParams={searchParams}
+        canDeleteEvents={canDelete(user.role)}
+      />
+    );
   }
   return <ShopSchedulePage searchParams={searchParams} />;
 }
 
 async function PersonalCalendarPage({
   searchParams,
+  canDeleteEvents,
 }: {
   searchParams: Promise<{ view?: string; date?: string }>;
+  canDeleteEvents: boolean;
 }) {
   const orgId = await requireOrgId();
   const params = await searchParams;
@@ -72,6 +80,7 @@ async function PersonalCalendarPage({
         description="Plan your day, week, month, and year"
       />
       <PersonalCalendar
+        canDelete={canDeleteEvents}
         view={view}
         date={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`}
         events={events.map((event) => ({

@@ -49,7 +49,8 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   const hasTechnicians = enabledFeatures.has("technicians");
   const hasKnowledge = enabledFeatures.has("knowledge");
   const personalAccount = user.accountType === "PERSONAL";
-  const showMoneyCards = (hasFinancials && hasRecords) || hasInvoices;
+  const showMoneyCards =
+    user.role !== "STAFF" && ((hasFinancials && hasRecords) || hasInvoices);
   const showRecentNotes = !autoShop && hasKnowledge && !showMoneyCards;
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
@@ -331,7 +332,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             href="/repair-orders"
           />
         )}
-        {hasFinancials && hasRecords && (
+        {showMoneyCards && hasFinancials && hasRecords && (
           <>
             <StatCard
               label="Revenue (this month)"
@@ -339,7 +340,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             />
           </>
         )}
-        {hasInvoices && (
+        {showMoneyCards && hasInvoices && (
           <MoneyOwedCard
             label={`Money owed${outstandingWithBalance.length ? ` (${outstandingWithBalance.length})` : ""}`}
             value={formatMoney(moneyOwed)}
@@ -355,7 +356,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
             customers={owedCustomers}
           />
         )}
-        {personalFinancialSummary && (
+        {showMoneyCards && personalFinancialSummary && (
           <>
             <StatCard
               label="Money in (this month)"

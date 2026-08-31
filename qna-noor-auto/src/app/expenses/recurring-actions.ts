@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanViewFinancials } from "@/lib/permissions";
 import { requireIncomeOrgId } from "./income-actions";
 import {
   postConfirmedOccurrence,
@@ -98,6 +99,8 @@ async function authorizeKind(orgId: string, kind: string) {
 
 export async function createRecurring(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const data = recurringData(fd);
   await authorizeKind(orgId, data.kind);
   if (data.amount <= 0) throw new Error("Amount must be greater than zero");
@@ -121,6 +124,8 @@ export async function createRecurring(fd: FormData) {
 
 export async function updateRecurring(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const existing = await db.recurringEntry.findFirst({ where: { id, orgId } });
   if (!existing) redirect("/expenses");
   await authorizeKind(orgId, existing.kind);
@@ -162,6 +167,8 @@ export async function updateRecurring(id: string, fd: FormData) {
 
 export async function toggleRecurring(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const id = text(fd, "id");
   if (!id) return;
   const existing = await db.recurringEntry.findFirst({ where: { id, orgId } });
@@ -184,6 +191,8 @@ export async function toggleRecurring(fd: FormData) {
 
 export async function deleteRecurring(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const id = text(fd, "id");
   if (!id) return;
   const existing = await db.recurringEntry.findFirst({ where: { id, orgId } });
@@ -210,6 +219,8 @@ function occurrenceFrom(fd: FormData): Date {
 
 export async function postConfirmed(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const id = text(fd, "recurringId");
   if (!id) return;
   const series = await db.recurringEntry.findFirst({ where: { id, orgId } });
@@ -222,6 +233,8 @@ export async function postConfirmed(fd: FormData) {
 
 export async function skipConfirmed(fd: FormData) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const id = text(fd, "recurringId");
   if (!id) return;
   const series = await db.recurringEntry.findFirst({ where: { id, orgId } });
@@ -233,6 +246,8 @@ export async function skipConfirmed(fd: FormData) {
 
 export async function postAllConfirmed() {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const due = await getDueConfirmOccurrences(orgId);
   for (const occurrence of due) {
     await postConfirmedOccurrence(

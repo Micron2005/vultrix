@@ -11,6 +11,7 @@ import {
   type Role,
 } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
+import { assertCanManageSettings } from "@/lib/permissions";
 
 const ASSIGNABLE_ROLES: Role[] = ["OWNER", "ADMIN", "STAFF"];
 
@@ -22,6 +23,7 @@ function back(params: Record<string, string>): never {
 async function requireManagerOrg() {
   const me = await getCurrentUser();
   if (!me || !canManageUsers(me.role)) redirect("/login");
+  assertCanManageSettings(me.role);
   // Staff management on this page is scoped to a single organization.
   if (!me.orgId) back({ error: "Platform admins manage businesses elsewhere." });
   return me;

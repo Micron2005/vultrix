@@ -7,6 +7,7 @@ import { requireOrgId, requireUser } from "@/lib/session";
 import { createExpenseForOrg } from "@/lib/expenses";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
+import { assertCanViewFinancials } from "@/lib/permissions";
 import {
   nthOccurrence,
   RECURRING_INTERVALS,
@@ -120,6 +121,7 @@ async function syncExpenseReceipts(
 export async function createExpense(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -203,6 +205,7 @@ export async function createExpense(fd: FormData) {
 export async function updateExpense(id: string, fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
   const paidAt = parseDate(fd.get("paidAt"));
@@ -277,6 +280,7 @@ export async function updateExpense(id: string, fd: FormData) {
 export async function deleteExpense(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const existing = await db.expense.findFirst({
     where: { id, orgId },
     select: { id: true, amount: true, category: true, vendor: true },

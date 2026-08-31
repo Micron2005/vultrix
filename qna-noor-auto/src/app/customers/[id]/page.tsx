@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete, canManagePayments } from "@/lib/permissions";
 import {
   Button,
   Card,
@@ -64,6 +65,7 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const { id } = await params;
   const customer = await loadCustomer(orgId, id);
   if (!customer) notFound();
@@ -301,17 +303,22 @@ export default async function CustomerDetailPage({
       />
 
       {/* Bulk Payment */}
-      {openInvoices.length > 0 && (
+      {openInvoices.length > 0 && canManagePayments(user.role) && (
         <BulkPaymentCard
-          customerId={customer.id}
-          invoices={invoicesForPayment}
-          tickets={ticketsForPayment}
+        customerId={customer.id}
+        invoices={invoicesForPayment}
+        tickets={ticketsForPayment}
           totalOwed={totalOwed}
         />
       )}
 
       {/* Selectable tickets — bulk pay / delete */}
-      <SelectableROList customerId={customer.id} sections={ticketSections} />
+      <SelectableROList
+        customerId={customer.id}
+        sections={ticketSections}
+        canDelete={canDelete(user.role)}
+        canManagePayments={canManagePayments(user.role)}
+      />
 
       {/* Vehicles — last */}
       <Card className="mb-4">
@@ -374,7 +381,7 @@ export default async function CustomerDetailPage({
         )}
       </Card>
 
-      <form action={deleteAction} className="mt-10">
+      {canDelete(user.role) && <form action={deleteAction} className="mt-10">
         <Button
           type="submit"
           variant="danger"
@@ -386,7 +393,7 @@ export default async function CustomerDetailPage({
           Warning: this also deletes all vehicles and repair orders for this
           customer.
         </p>
-      </form>
+      </form>}
     </>
   );
 }

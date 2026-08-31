@@ -11,11 +11,11 @@ import {
   type StepResult,
 } from "./actions";
 
-export function IdentifixImportClient() {
+export function IdentifixImportClient({ canDelete }: { canDelete: boolean }) {
   return (
     <>
-      <ResetCard />
-      <WipeCard />
+      {canDelete && <ResetCard />}
+      {canDelete && <WipeCard />}
       <StepCard
         step="1"
         title="Customers (A.csv)"

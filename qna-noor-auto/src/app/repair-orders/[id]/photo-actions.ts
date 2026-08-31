@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 import {
   MAX_PHOTOS_PER_RO,
   type NewPhoto,
@@ -63,6 +64,7 @@ export async function addRoPhotos(
 /** Delete a single photo. Tenant-scoped by orgId. */
 export async function deleteRoPhoto(photoId: string): Promise<PhotoActionResult> {
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
 
   const photo = await db.repairOrderPhoto.findFirst({
     where: { id: photoId, orgId },

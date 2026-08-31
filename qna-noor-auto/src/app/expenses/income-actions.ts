@@ -8,6 +8,7 @@ import { enabledFeatureSet } from "@/lib/features";
 import { createIncomeForOrg } from "@/lib/income";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
+import { assertCanViewFinancials } from "@/lib/permissions";
 import {
   nthOccurrence,
   RECURRING_INTERVALS,
@@ -16,6 +17,7 @@ import {
 
 export async function requireIncomeOrgId(): Promise<string> {
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   if (!user.orgId) redirect("/admin");
   const features = enabledFeatureSet(user);
   if (!features.has("financials") || features.has("invoices")) {
@@ -135,6 +137,7 @@ export async function createIncome(fd: FormData) {
 export async function updateIncome(id: string, fd: FormData) {
   const orgId = await requireIncomeOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
   const receivedAt = parseDate(fd.get("receivedAt"));
   const source = cleanStr(fd.get("source"));
@@ -213,6 +216,7 @@ export async function updateIncome(id: string, fd: FormData) {
 export async function deleteIncome(id: string) {
   const orgId = await requireIncomeOrgId();
   const user = await requireUser();
+  assertCanViewFinancials(user.role);
   const existing = await db.income.findFirst({
     where: { id, orgId },
     select: { id: true, amount: true, source: true },

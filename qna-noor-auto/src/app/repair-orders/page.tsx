@@ -167,19 +167,19 @@ export default async function RepairOrdersPage({
         description={`All ${nouns.plural.toLowerCase()} across the shop`}
         actions={
           <div className="flex gap-2">
-            <Link
+            {user.role !== "STAFF" && <Link
               href="/repair-orders/trash"
               className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
               data-testid="repair-orders-trash-link"
             >
               Trash
-            </Link>
-            <Link
+            </Link>}
+            {user.role !== "STAFF" && <Link
               href="/repair-orders/duplicates"
               className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
             >
               Review duplicates
-            </Link>
+            </Link>}
             <LinkButton href="/repair-orders/new">
               {isAutoShop ? "New RO" : "New invoice"}
             </LinkButton>

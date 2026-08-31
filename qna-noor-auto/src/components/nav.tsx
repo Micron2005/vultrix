@@ -10,7 +10,6 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
-
 type NavProps = {
   orgLabel: string;
   canManageUsers?: boolean;
@@ -19,6 +18,7 @@ type NavProps = {
   enabledFeatures?: string[];
   accountType?: string | null;
   aiAssistantEnabled?: boolean;
+  canViewFinancials?: boolean;
 };
 
 const items = [
@@ -55,6 +55,7 @@ export function Nav({
   enabledFeatures = [],
   accountType,
   aiAssistantEnabled = false,
+  canViewFinancials = true,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -122,6 +123,10 @@ export function Nav({
       : []),
   ].filter(
     (item) => !item.feature || enabledFeatures.includes(item.feature),
+  ).filter(
+    (item) =>
+      canViewFinancials ||
+      !["/expenses", "/reports", "/export", "/settings"].includes(item.href),
   );
 
   // Hide the shop sidebar on public, customer-facing routes and on login.

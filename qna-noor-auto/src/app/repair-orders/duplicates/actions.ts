@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 
 /**
  * Delete an RO from the duplicates review page and stay on that page.
@@ -12,6 +13,7 @@ import { requireOrgId } from "@/lib/session";
  */
 export async function deleteFromDuplicates(id: string, fd: FormData) {
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   // Require the "DELETE" confirmation string so a stray click can't
   // destroy work.
   const confirm = String(fd.get("confirm") ?? "").trim();

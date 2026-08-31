@@ -294,6 +294,7 @@ async function executeTool(
   ctx: AssistantContext,
   name: AssistantToolName,
   args: unknown,
+  canViewFinancials: boolean,
 ): Promise<{ confirmation: string; result: unknown }> {
   try {
     const finish = (output: { confirmation: string; data: unknown }) => ({
@@ -312,8 +313,10 @@ async function executeTool(
           args as AdjustInventoryArgs,
         ));
       case "add_income":
+        if (!canViewFinancials) throw new Error("You don't have permission to do that");
         return finish(await addAssistantIncome(orgId, args as AddIncomeArgs, ctx));
       case "add_expense":
+        if (!canViewFinancials) throw new Error("You don't have permission to do that");
         return finish(await addAssistantExpense(orgId, args as AddExpenseArgs, ctx));
       case "add_note":
         return finish(await addAssistantNote(orgId, args as AddNoteArgs));
@@ -334,6 +337,7 @@ async function executeTool(
           ctx,
         ));
       case "get_financial_summary":
+        if (!canViewFinancials) throw new Error("You don't have permission to do that");
         return finish(await getAssistantFinancialSummary(orgId, args as PeriodArgs, ctx));
       case "get_inventory_overview":
         return finish(await getAssistantInventoryOverview(orgId));
@@ -344,6 +348,7 @@ async function executeTool(
           ctx,
         ));
       case "get_reports_summary":
+        if (!canViewFinancials) throw new Error("You don't have permission to do that");
         return finish(await getAssistantReportsSummary(
           orgId,
           args as ReportsSummaryArgs,
@@ -476,7 +481,13 @@ export async function POST(request: Request) {
     const { reply, steps } = await runAssistantConversation({
       callProvider,
       executeTool: (name, args) =>
-        executeTool(user.orgId as string, ctx, name as AssistantToolName, args),
+        executeTool(
+          user.orgId as string,
+          ctx,
+          name as AssistantToolName,
+          args,
+          user.role !== "STAFF",
+        ),
       messages,
       maxIterations: MAX_TOOL_ITERATIONS,
     });

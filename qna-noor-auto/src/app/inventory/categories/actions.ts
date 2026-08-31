@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 
 function categoryName(formData: FormData): string {
   return String(formData.get("name") ?? "").trim();
@@ -103,6 +104,7 @@ export async function renameCategory(id: string, formData: FormData) {
 
 export async function deleteCategory(id: string) {
   const orgId = await requireOrgId();
+  assertCanDelete((await requireUser()).role);
   const category = await db.category.findFirst({
     where: { id, orgId },
     select: { id: true, name: true },

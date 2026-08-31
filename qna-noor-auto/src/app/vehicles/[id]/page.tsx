@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import {
   Button,
   Card,
@@ -32,6 +33,7 @@ export default async function VehicleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const { id } = await params;
   const vehicle = await db.vehicle.findFirst({
     where: { id, orgId },
@@ -142,7 +144,9 @@ export default async function VehicleDetailPage({
         recallsFetchedAt={vehicle.recallsFetchedAt}
       />
 
-      {reminders && <ServiceRemindersCard data={reminders} />}
+      {reminders && (
+        <ServiceRemindersCard data={reminders} canDelete={canDelete(user.role)} />
+      )}
 
       {relevantNotes.length > 0 && (
         <Card className="mb-4">
@@ -248,14 +252,14 @@ export default async function VehicleDetailPage({
         )}
       </Card>
 
-      <form action={del} className="mt-10">
+      {canDelete(user.role) && <form action={del} className="mt-10">
         <Button type="submit" variant="danger" size="sm">
           Delete vehicle
         </Button>
         <p className="mt-1 text-xs text-zinc-500">
           This also deletes all repair orders for this vehicle.
         </p>
-      </form>
+      </form>}
     </>
   );
 }

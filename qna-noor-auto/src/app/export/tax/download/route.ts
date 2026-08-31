@@ -10,6 +10,7 @@ import {
 } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { fullName } from "@/lib/utils";
+import { requireFinancialAccess } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ function money(value: number): number {
 }
 
 export async function GET(request: Request) {
+  await requireFinancialAccess();
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");

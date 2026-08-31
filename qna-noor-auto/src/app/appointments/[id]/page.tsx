@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import {
@@ -28,6 +29,7 @@ export default async function AppointmentDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
   const appt = await db.appointment.findFirst({
     where: { id, orgId },
     include: {
@@ -247,14 +249,14 @@ export default async function AppointmentDetailPage({
         </div>
       </Card>
 
-      <form action={del}>
+      {canDelete(user.role) && <form action={del}>
         <button
           type="submit"
           className="text-xs text-red-700 hover:underline"
         >
           Delete this appointment
         </button>
-      </form>
+      </form>}
     </>
   );
 }

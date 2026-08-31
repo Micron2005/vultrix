@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import {
   Button,
@@ -42,6 +43,7 @@ export default async function PartDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const user = await requireUser();
 
   const part = await db.part.findFirst({
     where: { id, orgId },
@@ -357,11 +359,11 @@ export default async function PartDetailPage({
       <Card className="border-red-200">
         <CardHeader title="Danger zone" />
         <div className="p-4 flex items-center gap-4">
-          <form action={boundDelete}>
+          {canDelete(user.role) && <form action={boundDelete}>
             <Button variant="danger" type="submit">
               Delete part
             </Button>
-          </form>
+          </form>}
           <span className="text-xs text-zinc-500">
             Deletes the catalog entry. Historical RO part lines are preserved but will no longer link to a catalog part. Prefer archiving.
           </span>

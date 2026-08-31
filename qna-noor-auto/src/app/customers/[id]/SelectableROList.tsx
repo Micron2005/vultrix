@@ -38,9 +38,13 @@ type Section = {
 export function SelectableROList({
   customerId,
   sections,
+  canDelete = true,
+  canManagePayments = true,
 }: {
   customerId: string;
   sections: Section[];
+  canDelete?: boolean;
+  canManagePayments?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(
@@ -193,7 +197,7 @@ export function SelectableROList({
 
             <div className="flex-1" />
 
-            {confirmingDelete ? (
+            {confirmingDelete && canDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-red-700 font-medium">
                   Delete {selected.size} ticket{selected.size !== 1 ? "s" : ""} permanently? This cannot be undone.
@@ -209,7 +213,7 @@ export function SelectableROList({
                   Cancel
                 </Button>
               </div>
-            ) : confirmingRemoveDup ? (
+            ) : confirmingRemoveDup && canManagePayments ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-amber-700 font-medium">
                   Remove duplicate bulk payments from {selectedPaid.length} paid
@@ -229,7 +233,7 @@ export function SelectableROList({
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2">
+                {canManagePayments && <div className="flex items-center gap-2">
                   <Select
                     value={method}
                     onChange={(e) => setMethod(e.target.value)}
@@ -247,8 +251,8 @@ export function SelectableROList({
                   >
                     {busy ? "Processing…" : `Pay ${selectedPayable.length} ticket${selectedPayable.length !== 1 ? "s" : ""}`}
                   </Button>
-                </div>
-                {selectedClearable.length > 0 && (
+                </div>}
+                {canManagePayments && selectedClearable.length > 0 && (
                   <Button
                     variant="secondary"
                     onClick={handleClear}
@@ -259,7 +263,7 @@ export function SelectableROList({
                       : `Clear ${selectedClearable.length} paid`}
                   </Button>
                 )}
-                {selectedPaid.length > 0 && (
+                {canManagePayments && selectedPaid.length > 0 && (
                   <Button
                     variant="secondary"
                     onClick={() => setConfirmingRemoveDup(true)}
@@ -268,13 +272,13 @@ export function SelectableROList({
                     Remove duplicate payment
                   </Button>
                 )}
-                <Button
+                {canDelete && <Button
                   variant="danger"
                   onClick={() => setConfirmingDelete(true)}
                   disabled={busy}
                 >
                   Delete selected
-                </Button>
+                </Button>}
                 <Button variant="ghost" onClick={clearSelection} disabled={busy}>
                   Deselect
                 </Button>

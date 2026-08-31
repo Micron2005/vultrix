@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { canDelete } from "@/lib/permissions";
 import {
   Card,
   LinkButton,
@@ -93,7 +94,7 @@ export default async function NotePage({
         )}
       </div>
 
-      <form action={del} className="mt-8">
+      {canDelete(user.role) && <form action={del} className="mt-8">
         <button
           type="submit"
           className="text-xs text-red-700 hover:underline"
@@ -101,7 +102,7 @@ export default async function NotePage({
         >
           Delete this note
         </button>
-      </form>
+      </form>}
     </>
   );
 }

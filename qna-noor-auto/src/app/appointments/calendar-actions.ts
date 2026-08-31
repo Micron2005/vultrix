@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { assertCanDelete } from "@/lib/permissions";
 import { createCalendarEventForOrg } from "@/lib/calendar";
 
 const CalendarEventSchema = z.object({
@@ -60,6 +61,8 @@ export async function updateCalendarEvent(id: string, fd: FormData) {
 
 export async function deleteCalendarEvent(id: string) {
   const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanDelete(user.role);
   await db.calendarEvent.deleteMany({ where: { id, orgId } });
   revalidatePath("/appointments");
 }

@@ -44,9 +44,11 @@ function fileToResizedDataUrl(file: File): Promise<string> {
 export function RoPhotos({
   repairOrderId,
   photos,
+  canDelete = true,
 }: {
   repairOrderId: string;
   photos: RoPhoto[];
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -172,7 +174,7 @@ export function RoPhotos({
                 key={p.id}
                 className="group relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100"
               >
-                <button
+                {canDelete && <button
                   type="button"
                   onClick={() => setLightbox(p)}
                   className="block h-full w-full"
@@ -185,7 +187,7 @@ export function RoPhotos({
                     alt={p.caption ?? "Repair order photo"}
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
-                </button>
+                </button>}
                 <button
                   type="button"
                   disabled={working}

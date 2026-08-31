@@ -8,6 +8,7 @@ import { requireOrgId, requireUser } from "@/lib/session";
 import { fullName, parseMileage } from "@/lib/utils";
 import { decodeVin, type VinDecodeResult } from "@/lib/vin";
 import { logActivity } from "@/lib/activity";
+import { assertCanDelete } from "@/lib/permissions";
 
 const VehicleSchema = z.object({
   customerId: z.string().min(1),
@@ -109,6 +110,7 @@ export async function updateVehicle(id: string, fd: FormData) {
 export async function deleteVehicle(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanDelete(user.role);
   const v = await db.vehicle.findFirst({
     where: { id, orgId },
     include: {

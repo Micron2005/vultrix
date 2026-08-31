@@ -28,8 +28,10 @@ function statusPill(status: "overdue" | "soon" | "ok") {
 
 export function ServiceRemindersCard({
   data,
+  canDelete = true,
 }: {
   data: VehicleWithReminders;
+  canDelete?: boolean;
 }) {
   const overdue = data.items.filter((i) => i.status === "overdue");
   const soon = data.items.filter((i) => i.status === "soon");
@@ -114,7 +116,7 @@ export function ServiceRemindersCard({
                 </button>
               </form>
             </div>
-            {it.lastLog && (
+            {canDelete && it.lastLog && (
               <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-400">
                 <form action={deleteServiceLog}>
                   <input
