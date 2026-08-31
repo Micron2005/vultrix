@@ -77,6 +77,7 @@ export default async function ExpensesListPage({
     incomeEntries,
     mtdIncome,
     recurringEntries,
+    budgetEntries,
   ] = await Promise.all([
     db.expense.findMany({
       where,
@@ -91,7 +92,7 @@ export default async function ExpensesListPage({
         }),
     db.expense.findMany({
       where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
-      select: { amount: true },
+      select: { amount: true, category: true },
     }),
     showIncome
       ? Promise.resolve([])
@@ -121,6 +122,10 @@ export default async function ExpensesListPage({
       where: { orgId },
       orderBy: [{ active: "desc" }, { nextRunAt: "asc" }],
     }),
+    db.budget.findMany({
+      where: { orgId },
+      orderBy: { category: "asc" },
+    }),
   ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
@@ -129,6 +134,26 @@ export default async function ExpensesListPage({
     : mtdPayments.reduce((s, p) => s + p.amount, 0);
   const mtdExpensesTotal = mtdExpenses.reduce((s, e) => s + e.amount, 0);
   const mtdNet = mtdRevenue - mtdExpensesTotal;
+  const mtdActualByCategory = new Map<string, number>();
+  for (const expense of mtdExpenses) {
+    const key = expense.category.toLowerCase();
+    mtdActualByCategory.set(
+      key,
+      (mtdActualByCategory.get(key) ?? 0) + expense.amount,
+    );
+  }
+  const budgetHighlights = budgetEntries
+    .map((budget) => ({
+      ...budget,
+      actual: mtdActualByCategory.get(budget.category.toLowerCase()) ?? 0,
+    }))
+    .filter((budget) => budget.actual >= budget.amount * 0.9)
+    .sort(
+      (a, b) =>
+        b.actual / b.amount - a.actual / a.amount ||
+        a.category.localeCompare(b.category),
+    )
+    .slice(0, 5);
 
   // Sum outstanding balance across every RO currently in the INVOICED state.
   // Shop fees are applied the same way `/reports` computes them.
@@ -162,7 +187,14 @@ export default async function ExpensesListPage({
             ? "Money in, expenses, and net income — all in one place."
             : "Revenue, money owed, and shop expenses — all in one place."
         }
-        actions={<LinkButton href="/expenses/new">+ New expense</LinkButton>}
+        actions={
+          <>
+            <LinkButton href="/expenses/budget" variant="secondary">
+              Budgets
+            </LinkButton>
+            <LinkButton href="/expenses/new">+ New expense</LinkButton>
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -192,6 +224,54 @@ export default async function ExpensesListPage({
           sub={showIncome ? "Money in − expenses" : "Revenue − expenses"}
         />
       </div>
+
+      <Card className="mb-4">
+        <CardHeader title="Budgets">
+          <Link
+            href="/expenses/budget"
+            className="text-sm font-medium text-zinc-700 hover:underline"
+          >
+            {budgetEntries.length > 0 ? "View all budgets" : "Set budgets"}
+          </Link>
+        </CardHeader>
+        {budgetEntries.length === 0 ? (
+          <p className="p-4 text-sm text-zinc-500">
+            Set monthly budgets to compare planned and actual spending.
+          </p>
+        ) : budgetHighlights.length === 0 ? (
+          <p className="p-4 text-sm text-zinc-500">
+            All budgeted categories are below 90% for this month.
+          </p>
+        ) : (
+          <div className="divide-y divide-zinc-200">
+            {budgetHighlights.map((budget) => {
+              const over = budget.actual > budget.amount;
+              return (
+                <div
+                  key={budget.id}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium text-zinc-800">
+                    {prettyCategory(budget.category)}
+                  </span>
+                  <span
+                    className={`shrink-0 text-right text-xs tabular-nums ${
+                      over ? "font-medium text-red-700" : "text-amber-700"
+                    }`}
+                  >
+                    {formatMoney(budget.actual)} / {formatMoney(budget.amount)}
+                    <span className="ml-2">
+                      {over
+                        ? `Over by ${formatMoney(budget.actual - budget.amount)}`
+                        : `${formatMoney(budget.amount - budget.actual)} remaining`}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {dueConfirm.length > 0 && (
         <Card className="mb-4 border-amber-200">

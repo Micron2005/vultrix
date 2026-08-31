@@ -45,6 +45,8 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   "user.password_reset": "Password reset",
   "user.delete": "Login deleted",
   "settings.rename": "Business name changed",
+  "budget.set": "Budget saved",
+  "budget.delete": "Budget removed",
 };
 
 export function activityLabel(action: string): string {

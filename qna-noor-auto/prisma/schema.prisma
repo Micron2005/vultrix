@@ -700,6 +700,19 @@ model Income {
   @@index([recurringId])
 }
 
+model Budget {
+  id       String   @id @default(cuid())
+  orgId    String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category String
+  amount   Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, category])
+  @@index([orgId])
+}
+
 model RecurringEntry {
   id           String   @id @default(cuid())
   orgId        String
@@ -867,6 +880,7 @@ model Organization {
   expenses         Expense[]
   incomes          Income[]
   recurringEntries RecurringEntry[]
+  budgets          Budget[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
   categories       Category[]
