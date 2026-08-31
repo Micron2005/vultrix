@@ -46,7 +46,7 @@ model Customer {
 
   vehicles          Vehicle[]
   repairOrders      RepairOrder[]
-  appointments     Appointment[]
+  appointments      Appointment[]
   contacts          CustomerContact[]
   recurringInvoices RecurringInvoice[]
 
@@ -823,6 +823,8 @@ model RecurringInvoiceLine {
   unitPrice          Float            @default(0)
   partNumber         String?
   sortOrder          Int              @default(0)
+
+  @@index([recurringInvoiceId])
 }
 
 // Identifix-style shop fees (e.g. Shop Supplies, Hazardous Materials) that
@@ -946,27 +948,27 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  customers        Customer[]
-  customerContacts CustomerContact[]
-  vehicles         Vehicle[]
-  repairOrders     RepairOrder[]
-  payments         Payment[]
-  technicians      Technician[]
-  parts            Part[]
-  appointments     Appointment[]
-  calendarEvents   CalendarEvent[]
-  repairNotes      RepairNote[]
-  cannedJobs       CannedJob[]
-  expenses         Expense[]
-  incomes          Income[]
-  recurringEntries RecurringEntry[]
-  budgets          Budget[]
-  expenseReceipts  ExpenseReceipt[]
-  shopFees         ShopFee[]
-  shopSettings     ShopSetting[]
-  reminderLogs     ReminderLog[]
-  categories       Category[]
+  users             User[]
+  customers         Customer[]
+  customerContacts  CustomerContact[]
+  vehicles          Vehicle[]
+  repairOrders      RepairOrder[]
+  payments          Payment[]
+  technicians       Technician[]
+  parts             Part[]
+  appointments      Appointment[]
+  calendarEvents    CalendarEvent[]
+  repairNotes       RepairNote[]
+  cannedJobs        CannedJob[]
+  expenses          Expense[]
+  incomes           Income[]
+  recurringEntries  RecurringEntry[]
+  budgets           Budget[]
+  expenseReceipts   ExpenseReceipt[]
+  shopFees          ShopFee[]
+  shopSettings      ShopSetting[]
+  reminderLogs      ReminderLog[]
+  categories        Category[]
   activityLogs      ActivityLog[]
   recurringInvoices RecurringInvoice[]
 

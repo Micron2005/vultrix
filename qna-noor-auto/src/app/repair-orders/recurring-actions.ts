@@ -246,15 +246,17 @@ export async function issueRecurringInvoiceOccurrence(fd: FormData) {
   const { orgId } = await access();
   const id = text(fd, "recurringId");
   if (!id) return;
-  await issueRecurringOccurrence(orgId, id, occurrenceFrom(fd));
+  const issued = await issueRecurringOccurrence(orgId, id, occurrenceFrom(fd));
   revalidatePath("/repair-orders/recurring");
   revalidatePath("/repair-orders");
+  if (!issued) redirect("/repair-orders/recurring?error=stale_occurrence");
 }
 
 export async function skipRecurringInvoiceOccurrence(fd: FormData) {
   const { orgId } = await access();
   const id = text(fd, "recurringId");
   if (!id) return;
-  await skipRecurringOccurrence(orgId, id, occurrenceFrom(fd));
+  const skipped = await skipRecurringOccurrence(orgId, id, occurrenceFrom(fd));
   revalidatePath("/repair-orders/recurring");
+  if (!skipped) redirect("/repair-orders/recurring?error=stale_occurrence");
 }

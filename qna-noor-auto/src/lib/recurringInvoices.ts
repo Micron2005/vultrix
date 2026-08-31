@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { enabledFeatureSet } from "@/lib/features";
+import { applyShopFees, computeTotals, type ShopFeeConfig } from "@/lib/totals";
 import {
   endOfTodayUTC,
   nthOccurrence,
@@ -89,23 +90,38 @@ function customerName(customer: InvoiceSeries["customer"]): string {
   );
 }
 
-function lineTotal(series: Pick<InvoiceSeries, "lines" | "taxRate" | "discount">) {
-  const subtotal = series.lines.reduce(
-    (total, line) =>
-      total +
-      (line.kind === "LABOR" || line.kind === "PART"
-        ? line.quantity * line.unitPrice
-        : line.unitPrice),
-    0,
-  );
-  return Math.max(0, subtotal - series.discount) * (1 + series.taxRate / 100);
+function templateTotal(
+  series: Pick<InvoiceSeries, "lines" | "taxRate" | "discount">,
+  shopFees: ShopFeeConfig[],
+): number {
+  const input = {
+    laborLines: series.lines
+      .filter((line) => line.kind === "LABOR")
+      .map((line) => ({ hours: line.quantity, rate: line.unitPrice })),
+    partLines: series.lines
+      .filter((line) => line.kind === "PART")
+      .map((line) => ({ quantity: line.quantity, unitPrice: line.unitPrice })),
+    feeLines: series.lines
+      .filter((line) => line.kind === "FEE")
+      .map((line) => ({ amount: line.unitPrice })),
+    taxRate: series.taxRate,
+    discount: series.discount,
+  };
+  const preliminary = computeTotals(input);
+  const appliedShopFees = applyShopFees(shopFees, {
+    partsSubtotal: preliminary.partsSubtotal,
+    laborSubtotal: preliminary.laborSubtotal,
+  });
+  return Math.round(
+    computeTotals({ ...input, shopFees: appliedShopFees }).total * 100,
+  ) / 100;
 }
 
 function canUseInvoiceFeature(organization: {
   accountType: string;
   features: string[];
 } | null): boolean {
-  return enabledFeatureSet(organization ?? {}).has("invoices");
+  return organization != null && enabledFeatureSet(organization).has("invoices");
 }
 
 async function loadInvoiceSeries(
@@ -176,7 +192,6 @@ async function issueOne(
           status: "INVOICED",
           openedAt: occurrence,
           invoicedAt: occurrence,
-          closedAt: occurrence,
           taxRate: series.taxRate,
           discount: series.discount,
           notes: series.notes,
@@ -318,6 +333,19 @@ export async function getDueInvoiceOccurrences(
     },
     orderBy: { nextRunAt: "asc" },
   });
+  const shopFees = await db.shopFee.findMany({
+    where: { orgId, active: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  const shopFeeConfigs: ShopFeeConfig[] = shopFees.map((fee) => ({
+    id: fee.id,
+    name: fee.name,
+    description: fee.description,
+    partsPercent: fee.partsPercent,
+    laborPercent: fee.laborPercent,
+    maxCap: fee.maxCap,
+    taxable: fee.taxable,
+  }));
   return series.flatMap((entry) => {
     const due: RecurringInvoiceDueOccurrence[] = [];
     let current = entry.nextRunAt;
@@ -329,7 +357,7 @@ export async function getDueInvoiceOccurrences(
           label: entry.label,
           customerName: customerName(entry.customer),
           interval: entry.interval,
-          total: lineTotal(entry),
+          total: templateTotal(entry, shopFeeConfigs),
         });
       }
       current = nextOccurrenceAfter(entry, current);

@@ -34,10 +34,15 @@ function customerName(customer: {
   return customer.companyName || `${customer.firstName} ${customer.lastName}`;
 }
 
-export default async function RecurringInvoicesPage() {
+export default async function RecurringInvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const orgId = await requireOrgId();
   const user = await requireUser();
   const nouns = repairOrderNouns(user.accountType);
+  const { error } = await searchParams;
   const [series, due] = await Promise.all([
     db.recurringInvoice.findMany({
       where: { orgId },
@@ -50,6 +55,14 @@ export default async function RecurringInvoicesPage() {
     }),
     getDueInvoiceOccurrences(orgId),
   ]);
+  const visibleDue = Array.from(
+    due.reduce((bySeries, occurrence) => {
+      if (!bySeries.has(occurrence.recurringId)) {
+        bySeries.set(occurrence.recurringId, occurrence);
+      }
+      return bySeries;
+    }, new Map<string, (typeof due)[number]>()),
+  ).map(([, occurrence]) => occurrence);
 
   return (
     <>
@@ -58,34 +71,50 @@ export default async function RecurringInvoicesPage() {
         description={`Automatically issue or review repeating ${nouns.singular.toLowerCase()}s.`}
         actions={<LinkButton href="/repair-orders/recurring/new">+ New recurring {nouns.singular.toLowerCase()}</LinkButton>}
       />
-      {due.length > 0 && (
+      {error === "stale_occurrence" && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          That occurrence is no longer next due. Reload the page and try again.
+        </div>
+      )}
+      {visibleDue.length > 0 && (
         <Card className="mb-4">
           <CardHeader title="Due now" />
           <div className="divide-y divide-zinc-200">
-            {due.map((item) => (
-              <div key={`${item.recurringId}-${item.occurrence.toISOString()}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                <div>
-                  <div className="font-medium text-zinc-900">
-                    {item.label || `Recurring ${nouns.singular.toLowerCase()}`} · {item.customerName}
+            {visibleDue.map((item) => {
+              const laterCount = due.filter(
+                (occurrence) => occurrence.recurringId === item.recurringId,
+              ).length - 1;
+              return (
+                <div key={`${item.recurringId}-${item.occurrence.toISOString()}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <div className="font-medium text-zinc-900">
+                      {item.label || `Recurring ${nouns.singular.toLowerCase()}`} · {item.customerName}
+                    </div>
+                    <div className="text-sm text-zinc-500">
+                      {repeatDescription(item.interval)} · {formatDate(item.occurrence)} · {formatMoney(item.total)}
+                    </div>
+                    {laterCount > 0 && (
+                      <div className="text-xs text-zinc-500">
+                        Issue or skip this occurrence first; {laterCount} later due{" "}
+                        {laterCount === 1 ? "occurrence follows" : "occurrences follow"}.
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm text-zinc-500">
-                    {repeatDescription(item.interval)} · {formatDate(item.occurrence)} · {formatMoney(item.total)}
+                  <div className="flex gap-2">
+                    <form action={issueRecurringInvoiceOccurrence}>
+                      <input type="hidden" name="recurringId" value={item.recurringId} />
+                      <input type="hidden" name="occurrence" value={item.occurrence.toISOString()} />
+                      <button className="h-8 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white" type="submit">Issue</button>
+                    </form>
+                    <form action={skipRecurringInvoiceOccurrence}>
+                      <input type="hidden" name="recurringId" value={item.recurringId} />
+                      <input type="hidden" name="occurrence" value={item.occurrence.toISOString()} />
+                      <button className="h-8 rounded-md border border-zinc-300 px-3 text-sm text-zinc-700" type="submit">Skip</button>
+                    </form>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <form action={issueRecurringInvoiceOccurrence}>
-                    <input type="hidden" name="recurringId" value={item.recurringId} />
-                    <input type="hidden" name="occurrence" value={item.occurrence.toISOString()} />
-                    <button className="h-8 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white" type="submit">Issue</button>
-                  </form>
-                  <form action={skipRecurringInvoiceOccurrence}>
-                    <input type="hidden" name="recurringId" value={item.recurringId} />
-                    <input type="hidden" name="occurrence" value={item.occurrence.toISOString()} />
-                    <button className="h-8 rounded-md border border-zinc-300 px-3 text-sm text-zinc-700" type="submit">Skip</button>
-                  </form>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
