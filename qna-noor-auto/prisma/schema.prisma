@@ -489,6 +489,22 @@ model ShopSetting {
   @@index([orgId])
 }
 
+model ReminderLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  kind       String
+  targetKey  String
+  channel    String   @default("EMAIL")
+  to         String
+  status     String
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@unique([orgId, kind, targetKey])
+  @@index([orgId, createdAt])
+}
+
 // Knowledge base — your own repair notes keyed to year/make/model/engine.
 // Think of these as your institutional memory / "hotline archive."
 // Every field except title is optional so you can capture partial knowledge.
@@ -846,6 +862,7 @@ model Organization {
   status    String   @default("ACTIVE")
   accountType String  @default("AUTO_SHOP")
   features   String[] @default([])
+  timezone   String   @default("America/New_York")
 
   aiAssistantEnabled          Boolean @default(false)
   aiHostedEnabled             Boolean @default(false)
@@ -899,6 +916,7 @@ model Organization {
   expenseReceipts  ExpenseReceipt[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
+  reminderLogs     ReminderLog[]
   categories       Category[]
   activityLogs     ActivityLog[]
 

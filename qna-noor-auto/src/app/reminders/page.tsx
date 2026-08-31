@@ -9,6 +9,7 @@ import {
 } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import { getSetting } from "@/lib/shop";
+import { formatInTimeZone, isValidTimeZone } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -30,27 +31,38 @@ export default async function RemindersPage({
   const orgId = await requireOrgId();
   const sp = await searchParams;
   const months = Math.max(1, Math.min(24, Number(sp.months) || DEFAULT_MONTHS));
+  const now = new Date();
 
-  const cutoff = new Date();
+  const cutoff = new Date(now);
   cutoff.setMonth(cutoff.getMonth() - months);
   cutoff.setHours(0, 0, 0, 0);
 
-  const [customers, shopName, shopPhone] = await Promise.all([
-    db.customer.findMany({
-      where: { orgId },
-      include: {
-        vehicles: { orderBy: { updatedAt: "desc" } },
-        repairOrders: {
-          where: ACTIVE_RO_WHERE,
-          orderBy: { openedAt: "desc" },
-          take: 1,
-          include: { vehicle: true },
+  const [customers, shopName, shopPhone, organization, reminderLogs] =
+    await Promise.all([
+      db.customer.findMany({
+        where: { orgId },
+        include: {
+          vehicles: { orderBy: { updatedAt: "desc" } },
+          repairOrders: {
+            where: ACTIVE_RO_WHERE,
+            orderBy: { openedAt: "desc" },
+            take: 1,
+            include: { vehicle: true },
+          },
         },
-      },
-    }),
-    getSetting(orgId, "shopName"),
-    getSetting(orgId, "shopPhone"),
-  ]);
+      }),
+      getSetting(orgId, "shopName"),
+      getSetting(orgId, "shopPhone"),
+      db.organization.findUnique({
+        where: { id: orgId },
+        select: { timezone: true },
+      }),
+      db.reminderLog.findMany({
+        where: { orgId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+    ]);
 
   type Row = {
     customer: (typeof customers)[number];
@@ -65,7 +77,7 @@ export default async function RemindersPage({
       const lastRo = c.repairOrders[0] ?? null;
       const lastVisit = lastRo?.openedAt ?? null;
       const daysSince = lastVisit
-        ? Math.floor((Date.now() - lastVisit.getTime()) / MS_PER_DAY)
+        ? Math.floor((now.getTime() - lastVisit.getTime()) / MS_PER_DAY)
         : null;
       const lastVehicle = lastRo?.vehicle ?? c.vehicles[0] ?? null;
       return { customer: c, lastVisit, daysSince, lastVehicle };
@@ -87,6 +99,15 @@ export default async function RemindersPage({
     });
 
   const displayShop = shopName || "QNA / Noor Auto Repair";
+  const timezone =
+    organization && isValidTimeZone(organization.timezone)
+      ? organization.timezone
+      : "America/New_York";
+  const reminderKindLabel: Record<string, string> = {
+    APPOINTMENT: "Appointment",
+    INVOICE_PAST_DUE: "Past-due invoice",
+    SERVICE_DUE: "Service due",
+  };
 
   return (
     <>
@@ -94,6 +115,60 @@ export default async function RemindersPage({
         title="Service reminders"
         description={`Customers who haven't been in the shop in ${months}+ months. Text or email each one to invite them back for service.`}
       />
+
+      <Card className="mb-4">
+        <CardHeader title="Automatically sent">
+          <span className="text-xs text-zinc-500 font-normal">
+            Most recent automated email reminder attempts
+          </span>
+        </CardHeader>
+        {reminderLogs.length === 0 ? (
+          <p className="p-4 text-sm text-zinc-500">
+            No automatic reminders have been attempted yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-zinc-200">
+            {reminderLogs.map((log) => {
+              const failed = log.status === "FAILED";
+              return (
+                <li key={log.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                  <span className={failed ? "font-medium text-red-700" : "font-medium text-zinc-900"}>
+                    {reminderKindLabel[log.kind] ?? log.kind}
+                  </span>
+                  <span className="text-zinc-600">
+                    {log.to || "No email address"}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {formatInTimeZone(log.createdAt, timezone, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span
+                    className={
+                      failed
+                        ? "text-xs font-medium text-red-700"
+                        : "text-xs text-zinc-500"
+                    }
+                  >
+                    {log.status === "SENT"
+                      ? "Sent"
+                      : log.status === "SKIPPED_NO_EMAIL"
+                        ? "Skipped — no email"
+                        : "Failed"}
+                  </span>
+                  {failed && log.detail && (
+                    <span className="text-xs text-red-600">{log.detail}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
 
       <Card className="p-4 mb-4">
         <form className="flex flex-wrap items-end gap-3 text-sm">

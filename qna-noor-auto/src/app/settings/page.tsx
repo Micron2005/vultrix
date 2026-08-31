@@ -20,6 +20,7 @@ import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { assertCanManageSettings, requireSettingsAccess } from "@/lib/permissions";
 import { intakeUrl } from "@/lib/intakeTokens";
 import { enabledFeatureSet } from "@/lib/features";
+import { isValidTimeZone } from "@/lib/timezone";
 import {
   createShopFee,
   deleteShopFee,
@@ -29,6 +30,19 @@ import { saveAiAssistantSettings } from "./ai-assistant-actions";
 import { VoicePicker } from "./VoicePicker";
 
 export const dynamic = "force-dynamic";
+
+const COMMON_TIME_ZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+];
+const TIME_ZONE_OPTIONS = Intl.supportedValuesOf("timeZone").filter(
+  (timezone) => !COMMON_TIME_ZONES.includes(timezone),
+);
 
 async function resolveOrigin(): Promise<string> {
   const hdrs = await headers();
@@ -67,6 +81,11 @@ export default async function SettingsPage({
   const featureSet = enabledFeatureSet(org);
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
+  const showAppointmentReminders = featureSet.has("schedule");
+  const showPastDueReminders = featureSet.has("invoices");
+  const showServiceDueReminders = featureSet.has("vehicles");
+  const showReminderSettings =
+    showAppointmentReminders || showPastDueReminders || showServiceDueReminders;
   const showIntakeQr = Boolean(user && showAutoSettings);
   const sp = (await searchParams) ?? {};
   const settings = await getAllSettings(orgId);
@@ -84,6 +103,18 @@ export default async function SettingsPage({
     const saveUser = await requireSettingsAccess();
     assertCanManageSettings(saveUser.role);
     const saveOrgId = await requireOrgId();
+    const submittedTimezone = String(fd.get("timezone") ?? "");
+    const currentOrg = await db.organization.findUnique({
+      where: { id: saveOrgId },
+      select: { timezone: true },
+    });
+    const timezone = isValidTimeZone(submittedTimezone)
+      ? submittedTimezone
+      : currentOrg?.timezone ?? "America/New_York";
+    await db.organization.update({
+      where: { id: saveOrgId },
+      data: { timezone },
+    });
     const submittedShopName = fd.get("shopName");
     const trimmedShopName =
       typeof submittedShopName === "string" ? submittedShopName.trim() : "";
@@ -119,6 +150,40 @@ export default async function SettingsPage({
       const v = fd.get(k);
       if (typeof v === "string") {
         await setSetting(saveOrgId, k, k === "shopName" ? v.trim() : v);
+      }
+    }
+    if (fd.get("reminderSettingsForm") === "1") {
+      const reminderValues: Record<string, string> = {
+        remindAppointmentsEnabled: fd.has("remindAppointmentsEnabled")
+          ? "true"
+          : "false",
+        remindAppointmentsHoursBefore: String(
+          Math.max(
+            1,
+            Math.min(
+              168,
+              Number(fd.get("remindAppointmentsHoursBefore")) || 24,
+            ),
+          ),
+        ),
+        remindPastDueEnabled: fd.has("remindPastDueEnabled")
+          ? "true"
+          : "false",
+        remindPastDueDays: String(
+          Math.max(1, Math.min(365, Number(fd.get("remindPastDueDays")) || 30)),
+        ),
+        remindServiceDueEnabled: fd.has("remindServiceDueEnabled")
+          ? "true"
+          : "false",
+      };
+      const sendHourValue = Number(fd.get("reminderSendHour"));
+      reminderValues.reminderSendHour = String(
+        Number.isFinite(sendHourValue)
+          ? Math.max(0, Math.min(23, sendHourValue))
+          : 8,
+      );
+      for (const [key, value] of Object.entries(reminderValues)) {
+        await setSetting(saveOrgId, key, value);
       }
     }
     revalidatePath("/settings");
@@ -173,6 +238,18 @@ export default async function SettingsPage({
               />
             </Field>
           </div>
+          <Field label="Business timezone">
+            <Select name="timezone" defaultValue={org.timezone}>
+              {TIME_ZONE_OPTIONS.map((timezone) => (
+                <option key={timezone} value={timezone}>
+                  {timezone}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Appointment dates and scheduled reminder hours use this timezone.
+            </p>
+          </Field>
           {(showAutoSettings || showTaxRate) && (
             <div
               className={
@@ -204,6 +281,105 @@ export default async function SettingsPage({
           <SaveButton>Save settings</SaveButton>
         </form>
       </Card>
+
+      {showReminderSettings && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Automatic reminders">
+            <span className="text-xs text-zinc-500 font-normal">
+              All reminders start turned off until you opt in.
+            </span>
+          </CardHeader>
+          <form action={save} className="space-y-5 p-6">
+            <input type="hidden" name="reminderSettingsForm" value="1" />
+            {showAppointmentReminders && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    name="remindAppointmentsEnabled"
+                    value="true"
+                    defaultChecked={settings.remindAppointmentsEnabled === "true"}
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                  Send appointment reminders
+                </label>
+                <Field label="Hours before appointment">
+                  <Input
+                    type="number"
+                    name="remindAppointmentsHoursBefore"
+                    min="1"
+                    max="168"
+                    defaultValue={settings.remindAppointmentsHoursBefore}
+                  />
+                </Field>
+              </div>
+            )}
+            {showPastDueReminders && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    name="remindPastDueEnabled"
+                    value="true"
+                    defaultChecked={settings.remindPastDueEnabled === "true"}
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                  Send past-due invoice reminders
+                </label>
+                <Field label="Days past invoice date">
+                  <Input
+                    type="number"
+                    name="remindPastDueDays"
+                    min="1"
+                    max="365"
+                    defaultValue={settings.remindPastDueDays}
+                  />
+                </Field>
+              </div>
+            )}
+            {showServiceDueReminders && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    name="remindServiceDueEnabled"
+                    value="true"
+                    defaultChecked={settings.remindServiceDueEnabled === "true"}
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                  Send service-due reminders
+                </label>
+                <p className="text-xs text-zinc-500">
+                  These reminders use date-based due calculations; observed
+                  mileage between visits is not used as a trigger.
+                </p>
+              </div>
+            )}
+            <Field label="Daily reminder send hour">
+              <Input
+                type="number"
+                name="reminderSendHour"
+                min="0"
+                max="23"
+                defaultValue={settings.reminderSendHour}
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                Past-due and service-due batches send at this local hour.
+                Appointment reminders use their lead-time window.
+              </p>
+            </Field>
+            {(!process.env.RESEND_API_KEY ||
+              !process.env.MAIL_FROM ||
+              process.env.MAIL_FROM.includes("onboarding@resend.dev")) && (
+              <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Reminders will not reach customers until RESEND_API_KEY and a
+                verified MAIL_FROM sending domain are configured.
+              </p>
+            )}
+            <SaveButton>Save reminder settings</SaveButton>
+          </form>
+        </Card>
+      )}
 
       {canManageOrgSettings && (
         <Card className="mt-6 max-w-2xl">
