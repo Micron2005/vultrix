@@ -7,9 +7,11 @@ import { enabledFeatureSet } from "@/lib/features";
 import { loadExpenseTotal, loadMoneyInTotal } from "@/lib/financialMetrics";
 import {
   dateInputInTimeZone,
-  isValidTimeZone,
   localCalendarDay,
+  shiftCalendarDay,
+  isDateInput,
 } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
 import { prettyCategory } from "../expenses/categories";
@@ -19,23 +21,6 @@ export const dynamic = "force-dynamic";
 type SearchParams = Promise<{ preset?: string; from?: string; to?: string }>;
 
 type Preset = "30d" | "mtd" | "ytd" | "12m" | "custom";
-
-function addCalendarDays(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function isDateInput(value: string | undefined): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
 
 function resolveRange(
   sp: { preset?: string; from?: string; to?: string },
@@ -56,7 +41,7 @@ function resolveRange(
       ? sp.preset
       : "30d";
 
-  let fromValue = addCalendarDays(today, -30);
+  let fromValue = shiftCalendarDay(today, -30);
   let toValue = today;
   let label: string;
 
@@ -65,7 +50,7 @@ function resolveRange(
     toValue = isDateInput(sp.to) ? sp.to : today;
     const from = dateInputInTimeZone(fromValue, timezone, new Date(Number.NaN));
     const endExclusive = dateInputInTimeZone(
-      addCalendarDays(toValue, 1),
+      shiftCalendarDay(toValue, 1),
       timezone,
       new Date(Number.NaN),
     );
@@ -81,7 +66,7 @@ function resolveRange(
     fromValue = `${today.slice(0, 4)}-01-01`;
     label = "This year";
   } else if (preset === "12m") {
-    fromValue = addCalendarDays(`${today.slice(0, 7)}-01`, -365);
+    fromValue = shiftCalendarDay(`${today.slice(0, 7)}-01`, -365);
     label = "Last 12 months";
   } else {
     label = "Last 30 days";
@@ -89,7 +74,7 @@ function resolveRange(
 
   const from = dateInputInTimeZone(fromValue, timezone, new Date(Number.NaN));
   const endExclusive = dateInputInTimeZone(
-    addCalendarDays(toValue, 1),
+    shiftCalendarDay(toValue, 1),
     timezone,
     new Date(Number.NaN),
   );
@@ -115,14 +100,7 @@ export default async function ReportsPage({
 }) {
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
-  const organization = await db.organization.findUnique({
-    where: { id: orgId },
-    select: { timezone: true },
-  });
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
+  const timezone = await orgTimeZone(orgId);
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
   const autoShop = (user?.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
   if (!autoShop) {

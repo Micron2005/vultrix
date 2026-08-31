@@ -7,7 +7,8 @@ import { enabledFeatureSet } from "@/lib/features";
 import { logActivity } from "@/lib/activity";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { requireUser } from "@/lib/session";
-import { dateInputInTimeZone, isValidTimeZone } from "@/lib/timezone";
+import { dateInputInTimeZone, isDateInput } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
 import { GOAL_METRICS, type GoalMetric, type GoalPeriod } from "@/lib/goals";
 
@@ -16,6 +17,8 @@ const GOAL_PERIODS = ["WEEK", "MONTH", "YEAR", "BY_DATE"] as const;
 async function requireGoalsContext(): Promise<{
   orgId: string;
   timezone: string;
+  accountType: string;
+  hasInvoices: boolean;
 }> {
   const user = await requireUser();
   assertCanViewFinancials(user.role);
@@ -26,14 +29,18 @@ async function requireGoalsContext(): Promise<{
   }
   const organization = await db.organization.findUnique({
     where: { id: user.orgId },
-    select: { timezone: true },
+    select: { accountType: true, features: true },
   });
+  const accountType = organization?.accountType ?? user.accountType ?? "AUTO_SHOP";
+  const hasInvoices = enabledFeatureSet({
+    accountType,
+    features: organization?.features ?? user.features ?? [],
+  }).has("invoices");
   return {
     orgId: user.orgId,
-    timezone:
-      organization && isValidTimeZone(organization.timezone)
-        ? organization.timezone
-        : "America/New_York",
+    timezone: await orgTimeZone(user.orgId),
+    accountType,
+    hasInvoices,
   };
 }
 
@@ -43,7 +50,7 @@ function text(fd: FormData, key: string): string {
 
 function dateFromForm(fd: FormData, key: string, timezone: string): Date {
   const value = text(fd, key);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (!isDateInput(value)) {
     throw new Error(`${key === "dueDate" ? "Due date" : "Start date"} is required.`);
   }
   const date = dateInputInTimeZone(value, timezone, new Date(Number.NaN));
@@ -60,10 +67,26 @@ function optionalDateFromForm(
 ): Date | null {
   const value = text(fd, key);
   if (!value) return null;
+  if (!isDateInput(value)) throw new Error("Date is invalid.");
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
-function goalInput(fd: FormData, timezone: string) {
+function metricAllowed(
+  metric: GoalMetric,
+  accountType: string,
+  hasInvoices: boolean,
+): boolean {
+  if (metric === "JOBS") return accountType === "AUTO_SHOP";
+  if (metric === "UNITS_SOLD") return !hasInvoices;
+  return true;
+}
+
+function goalInput(
+  fd: FormData,
+  timezone: string,
+  accountType: string,
+  hasInvoices: boolean,
+) {
   const title = text(fd, "title");
   const metric = text(fd, "metric") as GoalMetric;
   const period = text(fd, "period") as GoalPeriod;
@@ -78,7 +101,13 @@ function goalInput(fd: FormData, timezone: string) {
 
   if (!title) throw new Error("Goal name is required.");
   if (!GOAL_METRICS.includes(metric)) throw new Error("Goal type is invalid.");
+  if (!metricAllowed(metric, accountType, hasInvoices)) {
+    throw new Error("That goal type is not available for this account.");
+  }
   if (!GOAL_PERIODS.includes(period)) throw new Error("Goal period is invalid.");
+  if (metric === "NET_SAVED" && period !== "BY_DATE") {
+    throw new Error("Money saved goals must use a date range.");
+  }
   if (target == null) throw new Error("Target must be a valid number.");
   if (period === "BY_DATE" && !dueDate) {
     throw new Error("Due date is required for a date goal.");
@@ -99,9 +128,9 @@ function goalInput(fd: FormData, timezone: string) {
 }
 
 export async function createGoal(fd: FormData) {
-  const { orgId, timezone } = await requireGoalsContext();
+  const { orgId, timezone, accountType, hasInvoices } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone);
+  const input = goalInput(fd, timezone, accountType, hasInvoices);
   const goal = await db.goal.create({ data: { orgId, ...input } });
   await logActivity({
     orgId,
@@ -117,9 +146,9 @@ export async function createGoal(fd: FormData) {
 }
 
 export async function updateGoal(id: string, fd: FormData) {
-  const { orgId, timezone } = await requireGoalsContext();
+  const { orgId, timezone, accountType, hasInvoices } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone);
+  const input = goalInput(fd, timezone, accountType, hasInvoices);
   const goal = await db.goal.updateMany({
     where: { id, orgId },
     data: input,

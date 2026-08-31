@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SaveButton } from "@/components/SaveButton";
 import { Input, Select } from "@/components/ui";
+import { repairOrderNouns } from "@/lib/features";
 
 type GoalAction = (formData: FormData) => void | Promise<void>;
 
@@ -18,26 +19,34 @@ type GoalFormProps = {
     dueDate: string;
     manualProgress: number | null;
   }>;
+  accountType: string;
+  hasInvoices: boolean;
   submitLabel?: string;
 };
-
-const metrics = [
-  ["MONEY_IN", "Money in"],
-  ["SPENDING", "Spending"],
-  ["PROFIT", "Profit"],
-  ["NET_SAVED", "Net saved"],
-  ["JOBS", "Jobs completed"],
-  ["UNITS_SOLD", "Units sold"],
-  ["MANUAL", "Manual"],
-];
 
 export function GoalForm({
   action,
   initial,
+  accountType,
+  hasInvoices,
   submitLabel = "Create goal",
 }: GoalFormProps) {
   const [metric, setMetric] = useState(initial?.metric ?? "MONEY_IN");
-  const [period, setPeriod] = useState(initial?.period ?? "MONTH");
+  const [period, setPeriod] = useState(
+    initial?.metric === "NET_SAVED" ? "BY_DATE" : initial?.period ?? "MONTH",
+  );
+  const repairNouns = repairOrderNouns(accountType);
+  const metrics = [
+    ["MONEY_IN", "Money in"],
+    ["SPENDING", "Spending"],
+    ["PROFIT", "Profit"],
+    ["NET_SAVED", "Money saved"],
+    ...(repairNouns.singular === "Repair Order"
+      ? [["JOBS", "Jobs completed"]]
+      : []),
+    ...(!hasInvoices ? [["UNITS_SOLD", "Units sold"]] : []),
+    ["MANUAL", "I'll update this myself"],
+  ];
   return (
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -52,11 +61,15 @@ export function GoalForm({
           />
         </label>
         <label className="block text-xs font-medium text-zinc-700">
-          Measure
+          What to track
           <Select
             name="metric"
             value={metric}
-            onChange={(event) => setMetric(event.target.value)}
+            onChange={(event) => {
+              const nextMetric = event.target.value;
+              setMetric(nextMetric);
+              if (nextMetric === "NET_SAVED") setPeriod("BY_DATE");
+            }}
             className="mt-1"
           >
             {metrics.map(([value, label]) => (
@@ -82,14 +95,18 @@ export function GoalForm({
           <Select
             name="period"
             value={period}
+            disabled={metric === "NET_SAVED"}
             onChange={(event) => setPeriod(event.target.value)}
             className="mt-1"
           >
-            <option value="WEEK">This week</option>
-            <option value="MONTH">This month</option>
-            <option value="YEAR">This year</option>
+            {metric !== "NET_SAVED" && <option value="WEEK">This week</option>}
+            {metric !== "NET_SAVED" && <option value="MONTH">This month</option>}
+            {metric !== "NET_SAVED" && <option value="YEAR">This year</option>}
             <option value="BY_DATE">By a date</option>
           </Select>
+          {metric === "NET_SAVED" && (
+            <input type="hidden" name="period" value="BY_DATE" />
+          )}
         </label>
         {metric === "SPENDING" && (
           <label className="block text-xs font-medium text-zinc-700">
@@ -138,8 +155,8 @@ export function GoalForm({
         )}
       </div>
       <p className="text-xs text-zinc-500">
-        Money goals use your existing money in, spending, sales, and invoice
-        records automatically. Use Manual for something the app cannot measure.
+        Goals use the records already in your account automatically. Use the
+        manual option for something you want to update yourself.
       </p>
       <SaveButton>{submitLabel}</SaveButton>
     </form>

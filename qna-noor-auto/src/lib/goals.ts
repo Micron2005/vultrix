@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
-import { enabledFeatureSet } from "@/lib/features";
+import { repairOrderNouns } from "@/lib/features";
 import {
   dateInputInTimeZone,
   formatInTimeZone,
   localCalendarDay,
+  shiftCalendarDay,
 } from "@/lib/timezone";
 import { loadExpenseTotal, loadMoneyInTotal } from "@/lib/financialMetrics";
 
@@ -48,6 +49,7 @@ export type GoalProgress = {
   windowStart: Date;
   windowEnd: Date;
   periodLabel: string;
+  daysRemaining: number;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -58,12 +60,6 @@ function clamp(value: number, min = 0, max = 1): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function shiftCalendarDay(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 function parseCalendarDay(value: string, timezone: string): Date {
@@ -79,11 +75,18 @@ function dayOfWeek(value: string): number {
   return new Date(`${value}T12:00:00.000Z`).getUTCDay();
 }
 
+type GoalWindow = {
+  start: Date;
+  end: Date;
+  label: string;
+  valid: boolean;
+};
+
 function periodWindow(
   period: GoalPeriod,
   now: Date,
   timezone: string,
-): { start: Date; end: Date; label: string } {
+): GoalWindow {
   const today = localCalendarDay(now, timezone);
   if (period === "WEEK") {
     const startValue = shiftCalendarDay(today, -dayOfWeek(today));
@@ -91,6 +94,7 @@ function periodWindow(
       start: parseCalendarDay(startValue, timezone),
       end: endOfCalendarDay(shiftCalendarDay(startValue, 6), timezone),
       label: "this week",
+      valid: true,
     };
   }
   if (period === "YEAR") {
@@ -99,19 +103,20 @@ function periodWindow(
       start: parseCalendarDay(`${year}-01-01`, timezone),
       end: endOfCalendarDay(`${year}-12-31`, timezone),
       label: "this year",
+      valid: true,
     };
   }
   const monthStart = `${today.slice(0, 7)}-01`;
+  const [year, month] = monthStart.split("-").map(Number);
+  const nextMonthStart =
+    month === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(month + 1).padStart(2, "0")}-01`;
   return {
     start: parseCalendarDay(monthStart, timezone),
-    end: endOfCalendarDay(
-      shiftCalendarDay(
-        shiftCalendarDay(monthStart, 31).slice(0, 7) + "-01",
-        -1,
-      ),
-      timezone,
-    ),
+    end: endOfCalendarDay(shiftCalendarDay(nextMonthStart, -1), timezone),
     label: "this month",
+    valid: true,
   };
 }
 
@@ -119,12 +124,13 @@ function goalWindow(
   goal: GoalRecord,
   now: Date,
   timezone: string,
-): { start: Date; end: Date; label: string } {
+): GoalWindow {
   if (goal.period !== "BY_DATE") {
     return periodWindow(goal.period as GoalPeriod, now, timezone);
   }
   const start = goal.startDate;
   const due = goal.dueDate ?? goal.startDate;
+  const startDay = localCalendarDay(start, timezone);
   const dueDay = localCalendarDay(due, timezone);
   return {
     start,
@@ -134,6 +140,7 @@ function goalWindow(
       month: "short",
       day: "numeric",
     })}`,
+    valid: dueDay > startDay,
   };
 }
 
@@ -159,6 +166,12 @@ function statusFor(
 ): GoalStatus {
   const ended = now.getTime() >= end.getTime();
   const started = now.getTime() >= start.getTime();
+  const elapsedPct =
+    end.getTime() > start.getTime()
+      ? clamp((now.getTime() - start.getTime()) / (end.getTime() - start.getTime()))
+      : 1;
+  const actualPct = target > 0 ? actual / target : 0;
+  const materiallyElapsed = elapsedPct >= 0.1;
   if (target <= 0) {
     if (ended) return spending ? (actual <= 0 ? "met" : "behind") : "met";
     if (!started) return "on_pace";
@@ -168,11 +181,15 @@ function statusFor(
     if (ended) return actual <= target ? "met" : "behind";
     if (!started) return "on_pace";
     if (actual > target) return "behind";
-    return actual / target <= expectedPct ? "ahead" : "on_pace";
+    if (materiallyElapsed && actualPct < expectedPct - 0.1) return "ahead";
+    if (materiallyElapsed && actualPct > expectedPct + 0.1) return "behind";
+    return "on_pace";
   }
   if (actual >= target) return "met";
   if (!started) return "on_pace";
-  return actual / target >= expectedPct ? "ahead" : "behind";
+  if (materiallyElapsed && actualPct > expectedPct + 0.1) return "ahead";
+  if (materiallyElapsed && actualPct < expectedPct - 0.1) return "behind";
+  return "on_pace";
 }
 
 async function metricActual(
@@ -227,17 +244,10 @@ export async function computeGoalProgress(
   goal: GoalRecord,
   now: Date,
   timezone: string,
+  hasInvoices: boolean,
 ): Promise<GoalProgress> {
-  const organization = await db.organization.findUnique({
-    where: { id: orgId },
-    select: { accountType: true, features: true },
-  });
-  const hasInvoices = enabledFeatureSet({
-    accountType: organization?.accountType,
-    features: organization?.features ?? [],
-  }).has("invoices");
   const window = goalWindow(goal, now, timezone);
-  const validWindow = window.end.getTime() >= window.start.getTime();
+  const validWindow = window.valid;
   const queryTo = new Date(Math.min(now.getTime(), window.end.getTime()));
   const queryFrom = window.start;
   const actual =
@@ -250,8 +260,7 @@ export async function computeGoalProgress(
           { from: queryFrom, to: queryTo },
           hasInvoices,
         );
-  const pacingEnd =
-    goal.period === "BY_DATE" ? goal.dueDate ?? goal.startDate : window.end;
+  const pacingEnd = window.end;
   const duration = pacingEnd.getTime() - window.start.getTime();
   const expectedPct =
     duration <= 0
@@ -291,12 +300,14 @@ export async function computeGoalProgress(
     windowStart: window.start,
     windowEnd: window.end,
     periodLabel: window.label,
+    daysRemaining: daysLeft,
   };
 }
 
 export async function loadActiveGoals(
   orgId: string,
   timezone: string,
+  hasInvoices: boolean,
   limit?: number,
 ): Promise<Array<{ goal: GoalRecord; progress: GoalProgress }>> {
   const goals = await db.goal.findMany({
@@ -308,21 +319,34 @@ export async function loadActiveGoals(
   const scored = await Promise.all(
     goals.map(async (goal) => ({
       goal: goal as GoalRecord,
-      progress: await computeGoalProgress(orgId, goal as GoalRecord, now, timezone),
+      progress: await computeGoalProgress(
+        orgId,
+        goal as GoalRecord,
+        now,
+        timezone,
+        hasInvoices,
+      ),
     })),
   );
   return scored;
 }
 
-export function goalMetricLabel(metric: string): string {
+export function goalMetricLabel(
+  metric: string,
+  accountType?: string | null,
+): string {
+  const repairNouns = repairOrderNouns(accountType);
   const labels: Record<string, string> = {
     MONEY_IN: "Money in",
     SPENDING: "Spending",
     PROFIT: "Profit",
-    NET_SAVED: "Net saved",
-    JOBS: "Jobs completed",
+    NET_SAVED: "Money saved",
+    JOBS:
+      repairNouns.singular === "Repair Order"
+        ? "Jobs completed"
+        : `${repairNouns.plural} completed`,
     UNITS_SOLD: "Units sold",
-    MANUAL: "Manual",
+    MANUAL: "I'll update this myself",
   };
   return labels[metric] ?? metric;
 }

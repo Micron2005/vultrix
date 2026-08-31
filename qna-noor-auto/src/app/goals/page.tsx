@@ -12,7 +12,8 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
-import { isValidTimeZone, localCalendarDay } from "@/lib/timezone";
+import { localCalendarDay } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { createGoal, archiveGoal, restoreGoal } from "./actions";
 import { GoalForm } from "./GoalForm";
 
@@ -27,11 +28,19 @@ function statusLabel(status: GoalProgress["status"]): string {
   }[status];
 }
 
-function statusClass(status: GoalProgress["status"]): string {
+function statusClass(
+  status: GoalProgress["status"],
+  goal: GoalRecord,
+  progress: GoalProgress,
+): string {
+  const ended = new Date() >= progress.windowEnd;
+  const red =
+    status === "behind" &&
+    (ended || (goal.metric === "SPENDING" && progress.actual > progress.target));
   return {
     ahead: "bg-green-100 text-green-800",
     on_pace: "bg-blue-100 text-blue-800",
-    behind: "bg-red-100 text-red-800",
+    behind: red ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800",
     met: "bg-emerald-100 text-emerald-800",
   }[status];
 }
@@ -39,9 +48,11 @@ function statusClass(status: GoalProgress["status"]): string {
 function GoalCard({
   goal,
   progress,
+  accountType,
 }: {
   goal: GoalRecord;
   progress: GoalProgress;
+  accountType: string;
 }) {
   const spending = goal.metric === "SPENDING";
   const amountText =
@@ -52,19 +63,27 @@ function GoalCard({
       : spending
         ? `${goalValueLabel(goal.metric, Math.max(0, goal.target - progress.actual))} under budget`
         : "Target reached";
-  const weeklyNeeded = progress.perDayNeeded * 7;
+  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
+  const paceText =
+    progress.daysRemaining < 14
+      ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded)} a day ${
+          remainingDays === 1
+            ? "in the last day"
+            : `in the next ${remainingDays} days`
+        }`
+      : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7)} a week`;
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            {goalMetricLabel(goal.metric)}
+            {goalMetricLabel(goal.metric, accountType)}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-zinc-900">{goal.title}</h2>
           <p className="mt-1 text-sm text-zinc-500">{progress.periodLabel}</p>
         </div>
         <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(progress.status)}`}
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(progress.status, goal, progress)}`}
         >
           {statusLabel(progress.status)}
         </span>
@@ -80,7 +99,13 @@ function GoalCard({
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
           <div
             className={`h-full rounded-full ${
-              progress.status === "behind" ? "bg-red-500" : "bg-emerald-500"
+              progress.status === "behind"
+                ? statusClass(progress.status, goal, progress).includes("red")
+                  ? "bg-red-500"
+                  : "bg-amber-500"
+                : progress.status === "on_pace"
+                  ? "bg-blue-500"
+                : "bg-emerald-500"
             }`}
             style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
           />
@@ -92,7 +117,7 @@ function GoalCard({
             !spending && (
             <>
               {" "}
-              · about {goalValueLabel(goal.metric, weeklyNeeded)} a week
+              · {paceText}
             </>
           )}
         </p>
@@ -125,16 +150,18 @@ function GoalCard({
 function ArchivedGoal({
   goal,
   progress,
+  accountType,
 }: {
   goal: GoalRecord;
   progress: GoalProgress;
+  accountType: string;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0">
       <div>
         <p className="font-medium text-zinc-800">{goal.title}</p>
         <p className="text-xs text-zinc-500">
-          {goalMetricLabel(goal.metric)} · {goalValueLabel(goal.metric, progress.actual)} of{" "}
+          {goalMetricLabel(goal.metric, accountType)} · {goalValueLabel(goal.metric, progress.actual)} of{" "}
           {goalValueLabel(goal.metric, progress.target)}
         </p>
       </div>
@@ -157,15 +184,9 @@ export default async function GoalsPage() {
   assertCanViewFinancials(user.role);
   const features = enabledFeatureSet(user);
   if (!user.orgId || !features.has("financials")) return null;
-  const organization = await db.organization.findUnique({
-    where: { id: user.orgId },
-    select: { timezone: true },
-  });
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
-  const active = await loadActiveGoals(user.orgId, timezone);
+  const timezone = await orgTimeZone(user.orgId);
+  const hasInvoices = features.has("invoices");
+  const active = await loadActiveGoals(user.orgId, timezone, hasInvoices);
   const archived = await db.goal.findMany({
     where: { orgId: user.orgId, archived: true },
     orderBy: { updatedAt: "desc" },
@@ -187,7 +208,12 @@ export default async function GoalsPage() {
             />
           ) : (
             active.map(({ goal, progress }) => (
-              <GoalCard key={goal.id} goal={goal} progress={progress} />
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                progress={progress}
+                accountType={user.accountType ?? "AUTO_SHOP"}
+              />
             ))
           )}
           {archived.length > 0 && (
@@ -199,11 +225,13 @@ export default async function GoalsPage() {
                     <ArchivedGoal
                       key={goal.id}
                       goal={goal as GoalRecord}
+                      accountType={user.accountType ?? "AUTO_SHOP"}
                       progress={await computeGoalProgress(
                         user.orgId!,
                         goal as GoalRecord,
                         new Date(),
                         timezone,
+                        hasInvoices,
                       )}
                     />
                   )),
@@ -215,7 +243,12 @@ export default async function GoalsPage() {
         <Card className="h-fit p-5">
           <CardHeader title="Create a goal" />
           <div className="mt-4">
-            <GoalForm action={createGoal} initial={{ startDate: today }} />
+            <GoalForm
+              action={createGoal}
+              accountType={user.accountType ?? "AUTO_SHOP"}
+              hasInvoices={hasInvoices}
+              initial={{ startDate: today }}
+            />
           </div>
         </Card>
       </div>

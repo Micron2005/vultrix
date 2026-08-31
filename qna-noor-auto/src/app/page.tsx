@@ -24,7 +24,7 @@ import {
   goalValueLabel,
   loadActiveGoals,
 } from "@/lib/goals";
-import { isValidTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const dynamic = "force-dynamic";
 
@@ -64,19 +64,12 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   dayEnd.setDate(dayEnd.getDate() + 1);
   const weekEnd = new Date(dayStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
-  const organization = hasFinancials
-    ? await db.organization.findUnique({
-        where: { id: orgId },
-        select: { timezone: true },
-      })
-    : null;
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
+  const timezone = hasFinancials
+    ? await orgTimeZone(orgId)
+    : "America/New_York";
   const activeGoals =
     hasFinancials && user.role !== "STAFF"
-      ? await loadActiveGoals(orgId, timezone, 3)
+      ? await loadActiveGoals(orgId, timezone, hasInvoices, 3)
       : [];
 
   const [
@@ -414,7 +407,7 @@ async function Dashboard({ user }: { user: CurrentUser }) {
                       {goal.title}
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-500">
-                      {goalMetricLabel(goal.metric)} ·{" "}
+                      {goalMetricLabel(goal.metric, user.accountType)} ·{" "}
                       {goalValueLabel(goal.metric, progress.actual)} of{" "}
                       {goalValueLabel(goal.metric, progress.target)}
                     </p>
@@ -426,7 +419,13 @@ async function Dashboard({ user }: { user: CurrentUser }) {
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
                   <div
                     className={`h-full rounded-full ${
-                      progress.status === "behind" ? "bg-red-500" : "bg-emerald-500"
+                      progress.status === "behind"
+                        ? new Date() >= progress.windowEnd
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                        : progress.status === "on_pace"
+                          ? "bg-blue-500"
+                          : "bg-emerald-500"
                     }`}
                     style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
                   />

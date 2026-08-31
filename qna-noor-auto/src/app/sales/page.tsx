@@ -11,6 +11,8 @@ import {
   dateInputInTimeZone,
   formatInTimeZone,
   localCalendarDay,
+  shiftCalendarDay,
+  isDateInput,
 } from "@/lib/timezone";
 import { formatMoney } from "@/lib/utils";
 import { RangeForm } from "@/app/reports/RangeForm";
@@ -28,23 +30,6 @@ type SearchParams = Promise<{
 }>;
 type Preset = "30d" | "mtd" | "ytd" | "12m" | "custom";
 
-function addCalendarDays(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function isDateInput(value: string | undefined): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
-
 function resolveRange(
   params: { preset?: string; from?: string; to?: string },
   timezone: string,
@@ -58,7 +43,7 @@ function resolveRange(
     params.preset === "custom"
       ? params.preset
       : "30d";
-  let fromValue = addCalendarDays(today, -30);
+  let fromValue = shiftCalendarDay(today, -30);
   let toValue = today;
   let label = "Last 30 days";
 
@@ -73,13 +58,13 @@ function resolveRange(
     fromValue = `${today.slice(0, 4)}-01-01`;
     label = "This year";
   } else if (preset === "12m") {
-    fromValue = addCalendarDays(`${today.slice(0, 7)}-01`, -365);
+    fromValue = shiftCalendarDay(`${today.slice(0, 7)}-01`, -365);
     label = "Last 12 months";
   }
 
   const from = dateInputInTimeZone(fromValue, timezone, new Date(Number.NaN));
   const endExclusive = dateInputInTimeZone(
-    addCalendarDays(toValue, 1),
+    shiftCalendarDay(toValue, 1),
     timezone,
     new Date(Number.NaN),
   );

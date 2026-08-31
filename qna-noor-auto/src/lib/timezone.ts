@@ -1,6 +1,27 @@
 const TIME_ZONE_VALUES = new Set(Intl.supportedValuesOf("timeZone"));
 const DEFAULT_TIME_ZONE = "America/New_York";
 
+export function shiftCalendarDay(value: string, days: number): string {
+  const date = new Date(`${value}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function addCalendarDays(value: string, days: number): string {
+  return shiftCalendarDay(value, days);
+}
+
+export function isDateInput(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 export function isValidTimeZone(timeZone: string): boolean {
   return TIME_ZONE_VALUES.has(timeZone);
 }

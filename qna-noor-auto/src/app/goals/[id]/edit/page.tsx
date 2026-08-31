@@ -3,7 +3,8 @@ import { Card, PageHeader } from "@/components/ui";
 import { enabledFeatureSet } from "@/lib/features";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
-import { isValidTimeZone, localCalendarDay } from "@/lib/timezone";
+import { localCalendarDay } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { db } from "@/lib/db";
 import { updateGoal } from "../../actions";
 import { GoalForm } from "../../GoalForm";
@@ -26,14 +27,8 @@ export default async function EditGoalPage({
   const { id } = await params;
   const goal = await db.goal.findFirst({ where: { id, orgId: user.orgId } });
   if (!goal) notFound();
-  const organization = await db.organization.findUnique({
-    where: { id: user.orgId },
-    select: { timezone: true },
-  });
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
+  const timezone = await orgTimeZone(user.orgId);
+  const hasInvoices = enabledFeatureSet(user).has("invoices");
   return (
     <>
       <PageHeader title={`Edit ${goal.title}`} />
@@ -41,6 +36,8 @@ export default async function EditGoalPage({
         <GoalForm
           action={updateGoal.bind(null, goal.id)}
           submitLabel="Save goal"
+          accountType={user.accountType ?? "AUTO_SHOP"}
+          hasInvoices={hasInvoices}
           initial={{
             title: goal.title,
             metric: goal.metric,

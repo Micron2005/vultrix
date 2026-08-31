@@ -22,9 +22,10 @@ import {
 import { enabledFeatureSet } from "@/lib/features";
 import {
   dateInputInTimeZone,
-  isValidTimeZone,
   localCalendarDay,
+  shiftCalendarDay,
 } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   deleteRecurring,
   postAllConfirmed,
@@ -36,12 +37,6 @@ import { postDueForOrg } from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
 
-function addCalendarDays(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 export default async function ExpensesListPage({
   searchParams,
 }: {
@@ -52,14 +47,7 @@ export default async function ExpensesListPage({
   const showIncome = Boolean(
     user && !enabledFeatureSet(user).has("invoices"),
   );
-  const organization = await db.organization.findUnique({
-    where: { id: orgId },
-    select: { timezone: true },
-  });
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
+  const timezone = await orgTimeZone(orgId);
   const sp = await searchParams;
   const from = sp.from
     ? dateInputInTimeZone(sp.from, timezone, new Date(Number.NaN))
@@ -80,7 +68,7 @@ export default async function ExpensesListPage({
     if (from && !isNaN(from.getTime())) where.paidAt.gte = from;
     if (to && !isNaN(to.getTime())) {
       const endExclusive = dateInputInTimeZone(
-        addCalendarDays(sp.to ?? "", 1),
+        shiftCalendarDay(sp.to ?? "", 1),
         timezone,
         new Date(Number.NaN),
       );
@@ -100,7 +88,7 @@ export default async function ExpensesListPage({
     new Date(Number.NaN),
   );
   const mtdEndExclusive = dateInputInTimeZone(
-    addCalendarDays(today, 1),
+    shiftCalendarDay(today, 1),
     timezone,
     new Date(Number.NaN),
   );
