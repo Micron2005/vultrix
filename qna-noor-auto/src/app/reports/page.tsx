@@ -4,6 +4,14 @@ import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { loadOpenAR } from "@/lib/ar";
 import { enabledFeatureSet } from "@/lib/features";
+import { loadExpenseTotal, loadMoneyInTotal } from "@/lib/financialMetrics";
+import {
+  dateInputInTimeZone,
+  localCalendarDay,
+  shiftCalendarDay,
+  isDateInput,
+} from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
 import { prettyCategory } from "../expenses/categories";
@@ -14,13 +22,17 @@ type SearchParams = Promise<{ preset?: string; from?: string; to?: string }>;
 
 type Preset = "30d" | "mtd" | "ytd" | "12m" | "custom";
 
-function resolveRange(sp: { preset?: string; from?: string; to?: string }): {
+function resolveRange(
+  sp: { preset?: string; from?: string; to?: string },
+  timezone: string,
+): {
   preset: Preset;
   from: Date;
   to: Date;
   label: string;
 } {
   const now = new Date();
+  const today = localCalendarDay(now, timezone);
   const preset: Preset =
     sp.preset === "mtd" ||
     sp.preset === "ytd" ||
@@ -29,45 +41,44 @@ function resolveRange(sp: { preset?: string; from?: string; to?: string }): {
       ? sp.preset
       : "30d";
 
-  let from: Date;
-  const to = endOfDay(now);
+  let fromValue = shiftCalendarDay(today, -30);
+  let toValue = today;
   let label: string;
 
-  if (preset === "custom" && sp.from) {
-    from = startOfDay(new Date(sp.from));
-    const t = sp.to ? endOfDay(new Date(sp.to)) : endOfDay(now);
-    label = `${formatDate(from)} – ${formatDate(t)}`;
-    return { preset, from, to: t, label };
+  if (preset === "custom" && isDateInput(sp.from)) {
+    fromValue = sp.from;
+    toValue = isDateInput(sp.to) ? sp.to : today;
+    const from = dateInputInTimeZone(fromValue, timezone, new Date(Number.NaN));
+    const endExclusive = dateInputInTimeZone(
+      shiftCalendarDay(toValue, 1),
+      timezone,
+      new Date(Number.NaN),
+    );
+    const to = new Date(endExclusive.getTime() - 1);
+    label = `${formatDate(from)} – ${formatDate(to)}`;
+    return { preset, from, to, label };
   }
 
   if (preset === "mtd") {
-    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    fromValue = `${today.slice(0, 7)}-01`;
     label = "This month";
   } else if (preset === "ytd") {
-    from = new Date(now.getFullYear(), 0, 1);
+    fromValue = `${today.slice(0, 4)}-01-01`;
     label = "This year";
   } else if (preset === "12m") {
-    from = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    fromValue = shiftCalendarDay(`${today.slice(0, 7)}-01`, -365);
     label = "Last 12 months";
   } else {
-    from = new Date(now);
-    from.setDate(from.getDate() - 30);
-    from = startOfDay(from);
     label = "Last 30 days";
   }
 
-  return { preset, from, to, label };
-}
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function endOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+  const from = dateInputInTimeZone(fromValue, timezone, new Date(Number.NaN));
+  const endExclusive = dateInputInTimeZone(
+    shiftCalendarDay(toValue, 1),
+    timezone,
+    new Date(Number.NaN),
+  );
+  return { preset, from, to: new Date(endExclusive.getTime() - 1), label };
 }
 function daysBetween(a: Date, b: Date): number {
   return (b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24);
@@ -89,6 +100,7 @@ export default async function ReportsPage({
 }) {
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
+  const timezone = await orgTimeZone(orgId);
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
   const autoShop = (user?.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
   if (!autoShop) {
@@ -96,23 +108,32 @@ export default async function ReportsPage({
       <GeneralReportsPage
         orgId={orgId}
         hasInvoices={hasInvoices}
+        timezone={timezone}
         searchParams={searchParams}
       />
     );
   }
 
-  return <AutoReportsPage orgId={orgId} searchParams={searchParams} />;
+  return (
+    <AutoReportsPage
+      orgId={orgId}
+      timezone={timezone}
+      searchParams={searchParams}
+    />
+  );
 }
 
 async function AutoReportsPage({
   orgId,
+  timezone,
   searchParams,
 }: {
   orgId: string;
+  timezone: string;
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const { preset, from, to, label } = resolveRange(sp);
+  const { preset, from, to, label } = resolveRange(sp, timezone);
 
   const [
     allROs,
@@ -174,7 +195,7 @@ async function AutoReportsPage({
     }),
   ]);
 
-  const revenueInRange = paymentsInRange.reduce((s, p) => s + p.amount, 0);
+  const revenueInRange = await loadMoneyInTotal(orgId, { from, to }, true);
 
   const arSummary = await loadOpenAR(orgId);
   const arTotal = arSummary.total;
@@ -374,7 +395,7 @@ async function AutoReportsPage({
   const partsMarkupPct =
     partsCost > 0 ? ((partsRevenue - partsCost) / partsCost) * 100 : null;
 
-  const expensesTotal = expensesInRange.reduce((s, e) => s + e.amount, 0);
+  const expensesTotal = await loadExpenseTotal(orgId, { from, to });
   const expensesByCategory = new Map<string, number>();
   for (const e of expensesInRange) {
     expensesByCategory.set(
@@ -753,14 +774,16 @@ async function AutoReportsPage({
 async function GeneralReportsPage({
   orgId,
   hasInvoices,
+  timezone,
   searchParams,
 }: {
   orgId: string;
   hasInvoices: boolean;
+  timezone: string;
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const { preset, from, to, label } = resolveRange(sp);
+  const { preset, from, to, label } = resolveRange(sp, timezone);
   const [expensesInRange, paymentsInRange, incomeInRange] = await Promise.all([
     db.expense.findMany({
       where: { orgId, paidAt: { gte: from, lte: to } },
@@ -787,10 +810,8 @@ async function GeneralReportsPage({
           orderBy: { receivedAt: "desc" },
         }),
   ]);
-  const moneyIn = hasInvoices
-    ? paymentsInRange.reduce((sum, payment) => sum + payment.amount, 0)
-    : incomeInRange.reduce((sum, income) => sum + income.amount, 0);
-  const moneyOut = expensesInRange.reduce((sum, expense) => sum + expense.amount, 0);
+  const moneyIn = await loadMoneyInTotal(orgId, { from, to }, hasInvoices);
+  const moneyOut = await loadExpenseTotal(orgId, { from, to });
   const net = moneyIn - moneyOut;
 
   const months: { key: string; label: string; moneyIn: number }[] = [];

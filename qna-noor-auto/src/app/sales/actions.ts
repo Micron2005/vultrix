@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
 import { enabledFeatureSet } from "@/lib/features";
 import { logActivity } from "@/lib/activity";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { requireUser } from "@/lib/session";
-import { dateInputInTimeZone, isValidTimeZone } from "@/lib/timezone";
+import { dateInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
 import { createSale, deleteSale, updateSale } from "@/lib/sales";
 
@@ -23,14 +23,7 @@ export async function requireSalesOrgId(): Promise<{
   if (!features.has("financials") || features.has("invoices")) {
     redirect("/");
   }
-  const organization = await db.organization.findUnique({
-    where: { id: user.orgId },
-    select: { timezone: true },
-  });
-  const timezone =
-    organization && isValidTimeZone(organization.timezone)
-      ? organization.timezone
-      : "America/New_York";
+  const timezone = await orgTimeZone(user.orgId);
   return {
     orgId: user.orgId,
     timezone,

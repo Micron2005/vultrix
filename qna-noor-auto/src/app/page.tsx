@@ -19,6 +19,12 @@ import { prettyStatus } from "./appointments/AppointmentForm";
 import { statusBadgeClass } from "./appointments/status";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
 import { getAssistantFinancialSummary } from "@/lib/assistant";
+import {
+  goalMetricLabel,
+  goalValueLabel,
+  loadActiveGoals,
+} from "@/lib/goals";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +64,13 @@ async function Dashboard({ user }: { user: CurrentUser }) {
   dayEnd.setDate(dayEnd.getDate() + 1);
   const weekEnd = new Date(dayStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
+  const timezone = hasFinancials
+    ? await orgTimeZone(orgId)
+    : "America/New_York";
+  const activeGoals =
+    hasFinancials && user.role !== "STAFF"
+      ? await loadActiveGoals(orgId, timezone, hasInvoices, 3)
+      : [];
 
   const [
     customerCount,
@@ -373,6 +386,55 @@ async function Dashboard({ user }: { user: CurrentUser }) {
           </>
         )}
       </div>
+
+      {activeGoals.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader title="Goals">
+            <LinkButton href="/goals" variant="ghost" size="sm">
+              View all →
+            </LinkButton>
+          </CardHeader>
+          <div className="divide-y divide-zinc-200">
+            {activeGoals.map(({ goal, progress }) => (
+              <Link
+                key={goal.id}
+                href={`/goals/${goal.id}/edit`}
+                className="block px-4 py-3 hover:bg-zinc-50"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">
+                      {goal.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {goalMetricLabel(goal.metric, user.accountType)} ·{" "}
+                      {goalValueLabel(goal.metric, progress.actual)} of{" "}
+                      {goalValueLabel(goal.metric, progress.target)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-zinc-700">
+                    {Math.round(progress.pct)}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                  <div
+                    className={`h-full rounded-full ${
+                      progress.status === "behind"
+                        ? new Date() >= progress.windowEnd
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                        : progress.status === "on_pace"
+                          ? "bg-blue-500"
+                          : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {hasSchedule && <Card className="mb-6">
         <CardHeader
