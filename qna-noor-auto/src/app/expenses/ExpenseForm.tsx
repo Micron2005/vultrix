@@ -7,6 +7,7 @@ import {
   prettyCategory,
   prettyMethod,
 } from "./categories";
+import { ExpenseReceipts, type ExpenseReceiptItem } from "./ExpenseReceipts";
 
 function toDateInput(d: Date | null | undefined): string {
   if (!d) return new Date().toISOString().slice(0, 10);
@@ -34,6 +35,7 @@ export function ExpenseForm({
     endDate?: Date | null;
     autoPost?: boolean;
     recurringId?: string | null;
+    receipts?: ExpenseReceiptItem[];
   };
 }) {
   const isAutoShop = accountType === "AUTO_SHOP";
@@ -111,6 +113,9 @@ export function ExpenseForm({
           defaultValue={initial?.note ?? ""}
           placeholder="Anything worth remembering about this expense"
         />
+      </Field>
+      <Field label="Receipt photos">
+        <ExpenseReceipts initialReceipts={initial?.receipts} />
       </Field>
       {initial?.recurringId ? (
         <p className="border-t border-zinc-200 pt-4 text-sm text-zinc-600">

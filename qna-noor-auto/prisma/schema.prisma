@@ -671,11 +671,25 @@ model Expense {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   recurringId  String?
   recurring    RecurringEntry? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+  receipts     ExpenseReceipt[]
 
   @@index([paidAt])
   @@index([category])
   @@index([orgId])
   @@index([recurringId])
+}
+
+model ExpenseReceipt {
+  id        String   @id @default(cuid())
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  dataUrl   String
+  createdAt DateTime @default(now())
+
+  @@index([expenseId])
+  @@index([orgId])
 }
 
 model Income {
@@ -881,6 +895,7 @@ model Organization {
   incomes          Income[]
   recurringEntries RecurringEntry[]
   budgets          Budget[]
+  expenseReceipts  ExpenseReceipt[]
   shopFees         ShopFee[]
   shopSettings     ShopSetting[]
   categories       Category[]

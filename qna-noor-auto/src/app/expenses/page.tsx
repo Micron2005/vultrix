@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import {
@@ -82,7 +83,10 @@ export default async function ExpensesListPage({
     db.expense.findMany({
       where,
       orderBy: { paidAt: "desc" },
-      include: { recurring: true },
+      include: {
+        recurring: true,
+        _count: { select: { receipts: true } },
+      },
     }),
     showIncome
       ? Promise.resolve([])
@@ -595,7 +599,17 @@ export default async function ExpensesListPage({
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-zinc-700">
-                    {prettyCategory(e.category)}
+                    <span>{prettyCategory(e.category)}</span>
+                    {e._count.receipts > 0 && (
+                      <span
+                        className="ml-2 inline-flex items-center gap-1 text-xs text-zinc-500"
+                        title={`${e._count.receipts} receipt photo${e._count.receipts === 1 ? "" : "s"}`}
+                        aria-label={`${e._count.receipts} receipt photo${e._count.receipts === 1 ? "" : "s"}`}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        {e._count.receipts}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-zinc-700">
                     {e.vendor ?? "—"}

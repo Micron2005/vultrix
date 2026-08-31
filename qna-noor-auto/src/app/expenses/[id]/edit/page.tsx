@@ -17,7 +17,10 @@ export default async function EditExpensePage({
   const user = await getCurrentUser();
   const exp = await db.expense.findFirst({
     where: { id, orgId },
-    include: { recurring: true },
+    include: {
+      recurring: true,
+      receipts: { where: { orgId } },
+    },
   });
   if (!exp) notFound();
 
@@ -52,6 +55,7 @@ export default async function EditExpensePage({
             endDate: exp.recurring?.endDate,
             autoPost: exp.recurring?.autoPost,
             recurringId: exp.recurringId,
+            receipts: exp.receipts.map(({ id, dataUrl }) => ({ id, dataUrl })),
           }}
           accountType={user?.accountType}
         />
