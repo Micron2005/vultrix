@@ -1,3 +1,7 @@
+import { isValidTimeZone } from "@/lib/timezone";
+
+export { isValidTimeZone };
+
 export type TimeZoneChoice = {
   id: string;
   label: string;
@@ -88,7 +92,7 @@ export const PRIMARY_ZONES = Object.entries(PRIMARY_ZONE_LABELS).map(
 );
 
 const PRIMARY_ZONE_IDS = new Set(PRIMARY_ZONES.map((zone) => zone.id));
-const SUPPORTED_ZONES = new Set(Intl.supportedValuesOf("timeZone"));
+const ABBREVIATION_CACHE = new Map<string, string>();
 const ALIASES: Record<string, string[]> = {
   eastern: ["America/New_York"],
   et: ["America/New_York"],
@@ -117,10 +121,6 @@ for (const [state, zone] of Object.entries(US_STATE_ZONES)) {
   }
 }
 
-export function isValidTimeZone(id: string): boolean {
-  return SUPPORTED_ZONES.has(id);
-}
-
 function derivedLabel(id: string): string {
   const parts = id.split("/");
   const region = parts[0] ?? id;
@@ -136,25 +136,30 @@ export function allTimeZoneChoices(): TimeZoneChoice[] {
     .filter((id) => !PRIMARY_ZONE_IDS.has(id))
     .map((id) => ({ id, label: derivedLabel(id) }));
   cachedChoices = [
-    ...PRIMARY_ZONES.filter((zone) => SUPPORTED_ZONES.has(zone.id)),
+    ...PRIMARY_ZONES.filter((zone) => isValidTimeZone(zone.id)),
     ...rest,
   ];
   return cachedChoices;
 }
 
 export function zoneAbbreviation(id: string, now: Date): string {
-  if (!SUPPORTED_ZONES.has(id)) return "";
+  if (!isValidTimeZone(id)) return "";
+  if (ABBREVIATION_CACHE.has(id)) {
+    return ABBREVIATION_CACHE.get(id) ?? "";
+  }
   const part = new Intl.DateTimeFormat("en-US", {
     timeZone: id,
     timeZoneName: "short",
   })
     .formatToParts(now)
     .find((value) => value.type === "timeZoneName");
-  return part?.value ?? "";
+  const abbreviation = part?.value ?? "";
+  ABBREVIATION_CACHE.set(id, abbreviation);
+  return abbreviation;
 }
 
 export function zoneCurrentTime(id: string, now: Date): string {
-  if (!SUPPORTED_ZONES.has(id)) return "";
+  if (!isValidTimeZone(id)) return "";
   return new Intl.DateTimeFormat("en-US", {
     timeZone: id,
     hour: "numeric",
@@ -182,7 +187,7 @@ export function parseClockQuery(
   if (match[2] != null) {
     return hour <= 23 ? { hour24: hour, minute } : null;
   }
-  return hour >= 1 && hour <= 12 ? { hour24: hour, minute } : null;
+  return hour <= 23 ? { hour24: hour, minute } : null;
 }
 
 function normalized(value: string): string {
@@ -215,10 +220,11 @@ export function searchTimeZones(
   const clock = parseClockQuery(query);
   if (clock) {
     const bareHour = /^\d{1,2}$/.test(query.trim());
+    const ambiguousBareHour = bareHour && clock.hour24 >= 1 && clock.hour24 <= 12;
     const hasMinute = /^\d{1,2}:\d{2}/.test(query.trim());
     const matches = choices.filter((choice) => {
       const current = localHourMinute(choice.id, now);
-      const hours = bareHour
+      const hours = ambiguousBareHour
         ? [clock.hour24, (clock.hour24 + 12) % 24]
         : [clock.hour24];
       return (

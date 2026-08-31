@@ -78,7 +78,8 @@ export function SignupWizard({
     } catch {
       browserTimezone = "";
     }
-    queueMicrotask(() => setTimezone(browserTimezone));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTimezone(browserTimezone);
   }, []);
 
   useEffect(() => {

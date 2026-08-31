@@ -51,7 +51,8 @@ export function TimezonePicker({
   useEffect(() => {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (isValidTimeZone(zone)) {
-      queueMicrotask(() => setDeviceZone(zone));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeviceZone(zone);
     }
   }, []);
 
@@ -159,13 +160,18 @@ export function TimezonePicker({
           Use my device&apos;s timezone ({deviceZone})
         </button>
       )}
-      {open && results.length > 0 && (
+      {open && (results.length > 0 || Boolean(query.trim())) && (
         <div
           id={RESULTS_ID}
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg"
         >
-          {results.map((result, index) => (
+          {results.length === 0 ? (
+            <div className="px-3 py-3 text-sm text-zinc-600">
+              No match for that. Try a state (Virginia), a nearby big city, or
+              a time (3:15 pm).
+            </div>
+          ) : results.map((result, index) => (
             <div
               id={`${RESULTS_ID}-${result.id}`}
               key={result.id}
