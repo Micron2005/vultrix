@@ -24,10 +24,12 @@ export function RangeForm({
   preset,
   from,
   to,
+  basePath = "/reports",
 }: {
   preset: Preset;
   from: Date;
   to: Date;
+  basePath?: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -42,7 +44,7 @@ export function RangeForm({
     params.set("preset", p);
     params.delete("from");
     params.delete("to");
-    router.push(`/reports?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   function onCustom(e: FormEvent<HTMLFormElement>) {
@@ -51,7 +53,7 @@ export function RangeForm({
     params.set("preset", "custom");
     params.set("from", fromStr);
     params.set("to", toStr);
-    router.push(`/reports?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (

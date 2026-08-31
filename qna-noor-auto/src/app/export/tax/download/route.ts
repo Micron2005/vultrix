@@ -6,6 +6,7 @@ import { enabledFeatureSet } from "@/lib/features";
 import {
   computeTotals,
   excludeDeclinedJobLines,
+  invoiceDateOf,
 } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { fullName } from "@/lib/utils";
@@ -196,17 +197,11 @@ export async function GET(request: Request) {
     const feesByOrder = await loadAppliedShopFeesForROs(orgId, feeInputs);
 
     taxRows = filteredOrders.flatMap((repairOrder) => {
-      const dateOptions: { field: string; value: Date | null }[] = [
-        { field: "invoicedAt", value: repairOrder.invoicedAt },
-        { field: "paidAt", value: repairOrder.paidAt },
-        { field: "closedAt", value: repairOrder.closedAt },
-        { field: "openedAt", value: repairOrder.openedAt },
-      ];
-      const selectedDate = dateOptions.find((option) => option.value);
-      const invoiceDate = selectedDate?.value;
-      const dateField = selectedDate?.field;
-      if (!invoiceDate || !dateField) return [];
-      if (invoiceDate < range.from || invoiceDate > range.to) return [];
+      const selectedDate = invoiceDateOf(repairOrder);
+      if (!selectedDate) return [];
+      if (selectedDate.date < range.from || selectedDate.date > range.to) {
+        return [];
+      }
 
       const totals = computeTotals({
         ...repairOrder,
@@ -214,8 +209,8 @@ export async function GET(request: Request) {
       });
       return [
         {
-          date: dateText(invoiceDate),
-          dateField,
+          date: dateText(selectedDate.date),
+          dateField: selectedDate.field,
           invoiceNumber: repairOrder.roNumber,
           customer: fullName(repairOrder.customer),
           taxableBaseAfterDiscount: money(totals.taxableAfterDiscount),

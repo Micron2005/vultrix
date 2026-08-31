@@ -12,6 +12,7 @@ const TechSchema = z.object({
   initials: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
   defaultRate: z.string().optional().nullable(),
+  payRate: z.string().optional().nullable(),
   active: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
@@ -46,6 +47,7 @@ function toData(fd: FormData) {
     initials,
     role: cleanStr(raw.role),
     defaultRate: parseFloatOrNull(raw.defaultRate),
+    payRate: parseFloatOrNull(raw.payRate),
     active: raw.active !== "off" && raw.active !== "false" && raw.active !== null,
     notes: cleanStr(raw.notes),
   };
