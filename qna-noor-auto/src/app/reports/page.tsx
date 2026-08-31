@@ -142,7 +142,11 @@ async function AutoReportsPage({
       },
     }),
     db.payment.findMany({
-      where: { orgId, paidAt: { gte: from, lte: to } },
+      where: {
+        orgId,
+        paidAt: { gte: from, lte: to },
+        repairOrder: { deletedAt: null },
+      },
       include: {
         repairOrder: {
           include: {
@@ -236,6 +240,7 @@ async function AutoReportsPage({
     const paymentsLast12 = await db.payment.findMany({
       where: {
         orgId,
+        repairOrder: { deletedAt: null },
         paidAt: {
           gte: new Date(months[0].key + "-01"),
           lte: to,
@@ -768,7 +773,11 @@ async function GeneralReportsPage({
     }),
     hasInvoices
       ? db.payment.findMany({
-          where: { orgId, paidAt: { gte: from, lte: to } },
+          where: {
+            orgId,
+            paidAt: { gte: from, lte: to },
+            repairOrder: { deletedAt: null },
+          },
           include: {
             repairOrder: {
               include: { customer: true },
@@ -800,6 +809,7 @@ async function GeneralReportsPage({
     const paymentsLast12Months = await db.payment.findMany({
       where: {
         orgId,
+        repairOrder: { deletedAt: null },
         paidAt: {
           gte: new Date(months[0].key + "-01"),
           lte: to,

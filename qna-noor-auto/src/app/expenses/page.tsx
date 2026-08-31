@@ -91,7 +91,11 @@ export default async function ExpensesListPage({
     showIncome
       ? Promise.resolve([])
       : db.payment.findMany({
-          where: { orgId, paidAt: { gte: mtdFrom, lte: mtdTo } },
+          where: {
+            orgId,
+            paidAt: { gte: mtdFrom, lte: mtdTo },
+            repairOrder: { deletedAt: null },
+          },
           select: { amount: true },
         }),
     db.expense.findMany({
