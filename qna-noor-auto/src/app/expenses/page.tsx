@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import {
@@ -601,11 +602,12 @@ export default async function ExpensesListPage({
                     <span>{prettyCategory(e.category)}</span>
                     {e._count.receipts > 0 && (
                       <span
-                        className="ml-2 text-xs text-zinc-500"
+                        className="ml-2 inline-flex items-center gap-1 text-xs text-zinc-500"
                         title={`${e._count.receipts} receipt photo${e._count.receipts === 1 ? "" : "s"}`}
                         aria-label={`${e._count.receipts} receipt photo${e._count.receipts === 1 ? "" : "s"}`}
                       >
-                        📷 {e._count.receipts}
+                        <Camera className="h-3.5 w-3.5" />
+                        {e._count.receipts}
                       </span>
                     )}
                   </td>
