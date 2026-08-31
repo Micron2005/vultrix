@@ -7,10 +7,6 @@ export function shiftCalendarDay(value: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function addCalendarDays(value: string, days: number): string {
-  return shiftCalendarDay(value, days);
-}
-
 export function isDateInput(value: string | undefined): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);

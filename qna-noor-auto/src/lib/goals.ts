@@ -342,7 +342,7 @@ export function goalMetricLabel(
     PROFIT: "Profit",
     NET_SAVED: "Money saved",
     JOBS:
-      repairNouns.singular === "Repair Order"
+      (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
         ? "Jobs completed"
         : `${repairNouns.plural} completed`,
     UNITS_SOLD: "Units sold",

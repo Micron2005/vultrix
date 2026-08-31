@@ -36,13 +36,14 @@ export function GoalForm({
     initial?.metric === "NET_SAVED" ? "BY_DATE" : initial?.period ?? "MONTH",
   );
   const repairNouns = repairOrderNouns(accountType);
+  const autoShop = (accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
   const metrics = [
     ["MONEY_IN", "Money in"],
     ["SPENDING", "Spending"],
     ["PROFIT", "Profit"],
     ["NET_SAVED", "Money saved"],
-    ...(repairNouns.singular === "Repair Order"
-      ? [["JOBS", "Jobs completed"]]
+    ...(hasInvoices
+      ? [["JOBS", autoShop ? "Jobs completed" : `${repairNouns.plural} completed`]]
       : []),
     ...(!hasInvoices ? [["UNITS_SOLD", "Units sold"]] : []),
     ["MANUAL", "I'll update this myself"],

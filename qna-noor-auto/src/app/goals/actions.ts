@@ -71,22 +71,13 @@ function optionalDateFromForm(
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
-function metricAllowed(
-  metric: GoalMetric,
-  accountType: string,
-  hasInvoices: boolean,
-): boolean {
-  if (metric === "JOBS") return accountType === "AUTO_SHOP";
+function metricAllowed(metric: GoalMetric, hasInvoices: boolean): boolean {
+  if (metric === "JOBS") return hasInvoices;
   if (metric === "UNITS_SOLD") return !hasInvoices;
   return true;
 }
 
-function goalInput(
-  fd: FormData,
-  timezone: string,
-  accountType: string,
-  hasInvoices: boolean,
-) {
+function goalInput(fd: FormData, timezone: string, hasInvoices: boolean) {
   const title = text(fd, "title");
   const metric = text(fd, "metric") as GoalMetric;
   const period = text(fd, "period") as GoalPeriod;
@@ -101,7 +92,7 @@ function goalInput(
 
   if (!title) throw new Error("Goal name is required.");
   if (!GOAL_METRICS.includes(metric)) throw new Error("Goal type is invalid.");
-  if (!metricAllowed(metric, accountType, hasInvoices)) {
+  if (!metricAllowed(metric, hasInvoices)) {
     throw new Error("That goal type is not available for this account.");
   }
   if (!GOAL_PERIODS.includes(period)) throw new Error("Goal period is invalid.");
@@ -128,9 +119,9 @@ function goalInput(
 }
 
 export async function createGoal(fd: FormData) {
-  const { orgId, timezone, accountType, hasInvoices } = await requireGoalsContext();
+  const { orgId, timezone, hasInvoices } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, accountType, hasInvoices);
+  const input = goalInput(fd, timezone, hasInvoices);
   const goal = await db.goal.create({ data: { orgId, ...input } });
   await logActivity({
     orgId,
@@ -146,9 +137,9 @@ export async function createGoal(fd: FormData) {
 }
 
 export async function updateGoal(id: string, fd: FormData) {
-  const { orgId, timezone, accountType, hasInvoices } = await requireGoalsContext();
+  const { orgId, timezone, hasInvoices } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, accountType, hasInvoices);
+  const input = goalInput(fd, timezone, hasInvoices);
   const goal = await db.goal.updateMany({
     where: { id, orgId },
     data: input,
