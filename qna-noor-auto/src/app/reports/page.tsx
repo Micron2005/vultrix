@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { enabledFeatureSet } from "@/lib/features";
-import { computeTotals } from "@/lib/totals";
+import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
@@ -182,7 +182,7 @@ async function AutoReportsPage({
     allROs
       .filter((ro) => ro.status === "INVOICED")
       .map((ro) => {
-        const t = computeTotals(ro);
+        const t = computeTotals(excludeDeclinedJobLines(ro));
         return { id: ro.id, partsSubtotal: t.partsSubtotal, laborSubtotal: t.laborSubtotal };
       }),
   );
@@ -192,7 +192,8 @@ async function AutoReportsPage({
   for (const ro of allROs) {
     if (ro.status !== "INVOICED") continue;
     const shopFees = arShopFeesByRO.get(ro.id) ?? [];
-    const total = computeTotals({ ...ro, shopFees }).total;
+    const filtered = excludeDeclinedJobLines(ro);
+    const total = computeTotals({ ...filtered, shopFees }).total;
     const paid = ro.payments.reduce((x, p) => x + p.amount, 0);
     const balance = Math.max(0, total - paid);
     arTotal += balance;
