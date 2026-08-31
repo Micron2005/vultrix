@@ -9,7 +9,6 @@ import {
   formatInTimeZone,
   isValidTimeZone,
   localCalendarDay,
-  localHour,
 } from "@/lib/timezone";
 
 type ReminderKind = "APPOINTMENT" | "INVOICE_PAST_DUE" | "SERVICE_DUE";
@@ -58,11 +57,6 @@ function parsePositiveSetting(
 ): number {
   const value = Number(settings[key]);
   return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-function parseSendHour(settings: Record<string, string>): number {
-  const value = Number(settings.reminderSendHour);
-  return Number.isFinite(value) ? Math.max(0, Math.min(23, value)) : 8;
 }
 
 function getEmail(customer: ReminderCustomer): string | null {
@@ -285,12 +279,9 @@ async function sendPastDueReminders(
   timezone: string,
   settings: Record<string, string>,
   organizationName: string | null,
-  now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
   if (settings.remindPastDueEnabled !== "true") return counts;
-  const sendHour = parseSendHour(settings);
-  if (localHour(now, timezone) !== sendHour) return counts;
   const minimumDays = parsePositiveSetting(settings, "remindPastDueDays", 30);
   const ar = await loadOpenAR(orgId);
   if (ar.invoices.length === 0) return counts;
@@ -379,8 +370,6 @@ async function sendServiceDueReminders(
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
   if (settings.remindServiceDueEnabled !== "true") return counts;
-  const sendHour = parseSendHour(settings);
-  if (localHour(now, timezone) !== sendHour) return counts;
   const reminders = await computeAllVehicleReminders(orgId, now);
   const dueItemsByVehicle = new Map<
     string,
@@ -507,7 +496,6 @@ export async function sendDueRemindersForOrg(
         timezone,
         settings,
         organization?.name ?? null,
-        now,
       ),
     );
   }
