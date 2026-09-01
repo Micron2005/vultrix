@@ -68,7 +68,8 @@ const btnBase =
   "inline-flex items-center justify-center rounded-md font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1";
 
 const btnVariants = {
-  primary: "bg-zinc-900 text-white hover:bg-zinc-800",
+  primary:
+    "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]",
   secondary:
     "bg-white text-zinc-900 border border-zinc-300 hover:bg-zinc-50",
   ghost: "text-zinc-700 hover:bg-zinc-100",

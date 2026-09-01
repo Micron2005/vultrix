@@ -11,12 +11,29 @@
 :root {
   --background: #fafafa;
   --foreground: #18181b;
+  --vx-accent-600: var(--color-zinc-900);
+  --vx-accent-700: var(--color-zinc-800);
+  --vx-accent-50: var(--color-zinc-50);
+  --vx-accent-100: var(--color-zinc-100);
+  --vx-accent-fg: var(--color-white);
+}
+
+html {
+  font-size: var(--vx-root-font, 100%);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(
+    --vx-font,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif
+  );
 }
 
 /* ── Tiptap rich-text editor styles ── */
