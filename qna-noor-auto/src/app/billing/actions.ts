@@ -100,14 +100,23 @@ export async function updatePlan(formData: FormData) {
     org.stripeSubscriptionId &&
     billingConfigured()
   ) {
-    const subscription = await applySubscriptionPriceToSubscription({
-      orgId: org.id,
-      accountType,
-      subscriptionId: org.stripeSubscriptionId,
-      hasInvoices: nextHasInvoices,
-      aiHosted: nextAiHosted,
-    });
-    subscriptionStatus = subscription.status;
+    try {
+      const subscription = await applySubscriptionPriceToSubscription({
+        orgId: org.id,
+        accountType,
+        subscriptionId: org.stripeSubscriptionId,
+        hasInvoices: nextHasInvoices,
+        aiHosted: nextAiHosted,
+      });
+      subscriptionStatus = subscription.status;
+    } catch (err) {
+      console.error("Plan price sync failed:", err, {
+        accountType,
+        orgId: org.id,
+      });
+      const message = err instanceof Error ? err.message : String(err);
+      back({ error: `Could not update the subscription price: ${message}` });
+    }
   }
 
   await db.organization.update({
