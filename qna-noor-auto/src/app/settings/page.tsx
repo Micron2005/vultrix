@@ -35,6 +35,8 @@ import { saveAiAssistantSettings } from "./ai-assistant-actions";
 import { VoicePicker } from "./VoicePicker";
 import { TimezonePicker } from "./TimezonePicker";
 import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
+import { AppearanceEditor } from "./AppearanceEditor";
+import { normalizeAppearance } from "@/lib/appearance";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +73,30 @@ export default async function SettingsPage({
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
   const isPersonal = accountType === "PERSONAL";
+  const appearanceRecord =
+    isPersonal && user
+      ? await db.user.findUnique({
+          where: { id: user.id },
+          select: {
+            uiPalette: true,
+            uiAccent: true,
+            uiScale: true,
+            uiRadius: true,
+            uiFont: true,
+          },
+        })
+      : null;
+  const appearancePrefs = normalizeAppearance(
+    appearanceRecord
+      ? {
+          palette: appearanceRecord.uiPalette,
+          accent: appearanceRecord.uiAccent,
+          scale: appearanceRecord.uiScale,
+          radius: appearanceRecord.uiRadius,
+          font: appearanceRecord.uiFont,
+        }
+      : undefined,
+  );
   const canManageOrgSettings = Boolean(
     user && (user.role === "OWNER" || user.role === "ADMIN"),
   );
@@ -215,6 +241,7 @@ export default async function SettingsPage({
           </p>
           <ThemeToggle initialTheme={theme} />
         </div>
+        {isPersonal && <AppearanceEditor initialPrefs={appearancePrefs} />}
       </Card>
       <Card className="max-w-2xl">
         <CardHeader

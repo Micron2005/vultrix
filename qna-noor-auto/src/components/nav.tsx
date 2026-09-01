@@ -10,7 +10,6 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
-import { ThemeToggle, type ThemeMode } from "./ThemeToggle";
 
 type NavProps = {
   orgLabel: string;
@@ -21,7 +20,6 @@ type NavProps = {
   accountType?: string | null;
   aiAssistantEnabled?: boolean;
   canViewFinancials?: boolean;
-  theme?: ThemeMode;
 };
 
 const items = [
@@ -61,7 +59,6 @@ export function Nav({
   accountType,
   aiAssistantEnabled = false,
   canViewFinancials = true,
-  theme = "system",
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -220,7 +217,7 @@ export function Nav({
               className={
                 "rounded-md px-3 py-2 text-sm transition-colors " +
                 (active
-                  ? "bg-zinc-900 text-white"
+                  ? "bg-[var(--vx-accent-600,#18181b)] text-[var(--vx-accent-fg,#fff)]"
                   : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
               }
             >
@@ -239,10 +236,6 @@ export function Nav({
           <ExternalLink className="h-4 w-4" />
           View landing page
         </a>
-        <div className="mt-2 border-t border-zinc-200 px-3 pt-3">
-          <div className="mb-2 text-xs font-medium text-zinc-500">Appearance</div>
-          <ThemeToggle initialTheme={theme} />
-        </div>
         <form action="/logout" method="post" className="mt-1 border-t border-zinc-200 pt-2">
           <button
             type="submit"

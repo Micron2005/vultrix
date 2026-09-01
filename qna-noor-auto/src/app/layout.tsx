@@ -10,6 +10,12 @@ import { APP_NAME } from "@/lib/branding";
 import { enabledFeatureSet } from "@/lib/features";
 import { AssistantClient } from "@/app/assistant/AssistantClient";
 import type { ThemeMode } from "@/components/ThemeToggle";
+import { db } from "@/lib/db";
+import {
+  DEFAULT_APPEARANCE,
+  appearanceCss,
+  normalizeAppearance,
+} from "@/lib/appearance";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -42,23 +48,55 @@ export default async function RootLayout({
     themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   const orgLabel = user.orgName ?? APP_NAME;
   const enabledFeatures = Array.from(enabledFeatureSet(user));
+  const isPersonal = user.accountType === "PERSONAL";
+  const appearanceRecord = isPersonal
+    ? await db.user.findUnique({
+        where: { id: user.id },
+        select: {
+          uiPalette: true,
+          uiAccent: true,
+          uiScale: true,
+          uiRadius: true,
+          uiFont: true,
+        },
+      })
+    : null;
+  const appearancePrefs = normalizeAppearance(
+    appearanceRecord
+      ? {
+          palette: appearanceRecord.uiPalette,
+          accent: appearanceRecord.uiAccent,
+          scale: appearanceRecord.uiScale,
+          radius: appearanceRecord.uiRadius,
+          font: appearanceRecord.uiFont,
+        }
+      : DEFAULT_APPEARANCE,
+  );
+  const appearanceStyles = appearanceCss(appearancePrefs);
 
   return (
     <html
       lang="en"
       className={theme === "dark" ? "dark h-full" : "h-full"}
+      data-vx-theme={isPersonal ? "custom" : undefined}
       suppressHydrationWarning={theme === "system"}
     >
-      {theme === "system" && (
-        <head>
+      <head>
+        {theme === "system" && (
           <script
             dangerouslySetInnerHTML={{
               __html:
                 'if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");',
             }}
           />
-        </head>
-      )}
+        )}
+        {appearanceStyles && (
+          <style
+            id="vx-appearance"
+            dangerouslySetInnerHTML={{ __html: appearanceStyles }}
+          />
+        )}
+      </head>
       <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
         <div className="flex min-h-screen">
           <Nav
@@ -69,7 +107,6 @@ export default async function RootLayout({
             isSuperadmin={user.role === "SUPERADMIN"}
             enabledFeatures={enabledFeatures}
             accountType={user.accountType}
-            theme={theme}
             aiAssistantEnabled={
               user.accountType === "PERSONAL" && user.aiAssistantEnabled
             }
