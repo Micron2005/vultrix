@@ -233,6 +233,28 @@ export async function logGoalEntry(fd: FormData) {
   revalidatePath("/");
 }
 
+export async function setGoalManualProgress(fd: FormData) {
+  const { orgId } = await requireGoalsContext();
+  const goalId = text(fd, "goalId");
+  const value = parseDecimal(text(fd, "value"));
+  if (!goalId) throw new Error("Goal not found.");
+  if (value == null) throw new Error("Value must be a valid number.");
+  const goal = await db.goal.findFirst({
+    where: { id: goalId, orgId },
+    select: { metric: true },
+  });
+  if (!goal || goal.metric !== "MANUAL") {
+    throw new Error("Manually updated goal not found.");
+  }
+  await db.goal.update({
+    where: { id: goalId },
+    data: { manualProgress: value },
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${goalId}`);
+  revalidatePath("/");
+}
+
 export async function deleteGoalEntry(fd: FormData) {
   const { orgId } = await requireGoalsContext();
   const id = text(fd, "id");

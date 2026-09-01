@@ -39,8 +39,6 @@ const items = [
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
   { href: "/goals", label: "Goals" },
-  { href: "/routines", label: "Routines" },
-  { href: "/review", label: "Review", feature: "financials" },
   { href: "/sales", label: "Sales", feature: "financials" },
   { href: "/reports", label: "Reports", feature: "reports" },
   { href: "/import", label: "Import", feature: "import_export" },
@@ -134,7 +132,7 @@ export function Nav({
   ).filter(
     (item) =>
       canViewFinancials ||
-      !["/expenses", "/goals", "/routines", "/review", "/sales", "/reports", "/export", "/settings"].includes(
+      !["/expenses", "/goals", "/sales", "/reports", "/export", "/settings"].includes(
         item.href,
       ),
   ).filter(

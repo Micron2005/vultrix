@@ -7,6 +7,7 @@ import {
   Input,
   LinkButton,
   PageHeader,
+  Select,
   StatTile,
 } from "@/components/ui";
 import { assertCanViewFinancials } from "@/lib/permissions";
@@ -28,13 +29,15 @@ import {
 } from "@/lib/goalStatus";
 import { loadGoalBreakdown, loadGoalSeries } from "@/lib/goalSeries";
 import { localCalendarDay } from "@/lib/timezone";
+import { ROUTINE_WEEKDAYS } from "@/lib/routines";
+import { createRoutine } from "../routines/actions";
 import {
   archiveGoal,
   deleteGoalEntry,
   logGoalEntry,
   toggleHabitCheckIn,
 } from "../actions";
-import { TodayChecklist } from "@/app/routines/TodayChecklist";
+import { Today } from "../Today";
 
 export default async function GoalDetailPage({
   params,
@@ -146,22 +149,14 @@ export default async function GoalDetailPage({
         </span>
       </div>
       <Card className="mb-6 overflow-hidden dark:border-zinc-700 dark:bg-zinc-900">
-        <CardHeader title="Routines & checklists">
-          <LinkButton
-            href={`/routines?goal=${record.id}#new-routine`}
-            variant="ghost"
-            size="sm"
-          >
-            New routine
-          </LinkButton>
-        </CardHeader>
+        <CardHeader title="Routines & checklists" />
         <div className="px-4 pt-4">
           {linkedRoutines.length ? (
             <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
               {linkedRoutines.map((routine) => (
                 <Link
                   key={routine.id}
-                  href={`/routines/${routine.id}`}
+                  href={`/goals/routines/${routine.id}`}
                   className="flex items-center justify-between gap-3 py-3 text-sm text-zinc-700 hover:underline dark:text-zinc-300"
                 >
                   <span>{routine.title}</span>
@@ -173,17 +168,80 @@ export default async function GoalDetailPage({
             </div>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              No routines linked yet.
+              No routines linked yet. Add one below — it shows up in Today so you
+              can tick it off without opening this goal.
             </p>
           )}
-          <p className="py-4 text-sm text-zinc-500 dark:text-zinc-400">
-            <Link href={`/routines?goal=${record.id}#new-routine`} className="underline">
-              Create one for this goal
-            </Link>
-          </p>
+          <form
+            action={createRoutine}
+            className="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700"
+          >
+            <input type="hidden" name="goalId" value={record.id} />
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto] sm:items-end">
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                New routine
+                <Input
+                  name="title"
+                  required
+                  placeholder="Monday: legs"
+                  className="mt-1"
+                />
+              </label>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Schedule
+                <Select name="kind" defaultValue="WEEKDAYS" className="mt-1">
+                  <option value="DAILY">Every day</option>
+                  <option value="WEEKDAYS">Selected weekdays</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="ONE_OFF">One time</option>
+                </Select>
+              </label>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Due by
+                <Input name="dueTime" type="time" className="mt-1" />
+              </label>
+              <button
+                type="submit"
+                className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+              >
+                Add routine
+              </button>
+            </div>
+            <fieldset>
+              <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Weekdays (for selected weekdays)
+              </legend>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {ROUTINE_WEEKDAYS.map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+                  >
+                    <input
+                      type="checkbox"
+                      name="weekdays"
+                      value={value}
+                      defaultChecked={value !== "0" && value !== "6"}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              One-off date (only for one-time routines)
+              <Input name="day" type="date" className="mt-1 max-w-48" />
+            </label>
+          </form>
         </div>
       </Card>
-      <TodayChecklist orgId={user.orgId} timezone={timezone} goalId={record.id} />
+      <Today
+        orgId={user.orgId}
+        timezone={timezone}
+        hasInvoices={hasInvoices}
+        goalId={record.id}
+        showGoals={false}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Current value" value={currentText} />

@@ -69,7 +69,11 @@ export default async function WeeklyReviewPage({
     <>
       <PageHeader
         title="Weekly review"
-        description="A quick look at what happened and what is coming up."
+        description={
+          <Link href="/reports" className="text-zinc-600 underline dark:text-zinc-400">
+            ← Back to reports
+          </Link>
+        }
         actions={<LinkButton href="/expenses" variant="secondary">Financials</LinkButton>}
       />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -90,7 +94,7 @@ export default async function WeeklyReviewPage({
         </div>
         <div className="flex gap-2">
           <LinkButton
-            href={`/review?week=${shiftCalendarDay(review.weekStartDay, -7)}`}
+            href={`/reports/review?week=${shiftCalendarDay(review.weekStartDay, -7)}`}
             variant="secondary"
             size="sm"
           >
@@ -98,7 +102,7 @@ export default async function WeeklyReviewPage({
           </LinkButton>
           {canGoNext ? (
             <LinkButton
-              href={`/review?week=${shiftCalendarDay(review.weekStartDay, 7)}`}
+              href={`/reports/review?week=${shiftCalendarDay(review.weekStartDay, 7)}`}
               variant="secondary"
               size="sm"
             >

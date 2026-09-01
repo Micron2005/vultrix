@@ -10,6 +10,7 @@ import { isDateInput, localCalendarDay, shiftCalendarDay } from "@/lib/timezone"
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
 import {
+  deadlinePassed,
   effectiveDueTime,
   isoWeekKey,
   ROUTINE_KINDS,
@@ -87,11 +88,11 @@ async function goalForOrg(orgId: string, goalId: string | null) {
   return goal;
 }
 
-function revalidateRoutine(id?: string) {
-  revalidatePath("/routines");
-  if (id) revalidatePath(`/routines/${id}`);
+function revalidateRoutine(id?: string, goalId?: string | null) {
+  revalidatePath("/goals/routines");
+  if (id) revalidatePath(`/goals/routines/${id}`);
   revalidatePath("/goals");
-  if (id) revalidatePath(`/goals/${id}`);
+  if (goalId) revalidatePath(`/goals/${goalId}`);
   revalidatePath("/");
 }
 
@@ -108,8 +109,8 @@ export async function createRoutine(fd: FormData) {
     entityId: routine.id,
     summary: `Routine created: ${routine.title}`,
   });
-  revalidateRoutine(routine.id);
-  redirect("/routines");
+  revalidateRoutine(routine.id, input.goalId);
+  redirect(`/goals/routines/${routine.id}`);
 }
 
 export async function updateRoutine(id: string, fd: FormData) {
@@ -129,13 +130,18 @@ export async function updateRoutine(id: string, fd: FormData) {
     entityId: id,
     summary: `Routine updated: ${input.title}`,
   });
-  revalidateRoutine(id);
-  redirect(`/routines/${id}`);
+  revalidateRoutine(id, input.goalId);
+  redirect(`/goals/routines/${id}`);
 }
 
 export async function archiveRoutine(fd: FormData) {
   const { user, orgId } = await requireRoutinesContext();
   const id = text(fd, "id");
+  const routine = await db.routine.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true },
+  });
+  if (!routine) throw new Error("Routine not found.");
   const result = await db.routine.updateMany({
     where: { id, orgId },
     data: { archived: true },
@@ -149,12 +155,17 @@ export async function archiveRoutine(fd: FormData) {
     entityId: id,
     summary: "Routine archived",
   });
-  revalidateRoutine(id);
+  revalidateRoutine(id, routine.goalId);
 }
 
 export async function restoreRoutine(fd: FormData) {
   const { user, orgId } = await requireRoutinesContext();
   const id = text(fd, "id");
+  const routine = await db.routine.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true },
+  });
+  if (!routine) throw new Error("Routine not found.");
   const result = await db.routine.updateMany({
     where: { id, orgId },
     data: { archived: false },
@@ -168,13 +179,16 @@ export async function restoreRoutine(fd: FormData) {
     entityId: id,
     summary: "Routine restored",
   });
-  revalidateRoutine(id);
+  revalidateRoutine(id, routine.goalId);
 }
 
 export async function deleteRoutine(fd: FormData) {
   const { user, orgId } = await requireRoutinesContext();
   const id = text(fd, "id");
-  const routine = await db.routine.findFirst({ where: { id, orgId } });
+  const routine = await db.routine.findFirst({
+    where: { id, orgId },
+    select: { id: true, title: true, goalId: true },
+  });
   if (!routine) throw new Error("Routine not found.");
   await db.routine.delete({ where: { id: routine.id } });
   await logActivity({
@@ -185,8 +199,8 @@ export async function deleteRoutine(fd: FormData) {
     entityId: id,
     summary: `Routine deleted: ${routine.title}`,
   });
-  revalidateRoutine(id);
-  redirect("/routines");
+  revalidateRoutine(id, routine.goalId);
+  redirect("/goals/routines");
 }
 
 async function routineForItem(orgId: string, itemId: string) {
@@ -234,7 +248,7 @@ export async function addRoutineItem(routineId: string, fd: FormData) {
     entityId: item.id,
     summary: `Routine item added: ${item.label}`,
   });
-  revalidateRoutine(routineId);
+  revalidateRoutine(routineId, routine.goalId);
 }
 
 export async function updateRoutineItem(itemId: string, fd: FormData) {
@@ -250,7 +264,7 @@ export async function updateRoutineItem(itemId: string, fd: FormData) {
     entityId: itemId,
     summary: `Routine item updated: ${input.label}`,
   });
-  revalidateRoutine(item.routineId);
+  revalidateRoutine(item.routineId, item.routine.goalId);
 }
 
 export async function deleteRoutineItem(fd: FormData) {
@@ -266,7 +280,7 @@ export async function deleteRoutineItem(fd: FormData) {
     entityId: itemId,
     summary: `Routine item deleted: ${item.label}`,
   });
-  revalidateRoutine(item.routineId);
+  revalidateRoutine(item.routineId, item.routine.goalId);
 }
 
 export async function moveRoutineItem(itemId: string, direction: "up" | "down") {
@@ -289,7 +303,7 @@ export async function moveRoutineItem(itemId: string, direction: "up" | "down") 
       data: { position: items[index].position },
     }),
   ]);
-  revalidateRoutine(item.routineId);
+  revalidateRoutine(item.routineId, item.routine.goalId);
 }
 
 export async function toggleRoutineCheckOff(
@@ -339,24 +353,9 @@ export async function toggleRoutineCheckOff(
   } else {
     const today = localCalendarDay(new Date(), timezone);
     const dueTime = effectiveDueTime(routine, item);
-    const [hour, minute] = (dueTime ?? "").split(":").map(Number);
-    const currentLocal = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    })
-      .formatToParts(new Date())
-      .reduce<Record<string, string>>((acc, part) => {
-        if (part.type !== "literal") acc[part.type] = part.value;
-        return acc;
-      }, {});
     const late =
       Boolean(dueTime) &&
-      (day < today ||
-        (day === today &&
-          Number(currentLocal.hour) * 60 + Number(currentLocal.minute) >
-            hour * 60 + minute));
+      deadlinePassed(dueTime, day, today, new Date(), timezone);
     const parsedValue =
       submittedValue == null || String(submittedValue).trim() === ""
         ? null
@@ -388,17 +387,20 @@ export async function toggleRoutineCheckOff(
       summary: `Routine item checked off: ${item.label}`,
     });
   }
-  revalidateRoutine(routine.id);
+  revalidateRoutine(routine.id, routine.goalId);
 }
 
 export async function setCheckOffNote(fd: FormData) {
   const { orgId } = await requireRoutinesContext();
   const id = text(fd, "id");
-  const checkOff = await db.routineCheckOff.findFirst({ where: { id, orgId } });
+  const checkOff = await db.routineCheckOff.findFirst({
+    where: { id, orgId },
+    include: { routine: true },
+  });
   if (!checkOff) throw new Error("Check-off not found.");
   await db.routineCheckOff.update({
     where: { id },
     data: { note: text(fd, "note") || null },
   });
-  revalidateRoutine(checkOff.routineId);
+  revalidateRoutine(checkOff.routineId, checkOff.routine.goalId);
 }

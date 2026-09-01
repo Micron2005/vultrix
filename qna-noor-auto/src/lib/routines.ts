@@ -9,6 +9,16 @@ import {
 export const ROUTINE_KINDS = ["DAILY", "WEEKDAYS", "WEEKLY", "ONE_OFF"] as const;
 export type RoutineKind = (typeof ROUTINE_KINDS)[number];
 
+export const ROUTINE_WEEKDAYS: Array<[string, string]> = [
+  ["0", "Sun"],
+  ["1", "Mon"],
+  ["2", "Tue"],
+  ["3", "Wed"],
+  ["4", "Thu"],
+  ["5", "Fri"],
+  ["6", "Sat"],
+];
+
 export type RoutineItemRecord = {
   id: string;
   routineId: string;

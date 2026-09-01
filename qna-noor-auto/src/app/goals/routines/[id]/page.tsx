@@ -6,10 +6,9 @@ import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { localCalendarDay, shiftCalendarDay } from "@/lib/timezone";
-import { routineLabel, statusFor } from "@/lib/routines";
+import { routineLabel, ROUTINE_WEEKDAYS, statusFor } from "@/lib/routines";
 import { deleteRoutine, updateRoutine, addRoutineItem, updateRoutineItem, deleteRoutineItem, moveRoutineItem, archiveRoutine, restoreRoutine } from "../actions";
 
-const weekdays = [["0", "Sun"], ["1", "Mon"], ["2", "Tue"], ["3", "Wed"], ["4", "Thu"], ["5", "Fri"], ["6", "Sat"]];
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -33,8 +32,8 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     <>
       <PageHeader
         title={routine.title}
-        description={<Link href="/routines" className="text-zinc-600 underline dark:text-zinc-400">← Back to routines</Link>}
-        actions={<LinkButton href="/routines" variant="secondary">All routines</LinkButton>}
+        description={<Link href="/goals/routines" className="text-zinc-600 underline dark:text-zinc-400">← Back to routines</Link>}
+        actions={<LinkButton href="/goals/routines" variant="secondary">All routines</LinkButton>}
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
         <span>{routineLabel(routine)}</span>
@@ -51,7 +50,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">One-off date<Input name="day" type="date" defaultValue={routine.day ?? ""} className="mt-1" /></label>
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Part of goal<Select name="goalId" defaultValue={routine.goalId ?? ""} className="mt-1"><option value="">No linked goal</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</Select></label>
           </div>
-          <fieldset><legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Weekdays</legend><div className="mt-2 flex flex-wrap gap-3">{weekdays.map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="weekdays" value={value} defaultChecked={(routine.weekdays ?? "").split(",").includes(value)} />{label}</label>)}</div></fieldset>
+          <fieldset><legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Weekdays</legend><div className="mt-2 flex flex-wrap gap-3">{ROUTINE_WEEKDAYS.map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="weekdays" value={value} defaultChecked={(routine.weekdays ?? "").split(",").includes(value)} />{label}</label>)}</div></fieldset>
           <button className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Save settings</button>
         </form>
         <div className="mt-3 flex flex-wrap gap-3">
