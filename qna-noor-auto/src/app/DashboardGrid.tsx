@@ -38,9 +38,17 @@ export function DashboardGrid({
         block: DashboardBlock;
       } => Boolean(item.block) && (editing || item.entry.visible),
     );
-  const move = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= current.blocks.length) return;
+  const move = (id: DashboardBlockId, direction: -1 | 1) => {
+    const renderedIndex = orderedBlocks.findIndex(
+      ({ entry }) => entry.id === id,
+    );
+    const target = orderedBlocks[renderedIndex + direction];
+    if (!target) return;
+    const index = current.blocks.findIndex((entry) => entry.id === id);
+    const nextIndex = current.blocks.findIndex(
+      (entry) => entry.id === target.entry.id,
+    );
+    if (index < 0 || nextIndex < 0) return;
     const nextBlocks = [...current.blocks];
     [nextBlocks[index], nextBlocks[nextIndex]] = [
       nextBlocks[nextIndex],
@@ -65,7 +73,7 @@ export function DashboardGrid({
   };
   const gridClass =
     current.columns === 2
-      ? "grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-6"
+      ? "grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-x-6"
       : "grid grid-cols-1 gap-0";
 
   return (
@@ -113,7 +121,9 @@ export function DashboardGrid({
       <div className={gridClass}>
         {orderedBlocks.map(({ entry, block }) => {
           if (!editing) return <div key={entry.id}>{block.node}</div>;
-          const layoutIndex = current.blocks.findIndex((item) => item.id === entry.id);
+          const renderedIndex = orderedBlocks.findIndex(
+            (item) => item.entry.id === entry.id,
+          );
           return (
             <div
               key={entry.id}
@@ -138,8 +148,8 @@ export function DashboardGrid({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => move(layoutIndex, -1)}
-                    disabled={layoutIndex === 0}
+                    onClick={() => move(entry.id, -1)}
+                    disabled={renderedIndex === 0}
                     aria-label={`Move ${block.label} up`}
                   >
                     ↑
@@ -148,8 +158,8 @@ export function DashboardGrid({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => move(layoutIndex, 1)}
-                    disabled={layoutIndex === current.blocks.length - 1}
+                    onClick={() => move(entry.id, 1)}
+                    disabled={renderedIndex === orderedBlocks.length - 1}
                     aria-label={`Move ${block.label} down`}
                   >
                     ↓

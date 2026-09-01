@@ -3,7 +3,7 @@ import { LinkButton, PageHeader } from "@/components/ui";
 import type { CurrentUser } from "@/lib/session";
 import type { FeatureKey } from "@/lib/features";
 import { db } from "@/lib/db";
-import { enabledFeatureSet } from "@/lib/features";
+import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   DASHBOARD_BLOCKS,
@@ -34,6 +34,21 @@ function hasRequiredFeatures(
   if (!requires.every((feature) => features.has(feature))) {
     return false;
   }
+  if (
+    (id === "stats" || id === "spending") &&
+    user.role === "STAFF"
+  ) {
+    return false;
+  }
+  if (id === "stats" && features.has("invoices")) {
+    return false;
+  }
+  if (
+    (id === "notes" && (user.role === "STAFF" || features.has("invoices"))) ||
+    (id === "goals" && user.role === "STAFF")
+  ) {
+    return false;
+  }
   if (id === "top_products") {
     return (
       user.role !== "STAFF" &&
@@ -52,6 +67,7 @@ async function blockNode(
     hasInvoices: boolean;
     features: ReturnType<typeof enabledFeatureSet>;
     user: CurrentUser;
+    editing: boolean;
   },
 ): Promise<ReactNode> {
   switch (id) {
@@ -75,6 +91,7 @@ async function blockNode(
           hasInvoices={props.hasInvoices}
           accountType={props.user.accountType}
           role={props.user.role}
+          editing={props.editing}
         />
       );
     case "schedule":
@@ -143,6 +160,7 @@ export async function DashboardPersonal({
         hasInvoices: features.has("invoices"),
         features,
         user,
+        editing,
       }),
     ),
   );
@@ -155,6 +173,9 @@ export async function DashboardPersonal({
       node: nodes[index],
     };
   });
+  const nouns = repairOrderNouns(user.accountType);
+  const hasRecords =
+    features.has("repair_orders") || features.has("invoices");
 
   return (
     <>
@@ -162,9 +183,19 @@ export async function DashboardPersonal({
         title="Dashboard"
         description="Plan your day and keep your important notes close"
         actions={
-          <LinkButton href={editing ? "/" : "/?customize=1"} variant="secondary">
-            {editing ? "Done" : "Customize"}
-          </LinkButton>
+          <>
+            {hasRecords && (
+              <LinkButton href="/repair-orders/new">
+                New {nouns.singular.toLowerCase()}
+              </LinkButton>
+            )}
+            <LinkButton
+              href={editing ? "/" : "/?customize=1"}
+              variant="secondary"
+            >
+              {editing ? "Done" : "Customize"}
+            </LinkButton>
+          </>
         }
       />
       <DashboardGrid
