@@ -222,7 +222,7 @@ export function AppearanceEditor({
         <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
           <button
             type="submit"
-            className="rounded-md bg-[var(--vx-accent-600,#18181b)] px-4 py-2 text-sm font-medium text-[var(--vx-accent-fg,#fff)] hover:bg-[var(--vx-accent-700,#3f3f46)]"
+            className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
           >
             Save appearance
           </button>

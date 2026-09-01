@@ -69,7 +69,7 @@ const btnBase =
 
 const btnVariants = {
   primary:
-    "bg-[var(--vx-accent-600,#18181b)] text-[var(--vx-accent-fg,#fff)] hover:bg-[var(--vx-accent-700,#3f3f46)]",
+    "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]",
   secondary:
     "bg-white text-zinc-900 border border-zinc-300 hover:bg-zinc-50",
   ghost: "text-zinc-700 hover:bg-zinc-100",

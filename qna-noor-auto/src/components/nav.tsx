@@ -217,7 +217,7 @@ export function Nav({
               className={
                 "rounded-md px-3 py-2 text-sm transition-colors " +
                 (active
-                  ? "bg-[var(--vx-accent-600,#18181b)] text-[var(--vx-accent-fg,#fff)]"
+                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
                   : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
               }
             >

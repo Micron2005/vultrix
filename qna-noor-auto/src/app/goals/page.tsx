@@ -67,7 +67,13 @@ function GoalCard({
       ? `${goalValueLabel(goal.metric, progress.baseline, goal.unit)} → ${goalValueLabel(goal.metric, progress.target, goal.unit)}, now ${goalValueLabel(goal.metric, progress.actual, goal.unit)}`
       : `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(goal.metric, progress.target, goal.unit)}`;
   const barClass =
-    "bg-[var(--vx-accent-600,#18181b)]";
+    progress.status === "behind"
+      ? statusClass(progress.status, goal, progress).includes("red")
+        ? "bg-red-500"
+        : "bg-amber-500"
+      : progress.status === "on_pace"
+        ? "bg-blue-500"
+        : "bg-emerald-500";
   const supportText =
     goal.metric === "HABIT"
       ? `${Math.round(progress.actual)} of ${Math.round(progress.target)} days ${progress.periodLabel}`

@@ -38,6 +38,7 @@ const zinc = (
   ],
   background: string,
   foreground: string,
+  surface?: string,
 ) => ({
   "--color-zinc-50": values[0],
   "--color-zinc-100": values[1],
@@ -52,6 +53,7 @@ const zinc = (
   "--color-zinc-950": values[10],
   "--background": background,
   "--foreground": foreground,
+  ...(surface ? { "--color-white": surface } : {}),
 });
 
 const invert = (
@@ -87,6 +89,7 @@ const invert = (
     ] as const,
     background,
     foreground,
+    values[9],
   );
 
 const slate = [
@@ -211,7 +214,7 @@ const accent = (
   key: string,
   label: string,
   swatch: string,
-  values: [
+  values?: [
     string,
     string,
     string,
@@ -222,23 +225,19 @@ const accent = (
   key,
   label,
   swatch,
-  vars: {
-    "--vx-accent-600": values[0],
-    "--vx-accent-700": values[1],
-    "--vx-accent-50": values[2],
-    "--vx-accent-100": values[3],
-    "--vx-accent-fg": values[4],
-  },
+  vars: values
+    ? {
+        "--vx-accent-600": values[0],
+        "--vx-accent-700": values[1],
+        "--vx-accent-50": values[2],
+        "--vx-accent-100": values[3],
+        "--vx-accent-fg": values[4],
+      }
+    : {},
 });
 
 export const UI_ACCENTS: Accent[] = [
-  accent("default", "Zinc", "#18181b", [
-    "#18181b",
-    "#3f3f46",
-    "#fafafa",
-    "#f4f4f5",
-    "#ffffff",
-  ]),
+  accent("default", "Zinc", "#18181b"),
   accent("blue", "Blue", "#2563eb", [
     "#2563eb",
     "#1d4ed8",
