@@ -1180,6 +1180,7 @@ model User {
   uiScale      String  @default("default")
   uiRadius     String  @default("default")
   uiFont       String  @default("default")
+  dashLayout   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
