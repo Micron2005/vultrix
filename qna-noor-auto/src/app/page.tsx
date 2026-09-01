@@ -26,16 +26,24 @@ import {
 } from "@/lib/goals";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { Today } from "@/app/goals/Today";
+import { DashboardPersonal } from "./DashboardPersonal";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ customize?: string | string[] | undefined }>;
+}) {
   // Logged-out visitors see the public Vultrix marketing site. Signed-in
   // tenant users see their shop dashboard. Platform SUPERADMINs (no org) are
   // sent to the admin console — there's no shop data to show them.
   const user = await getCurrentUser();
   if (!user) return <VultrixLanding trialDays={TRIAL_DAYS} />;
   if (!user.orgId) redirect("/admin");
+  if (user.accountType === "PERSONAL") {
+    return <DashboardPersonal user={user} searchParams={searchParams} />;
+  }
   return <Dashboard user={user} />;
 }
 
