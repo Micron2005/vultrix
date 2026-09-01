@@ -415,6 +415,9 @@ async function AutoReportsPage({
         description={`Business metrics · ${label}`}
         actions={
           <>
+            <LinkButton href="/reports/review" variant="secondary">
+              Weekly review
+            </LinkButton>
             <LinkButton href="/reports/ar" variant="secondary">
               A/R aging
             </LinkButton>
@@ -924,6 +927,9 @@ async function GeneralReportsPage({
         description={`Financial metrics · ${label}`}
         actions={
           <>
+            <LinkButton href="/reports/review" variant="secondary">
+              Weekly review
+            </LinkButton>
             {hasInvoices && (
               <LinkButton href="/reports/ar" variant="secondary">
                 A/R aging

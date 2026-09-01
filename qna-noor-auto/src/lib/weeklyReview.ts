@@ -299,7 +299,7 @@ function weeklyReviewEmailHtml(
     .join("");
   const origin = siteOrigin();
   const reviewLink = origin
-    ? `${origin}/review?week=${review.weekStartDay}`
+    ? `${origin}/reports/review?week=${review.weekStartDay}`
     : null;
   return `
     <h2 style="margin:0 0 6px;color:#18181b">Weekly review for ${escapeHtml(shopName)}</h2>

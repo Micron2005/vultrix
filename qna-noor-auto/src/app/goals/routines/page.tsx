@@ -3,18 +3,9 @@ import { Card, CardHeader, EmptyState, Input, LinkButton, PageHeader, Select } f
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { routineLabel } from "@/lib/routines";
+import { routineLabel, ROUTINE_WEEKDAYS } from "@/lib/routines";
 import { createRoutine, archiveRoutine, restoreRoutine } from "./actions";
 
-const weekdays = [
-  ["0", "Sun"],
-  ["1", "Mon"],
-  ["2", "Tue"],
-  ["3", "Wed"],
-  ["4", "Thu"],
-  ["5", "Fri"],
-  ["6", "Sat"],
-];
 
 export default async function RoutinesPage({
   searchParams,
@@ -44,14 +35,18 @@ export default async function RoutinesPage({
     <>
       <PageHeader
         title="Routines"
-        description="Keep recurring checklists and personal practices moving."
+        description={
+          <Link href="/goals" className="text-zinc-600 underline dark:text-zinc-400">
+            ← Back to goals
+          </Link>
+        }
         actions={<LinkButton href="#new-routine">New routine</LinkButton>}
       />
       {active.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {active.map((routine) => (
             <Card key={routine.id} className="p-5 dark:border-zinc-700 dark:bg-zinc-900">
-              <CardHeader title={<Link href={`/routines/${routine.id}`} className="hover:underline">{routine.title}</Link>}>
+              <CardHeader title={<Link href={`/goals/routines/${routine.id}`} className="hover:underline">{routine.title}</Link>}>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">{routineLabel(routine)}</span>
               </CardHeader>
               <div className="pt-4">
@@ -75,7 +70,7 @@ export default async function RoutinesPage({
                   <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">No items yet. Add some from the routine page.</p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700">
-                  <Link href={`/routines/${routine.id}`} className="font-medium text-zinc-700 underline dark:text-zinc-300">Manage items</Link>
+                  <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-700 underline dark:text-zinc-300">Manage items</Link>
                   <form action={archiveRoutine}>
                     <input type="hidden" name="id" value={routine.id} />
                     <button className="text-zinc-500 underline dark:text-zinc-400">Archive</button>
@@ -96,7 +91,7 @@ export default async function RoutinesPage({
             {archived.map((routine) => (
               <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
-                  <Link href={`/routines/${routine.id}`} className="text-sm font-medium text-zinc-800 underline dark:text-zinc-200">{routine.title}</Link>
+                  <Link href={`/goals/routines/${routine.id}`} className="text-sm font-medium text-zinc-800 underline dark:text-zinc-200">{routine.title}</Link>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">{routineLabel(routine)}</p>
                 </div>
                 <form action={restoreRoutine}>
@@ -141,7 +136,7 @@ export default async function RoutinesPage({
             <fieldset>
               <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Weekdays (for selected weekdays)</legend>
               <div className="mt-2 flex flex-wrap gap-3">
-                {weekdays.map(([value, label]) => (
+                {ROUTINE_WEEKDAYS.map(([value, label]) => (
                   <label key={value} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                     <input type="checkbox" name="weekdays" value={value} defaultChecked={value !== "0" && value !== "6"} />{label}
                   </label>

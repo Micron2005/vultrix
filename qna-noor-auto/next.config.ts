@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "20mb",
     },
   },
+  async redirects() {
+    return [
+      { source: "/routines", destination: "/goals/routines", permanent: false },
+      {
+        source: "/routines/:id",
+        destination: "/goals/routines/:id",
+        permanent: false,
+      },
+      { source: "/review", destination: "/reports/review", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

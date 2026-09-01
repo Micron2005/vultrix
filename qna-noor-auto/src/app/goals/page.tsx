@@ -27,7 +27,7 @@ import {
   statusLabel,
 } from "@/lib/goalStatus";
 import { loadGoalDatasets, OVERVIEW_GOAL_LIMIT } from "@/lib/goalsOverview";
-import { TodayChecklist } from "@/app/routines/TodayChecklist";
+import { Today } from "./Today";
 import { localCalendarDay } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { archiveGoal, createGoal, restoreGoal, toggleHabitCheckIn } from "./actions";
@@ -269,14 +269,19 @@ export default async function GoalsPage() {
     <>
       <PageHeader
         title="Goals"
-        description="Track progress using the money, sales, and activity already in your account."
+        description="Track progress and tick off today\u2019s routines, scored from the records already in your account."
         actions={
-          <LinkButton href="#new-goal" variant="secondary">
-            New goal
-          </LinkButton>
+          <>
+            <LinkButton href="/goals/routines" variant="secondary">
+              Routines
+            </LinkButton>
+            <LinkButton href="#new-goal" variant="secondary">
+              New goal
+            </LinkButton>
+          </>
         }
       />
-      <TodayChecklist orgId={user.orgId} timezone={timezone} />
+      <Today orgId={user.orgId} timezone={timezone} hasInvoices={hasInvoices} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Active goals" value={String(counts.total)} />
