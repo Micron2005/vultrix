@@ -17,6 +17,9 @@ export default async function ExportPage() {
   const user = await getCurrentUser();
   const features = enabledFeatureSet(user ?? {});
   const hasInvoices = features.has("invoices");
+  const hasFinancials = features.has("financials");
+  const hasSchedule = features.has("schedule");
+  const hasSales = hasFinancials && !hasInvoices;
   const hasCustomers = features.has("customers");
   const hasVehicles = features.has("vehicles");
   const hasRepairOrders =
@@ -36,6 +39,13 @@ export default async function ExportPage() {
     technicians,
     expenses,
     cannedJobs,
+    sales,
+    income,
+    goals,
+    routines,
+    budgets,
+    recurringEntries,
+    calendarEvents,
   ] = await Promise.all([
     db.customer.count({ where: { orgId } }),
     db.vehicle.count({ where: { orgId } }),
@@ -47,6 +57,13 @@ export default async function ExportPage() {
     db.technician.count({ where: { orgId } }),
     db.expense.count({ where: { orgId } }),
     db.cannedJob.count({ where: { orgId } }),
+    db.sale.count({ where: { orgId } }),
+    db.income.count({ where: { orgId } }),
+    db.goal.count({ where: { orgId } }),
+    db.routine.count({ where: { orgId } }),
+    db.budget.count({ where: { orgId } }),
+    db.recurringEntry.count({ where: { orgId } }),
+    db.calendarEvent.count({ where: { orgId } }),
   ]);
 
   const rows: { label: string; value: number }[] = [
@@ -64,6 +81,17 @@ export default async function ExportPage() {
     ...(hasCannedJobs
       ? [{ label: "Canned jobs (presets)", value: cannedJobs }]
       : []),
+    ...(hasSales ? [{ label: "Sales", value: sales }] : []),
+    ...(hasFinancials ? [{ label: "Income", value: income }] : []),
+    { label: "Goals", value: goals },
+    { label: "Routines", value: routines },
+    ...(hasFinancials ? [{ label: "Budgets", value: budgets }] : []),
+    ...(hasFinancials
+      ? [{ label: "Recurring entries", value: recurringEntries }]
+      : []),
+    ...(hasSchedule
+      ? [{ label: "Calendar events", value: calendarEvents }]
+      : []),
   ];
   const exportTableNames = [
     hasCustomers ? "customers" : null,
@@ -79,7 +107,30 @@ export default async function ExportPage() {
     hasTechnicians ? "technicians" : null,
     "expenses",
     hasCannedJobs ? "canned jobs" : null,
-    "shop settings",
+    "settings",
+    hasSales ? "sales" : null,
+    hasFinancials ? "income" : null,
+    "goals",
+    "goal check-ins",
+    "goal entries",
+    "routines",
+    "routine items",
+    "routine check-offs",
+    hasFinancials ? "budgets" : null,
+    hasFinancials ? "recurring entries" : null,
+    hasSchedule ? "calendar events" : null,
+    hasInvoices ? "recurring invoices" : null,
+    hasInvoices ? "recurring invoice lines" : null,
+    hasRepairOrders ? "jobs" : null,
+    hasRepairOrders ? "fee lines" : null,
+    hasCustomers ? "customer contacts" : null,
+    "categories",
+    hasVehicles ? "service logs" : null,
+    "reminder log",
+    "activity log",
+    "expense receipts",
+    "note images",
+    hasRepairOrders ? "repair order photos" : null,
   ].filter((name): name is string => name !== null);
 
   return (
