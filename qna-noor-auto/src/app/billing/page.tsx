@@ -60,7 +60,11 @@ export default async function BillingPage({
     <div>
       <PageHeader
         title="Billing"
-        description={`Your ${org.name} subscription — $${monthlyPrice}/month.`}
+        description={
+          hasSubscription
+            ? `Your ${org.name} subscription — $${monthlyPrice}/month.`
+            : `Your ${org.name} account.`
+        }
       />
 
       {(sp.error || sp.plan_saved) && (
