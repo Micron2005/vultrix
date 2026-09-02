@@ -30,69 +30,75 @@ type SearchParams = Promise<{
   customize?: string | string[];
 }>;
 
+type DashboardContext = {
+  accountType: CurrentUser["accountType"];
+  autoShop: boolean;
+  role: CurrentUser["role"];
+  features: ReturnType<typeof enabledFeatureSet>;
+  hasRecords: boolean;
+  hasInvoices: boolean;
+  hasVehicles: boolean;
+  showMoneyCards: boolean;
+};
+
 function hasRequiredFeatures(
   id: DashboardBlockId,
   requires: FeatureKey[],
-  features: ReturnType<typeof enabledFeatureSet>,
-  user: CurrentUser,
+  context: DashboardContext,
 ): boolean {
-  const autoShop = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
-  const hasRecords =
-    features.has("repair_orders") || features.has("invoices");
-  const showMoneyCards =
-    user.role !== "STAFF" &&
-    ((features.has("financials") && hasRecords) || features.has("invoices"));
   if (
-    user.accountType === "PERSONAL" &&
+    context.accountType === "PERSONAL" &&
     (id === "counts" || id === "outstanding" || id === "recent_records")
   ) {
     return false;
   }
-  if (id === "outstanding" && !showMoneyCards) {
+  if (id === "outstanding" && !context.showMoneyCards) {
     return false;
   }
   if (
     id === "today" &&
-    user.role === "STAFF" &&
-    user.accountType !== "PERSONAL"
+    context.role === "STAFF" &&
+    context.accountType !== "PERSONAL"
   ) {
     return false;
   }
   if (
     id === "recent_records" &&
-    !features.has("repair_orders") &&
-    !features.has("invoices")
+    !context.features.has("repair_orders") &&
+    !context.features.has("invoices")
   ) {
     return false;
   }
-  if (!requires.every((feature) => features.has(feature))) {
+  if (!requires.every((feature) => context.features.has(feature))) {
     return false;
   }
   if (
     (id === "stats" || id === "spending") &&
-    user.role === "STAFF"
+    context.role === "STAFF"
   ) {
     return false;
   }
-  if (id === "stats" && features.has("invoices")) {
+  if (id === "stats" && context.features.has("invoices")) {
     return false;
   }
-  if (id === "goals" && user.role === "STAFF") {
+  if (id === "goals" && context.role === "STAFF") {
     return false;
   }
   if (
     id === "notes" &&
-    (user.role === "STAFF" && user.accountType === "PERSONAL" ||
-      autoShop ||
-      showMoneyCards)
+    (
+      (context.role === "STAFF" && context.accountType === "PERSONAL") ||
+      context.autoShop ||
+      context.showMoneyCards
+    )
   ) {
     return false;
   }
   if (id === "top_products") {
     return (
-      user.role !== "STAFF" &&
-      features.has("financials") &&
-      !features.has("invoices")
+      context.role !== "STAFF" &&
+      context.features.has("financials") &&
+      !context.features.has("invoices")
     );
   }
   return true;
@@ -103,37 +109,35 @@ async function blockNode(
   props: {
     orgId: string;
     timezone: string;
-    hasInvoices: boolean;
-    showMoneyCards: boolean;
-    features: ReturnType<typeof enabledFeatureSet>;
+    context: DashboardContext;
     user: CurrentUser;
     editing: boolean;
-    hasVehicles: boolean;
   },
 ): Promise<ReactNode> {
+  const { context } = props;
   switch (id) {
     case "today":
       return (
         <TodayBlock
           orgId={props.orgId}
           timezone={props.timezone}
-          hasInvoices={props.hasInvoices}
+          hasInvoices={context.hasInvoices}
         />
       );
     case "counts":
       return <CountsBlock orgId={props.orgId} user={props.user} />;
     case "stats":
       return (
-        <StatsBlock orgId={props.orgId} hasInvoices={props.hasInvoices} />
+        <StatsBlock orgId={props.orgId} hasInvoices={context.hasInvoices} />
       );
     case "goals":
       return (
         <GoalsBlock
           orgId={props.orgId}
           timezone={props.timezone}
-          hasInvoices={props.hasInvoices}
-          accountType={props.user.accountType}
-          role={props.user.role}
+          hasInvoices={context.hasInvoices}
+          accountType={context.accountType}
+          role={context.role}
           editing={props.editing}
         />
       );
@@ -142,15 +146,15 @@ async function blockNode(
         <ScheduleBlock
           orgId={props.orgId}
           timezone={props.timezone}
-          accountType={props.user.accountType}
-          hasVehicles={props.hasVehicles}
+          accountType={context.accountType}
+          hasVehicles={context.hasVehicles}
         />
       );
     case "notes":
       return (
         <NotesBlock
           orgId={props.orgId}
-          showMoneyCards={props.showMoneyCards}
+          showMoneyCards={context.showMoneyCards}
         />
       );
     case "spending":
@@ -167,34 +171,34 @@ async function blockNode(
       return (
         <OutstandingBlock
           orgId={props.orgId}
-          autoShop={(props.user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP"}
-          hasVehicles={props.hasVehicles}
+          autoShop={context.autoShop}
+          hasVehicles={context.hasVehicles}
         />
       );
     case "recent_records":
       return (
         <RecentRecordsBlock
           orgId={props.orgId}
-          autoShop={(props.user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP"}
-          nouns={repairOrderNouns(props.user.accountType)}
-          hasVehicles={props.hasVehicles}
+          autoShop={context.autoShop}
+          nouns={repairOrderNouns(context.accountType)}
+          hasVehicles={context.hasVehicles}
         />
       );
     case "quick_add":
       return (
         <QuickAddBlock
-          features={props.features}
+          features={context.features}
           salesAvailable={
-            props.user.role !== "STAFF" &&
-            props.features.has("financials") &&
-            !props.features.has("invoices")
+            context.role !== "STAFF" &&
+            context.features.has("financials") &&
+            !context.features.has("invoices")
           }
         />
       );
   }
 }
 
-export async function DashboardPersonal({
+export async function Dashboard({
   user,
   searchParams,
 }: {
@@ -214,6 +218,20 @@ export async function DashboardPersonal({
     }),
   ]);
   const features = enabledFeatureSet(user);
+  const context: DashboardContext = {
+    accountType: user.accountType,
+    autoShop: (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP",
+    role: user.role,
+    features,
+    hasRecords: features.has("repair_orders") || features.has("invoices"),
+    hasInvoices: features.has("invoices"),
+    hasVehicles: features.has("vehicles"),
+    showMoneyCards:
+      user.role !== "STAFF" &&
+      ((features.has("financials") &&
+        (features.has("repair_orders") || features.has("invoices"))) ||
+        features.has("invoices")),
+  };
   const layout = resolveDashboardLayout(
     layoutRecord?.dashLayout,
     orgRecord?.dashDefault,
@@ -229,7 +247,7 @@ export async function DashboardPersonal({
     params.customize === "1" ||
     (Array.isArray(params.customize) && params.customize.includes("1"));
   const available = DASHBOARD_BLOCKS.filter((block) =>
-    hasRequiredFeatures(block.id, block.requires, features, user),
+    hasRequiredFeatures(block.id, block.requires, context),
   );
   const availableIds = new Set(available.map((block) => block.id));
   const renderableBlocks = layout.blocks.filter(
@@ -240,16 +258,9 @@ export async function DashboardPersonal({
       blockNode(block.id, {
         orgId,
         timezone,
-        hasInvoices: features.has("invoices"),
-        showMoneyCards:
-          user.role !== "STAFF" &&
-          ((features.has("financials") &&
-            (features.has("repair_orders") || features.has("invoices"))) ||
-            features.has("invoices")),
-        features,
+        context,
         user,
         editing,
-        hasVehicles: features.has("vehicles"),
       }),
     ),
   );
@@ -264,16 +275,12 @@ export async function DashboardPersonal({
     };
   });
   const nouns = repairOrderNouns(user.accountType);
-  const hasRecords =
-    features.has("repair_orders") || features.has("invoices");
-  const autoShop = (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
-
   return (
     <>
       <PageHeader
         title="Dashboard"
         description={
-          autoShop
+          context.autoShop
             ? "Overview of shop activity"
             : user.accountType === "BUSINESS"
               ? "Overview of your activity"
@@ -281,9 +288,9 @@ export async function DashboardPersonal({
         }
         actions={
           <>
-            {hasRecords && (
+            {context.hasRecords && (
               <LinkButton href="/repair-orders/new">
-                {autoShop
+                {context.autoShop
                   ? "New Repair Order"
                   : `New ${nouns.singular.toLowerCase()}`}
               </LinkButton>

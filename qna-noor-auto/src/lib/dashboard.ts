@@ -1,4 +1,5 @@
 import type { FeatureKey } from "@/lib/features";
+import type { CurrentUser } from "@/lib/session";
 
 export type DashboardBlockId =
   | "today"
@@ -29,6 +30,7 @@ export const DASHBOARD_BLOCKS: Array<{
   label: string;
   hint: string;
   defaultVisible: boolean;
+  defaultVisiblePersonal?: boolean;
   requires: FeatureKey[];
   wide?: boolean;
 }> = [
@@ -97,18 +99,19 @@ export const DASHBOARD_BLOCKS: Array<{
     requires: ["financials"],
   },
   {
-    id: "low_stock",
-    label: "Low stock",
-    hint: "Inventory items at or below their reorder level.",
-    defaultVisible: false,
-    requires: ["inventory"],
-  },
-  {
     id: "vehicles_due",
     label: "Vehicles due for service",
     hint: "Vehicles with overdue maintenance items.",
     defaultVisible: true,
     requires: ["reminders"],
+  },
+  {
+    id: "low_stock",
+    label: "Low stock",
+    hint: "Inventory items at or below their reorder level.",
+    defaultVisible: true,
+    defaultVisiblePersonal: false,
+    requires: ["inventory"],
   },
   {
     id: "tech_hours",
@@ -136,26 +139,6 @@ export const DASHBOARD_BLOCKS: Array<{
   },
 ];
 
-export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
-  columns: 1,
-  blocks: [
-    { id: "today", visible: true },
-    { id: "counts", visible: true },
-    { id: "stats", visible: true },
-    { id: "goals", visible: true },
-    { id: "schedule", visible: true },
-    { id: "notes", visible: true },
-    { id: "quick_add", visible: false },
-    { id: "spending", visible: false },
-    { id: "top_products", visible: false },
-    { id: "vehicles_due", visible: true },
-    { id: "low_stock", visible: false },
-    { id: "tech_hours", visible: true },
-    { id: "outstanding", visible: true },
-    { id: "recent_records", visible: true },
-  ],
-};
-
 function parsedLayout(raw: unknown): { columns: 1 | 2; blocks: unknown[] } {
   let value = raw;
   if (typeof value === "string") {
@@ -182,15 +165,16 @@ function parsedLayout(raw: unknown): { columns: 1 | 2; blocks: unknown[] } {
 
 function defaultVisibleFor(
   block: (typeof DASHBOARD_BLOCKS)[number],
-  accountType?: string | null,
+  accountType: CurrentUser["accountType"],
 ): boolean {
-  if (block.id === "low_stock" && accountType !== "PERSONAL") return true;
-  return block.defaultVisible;
+  return accountType === "PERSONAL"
+    ? (block.defaultVisiblePersonal ?? block.defaultVisible)
+    : block.defaultVisible;
 }
 
 export function normalizeDashboardLayout(
   raw: unknown,
-  accountType?: string | null,
+  accountType: CurrentUser["accountType"],
 ): DashboardLayout {
   const parsed = parsedLayout(raw);
   const known = new Set(DASHBOARD_BLOCKS.map((block) => block.id));
@@ -233,7 +217,7 @@ export function normalizeDashboardLayout(
 export function resolveDashboardLayout(
   userLayout: unknown,
   orgDefault: unknown,
-  accountType?: string | null,
+  accountType: CurrentUser["accountType"],
 ): DashboardLayout {
   return normalizeDashboardLayout(
     userLayout === null || userLayout === undefined ? orgDefault : userLayout,
