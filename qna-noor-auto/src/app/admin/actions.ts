@@ -10,10 +10,23 @@ import { syncSubscriptionToOrg } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const INCIDENT_STATES = [
+  "INVESTIGATING",
+  "IDENTIFIED",
+  "MONITORING",
+  "RESOLVED",
+  "MAINTENANCE",
+] as const;
+const INCIDENT_SEVERITIES = ["MINOR", "MAJOR", "MAINTENANCE"] as const;
 
 function back(params: Record<string, string>): never {
   const qs = new URLSearchParams(params).toString();
   redirect(`/admin${qs ? `?${qs}` : ""}`);
+}
+
+function revalidateStatusPages() {
+  revalidatePath("/admin");
+  revalidatePath("/status");
 }
 
 /**
@@ -255,4 +268,94 @@ export async function extendTrial(formData: FormData) {
 
   revalidatePath("/admin");
   back({ saved: "trial-extended" });
+}
+
+export async function createStatusIncident(formData: FormData) {
+  await requireSuperadmin();
+
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const stateRaw = String(formData.get("state") ?? "INVESTIGATING")
+    .trim()
+    .toUpperCase();
+  const severityRaw = String(formData.get("severity") ?? "MINOR")
+    .trim()
+    .toUpperCase();
+  const state = INCIDENT_STATES.includes(
+    stateRaw as (typeof INCIDENT_STATES)[number],
+  )
+    ? stateRaw
+    : "INVESTIGATING";
+  const severity = INCIDENT_SEVERITIES.includes(
+    severityRaw as (typeof INCIDENT_SEVERITIES)[number],
+  )
+    ? severityRaw
+    : "MINOR";
+
+  if (!title) back({ error: "Incident title is required." });
+
+  await db.statusIncident.create({
+    data: {
+      title,
+      body,
+      state,
+      severity,
+      resolvedAt: state === "RESOLVED" ? new Date() : null,
+    },
+  });
+  revalidateStatusPages();
+  back({ saved: "incident-created" });
+}
+
+export async function updateStatusIncident(formData: FormData) {
+  await requireSuperadmin();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const stateRaw = String(formData.get("state") ?? "INVESTIGATING")
+    .trim()
+    .toUpperCase();
+  const state = INCIDENT_STATES.includes(
+    stateRaw as (typeof INCIDENT_STATES)[number],
+  )
+    ? stateRaw
+    : "INVESTIGATING";
+  const incident = await db.statusIncident.findUnique({ where: { id } });
+  if (!incident) back({ error: "Incident not found." });
+
+  await db.statusIncident.update({
+    where: { id },
+    data: {
+      state,
+      resolvedAt: state === "RESOLVED" ? incident.resolvedAt ?? new Date() : null,
+    },
+  });
+  revalidateStatusPages();
+  back({ saved: "incident-updated" });
+}
+
+export async function resolveStatusIncident(formData: FormData) {
+  await requireSuperadmin();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const incident = await db.statusIncident.findUnique({ where: { id } });
+  if (!incident) back({ error: "Incident not found." });
+
+  await db.statusIncident.update({
+    where: { id },
+    data: { state: "RESOLVED", resolvedAt: new Date() },
+  });
+  revalidateStatusPages();
+  back({ saved: "incident-resolved" });
+}
+
+export async function deleteStatusIncident(formData: FormData) {
+  await requireSuperadmin();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const incident = await db.statusIncident.findUnique({ where: { id } });
+  if (!incident) back({ error: "Incident not found." });
+
+  await db.statusIncident.delete({ where: { id } });
+  revalidateStatusPages();
+  back({ saved: "incident-deleted" });
 }

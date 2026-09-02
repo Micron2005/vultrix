@@ -48,6 +48,7 @@ const URLS = {
   demo: "/demo", // live, self-resetting demo sandbox
   terms: "/terms",
   privacy: "/privacy",
+  status: "/status",
   shopName: "QNA / Noor Auto Repair",
   shopUrl: "https://qna-noorautorepair.com", 
 };
@@ -1294,6 +1295,7 @@ const Footer = () => {
           <div className="flex items-center gap-6 text-xs">
             <a href={URLS.terms} className="text-zinc-400 hover:text-white">Terms</a>
             <a href={URLS.privacy} className="text-zinc-400 hover:text-white">Privacy</a>
+            <a href={URLS.status} className="text-zinc-400 hover:text-white">Status</a>
           </div>
         </div>
       </div>

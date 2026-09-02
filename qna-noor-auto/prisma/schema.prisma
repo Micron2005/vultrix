@@ -1207,6 +1207,20 @@ model MarketingLead {
   @@index([createdAt])
 }
 
+model StatusIncident {
+  id         String   @id @default(cuid())
+  title      String
+  body       String   @default("")
+  // INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED | MAINTENANCE
+  state      String   @default("INVESTIGATING")
+  // MINOR | MAJOR | MAINTENANCE
+  severity   String   @default("MINOR")
+  startsAt   DateTime @default(now())
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 // Single-use, time-limited password reset tokens. We store only a SHA-256 hash
 // of the token; the raw token lives solely in the emailed reset link. A token
 // is valid until expiresAt and only while usedAt is null.
