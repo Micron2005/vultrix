@@ -17,7 +17,11 @@ import { getAllSettings, setSetting } from "@/lib/shop";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { getCurrentUser, requireOrgId } from "@/lib/session";
+import {
+  canManageUsers,
+  getCurrentUser,
+  requireOrgId,
+} from "@/lib/session";
 import {
   assertCanManageSettings,
   canViewFinancials,
@@ -37,6 +41,11 @@ import { TimezonePicker } from "./TimezonePicker";
 import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
 import { AppearanceEditor } from "./AppearanceEditor";
 import { normalizeAppearance } from "@/lib/appearance";
+import { NavLayoutEditor } from "./NavLayoutEditor";
+import {
+  getEligibleNavItems,
+  normalizeNavLayout,
+} from "@/lib/navLayout";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +92,7 @@ export default async function SettingsPage({
             uiScale: true,
             uiRadius: true,
             uiFont: true,
+            navLayout: true,
           },
         })
       : null;
@@ -102,6 +112,14 @@ export default async function SettingsPage({
   );
   const aiKeyConfigured = isAiKeyEncryptionConfigured();
   const featureSet = enabledFeatureSet(org);
+  const eligibleNavItems = getEligibleNavItems({
+    enabledFeatures: featureSet,
+    accountType,
+    canViewFinancials: Boolean(user && canViewFinancials(user.role)),
+    canManageUsers: Boolean(user && canManageUsers(user.role)),
+    aiAssistantEnabled: isPersonal && org.aiAssistantEnabled,
+  });
+  const navLayout = normalizeNavLayout(appearanceRecord?.navLayout);
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
   const showAppointmentReminders = featureSet.has("schedule");
@@ -243,6 +261,15 @@ export default async function SettingsPage({
         </div>
         {isPersonal && <AppearanceEditor initialPrefs={appearancePrefs} />}
       </Card>
+      {isPersonal && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Sidebar" />
+          <NavLayoutEditor
+            initialLayout={navLayout}
+            items={eligibleNavItems}
+          />
+        </Card>
+      )}
       <Card className="max-w-2xl">
         <CardHeader
           title={

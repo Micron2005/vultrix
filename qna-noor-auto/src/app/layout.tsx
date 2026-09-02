@@ -58,6 +58,7 @@ export default async function RootLayout({
           uiScale: true,
           uiRadius: true,
           uiFont: true,
+          navLayout: true,
         },
       })
     : null;
@@ -110,6 +111,7 @@ export default async function RootLayout({
             aiAssistantEnabled={
               user.accountType === "PERSONAL" && user.aiAssistantEnabled
             }
+            navLayout={isPersonal ? appearanceRecord?.navLayout : null}
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}
