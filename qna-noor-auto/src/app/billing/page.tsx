@@ -11,6 +11,7 @@ import {
 } from "@/lib/billing";
 import { enabledFeatureSet } from "@/lib/features";
 import { refreshConnectStatus } from "@/lib/connect";
+import { SALES_EMAIL } from "@/lib/branding";
 import {
   openBillingPortal,
   startConnectOnboarding,
@@ -109,6 +110,15 @@ export default async function BillingPage({
               self-serve subscription. Contact support to make changes.
             </p>
           )}
+          <p className="text-sm text-zinc-500">
+            Subscription or payment questions?{" "}
+            <a
+              href={`mailto:${SALES_EMAIL}`}
+              className="underline underline-offset-2"
+            >
+              {SALES_EMAIL}
+            </a>
+          </p>
         </div>
       </Card>
 

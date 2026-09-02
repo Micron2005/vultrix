@@ -23,7 +23,7 @@ import {
 } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 import { sendEmail, escapeHtml } from "@/lib/email";
-import { APP_NAME } from "@/lib/branding";
+import { APP_NAME, SALES_EMAIL } from "@/lib/branding";
 import { isValidTimeZone } from "@/lib/timezone";
 
 export type EnsureResult = {
@@ -336,6 +336,7 @@ async function sendSignupEmails(args: {
     to: email,
     subject: `Welcome to ${APP_NAME} 🔧`,
     html: welcomeHtml({ name, username, loginUrl, trialEnd }),
+    replyTo: SALES_EMAIL,
   });
 
   // 2. Notify the platform owner that a new shop signed up.
@@ -383,7 +384,7 @@ function welcomeHtml(p: {
       Sign in to your dashboard
     </a>
     <p style="margin:22px 0 0;color:#a1a1aa;font-size:13px;line-height:1.5">
-      Need a hand getting started? Just reply to this email — a real person (a working mechanic) will help.
+      Need a hand getting started? Just reply to this email and it will reach ${escapeHtml(SALES_EMAIL)} — a real person (a working mechanic) will help.
     </p>
   </div>`;
 }

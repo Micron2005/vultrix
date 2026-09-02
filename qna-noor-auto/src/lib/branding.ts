@@ -19,6 +19,17 @@ export const LEGAL_CONTACT_EMAIL =
 export const SUPPORT_EMAIL =
   process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@vultrix.net";
 
+/** Address used for automated mail. */
+export const NOREPLY_EMAIL =
+  process.env.NEXT_PUBLIC_NOREPLY_EMAIL?.trim() || "noreply@vultrix.net";
+
+/** Address used for subscription and billing questions. */
+export const SALES_EMAIL =
+  process.env.NEXT_PUBLIC_SALES_EMAIL?.trim() || "sales@vultrix.net";
+
+/** Default sender for automated mail. */
+export const DEFAULT_MAIL_FROM = `${APP_NAME} <${NOREPLY_EMAIL}>`;
+
 /** Jurisdiction whose law governs the Terms (override per deploy). */
 export const LEGAL_GOVERNING_LAW =
   process.env.NEXT_PUBLIC_LEGAL_GOVERNING_LAW?.trim() ||
