@@ -30,7 +30,14 @@ import { loadGoalDatasets, OVERVIEW_GOAL_LIMIT } from "@/lib/goalsOverview";
 import { Today } from "./Today";
 import { localCalendarDay } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
-import { archiveGoal, createGoal, restoreGoal, toggleHabitCheckIn } from "./actions";
+import {
+  archiveGoal,
+  createGoal,
+  deleteGoal,
+  restoreGoal,
+  toggleHabitCheckIn,
+} from "./actions";
+import { DeleteGoalButton } from "./DeleteGoalButton";
 import { GoalForm } from "./GoalForm";
 
 export const dynamic = "force-dynamic";
@@ -189,6 +196,12 @@ function GoalCard({
             Archive
           </button>
         </form>
+        <DeleteGoalButton
+          action={deleteGoal}
+          goalId={goal.id}
+          title={goal.title}
+          className="font-medium text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+        />
       </div>
     </Card>
   );
@@ -216,15 +229,22 @@ function ArchivedGoal({
           {goalRemainingSummary(goal, progress).text}
         </p>
       </div>
-      <form action={restoreGoal}>
-        <input type="hidden" name="id" value={goal.id} />
-        <button
-          type="submit"
-          className="text-sm font-medium text-zinc-700 underline underline-offset-2 dark:text-zinc-300"
-        >
-          Restore
-        </button>
-      </form>
+      <div className="flex items-center gap-3">
+        <form action={restoreGoal}>
+          <input type="hidden" name="id" value={goal.id} />
+          <button
+            type="submit"
+            className="text-sm font-medium text-zinc-700 underline underline-offset-2 dark:text-zinc-300"
+          >
+            Restore
+          </button>
+        </form>
+        <DeleteGoalButton
+          action={deleteGoal}
+          goalId={goal.id}
+          title={goal.title}
+        />
+      </div>
     </div>
   );
 }

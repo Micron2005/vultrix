@@ -289,6 +289,33 @@ export async function archiveGoal(fd: FormData) {
   redirect("/goals");
 }
 
+export async function deleteGoal(fd: FormData) {
+  const { orgId } = await requireGoalsContext();
+  const user = await requireUser();
+  const id = text(fd, "id");
+  if (!id) throw new Error("Goal not found.");
+  const goal = await db.goal.findFirst({
+    where: { id, orgId },
+    select: { title: true },
+  });
+  if (!goal) throw new Error("Goal not found.");
+  await db.$transaction(async (tx) => {
+    await tx.routine.deleteMany({ where: { goalId: id, orgId } });
+    await tx.goal.deleteMany({ where: { id, orgId } });
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.delete",
+    entity: "Goal",
+    entityId: id,
+    summary: `Goal deleted: ${goal.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
+  redirect("/goals");
+}
+
 export async function restoreGoal(fd: FormData) {
   const { orgId } = await requireGoalsContext();
   const user = await requireUser();
