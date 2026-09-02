@@ -6,6 +6,7 @@ import {
   localCalendarDay,
   shiftCalendarDay,
 } from "@/lib/timezone";
+import { fullName, vehicleLabel } from "@/lib/utils";
 
 function ymd(date: Date, timezone: string): string {
   return localCalendarDay(date, timezone);
@@ -14,10 +15,15 @@ function ymd(date: Date, timezone: string): string {
 export async function ScheduleBlock({
   orgId,
   timezone,
+  accountType,
+  hasVehicles,
 }: {
   orgId: string;
   timezone: string;
+  accountType: string | null;
+  hasVehicles: boolean;
 }) {
+  const personal = accountType === "PERSONAL";
   const today = localCalendarDay(new Date(), timezone);
   const dayStart = dateInputInTimeZone(today, timezone, new Date(Number.NaN));
   const dayEnd = dateInputInTimeZone(
@@ -30,27 +36,40 @@ export async function ScheduleBlock({
     timezone,
     new Date(Number.NaN),
   );
-  const events = await db.calendarEvent.findMany({
-    where: { orgId, startsAt: { gte: dayStart, lt: weekEnd } },
-    orderBy: { startsAt: "asc" },
-    take: 8,
-  });
+  const [events, appointments] = await Promise.all([
+    personal
+      ? db.calendarEvent.findMany({
+          where: { orgId, startsAt: { gte: dayStart, lt: weekEnd } },
+          orderBy: { startsAt: "asc" },
+          take: 8,
+        })
+      : Promise.resolve([]),
+    personal
+      ? Promise.resolve([])
+      : db.appointment.findMany({
+          where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
+          orderBy: { startsAt: "asc" },
+          include: { customer: true, vehicle: true },
+        }),
+  ]);
   const todayEvents = events.filter(
     (event) => event.startsAt >= dayStart && event.startsAt < dayEnd,
   );
-  const upcomingEvents = events.filter((event) => event.startsAt >= dayEnd);
 
   return (
     <Card className="mb-6">
-      <CardHeader title={`Today's schedule (${todayEvents.length})`}>
+      <CardHeader
+        title={`Today's schedule (${personal ? todayEvents.length : appointments.length})`}
+      >
         <LinkButton href="/appointments" variant="ghost" size="sm">
-          Calendar →
+          {personal ? "Calendar →" : "Full week →"}
         </LinkButton>
-        <LinkButton href="/appointments" size="sm">
+        <LinkButton href={personal ? "/appointments" : "/appointments/new"} size="sm">
           + New
         </LinkButton>
       </CardHeader>
-      {todayEvents.length > 0 ? (
+      {personal ? (
+        todayEvents.length > 0 ? (
         <ul className="divide-y divide-zinc-200">
           {todayEvents.map((event) => (
             <li key={event.id}>
@@ -85,13 +104,13 @@ export async function ScheduleBlock({
             </li>
           ))}
         </ul>
-      ) : upcomingEvents.length > 0 ? (
+        ) : events.some((event) => event.startsAt >= dayEnd) ? (
         <>
           <div className="px-4 pt-4 text-sm font-medium text-zinc-700">
             Nothing scheduled for today. Coming up this week:
           </div>
           <ul className="divide-y divide-zinc-200">
-            {upcomingEvents.map((event) => (
+            {events.filter((event) => event.startsAt >= dayEnd).map((event) => (
               <li key={event.id}>
                 <Link
                   href={`/appointments?view=day&date=${ymd(event.startsAt, timezone)}`}
@@ -119,11 +138,79 @@ export async function ScheduleBlock({
             ))}
           </ul>
         </>
-      ) : (
+        ) : (
         <div className="p-6 text-sm text-zinc-500 text-center">
           Nothing scheduled for today or the rest of this week.
         </div>
+        )
+      ) : appointments.length === 0 ? (
+        <div className="p-6 text-sm text-zinc-500 text-center">
+          Nothing scheduled for today.
+        </div>
+      ) : (
+        <ul className="divide-y divide-zinc-200">
+          {appointments.map((appointment) => (
+            <li key={appointment.id}>
+              <Link
+                href={`/appointments/${appointment.id}`}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-50"
+              >
+                <div className="w-20 shrink-0 text-sm font-semibold text-zinc-900">
+                  {new Intl.DateTimeFormat("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(appointment.startsAt)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-zinc-900">
+                    {appointment.reason}
+                  </div>
+                  <div className="truncate text-xs text-zinc-500">
+                    {fullName(appointment.customer)}
+                    {hasVehicles &&
+                      appointment.vehicle &&
+                      ` · ${vehicleLabel(appointment.vehicle)}`}
+                  </div>
+                </div>
+                <span
+                  className={
+                    "rounded px-2 py-1 text-[10px] font-semibold uppercase " +
+                    appointmentStatusClass(appointment.status)
+                  }
+                >
+                  {prettyAppointmentStatus(appointment.status)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   );
+}
+
+function appointmentStatusClass(status: string): string {
+  switch (status) {
+    case "SCHEDULED":
+      return "bg-zinc-200 text-zinc-800";
+    case "CONFIRMED":
+      return "bg-blue-100 text-blue-800";
+    case "ARRIVED":
+      return "bg-amber-100 text-amber-800";
+    case "COMPLETED":
+      return "bg-green-100 text-green-800";
+    case "CANCELLED":
+      return "bg-red-100 text-red-800";
+    case "NO_SHOW":
+      return "bg-red-200 text-red-900";
+    default:
+      return "bg-zinc-100 text-zinc-700";
+  }
+}
+
+function prettyAppointmentStatus(status: string): string {
+  return status
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

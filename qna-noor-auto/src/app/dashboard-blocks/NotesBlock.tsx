@@ -5,14 +5,12 @@ import { formatDate } from "@/lib/utils";
 
 export async function NotesBlock({
   orgId,
-  hasInvoices,
-  role,
+  showMoneyCards,
 }: {
   orgId: string;
-  hasInvoices: boolean;
-  role: string;
+  showMoneyCards: boolean;
 }) {
-  if (role === "STAFF" || hasInvoices) return null;
+  if (showMoneyCards) return null;
   const recentNotes = await db.repairNote.findMany({
     where: { orgId },
     orderBy: { updatedAt: "desc" },

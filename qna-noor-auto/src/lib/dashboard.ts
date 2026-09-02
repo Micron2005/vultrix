@@ -2,6 +2,7 @@ import type { FeatureKey } from "@/lib/features";
 
 export type DashboardBlockId =
   | "today"
+  | "counts"
   | "stats"
   | "goals"
   | "schedule"
@@ -9,7 +10,11 @@ export type DashboardBlockId =
   | "spending"
   | "top_products"
   | "low_stock"
-  | "quick_add";
+  | "quick_add"
+  | "vehicles_due"
+  | "tech_hours"
+  | "outstanding"
+  | "recent_records";
 
 export type DashboardLayout = {
   columns: 1 | 2;
@@ -25,6 +30,7 @@ export const DASHBOARD_BLOCKS: Array<{
   hint: string;
   defaultVisible: boolean;
   requires: FeatureKey[];
+  wide?: boolean;
 }> = [
   {
     id: "today",
@@ -32,6 +38,14 @@ export const DASHBOARD_BLOCKS: Array<{
     hint: "Routines, reminders, and goals that need attention today.",
     defaultVisible: true,
     requires: [],
+  },
+  {
+    id: "counts",
+    label: "Account summary",
+    hint: "Customers, vehicles, open work, and money at a glance.",
+    defaultVisible: true,
+    requires: [],
+    wide: true,
   },
   {
     id: "stats",
@@ -62,6 +76,13 @@ export const DASHBOARD_BLOCKS: Array<{
     requires: ["knowledge"],
   },
   {
+    id: "quick_add",
+    label: "Quick actions",
+    hint: "Shortcuts for adding notes, events, money, and goals.",
+    defaultVisible: false,
+    requires: [],
+  },
+  {
     id: "spending",
     label: "Spending this month",
     hint: "The categories where you have spent the most this month.",
@@ -83,11 +104,35 @@ export const DASHBOARD_BLOCKS: Array<{
     requires: ["inventory"],
   },
   {
-    id: "quick_add",
-    label: "Quick actions",
-    hint: "Shortcuts for adding notes, events, money, and goals.",
-    defaultVisible: false,
+    id: "vehicles_due",
+    label: "Vehicles due for service",
+    hint: "Vehicles with overdue maintenance items.",
+    defaultVisible: true,
+    requires: ["reminders"],
+  },
+  {
+    id: "tech_hours",
+    label: "Hours logged this week",
+    hint: "Technician time recorded this week.",
+    defaultVisible: true,
+    requires: ["technicians"],
+    wide: true,
+  },
+  {
+    id: "outstanding",
+    label: "Outstanding invoices",
+    hint: "Invoices that still have a balance due.",
+    defaultVisible: true,
+    requires: ["invoices"],
+    wide: true,
+  },
+  {
+    id: "recent_records",
+    label: "Recent records",
+    hint: "The latest repair orders or invoices.",
+    defaultVisible: true,
     requires: [],
+    wide: true,
   },
 ];
 
@@ -95,6 +140,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   columns: 1,
   blocks: [
     { id: "today", visible: true },
+    { id: "counts", visible: true },
     { id: "stats", visible: true },
     { id: "goals", visible: true },
     { id: "schedule", visible: true },
@@ -102,7 +148,11 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
     { id: "quick_add", visible: false },
     { id: "spending", visible: false },
     { id: "top_products", visible: false },
+    { id: "vehicles_due", visible: true },
     { id: "low_stock", visible: false },
+    { id: "tech_hours", visible: true },
+    { id: "outstanding", visible: true },
+    { id: "recent_records", visible: true },
   ],
 };
 
@@ -130,7 +180,18 @@ function parsedLayout(raw: unknown): { columns: 1 | 2; blocks: unknown[] } {
   };
 }
 
-export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
+function defaultVisibleFor(
+  block: (typeof DASHBOARD_BLOCKS)[number],
+  accountType?: string | null,
+): boolean {
+  if (block.id === "low_stock" && accountType !== "PERSONAL") return true;
+  return block.defaultVisible;
+}
+
+export function normalizeDashboardLayout(
+  raw: unknown,
+  accountType?: string | null,
+): DashboardLayout {
   const parsed = parsedLayout(raw);
   const known = new Set(DASHBOARD_BLOCKS.map((block) => block.id));
   const blocks: DashboardLayout["blocks"] = [];
@@ -150,13 +211,19 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
   if (blocks.length === 0) {
     return {
       columns: parsed.columns,
-      blocks: DEFAULT_DASHBOARD_LAYOUT.blocks.map((block) => ({ ...block })),
+      blocks: DASHBOARD_BLOCKS.map((block) => ({
+        id: block.id,
+        visible: defaultVisibleFor(block, accountType),
+      })),
     };
   }
 
   for (const block of DASHBOARD_BLOCKS) {
     if (!seen.has(block.id)) {
-      blocks.push({ id: block.id, visible: block.defaultVisible });
+      blocks.push({
+        id: block.id,
+        visible: defaultVisibleFor(block, accountType),
+      });
     }
   }
 
@@ -166,9 +233,11 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
 export function resolveDashboardLayout(
   userLayout: unknown,
   orgDefault: unknown,
+  accountType?: string | null,
 ): DashboardLayout {
   return normalizeDashboardLayout(
     userLayout === null || userLayout === undefined ? orgDefault : userLayout,
+    accountType,
   );
 }
 

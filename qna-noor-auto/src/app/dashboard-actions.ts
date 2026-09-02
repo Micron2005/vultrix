@@ -10,7 +10,7 @@ import {
 
 export async function saveDashboardLayout(fd: FormData) {
   const user = await requireUser();
-  const layout = normalizeDashboardLayout(fd.get("layout"));
+  const layout = normalizeDashboardLayout(fd.get("layout"), user.accountType);
   await db.user.update({
     where: { id: user.id },
     data: { dashLayout: serializeDashboardLayout(layout) },
