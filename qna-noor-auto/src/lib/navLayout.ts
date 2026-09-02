@@ -55,6 +55,7 @@ const STAFF_HIDDEN_HREFS = new Set([
   "/sales",
   "/reports",
   "/export",
+  "/settings",
 ]);
 
 export function getEligibleNavItems({
@@ -115,7 +116,7 @@ function parseNavLayout(raw: unknown): unknown[] {
 
 export function normalizeNavLayout(
   raw: unknown,
-  options: NavLabelOptions = { enabledFeatures: [] },
+  options: NavLabelOptions,
 ): NavLayout {
   const known = new Map(NAV_ITEMS.map((item) => [item.href, item]));
   const items: NavLayout["items"] = [];
@@ -130,7 +131,8 @@ export function normalizeNavLayout(
     }
     seen.add(href);
     const catalogItem = known.get(href);
-    const defaultLabel = navItemLabel(catalogItem!, options);
+    if (!catalogItem) continue;
+    const defaultLabel = navItemLabel(catalogItem, options);
     const label =
       typeof record.label === "string"
         ? record.label.trim().slice(0, 24)
@@ -154,7 +156,7 @@ export function normalizeNavLayout(
 export function resolveNavLayout(
   userLayout: unknown,
   orgDefault: unknown,
-  options: NavLabelOptions = { enabledFeatures: [] },
+  options: NavLabelOptions,
 ): NavLayout {
   return normalizeNavLayout(
     userLayout === null || userLayout === undefined ? orgDefault : userLayout,
