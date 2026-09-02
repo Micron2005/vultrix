@@ -125,7 +125,6 @@ export default async function ExportPage() {
     "fee lines",
     "customer contacts",
     "categories",
-    "service intervals",
     "service logs",
     "reminder log",
     "activity log",

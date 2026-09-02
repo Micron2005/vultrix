@@ -89,7 +89,6 @@ export async function GET() {
     feeLines,
     customerContacts,
     categories,
-    serviceIntervals,
     serviceLogs,
     reminderLogs,
     activityLogs,
@@ -182,12 +181,9 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     }),
     db.category.findMany({ where: { orgId }, orderBy: { name: "asc" } }),
-    db.serviceInterval.findMany({
-      where: { logs: { some: { vehicle: { orgId } } } },
-      orderBy: { sortOrder: "asc" },
-    }),
     db.serviceLog.findMany({
       where: { vehicle: { orgId } },
+      include: { interval: { select: { key: true, label: true } } },
       orderBy: { performedAt: "asc" },
     }),
     db.reminderLog.findMany({
@@ -814,29 +810,14 @@ export async function GET() {
   );
 
   zip.file(
-    "service-intervals.csv",
-    csv(
-      serviceIntervals.map((s) => ({
-        id: s.id,
-        key: s.key,
-        label: s.label,
-        everyMiles: s.everyMiles ?? "",
-        everyMonths: s.everyMonths ?? "",
-        sortOrder: s.sortOrder,
-        archived: s.archived,
-        createdAt: toIso(s.createdAt),
-        updatedAt: toIso(s.updatedAt),
-      })),
-    ),
-  );
-
-  zip.file(
     "service-logs.csv",
     csv(
       serviceLogs.map((s) => ({
         id: s.id,
         vehicleId: s.vehicleId,
         intervalId: s.intervalId,
+        intervalKey: s.interval.key,
+        intervalLabel: s.interval.label,
         performedAt: toIso(s.performedAt),
         atMileage: s.atMileage ?? "",
         source: s.source,
@@ -887,8 +868,6 @@ export async function GET() {
         id: r.id,
         expenseId: r.expenseId,
         orgId: r.orgId,
-        caption: "",
-        sortOrder: "",
         createdAt: toIso(r.createdAt),
         file: addAttachment(zip, r.dataUrl, "expense-receipts", r.id),
       })),
@@ -946,7 +925,7 @@ export async function GET() {
     "  repair-orders.id → labor-lines.repairOrderId, part-lines.repairOrderId, payments.repairOrderId, appointments.repairOrderId, jobs.repairOrderId, fee-lines.repairOrderId, repair-order-photos.repairOrderId",
     "  goals.id → goal-check-ins.goalId, goal-entries.goalId, routines.goalId",
     "  routines.id → routine-items.routineId",
-    "  routine-items.id → routine-check-offs.routineItemId",
+    "  routine-items.id → routine-check-offs.itemId",
     "  income.id → sales.incomeId",
     "  inventory-parts.id → part-lines.partId, stock-moves.partId, canned-job-parts.partId",
     "  expenses.id → expense-receipts.expenseId",
