@@ -15,7 +15,14 @@ function dateInputValue(date: Date): string {
 export default async function ExportPage() {
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
-  const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
+  const features = enabledFeatureSet(user ?? {});
+  const hasInvoices = features.has("invoices");
+  const hasCustomers = features.has("customers");
+  const hasVehicles = features.has("vehicles");
+  const hasRepairOrders =
+    features.has("repair_orders") || features.has("invoices");
+  const hasTechnicians = features.has("technicians");
+  const hasCannedJobs = features.has("presets");
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const [
@@ -43,23 +50,43 @@ export default async function ExportPage() {
   ]);
 
   const rows: { label: string; value: number }[] = [
-    { label: "Customers", value: customers },
-    { label: "Vehicles", value: vehicles },
-    { label: "Repair orders", value: repairOrders },
+    ...(hasCustomers ? [{ label: "Customers", value: customers }] : []),
+    ...(hasVehicles ? [{ label: "Vehicles", value: vehicles }] : []),
+    ...(hasRepairOrders
+      ? [{ label: "Repair orders", value: repairOrders }]
+      : []),
     { label: "Payments", value: payments },
     { label: "Inventory parts", value: parts },
     { label: "Appointments", value: appointments },
     { label: "Knowledge notes", value: notes },
-    { label: "Technicians", value: technicians },
+    ...(hasTechnicians ? [{ label: "Technicians", value: technicians }] : []),
     { label: "Expenses", value: expenses },
-    { label: "Canned jobs (presets)", value: cannedJobs },
+    ...(hasCannedJobs
+      ? [{ label: "Canned jobs (presets)", value: cannedJobs }]
+      : []),
   ];
+  const exportTableNames = [
+    hasCustomers ? "customers" : null,
+    hasVehicles ? "vehicles" : null,
+    hasRepairOrders ? "repair orders" : null,
+    "labor lines",
+    "part lines",
+    "payments",
+    "parts",
+    "stock moves",
+    "appointments",
+    "notes",
+    hasTechnicians ? "technicians" : null,
+    "expenses",
+    hasCannedJobs ? "canned jobs" : null,
+    "shop settings",
+  ].filter((name): name is string => name !== null);
 
   return (
     <>
       <PageHeader
         title="Export"
-        description="Download a full copy of your shop data as one ZIP of CSVs."
+        description="Download a full copy of your data as one ZIP of CSVs."
       />
 
       <Card className="mb-4">
@@ -123,10 +150,8 @@ export default async function ExportPage() {
         <CardHeader title="Download everything" />
         <div className="p-4 space-y-4">
           <div className="text-sm text-zinc-700">
-            A ZIP file with one CSV per table (customers, vehicles, repair
-            orders, labor lines, part lines, payments, parts, stock moves,
-            appointments, notes, technicians, expenses, canned jobs, shop
-            settings). Open any CSV in Excel, Google Sheets, or Numbers.
+            A ZIP file with one CSV per table ({exportTableNames.join(", ")}).
+            Open any CSV in Excel, Google Sheets, or Numbers.
           </div>
           <div>
             <a
@@ -137,12 +162,7 @@ export default async function ExportPage() {
             </a>
           </div>
           <div className="text-xs text-zinc-500">
-            This is a snapshot export, not a backup. For a complete backup,
-            also copy the SQLite database file at{" "}
-            <code className="font-mono text-[11px] px-1 py-0.5 bg-zinc-100 rounded">
-              prisma/dev.db
-            </code>
-            .
+            This is a snapshot export, not a backup.
           </div>
         </div>
       </Card>

@@ -1,14 +1,28 @@
 import Link from "next/link";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
+import { enabledFeatureSet } from "@/lib/features";
+import { getCurrentUser } from "@/lib/session";
 import { ImportClient } from "./ImportClient";
 
-export default function ImportPage() {
+export default async function ImportPage() {
+  const user = await getCurrentUser();
+  const features = enabledFeatureSet(user ?? {});
+  const showIdentifixImport =
+    (user?.accountType ?? "AUTO_SHOP") === "AUTO_SHOP" ||
+    features.has("repair_orders");
+
   return (
     <>
       <PageHeader
         title="Import CSV"
-        description="Migrate customers and vehicles from Identifix Shop Management (or any CSV export)"
+        description={
+          showIdentifixImport
+            ? "Migrate customers and vehicles from Identifix Shop Management (or any CSV export)"
+            : "Upload a CSV and map its columns to bring your data into Vultrix."
+        }
       />
+      {showIdentifixImport && (
+        <>
       <Card className="mb-4 border-blue-300 bg-blue-50">
         <div className="p-4 text-sm text-zinc-800">
           <p className="font-semibold text-blue-900 mb-1">
@@ -57,6 +71,8 @@ export default function ImportPage() {
           </p>
         </div>
       </Card>
+        </>
+      )}
       <ImportClient />
     </>
   );

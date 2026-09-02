@@ -45,7 +45,7 @@ export default async function LoginPage({
         <div className="text-center text-xs text-zinc-500">
           New here?{" "}
           <a href="/signup" className="font-medium text-zinc-700 underline">
-            Start your shop
+            Create your account
           </a>
           <span className="mx-2 text-zinc-300">·</span>
           <a href="/" className="font-medium text-zinc-700 underline" data-testid="login-back-home">

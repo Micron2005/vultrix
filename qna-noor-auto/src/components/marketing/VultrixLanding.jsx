@@ -33,13 +33,12 @@ const SITE = {
 };
 
 // Plan pricing — the single source of truth for every price shown on the page.
-// Personal is a base price with optional add-ons (invoices + AI) that stack.
+// Personal is a base price with an optional invoices add-on.
 const PRICING = {
   auto: 35,
   business: 25,
   personalBase: 15,
   invoicesAddon: 10, // Personal: turns on invoices + customer management
-  aiAddon: 10, // Vultrix AI assistant — Personal today, business/shop coming soon
   startingPrice: 15, // lowest entry point, used for "plans from $X" copy
 };
 
@@ -166,7 +165,7 @@ const COMPARISON = {
 };
 
 const ROADMAP = [
-  { icon: Bot, status: "Live for Personal", title: "AI assistant for every account", note: "The built-in AI assistant is live on Personal accounts today — add it for $10/mo, or connect your own OpenAI or Anthropic key. Rolling out to business and shop accounts next." },
+  { icon: Bot, status: "Live for Personal", title: "AI assistant for every account", note: "The built-in AI assistant is live on Personal accounts today — connect your own OpenAI or Anthropic key at no extra cost. Rolling out to business and shop accounts next." },
   { icon: Globe, status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
   { icon: Store, status: "Planned", title: "Customer-facing websites", note: "Give every account a clean public website tied right to their Vultrix data." },
   { icon: Boxes, status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
@@ -182,7 +181,7 @@ const DEEP_DIVES = [
 ];
 
 // Three plans mirroring the account types you pick at sign-up. Personal is a
-// base price with optional add-ons (invoices, AI) handled on the card itself.
+// base price with an optional invoices add-on handled on the card itself.
 const PLANS = [
   {
     id: "auto",
@@ -231,7 +230,7 @@ const PLANS = [
     badge: "Life, organized",
     tagline: "Track your money, plan your week, and capture ideas — with an AI assistant that does it for you.",
     cta: "Start free trial",
-    personal: true, // renders the interactive add-on toggles
+    personal: true, // renders the interactive invoices toggle
     intro: "Built for everyday life:",
     features: [
       "Income & expense tracking",
@@ -245,9 +244,9 @@ const PLANS = [
 const FAQS = [
   { q: "Is there a contract?", a: "No. Vultrix is month-to-month and you can cancel anytime from your billing portal — no calls, no hoops." },
   { q: "How does the free trial work?", a: "You get 60 days free. You won't be charged until the trial ends, and you can cancel before then at no cost." },
-  { q: "What does it cost?", a: "It depends on your account: an Auto Repair Shop is $35/month, a Business is $25/month, and a Personal account is $15/month. Personal accounts can add invoices & customers for $10/month, and the Vultrix AI assistant for another $10/month — or connect your own OpenAI/Anthropic key at no extra cost." },
+  { q: "What does it cost?", a: "It depends on your account: an Auto Repair Shop is $35/month, a Business is $25/month, and a Personal account is $15/month. Personal accounts can add invoices & customers for $10/month. The Vultrix AI assistant is included on Personal when you connect your own OpenAI/Anthropic key at no extra cost." },
   { q: "Which account type should I pick?", a: "Pick Auto Repair Shop for the full shop workflow (repair orders, VIN/parts lookup, technicians). Pick Business to run any other small business with invoices, inventory, and reports. Pick Personal to organize your own money, calendar, and notes." },
-  { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions. It's live on Personal accounts today for $10/month — or bring your own OpenAI/Anthropic key for free. Support for business and shop accounts is coming next." },
+  { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions. It's included on Personal accounts when you connect your own OpenAI/Anthropic key at no extra cost. Support for business and shop accounts is coming next." },
   { q: "Can I export my data?", a: "Yes. You can import and export by CSV whenever you like. Your data is yours — there's no lock-in." },
   { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on a computer, your phone, or a tablet." },
   { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, managers, and staff." },
@@ -1028,11 +1027,9 @@ const PriceToggle = ({ checked, onChange, label, hint, testId }) => (
 
 const Pricing = ({ trialDays }) => {
   const [addInvoices, setAddInvoices] = useState(false);
-  const [addAi, setAddAi] = useState(false);
   const personalPrice =
     PRICING.personalBase +
-    (addInvoices ? PRICING.invoicesAddon : 0) +
-    (addAi ? PRICING.aiAddon : 0);
+    (addInvoices ? PRICING.invoicesAddon : 0);
 
   return (
     <section id="pricing" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
@@ -1077,13 +1074,12 @@ const Pricing = ({ trialDays }) => {
                         hint={`+${money(PRICING.invoicesAddon)}/mo`}
                         testId="personal-invoices-toggle"
                       />
-                      <PriceToggle
-                        checked={addAi}
-                        onChange={setAddAi}
-                        label="Add the Vultrix AI assistant"
-                        hint={`+${money(PRICING.aiAddon)}/mo — or connect your own OpenAI / Anthropic key, free`}
-                        testId="personal-ai-toggle"
-                      />
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-600">
+                        <Bot className="mr-1.5 inline-block h-3.5 w-3.5 align-[-0.15em]" />
+                        The AI assistant is included on Personal when you
+                        connect your own OpenAI or Anthropic key — no add-on
+                        fee.
+                      </div>
                     </div>
                   ) : (
                     <div className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-500">
