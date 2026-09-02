@@ -33,10 +33,12 @@ import { ROUTINE_WEEKDAYS } from "@/lib/routines";
 import { createRoutine } from "../routines/actions";
 import {
   archiveGoal,
+  deleteGoal,
   deleteGoalEntry,
   logGoalEntry,
   toggleHabitCheckIn,
 } from "../actions";
+import { DeleteGoalButton } from "../DeleteGoalButton";
 import { Today } from "../Today";
 
 export default async function GoalDetailPage({
@@ -134,6 +136,12 @@ export default async function GoalDetailPage({
                 Archive
               </button>
             </form>
+            <DeleteGoalButton
+              action={deleteGoal}
+              goalId={record.id}
+              title={record.title}
+              className="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+            />
           </>
         }
       />
