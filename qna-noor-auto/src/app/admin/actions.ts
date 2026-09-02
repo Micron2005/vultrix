@@ -40,7 +40,7 @@ export async function createBusiness(formData: FormData) {
     invoices ? ["invoices"] : [],
   );
 
-  if (!name) back({ error: "Business name is required." });
+  if (!name) back({ error: "Account name is required." });
   if (!/^[a-z0-9._-]{3,}$/i.test(username)) {
     back({ error: "Owner username must be 3+ characters (letters, numbers, . _ -)." });
   }
