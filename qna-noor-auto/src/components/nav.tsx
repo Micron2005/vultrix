@@ -44,10 +44,24 @@ const items = [
   { href: "/settings", label: "Settings" },
 ];
 
-function isActive(pathname: string | null, href: string): boolean {
-  if (!pathname) return false;
+function matchesPath(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
+}
+
+function isActive(
+  pathname: string | null,
+  href: string,
+  renderedHrefs: string[],
+): boolean {
+  if (!pathname) return false;
+  if (!matchesPath(pathname, href)) return false;
+  return !renderedHrefs.some(
+    (otherHref) =>
+      otherHref !== href &&
+      otherHref.length > href.length &&
+      matchesPath(pathname, otherHref),
+  );
 }
 
 export function Nav({
@@ -135,6 +149,7 @@ export function Nav({
   ).filter(
     (item) => item.href !== "/sales" || !enabledFeatures.includes("invoices"),
   );
+  const renderedHrefs = navItems.map((item) => item.href);
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone
@@ -207,7 +222,7 @@ export function Nav({
       )}
       <nav className="p-2 flex flex-col gap-1">
         {navItems.map((item) => {
-          const active = isActive(pathname, item.href);
+          const active = isActive(pathname, item.href, renderedHrefs);
           return (
             <Link
               key={item.href}

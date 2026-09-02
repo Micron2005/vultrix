@@ -88,6 +88,7 @@ export async function resolvePriceId(
     currency: "usd",
     recurring: { interval: "month" },
     lookup_key: lookupKey,
+    transfer_lookup_key: true,
   });
   return price.id;
 }
