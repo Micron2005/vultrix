@@ -116,6 +116,7 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname === "/reset-password") return true;
   if (pathname === "/terms") return true;
   if (pathname === "/privacy") return true;
+  if (pathname === "/status") return true;
   if (pathname === "/api/login") return true;
   if (pathname === "/logout") return true;
   // Public live-demo entry/exit (seeds + signs in as the demo owner).
