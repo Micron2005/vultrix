@@ -127,6 +127,7 @@ export async function publishDashboardDefault() {
   const layout = resolveDashboardLayout(
     record?.dashLayout,
     organization?.dashDefault,
+    user.accountType,
   );
   await db.organization.update({
     where: { id: user.orgId },

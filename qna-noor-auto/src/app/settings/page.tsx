@@ -309,13 +309,11 @@ export default async function SettingsPage({
                   Publish sidebar
                 </Button>
               </form>
-              {isPersonal && (
-                <form action={publishDashboardDefault}>
-                  <Button type="submit" className="w-full">
-                    Publish dashboard
-                  </Button>
-                </form>
-              )}
+              <form action={publishDashboardDefault}>
+                <Button type="submit" className="w-full">
+                  Publish dashboard
+                </Button>
+              </form>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <form action={clearAppearanceDefault}>
@@ -328,13 +326,11 @@ export default async function SettingsPage({
                   Clear sidebar
                 </Button>
               </form>
-              {isPersonal && (
-                <form action={clearDashboardDefault}>
-                  <Button type="submit" variant="ghost" className="w-full">
-                    Clear dashboard
-                  </Button>
-                </form>
-              )}
+              <form action={clearDashboardDefault}>
+                <Button type="submit" variant="ghost" className="w-full">
+                  Clear dashboard
+                </Button>
+              </form>
             </div>
             <p className="text-xs text-zinc-500">
               Users who have their own saved preference keep their override.

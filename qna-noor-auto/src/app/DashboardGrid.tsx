@@ -14,6 +14,7 @@ type DashboardBlock = {
   label: string;
   hint: string;
   node: ReactNode;
+  wide?: boolean;
 };
 
 export function DashboardGrid({
@@ -121,7 +122,16 @@ export function DashboardGrid({
       )}
       <div className={gridClass}>
         {orderedBlocks.map(({ entry, block }) => {
-          if (!editing) return <div key={entry.id}>{block.node}</div>;
+          if (!editing) {
+            return (
+              <div
+                key={entry.id}
+                className={current.columns === 2 && block.wide ? "sm:col-span-2" : ""}
+              >
+                {block.node}
+              </div>
+            );
+          }
           const renderedIndex = orderedBlocks.findIndex(
             (item) => item.entry.id === entry.id,
           );
@@ -129,9 +139,14 @@ export function DashboardGrid({
             <div
               key={entry.id}
               className={
-                entry.visible
-                  ? "mb-6 rounded-lg border border-transparent"
-                  : "mb-6 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 opacity-60"
+                [
+                  entry.visible
+                    ? "mb-6 rounded-lg border border-transparent"
+                    : "mb-6 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 opacity-60",
+                  current.columns === 2 && block.wide
+                    ? "sm:col-span-2"
+                    : "",
+                ].join(" ")
               }
             >
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2">
