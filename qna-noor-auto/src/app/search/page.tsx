@@ -5,6 +5,7 @@ import { Card, CardHeader, PageHeader } from "@/components/ui";
 import { formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { findNormalizedSearchMatches } from "@/lib/search";
 import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
+import { canViewFinancials } from "@/lib/permissions";
 import { formatInTimeZone } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 
@@ -73,7 +74,10 @@ export default async function SearchPage({
   const hasNotes = features.has("knowledge");
   const hasParts = features.has("inventory");
   const hasAppointments = features.has("schedule");
-  const hasSales = features.has("financials");
+  const hasSales =
+    features.has("financials") &&
+    !features.has("invoices") &&
+    canViewFinancials(user.role);
   const nouns = repairOrderNouns(accountType);
   const enabledSections = [
     hasCustomers ? "customers" : null,

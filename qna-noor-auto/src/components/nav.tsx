@@ -162,7 +162,11 @@ export function Nav({
     enabledFeatures.includes("knowledge") ? "notes" : null,
     enabledFeatures.includes("inventory") ? "parts" : null,
     enabledFeatures.includes("schedule") ? "events" : null,
-    enabledFeatures.includes("financials") ? "sales" : null,
+    enabledFeatures.includes("financials") &&
+    !enabledFeatures.includes("invoices") &&
+    canViewFinancials
+      ? "sales"
+      : null,
   ].filter((term): term is string => Boolean(term));
   const searchPlaceholder = searchTerms.length
     ? `Search ${searchTerms.join(", ")}…`
