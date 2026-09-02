@@ -42,7 +42,6 @@ type Pending = {
   passwordHash: string;
   accountType: string;
   features: string[];
-  aiHostedEnabled: boolean;
   timezone?: string;
 };
 
@@ -80,8 +79,6 @@ function pendingFromMetadata(
       .map((key) => key.trim())
       .filter(Boolean),
   );
-  const aiHostedEnabled =
-    accountType === "PERSONAL" && String(m.signupAiHosted ?? "") === "1";
   const submittedTimezone = String(m.signupTimezone ?? "").trim();
   const timezone = isValidTimeZone(submittedTimezone)
     ? submittedTimezone
@@ -97,7 +94,6 @@ function pendingFromMetadata(
     passwordHash,
     accountType,
     features,
-    aiHostedEnabled,
     ...(timezone ? { timezone } : {}),
   };
 }
@@ -180,7 +176,6 @@ export async function materializeAccount(
         status: "ACTIVE",
         accountType: pending.accountType,
         features: pending.features,
-        aiHostedEnabled: pending.aiHostedEnabled,
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,

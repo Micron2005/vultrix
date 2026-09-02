@@ -63,8 +63,6 @@ export async function startSignup(formData: FormData) {
     .map((key) => key.trim())
     .filter(Boolean);
   const features = sanitizeFeatureKeys(accountType, submittedFeatures);
-  const aiHostedEnabled =
-    accountType === "PERSONAL" && formData.get("aiHosted") === "yes";
   const displayName =
     accountType === "PERSONAL" ? `${firstName} ${lastName}`.trim() : name;
 
@@ -105,7 +103,6 @@ export async function startSignup(formData: FormData) {
   const priceId = await resolvePriceId(
     accountType,
     features.includes("invoices"),
-    aiHostedEnabled,
   );
 
   const customer = await stripe.customers.create({
@@ -121,7 +118,6 @@ export async function startSignup(formData: FormData) {
       signupPasswordHash: hashPassword(password),
       signupAccountType: accountType,
       signupFeatures: features.join(","),
-      signupAiHosted: aiHostedEnabled ? "1" : "0",
       ...(timezone ? { signupTimezone: timezone } : {}),
     },
   });

@@ -102,7 +102,6 @@ async function main() {
           accountType: "AUTO_SHOP",
           subscriptionId: subId,
           hasInvoices: true,
-          aiHosted: false,
         });
       }
       changed++;

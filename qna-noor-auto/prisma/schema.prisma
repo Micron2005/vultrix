@@ -1060,8 +1060,7 @@ model Organization {
   timezone   String   @default("America/New_York")
 
   aiAssistantEnabled          Boolean @default(false)
-  aiHostedEnabled             Boolean @default(false)
-  aiAssistantProvider         String  @default("OLLAMA")
+  aiAssistantProvider         String  @default("OPENAI")
   aiAssistantApiKeyEncrypted  String?
   aiAssistantName             String  @default("Assistant")
   aiAssistantVoice            String?

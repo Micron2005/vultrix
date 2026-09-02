@@ -34,24 +34,16 @@ export const GENERAL_PRICE_USD = Number(
 export const PERSONAL_BASIC_PRICE_USD = Number(
   process.env.BILLING_PERSONAL_PRICE_USD ?? 15,
 );
-/** Hosted assistant add-on price for Personal accounts, in whole dollars. */
-export const PERSONAL_AI_ADDON_USD = Number(
-  process.env.BILLING_PERSONAL_AI_ADDON_USD ?? 10,
-);
-
 export function priceForAccount(
   accountType = "AUTO_SHOP",
   hasInvoices = true,
-  aiHosted = false,
 ): number {
   if (accountType === "AUTO_SHOP") return PRICE_USD;
   const basePrice =
     accountType === "PERSONAL" && !hasInvoices
       ? PERSONAL_BASIC_PRICE_USD
       : GENERAL_PRICE_USD;
-  return accountType === "PERSONAL" && aiHosted
-    ? basePrice + PERSONAL_AI_ADDON_USD
-    : basePrice;
+  return basePrice;
 }
 
 /**
@@ -64,9 +56,8 @@ export function priceForAccount(
 export async function resolvePriceId(
   accountType = "AUTO_SHOP",
   hasInvoices = true,
-  aiHosted = false,
 ): Promise<string> {
-  const priceUsd = priceForAccount(accountType, hasInvoices, aiHosted);
+  const priceUsd = priceForAccount(accountType, hasInvoices);
 
   const stripe = getStripe();
   const lookupKey = `vultrix_monthly_${priceUsd}`;
@@ -94,21 +85,6 @@ export async function resolvePriceId(
 }
 
 /**
- * Swap a personal account's subscription between the invoice and basic tiers.
- * Stripe keeps the existing trial and billing cycle; proration is disabled so
- * the new amount applies at the next renewal instead of charging immediately.
- */
-export async function applyInvoiceTierToSubscription(opts: {
-  orgId: string;
-  accountType: string;
-  subscriptionId: string;
-  hasInvoices: boolean;
-  aiHosted?: boolean;
-}): Promise<Stripe.Subscription> {
-  return applySubscriptionPriceToSubscription(opts);
-}
-
-/**
  * Swap a subscription to the price for its account type and invoice choice.
  * Stripe preserves the current trial and billing cycle because only the
  * recurring item's price is changed with proration disabled.
@@ -118,7 +94,6 @@ export async function applySubscriptionPriceToSubscription(opts: {
   accountType: string;
   subscriptionId: string;
   hasInvoices: boolean;
-  aiHosted?: boolean;
 }): Promise<Stripe.Subscription> {
   const stripe = getStripe();
   const subscription = await stripe.subscriptions.retrieve(
@@ -130,7 +105,6 @@ export async function applySubscriptionPriceToSubscription(opts: {
   const priceId = await resolvePriceId(
     opts.accountType,
     opts.hasInvoices,
-    opts.aiHosted,
   );
   if (item.price.id === priceId) {
     await syncSubscriptionToOrg(opts.orgId, subscription);

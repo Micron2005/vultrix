@@ -11,7 +11,6 @@ type SignupWizardProps = {
   autoPrice: number;
   generalPrice: number;
   personalBasicPrice: number;
-  personalAiAddonPrice: number;
   trialDays: number;
   error?: string;
   canceled?: string;
@@ -26,7 +25,6 @@ type PersistedSignupWizard = {
   path: AccountPath | "";
   industry: Industry;
   invoiceChoice: InvoiceChoice;
-  aiHostedEnabled: boolean;
   firstName: string;
   lastName: string;
   businessName: string;
@@ -50,7 +48,6 @@ export function SignupWizard({
   autoPrice,
   generalPrice,
   personalBasicPrice,
-  personalAiAddonPrice,
   trialDays,
   error,
   canceled,
@@ -59,7 +56,6 @@ export function SignupWizard({
   const [path, setPath] = useState<AccountPath | "">("");
   const [industry, setIndustry] = useState<Industry>("");
   const [invoiceChoice, setInvoiceChoice] = useState<"yes" | "no" | "">("");
-  const [aiHostedEnabled, setAiHostedEnabled] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -96,7 +92,7 @@ export function SignupWizard({
           typeof saved.step === "number" &&
           Number.isInteger(saved.step) &&
           saved.step >= 1 &&
-          saved.step <= 5
+          saved.step <= 4
         ) {
           // The password is intentionally NOT persisted (security). Steps 3+
           // gate "Continue to payment" on a valid password, so restoring past
@@ -114,9 +110,6 @@ export function SignupWizard({
         }
         if (saved.invoiceChoice === "yes" || saved.invoiceChoice === "no") {
           setInvoiceChoice(saved.invoiceChoice);
-        }
-        if (typeof saved.aiHostedEnabled === "boolean") {
-          setAiHostedEnabled(saved.aiHostedEnabled);
         }
         if (typeof saved.firstName === "string") setFirstName(saved.firstName);
         if (typeof saved.lastName === "string") setLastName(saved.lastName);
@@ -140,7 +133,6 @@ export function SignupWizard({
       path,
       industry,
       invoiceChoice,
-      aiHostedEnabled,
       firstName,
       lastName,
       businessName,
@@ -162,7 +154,6 @@ export function SignupWizard({
     path,
     industry,
     invoiceChoice,
-    aiHostedEnabled,
     firstName,
     lastName,
     businessName,
@@ -188,9 +179,9 @@ export function SignupWizard({
       : accountType === "BUSINESS"
         ? generalPrice
         : invoiceChoice === "yes"
-          ? generalPrice + (aiHostedEnabled ? personalAiAddonPrice : 0)
+          ? generalPrice
           : invoiceChoice === "no"
-            ? personalBasicPrice + (aiHostedEnabled ? personalAiAddonPrice : 0)
+            ? personalBasicPrice
             : null;
   const displayName =
     path === "personal" ? `${firstName} ${lastName}`.trim() : businessName.trim();
@@ -228,15 +219,13 @@ export function SignupWizard({
     }
     if (step === 4) {
       if (!invoiceChoice) setStepError("Choose yes or no to continue.");
-      else if (path === "personal") setStep(5);
       return;
     }
   }
 
   function back() {
     setStepError("");
-    if (step === 5) setStep(4);
-    else if (step === 4) setStep(3);
+    if (step === 4) setStep(3);
     else if (step === 3) setStep(2);
     else if (step === 2) setStep(1);
   }
@@ -254,7 +243,7 @@ export function SignupWizard({
           </div>
           <div className="text-xs text-zinc-500">
             {monthlyPrice === null
-              ? `$${personalBasicPrice}–$${generalPrice}/month base for personal accounts; hosted AI +$${personalAiAddonPrice}/month`
+              ? `$${personalBasicPrice}–$${generalPrice}/month base for personal accounts`
               : `$${monthlyPrice}/month`}
             {accountType === "AUTO_SHOP" && " for auto shops"}
             {accountType === "BUSINESS" && " for business accounts"}
@@ -281,11 +270,10 @@ export function SignupWizard({
                     ? "What do you do?"
                     : "What kind of business is this?")}
                 {step === 4 && "Do you need to create invoices?"}
-                {step === 5 && "Add the built-in AI assistant?"}
               </h1>
             </div>
             <div className="text-xs text-zinc-400">
-              1–{path === "personal" ? "5" : "4"}
+              1–4
             </div>
           </div>
 
@@ -512,42 +500,6 @@ export function SignupWizard({
             </div>
           )}
 
-          {step === 5 && path === "personal" && (
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-600">
-                Add the hosted assistant for an additional $
-                {personalAiAddonPrice}/month. You can add your own OpenAI or
-                Anthropic key later for free.
-              </p>
-              {([false, true] as const).map((value) => (
-                <button
-                  key={value ? "yes" : "no"}
-                  type="button"
-                  onClick={() => setAiHostedEnabled(value)}
-                  className={`w-full rounded-lg border p-4 text-left ${
-                    aiHostedEnabled === value
-                      ? "border-zinc-900 bg-zinc-50"
-                      : "border-zinc-200 hover:border-zinc-400"
-                  }`}
-                >
-                  <div className="font-medium text-zinc-900">
-                    {value
-                      ? `Yes — add hosted AI (+$${personalAiAddonPrice}/month)`
-                      : "No — I’ll use my own key later or skip AI"}
-                  </div>
-                  <div className="mt-1 text-sm text-zinc-500">
-                    {value
-                      ? "Built-in AI runs on Vultrix hosting."
-                      : "Bring your own OpenAI or Anthropic key in Settings for free."}
-                  </div>
-                </button>
-              ))}
-              <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                This account is billed at ${monthlyPrice}/month.
-              </p>
-            </div>
-          )}
-
           {(canceled || error) && (
             <div className="mt-4 space-y-2">
               {canceled && (
@@ -582,11 +534,6 @@ export function SignupWizard({
             <input type="hidden" name="accountType" value={accountType} />
             <input
               type="hidden"
-              name="aiHosted"
-              value={aiHostedEnabled ? "yes" : "no"}
-            />
-            <input
-              type="hidden"
               name="features"
               value={finalFeatures.join(",")}
             />
@@ -611,7 +558,7 @@ export function SignupWizard({
                 >
                   Continue to payment
                 </button>
-              ) : step === 5 && path === "personal" ? (
+              ) : step === 4 && path === "personal" ? (
                 <button
                   key="pay"
                   type="submit"

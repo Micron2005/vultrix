@@ -6,7 +6,6 @@ import { requireUser } from "@/lib/session";
 import { billingConfigured } from "@/lib/stripe";
 import {
   describeBilling,
-  PERSONAL_AI_ADDON_USD,
   priceForAccount,
 } from "@/lib/billing";
 import { enabledFeatureSet } from "@/lib/features";
@@ -55,11 +54,7 @@ export default async function BillingPage({
   const connectReady = org.stripeConnectChargesEnabled;
   const featureSet = enabledFeatureSet(org);
   const hasInvoices = featureSet.has("invoices");
-  const monthlyPrice = priceForAccount(
-    org.accountType,
-    hasInvoices,
-    org.aiHostedEnabled,
-  );
+  const monthlyPrice = priceForAccount(org.accountType, hasInvoices);
 
   return (
     <div>
@@ -143,12 +138,12 @@ export default async function BillingPage({
               <Select name="invoices" defaultValue={hasInvoices ? "yes" : "no"}>
                 <option value="no">
                   No — $
-                  {priceForAccount("PERSONAL", false, org.aiHostedEnabled)}
+                  {priceForAccount("PERSONAL", false)}
                   /month
                 </option>
                 <option value="yes">
                   Yes — $
-                  {priceForAccount("PERSONAL", true, org.aiHostedEnabled)}
+                  {priceForAccount("PERSONAL", true)}
                   /month
                 </option>
               </Select>
@@ -158,30 +153,6 @@ export default async function BillingPage({
             </div>
           ) : (
             <input type="hidden" name="invoices" value="yes" />
-          )}
-          {org.accountType === "PERSONAL" && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">
-                AI assistant (hosted)
-              </label>
-              <Select
-                name="aiHosted"
-                defaultValue={org.aiHostedEnabled ? "yes" : "no"}
-              >
-                <option value="no">
-                  Off — $
-                  {priceForAccount("PERSONAL", hasInvoices, false)}/month
-                </option>
-                <option value="yes">
-                  On — +${PERSONAL_AI_ADDON_USD}/mo, $
-                  {priceForAccount("PERSONAL", hasInvoices, true)}/month
-                </option>
-              </Select>
-              <p className="mt-1 text-xs text-zinc-500">
-                Hosted AI is a Personal-only add-on. Bring your own
-                OpenAI/Anthropic key in Settings for free.
-              </p>
-            </div>
           )}
           <p className="text-sm text-zinc-600">
             {org.accountType === "AUTO_SHOP"
