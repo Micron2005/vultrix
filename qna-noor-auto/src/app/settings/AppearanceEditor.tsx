@@ -89,10 +89,17 @@ function SegmentButton({
 
 export function AppearanceEditor({
   initialPrefs,
+  resetPrefs = DEFAULT_APPEARANCE,
 }: {
   initialPrefs: AppearancePrefs;
+  resetPrefs?: AppearancePrefs;
 }) {
   const [prefs, setPrefs] = useState<AppearancePrefs>(initialPrefs);
+  const [customHex, setCustomHex] = useState(
+    /^#[0-9a-f]{6}$/i.test(initialPrefs.accent)
+      ? initialPrefs.accent
+      : "#18181b",
+  );
 
   useEffect(() => {
     const styleId = "vx-appearance-preview";
@@ -115,6 +122,14 @@ export function AppearanceEditor({
     value: AppearancePrefs[K],
   ) {
     setPrefs((current) => ({ ...current, [key]: value }));
+  }
+
+  function setCustomAccent(value: string) {
+    const normalized = value.toLowerCase();
+    setCustomHex(normalized);
+    if (/^#[0-9a-f]{6}$/.test(normalized)) {
+      setPreference("accent", normalized);
+    }
   }
 
   return (
@@ -165,6 +180,27 @@ export function AppearanceEditor({
                 onSelect={() => setPreference("accent", accent.key)}
               />
             ))}
+            <label className="flex min-w-48 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+              <input
+                type="color"
+                value={
+                  /^#[0-9a-f]{6}$/i.test(customHex) ? customHex : "#18181b"
+                }
+                onChange={(event) => setCustomAccent(event.target.value)}
+                aria-label="Choose custom accent color"
+                className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0"
+              />
+              <span className="flex-1">Custom</span>
+              <input
+                type="text"
+                value={customHex}
+                onChange={(event) => setCustomAccent(event.target.value)}
+                aria-label="Custom accent hex"
+                placeholder="#rrggbb"
+                maxLength={7}
+                className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+            </label>
           </div>
         </fieldset>
 
@@ -229,10 +265,17 @@ export function AppearanceEditor({
           <button
             type="submit"
             formAction={resetAppearance}
-            onClick={() => setPrefs({ ...DEFAULT_APPEARANCE })}
+            onClick={() => {
+              setPrefs({ ...resetPrefs });
+              setCustomHex(
+                /^#[0-9a-f]{6}$/i.test(resetPrefs.accent)
+                  ? resetPrefs.accent
+                  : "#18181b",
+              );
+            }}
             className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
-            Reset to defaults
+            Reset to account default
           </button>
           <span className="text-xs text-zinc-500">Preview updates instantly.</span>
         </div>

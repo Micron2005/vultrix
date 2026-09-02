@@ -338,12 +338,102 @@ export function normalizeAppearance(input: unknown): AppearancePrefs {
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
+  const rawAccent = source.accent;
+  const accentValue =
+    typeof rawAccent === "string" && /^#[0-9a-f]{6}$/i.test(rawAccent)
+      ? rawAccent.toLowerCase()
+      : lookup(UI_ACCENTS, rawAccent).key;
   return {
     palette: lookup(UI_PALETTES, source.palette).key,
-    accent: lookup(UI_ACCENTS, source.accent).key,
+    accent: accentValue,
     scale: lookup(UI_SCALES, source.scale).key,
     radius: lookup(UI_RADII, source.radius).key,
     font: lookup(UI_FONTS, source.font).key,
+  };
+}
+
+function parseAppearanceRecord(raw: unknown): Record<string, unknown> {
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return raw && typeof raw === "object"
+    ? (raw as Record<string, unknown>)
+    : {};
+}
+
+function validAppearanceValue(
+  key: keyof AppearancePrefs,
+  value: unknown,
+): string | null {
+  if (typeof value !== "string") return null;
+  if (key === "accent" && /^#[0-9a-f]{6}$/i.test(value)) {
+    return value.toLowerCase();
+  }
+  const values = {
+    palette: UI_PALETTES,
+    accent: UI_ACCENTS,
+    scale: UI_SCALES,
+    radius: UI_RADII,
+    font: UI_FONTS,
+  }[key];
+  return values.some((entry) => entry.key === value) ? value : null;
+}
+
+export function resolveAppearance(
+  userPrefs: unknown,
+  orgDefault: unknown,
+): AppearancePrefs {
+  const user = parseAppearanceRecord(userPrefs);
+  const organization = parseAppearanceRecord(orgDefault);
+  const resolved = {} as Record<keyof AppearancePrefs, string>;
+  for (const key of Object.keys(DEFAULT_APPEARANCE) as Array<
+    keyof AppearancePrefs
+  >) {
+    const storageKey = `ui${key[0].toUpperCase()}${key.slice(1)}`;
+    resolved[key] =
+      validAppearanceValue(key, user[key] ?? user[storageKey]) ??
+      validAppearanceValue(key, organization[key] ?? organization[storageKey]) ??
+      DEFAULT_APPEARANCE[key];
+  }
+  return normalizeAppearance(resolved);
+}
+
+export function accentVarsFromHex(hex: string): Record<string, string> {
+  const normalized = hex.toLowerCase();
+  const match = normalized.match(/^#([0-9a-f]{6})$/);
+  if (!match) return {};
+
+  const channels = [0, 2, 4].map((offset) =>
+    Number.parseInt(match[1].slice(offset, offset + 2), 16),
+  );
+  const toHex = (value: number): string =>
+    Math.max(0, Math.min(255, Math.round(value)))
+      .toString(16)
+      .padStart(2, "0");
+  const mixed = (whiteRatio: number): string =>
+    `#${channels.map((channel) => toHex(channel * (1 - whiteRatio) + 255 * whiteRatio)).join("")}`;
+  const darkened = `#${channels.map((channel) => toHex(channel * 0.88)).join("")}`;
+  const luminance = channels
+    .map((channel) => channel / 255)
+    .map((channel) =>
+      channel <= 0.03928
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+  const relativeLuminance =
+    0.2126 * luminance[0] + 0.7152 * luminance[1] + 0.0722 * luminance[2];
+
+  return {
+    "--vx-accent-600": normalized,
+    "--vx-accent-700": darkened,
+    "--vx-accent-50": mixed(0.95),
+    "--vx-accent-100": mixed(0.88),
+    "--vx-accent-fg":
+      relativeLuminance > 0.179 ? "#18181b" : "#ffffff",
   };
 }
 
@@ -365,6 +455,9 @@ export function appearanceCss(prefs: AppearancePrefs): string {
 
   const palette = lookup(UI_PALETTES, normalized.palette);
   const selectedAccent = lookup(UI_ACCENTS, normalized.accent);
+  const accentVars = /^#[0-9a-f]{6}$/i.test(normalized.accent)
+    ? accentVarsFromHex(normalized.accent)
+    : selectedAccent.vars;
   const scale = lookup(UI_SCALES, normalized.scale);
   const radius = lookup(UI_RADII, normalized.radius);
   const font = lookup(UI_FONTS, normalized.font);
@@ -390,7 +483,7 @@ export function appearanceCss(prefs: AppearancePrefs): string {
             "--radius-xl": "0.75rem",
           };
   const shared = {
-    ...selectedAccent.vars,
+    ...accentVars,
     "--vx-root-font": scale.value,
     ...radiusVars,
     "--vx-font": font.value,

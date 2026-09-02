@@ -13,7 +13,7 @@ import {
 import {
   getEligibleNavItems,
   navItemLabel,
-  normalizeNavLayout,
+  resolveNavLayout,
   type NavCatalogItem,
 } from "@/lib/navLayout";
 
@@ -27,6 +27,7 @@ type NavProps = {
   aiAssistantEnabled?: boolean;
   canViewFinancials?: boolean;
   navLayout?: string | null;
+  navDefault?: string | null;
 };
 
 function matchesPath(pathname: string, href: string): boolean {
@@ -59,6 +60,7 @@ export function Nav({
   aiAssistantEnabled = false,
   canViewFinancials = true,
   navLayout,
+  navDefault,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -111,13 +113,19 @@ export function Nav({
       feature: hasRepairOrders ? "repair_orders" : "invoices",
     };
   });
-  const normalizedLayout = !isSuperadmin && navLayout
-    ? normalizeNavLayout(navLayout)
+  const normalizedLayout = !isSuperadmin
+    ? resolveNavLayout(navLayout, navDefault, {
+        accountType,
+        enabledFeatures,
+      })
     : null;
   const navItems = normalizedLayout
     ? baseItems
         .map((item) => ({
           item,
+          label: normalizedLayout.items.find(
+            (entry) => entry.href === item.href,
+          )?.label,
           layoutIndex: normalizedLayout.items.findIndex(
             (entry) => entry.href === item.href,
           ),
@@ -127,7 +135,10 @@ export function Nav({
         }))
         .filter(({ visible }) => visible !== false)
         .sort((a, b) => a.layoutIndex - b.layoutIndex)
-        .map(({ item }) => item)
+        .map(({ item, label }) => ({
+          ...item,
+          label: label ?? item.label,
+        }))
     : baseItems;
   const renderedHrefs = navItems.map((item) => item.href);
   const searchTerms = [

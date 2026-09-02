@@ -1064,6 +1064,9 @@ model Organization {
   aiAssistantApiKeyEncrypted  String?
   aiAssistantName             String  @default("Assistant")
   aiAssistantVoice            String?
+  uiDefaults                  String?
+  navDefault                  String?
+  dashDefault                 String?
 
   // --- Billing (Stripe subscription) ---------------------------------------
   // Contact email used for the Stripe customer / receipts.
@@ -1174,11 +1177,11 @@ model User {
   // SUPERADMIN | OWNER | ADMIN | STAFF
   role         String  @default("STAFF")
   isActive     Boolean @default(true)
-  uiPalette    String  @default("default")
-  uiAccent     String  @default("default")
-  uiScale      String  @default("default")
-  uiRadius     String  @default("default")
-  uiFont       String  @default("default")
+  uiPalette    String?
+  uiAccent     String?
+  uiScale      String?
+  uiRadius     String?
+  uiFont       String?
   dashLayout   String?
   navLayout    String?
 

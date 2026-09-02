@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import {
-  NAV_ITEMS,
   type NavCatalogItem,
   type NavLayout,
 } from "@/lib/navLayout";
@@ -11,9 +10,11 @@ import { resetNavLayout, saveNavLayout } from "./nav-actions";
 
 export function NavLayoutEditor({
   initialLayout,
+  resetLayout,
   items,
 }: {
   initialLayout: NavLayout;
+  resetLayout: NavLayout;
   items: NavCatalogItem[];
 }) {
   const [current, setCurrent] = useState(initialLayout);
@@ -61,9 +62,7 @@ export function NavLayoutEditor({
 
   const reset = async () => {
     await resetNavLayout();
-    setCurrent({
-      items: NAV_ITEMS.map((item) => ({ href: item.href, visible: true })),
-    });
+    setCurrent(resetLayout);
   };
 
   return (
@@ -79,9 +78,56 @@ export function NavLayoutEditor({
             className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
           >
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                {item.label}
-              </span>
+              <div className="min-w-48">
+                <label className="sr-only" htmlFor={`nav-label-${item.href}`}>
+                  Name for {item.label}
+                </label>
+                <input
+                  id={`nav-label-${item.href}`}
+                  type="text"
+                  value={entry.label ?? item.label}
+                  placeholder={item.label}
+                  maxLength={24}
+                  onChange={(event) => {
+                    const label = event.target.value;
+                    setCurrent({
+                      items: current.items.map((currentEntry) =>
+                        currentEntry.href === entry.href
+                          ? {
+                              ...currentEntry,
+                              ...(label
+                                ? { label }
+                                : { label: undefined }),
+                            }
+                          : currentEntry,
+                      ),
+                    });
+                  }}
+                  className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+                <span className="text-xs text-zinc-500">
+                  Default: {item.label}
+                </span>
+              </div>
+              {entry.label && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  onClick={() =>
+                    setCurrent({
+                      items: current.items.map((currentEntry) =>
+                        currentEntry.href === entry.href
+                          ? { ...currentEntry, label: undefined }
+                          : currentEntry,
+                      ),
+                    })
+                  }
+                >
+                  Use default name
+                </Button>
+              )}
               {!entry.visible && (
                 <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                   Hidden
@@ -145,7 +191,7 @@ export function NavLayoutEditor({
             size="sm"
             className="dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            Reset to default
+            Reset to account default
           </Button>
         </form>
       </div>

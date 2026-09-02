@@ -1,8 +1,10 @@
-import { requireSettingsAccess } from "@/lib/permissions";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/session";
 
 export default async function SettingsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  await requireSettingsAccess();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   return children;
 }

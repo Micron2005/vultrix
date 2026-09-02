@@ -40,13 +40,21 @@ import { VoicePicker } from "./VoicePicker";
 import { TimezonePicker } from "./TimezonePicker";
 import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
 import { AppearanceEditor } from "./AppearanceEditor";
-import { normalizeAppearance } from "@/lib/appearance";
+import { resolveAppearance } from "@/lib/appearance";
 import { NavLayoutEditor } from "./NavLayoutEditor";
 import {
   getEligibleNavItems,
   navItemLabel,
-  normalizeNavLayout,
+  resolveNavLayout,
 } from "@/lib/navLayout";
+import {
+  clearAppearanceDefault,
+  clearDashboardDefault,
+  clearNavDefault,
+  publishAppearanceDefault,
+  publishDashboardDefault,
+  publishNavDefault,
+} from "./default-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -74,8 +82,9 @@ export default async function SettingsPage({
   }>;
 }) {
   const orgId = await requireOrgId();
-  await requireSettingsAccess();
   const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "STAFF") await requireSettingsAccess();
   const themeCookie = (await cookies()).get("vx-theme")?.value;
   const theme: ThemeMode =
     themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
@@ -83,31 +92,20 @@ export default async function SettingsPage({
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
   const isPersonal = accountType === "PERSONAL";
-  const appearanceRecord =
-    isPersonal && user
-      ? await db.user.findUnique({
-          where: { id: user.id },
-          select: {
-            uiPalette: true,
-            uiAccent: true,
-            uiScale: true,
-            uiRadius: true,
-            uiFont: true,
-            navLayout: true,
-          },
-        })
-      : null;
-  const appearancePrefs = normalizeAppearance(
-    appearanceRecord
-      ? {
-          palette: appearanceRecord.uiPalette,
-          accent: appearanceRecord.uiAccent,
-          scale: appearanceRecord.uiScale,
-          radius: appearanceRecord.uiRadius,
-          font: appearanceRecord.uiFont,
-        }
-      : undefined,
-  );
+  const appearanceRecord = await db.user.findUnique({
+    where: { id: user.id },
+    select: {
+      uiPalette: true,
+      uiAccent: true,
+      uiScale: true,
+      uiRadius: true,
+      uiFont: true,
+      navLayout: true,
+      dashLayout: true,
+    },
+  });
+  const appearancePrefs = resolveAppearance(appearanceRecord, org.uiDefaults);
+  const accountDefaultAppearance = resolveAppearance(null, org.uiDefaults);
   const canManageOrgSettings = Boolean(
     user && (user.role === "OWNER" || user.role === "ADMIN"),
   );
@@ -126,7 +124,20 @@ export default async function SettingsPage({
       enabledFeatures: featureSet,
     }),
   }));
-  const navLayout = normalizeNavLayout(appearanceRecord?.navLayout);
+  const navOptions = {
+    accountType,
+    enabledFeatures: featureSet,
+  };
+  const navLayout = resolveNavLayout(
+    appearanceRecord?.navLayout,
+    org.navDefault,
+    navOptions,
+  );
+  const accountDefaultNavLayout = resolveNavLayout(
+    null,
+    org.navDefault,
+    navOptions,
+  );
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
   const showAppointmentReminders = featureSet.has("schedule");
@@ -266,15 +277,66 @@ export default async function SettingsPage({
           </p>
           <ThemeToggle initialTheme={theme} />
         </div>
-        {isPersonal && <AppearanceEditor initialPrefs={appearancePrefs} />}
+        <AppearanceEditor
+          initialPrefs={appearancePrefs}
+          resetPrefs={accountDefaultAppearance}
+        />
       </Card>
-      {isPersonal && (
+      <Card className="mb-6 max-w-2xl">
+        <CardHeader title="Sidebar" />
+        <NavLayoutEditor
+          initialLayout={navLayout}
+          resetLayout={accountDefaultNavLayout}
+          items={eligibleNavItems}
+        />
+      </Card>
+      {canManageOrgSettings && (
         <Card className="mb-6 max-w-2xl">
-          <CardHeader title="Sidebar" />
-          <NavLayoutEditor
-            initialLayout={navLayout}
-            items={eligibleNavItems}
-          />
+          <CardHeader title="Defaults for this account" />
+          <div className="space-y-4 p-6">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Publish your current appearance, sidebar, or dashboard as the
+              default for everyone in this account.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <form action={publishAppearanceDefault}>
+                <Button type="submit" className="w-full">
+                  Publish appearance
+                </Button>
+              </form>
+              <form action={publishNavDefault}>
+                <Button type="submit" className="w-full">
+                  Publish sidebar
+                </Button>
+              </form>
+              <form action={publishDashboardDefault}>
+                <Button type="submit" className="w-full">
+                  Publish dashboard
+                </Button>
+              </form>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <form action={clearAppearanceDefault}>
+                <Button type="submit" variant="ghost" className="w-full">
+                  Clear appearance
+                </Button>
+              </form>
+              <form action={clearNavDefault}>
+                <Button type="submit" variant="ghost" className="w-full">
+                  Clear sidebar
+                </Button>
+              </form>
+              <form action={clearDashboardDefault}>
+                <Button type="submit" variant="ghost" className="w-full">
+                  Clear dashboard
+                </Button>
+              </form>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Users who have their own saved preference keep their override.
+              Resetting a preference returns it to this account default.
+            </p>
+          </div>
         </Card>
       )}
       <Card className="max-w-2xl">

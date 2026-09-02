@@ -7,7 +7,7 @@ import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   DASHBOARD_BLOCKS,
-  normalizeDashboardLayout,
+  resolveDashboardLayout,
   type DashboardBlockId,
 } from "@/lib/dashboard";
 import { DashboardGrid } from "./DashboardGrid";
@@ -132,15 +132,26 @@ export async function DashboardPersonal({
   searchParams: SearchParams;
 }) {
   const orgId = user.orgId as string;
-  const [timezone, layoutRecord] = await Promise.all([
+  const [timezone, layoutRecord, orgRecord] = await Promise.all([
     orgTimeZone(orgId),
     db.user.findUnique({
       where: { id: user.id },
       select: { dashLayout: true },
     }),
+    db.organization.findUnique({
+      where: { id: orgId },
+      select: { dashDefault: true },
+    }),
   ]);
   const features = enabledFeatureSet(user);
-  const layout = normalizeDashboardLayout(layoutRecord?.dashLayout);
+  const layout = resolveDashboardLayout(
+    layoutRecord?.dashLayout,
+    orgRecord?.dashDefault,
+  );
+  const accountDefaultLayout = resolveDashboardLayout(
+    null,
+    orgRecord?.dashDefault,
+  );
   const params = await searchParams;
   const editing =
     params.customize === "1" ||
@@ -200,6 +211,7 @@ export async function DashboardPersonal({
       />
       <DashboardGrid
         layout={layout}
+        resetLayout={accountDefaultLayout}
         blocks={blockDescriptors}
         editing={editing}
       />

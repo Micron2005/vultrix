@@ -8,7 +8,7 @@ export type NavCatalogItem = {
 };
 
 export type NavLayout = {
-  items: Array<{ href: string; visible: boolean }>;
+  items: Array<{ href: string; visible: boolean; label?: string }>;
 };
 
 type NavLabelOptions = {
@@ -55,7 +55,6 @@ const STAFF_HIDDEN_HREFS = new Set([
   "/sales",
   "/reports",
   "/export",
-  "/settings",
 ]);
 
 export function getEligibleNavItems({
@@ -114,7 +113,10 @@ function parseNavLayout(raw: unknown): unknown[] {
   return Array.isArray(record.items) ? record.items : [];
 }
 
-export function normalizeNavLayout(raw: unknown): NavLayout {
+export function normalizeNavLayout(
+  raw: unknown,
+  options: NavLabelOptions = { enabledFeatures: [] },
+): NavLayout {
   const known = new Map(NAV_ITEMS.map((item) => [item.href, item]));
   const items: NavLayout["items"] = [];
   const seen = new Set<string>();
@@ -128,9 +130,15 @@ export function normalizeNavLayout(raw: unknown): NavLayout {
     }
     seen.add(href);
     const catalogItem = known.get(href);
+    const defaultLabel = navItemLabel(catalogItem!, options);
+    const label =
+      typeof record.label === "string"
+        ? record.label.trim().slice(0, 24)
+        : "";
     items.push({
       href,
       visible: catalogItem?.required ? true : record.visible === true,
+      ...(label && label !== defaultLabel ? { label } : {}),
     });
   }
 
@@ -141,6 +149,17 @@ export function normalizeNavLayout(raw: unknown): NavLayout {
   }
 
   return { items };
+}
+
+export function resolveNavLayout(
+  userLayout: unknown,
+  orgDefault: unknown,
+  options: NavLabelOptions = { enabledFeatures: [] },
+): NavLayout {
+  return normalizeNavLayout(
+    userLayout === null || userLayout === undefined ? orgDefault : userLayout,
+    options,
+  );
 }
 
 export function serializeNavLayout(layout: NavLayout): string {
