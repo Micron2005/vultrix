@@ -289,7 +289,7 @@ export default async function GoalsPage() {
     <>
       <PageHeader
         title="Goals"
-        description="Track progress and tick off today\u2019s routines, scored from the records already in your account."
+        description="Track progress and tick off today’s routines, scored from the records already in your account."
         actions={
           <>
             <LinkButton href="/goals/routines" variant="secondary">

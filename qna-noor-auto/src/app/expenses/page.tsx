@@ -599,7 +599,7 @@ export default async function ExpensesListPage({
       {expenses.length === 0 ? (
         <EmptyState
           title="No expenses yet."
-          description="Track shop overhead so your profit-and-loss is accurate."
+          description="Track your spending so your profit-and-loss is accurate."
           action={<LinkButton href="/expenses/new">+ New expense</LinkButton>}
         />
       ) : (

@@ -59,9 +59,9 @@ export function prettyCategory(c: string): string {
   const map: Record<string, string> = {
     RENT: "Rent",
     UTILITIES: "Utilities",
-    SUPPLIES: "Shop supplies",
+    SUPPLIES: "Supplies",
     TOOLS: "Tools",
-    VEHICLE: "Shop vehicle",
+    VEHICLE: "Vehicle",
     INSURANCE: "Insurance",
     SOFTWARE: "Software",
     MISC: "Other",
