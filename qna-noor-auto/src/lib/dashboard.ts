@@ -163,6 +163,15 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
   return { columns: parsed.columns, blocks };
 }
 
+export function resolveDashboardLayout(
+  userLayout: unknown,
+  orgDefault: unknown,
+): DashboardLayout {
+  return normalizeDashboardLayout(
+    userLayout === null || userLayout === undefined ? orgDefault : userLayout,
+  );
+}
+
 export function serializeDashboardLayout(layout: DashboardLayout): string {
   return JSON.stringify(layout);
 }

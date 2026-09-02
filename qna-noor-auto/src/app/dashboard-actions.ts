@@ -10,9 +10,6 @@ import {
 
 export async function saveDashboardLayout(fd: FormData) {
   const user = await requireUser();
-  if (user.accountType !== "PERSONAL") {
-    throw new Error("Dashboard customization is only available for personal accounts");
-  }
   const layout = normalizeDashboardLayout(fd.get("layout"));
   await db.user.update({
     where: { id: user.id },
@@ -23,9 +20,6 @@ export async function saveDashboardLayout(fd: FormData) {
 
 export async function resetDashboardLayout() {
   const user = await requireUser();
-  if (user.accountType !== "PERSONAL") {
-    throw new Error("Dashboard customization is only available for personal accounts");
-  }
   await db.user.update({
     where: { id: user.id },
     data: { dashLayout: null },

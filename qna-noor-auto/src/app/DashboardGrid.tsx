@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Button, LinkButton } from "@/components/ui";
 import {
-  DEFAULT_DASHBOARD_LAYOUT,
   type DashboardBlockId,
   type DashboardLayout,
 } from "@/lib/dashboard";
@@ -19,10 +18,12 @@ type DashboardBlock = {
 
 export function DashboardGrid({
   layout,
+  resetLayout,
   blocks,
   editing,
 }: {
   layout: DashboardLayout;
+  resetLayout: DashboardLayout;
   blocks: DashboardBlock[];
   editing: boolean;
 }) {
@@ -67,8 +68,8 @@ export function DashboardGrid({
   const reset = async () => {
     await resetDashboardLayout();
     setCurrent({
-      columns: DEFAULT_DASHBOARD_LAYOUT.columns,
-      blocks: DEFAULT_DASHBOARD_LAYOUT.blocks.map((block) => ({ ...block })),
+      columns: resetLayout.columns,
+      blocks: resetLayout.blocks.map((block) => ({ ...block })),
     });
   };
   const gridClass =

@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import {
   DEFAULT_APPEARANCE,
   appearanceCss,
-  normalizeAppearance,
+  resolveAppearance,
 } from "@/lib/appearance";
 
 export const metadata: Metadata = {
@@ -48,9 +48,8 @@ export default async function RootLayout({
     themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   const orgLabel = user.orgName ?? APP_NAME;
   const enabledFeatures = Array.from(enabledFeatureSet(user));
-  const isPersonal = user.accountType === "PERSONAL";
-  const appearanceRecord = isPersonal
-    ? await db.user.findUnique({
+  const [appearanceRecord, organization] = await Promise.all([
+    db.user.findUnique({
         where: { id: user.id },
         select: {
           uiPalette: true,
@@ -60,18 +59,17 @@ export default async function RootLayout({
           uiFont: true,
           navLayout: true,
         },
-      })
-    : null;
-  const appearancePrefs = normalizeAppearance(
-    appearanceRecord
-      ? {
-          palette: appearanceRecord.uiPalette,
-          accent: appearanceRecord.uiAccent,
-          scale: appearanceRecord.uiScale,
-          radius: appearanceRecord.uiRadius,
-          font: appearanceRecord.uiFont,
-        }
-      : DEFAULT_APPEARANCE,
+      }),
+    user.orgId
+      ? db.organization.findUnique({
+          where: { id: user.orgId },
+          select: { uiDefaults: true, navDefault: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  const appearancePrefs = resolveAppearance(
+    appearanceRecord,
+    organization?.uiDefaults ?? DEFAULT_APPEARANCE,
   );
   const appearanceStyles = appearanceCss(appearancePrefs);
 
@@ -79,7 +77,7 @@ export default async function RootLayout({
     <html
       lang="en"
       className={theme === "dark" ? "dark h-full" : "h-full"}
-      data-vx-theme={isPersonal ? "custom" : undefined}
+      data-vx-theme="custom"
       suppressHydrationWarning={theme === "system"}
     >
       <head>
@@ -111,7 +109,8 @@ export default async function RootLayout({
             aiAssistantEnabled={
               user.accountType === "PERSONAL" && user.aiAssistantEnabled
             }
-            navLayout={isPersonal ? appearanceRecord?.navLayout : null}
+            navLayout={appearanceRecord?.navLayout}
+            navDefault={organization?.navDefault}
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}
