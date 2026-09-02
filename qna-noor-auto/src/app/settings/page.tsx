@@ -44,6 +44,7 @@ import { normalizeAppearance } from "@/lib/appearance";
 import { NavLayoutEditor } from "./NavLayoutEditor";
 import {
   getEligibleNavItems,
+  navItemLabel,
   normalizeNavLayout,
 } from "@/lib/navLayout";
 
@@ -118,7 +119,13 @@ export default async function SettingsPage({
     canViewFinancials: Boolean(user && canViewFinancials(user.role)),
     canManageUsers: Boolean(user && canManageUsers(user.role)),
     aiAssistantEnabled: isPersonal && org.aiAssistantEnabled,
-  });
+  }).map((item) => ({
+    ...item,
+    label: navItemLabel(item, {
+      accountType,
+      enabledFeatures: featureSet,
+    }),
+  }));
   const navLayout = normalizeNavLayout(appearanceRecord?.navLayout);
   const showAutoSettings = featureSet.has("repair_orders");
   const showTaxRate = featureSet.has("invoices");
@@ -262,7 +269,7 @@ export default async function SettingsPage({
         {isPersonal && <AppearanceEditor initialPrefs={appearancePrefs} />}
       </Card>
       {isPersonal && (
-        <Card className="mt-6 max-w-2xl">
+        <Card className="mb-6 max-w-2xl">
           <CardHeader title="Sidebar" />
           <NavLayoutEditor
             initialLayout={navLayout}

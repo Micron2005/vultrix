@@ -11,6 +11,11 @@ export type NavLayout = {
   items: Array<{ href: string; visible: boolean }>;
 };
 
+type NavLabelOptions = {
+  accountType?: string | null;
+  enabledFeatures: Iterable<string>;
+};
+
 export const NAV_ITEMS: NavCatalogItem[] = [
   { href: "/", label: "Dashboard", required: true },
   { href: "/customers", label: "Customers", feature: "customers" },
@@ -78,6 +83,21 @@ export function getEligibleNavItems({
     if (item.href === "/sales" && features.has("invoices")) return false;
     return true;
   });
+}
+
+export function navItemLabel(
+  item: NavCatalogItem,
+  { accountType, enabledFeatures }: NavLabelOptions,
+): string {
+  if (item.href === "/appointments") {
+    return accountType === "PERSONAL" ? "Calendar" : "Schedule";
+  }
+  if (item.href !== "/repair-orders") return item.label;
+  const features = new Set(enabledFeatures);
+  const hasRepairOrders = features.has("repair_orders");
+  return hasRepairOrders || (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
+    ? "Repair Orders"
+    : "Invoices";
 }
 
 function parseNavLayout(raw: unknown): unknown[] {

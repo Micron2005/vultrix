@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   getEligibleNavItems,
+  navItemLabel,
   normalizeNavLayout,
   type NavCatalogItem,
 } from "@/lib/navLayout";
@@ -101,20 +102,12 @@ export function Nav({
         aiAssistantEnabled,
       })
   ).map((item) => {
-    if (item.href === "/appointments") {
-      return {
-        ...item,
-        label: accountType === "PERSONAL" ? "Calendar" : "Schedule",
-      };
-    }
-    if (item.href !== "/repair-orders") return item;
+    const label = navItemLabel(item, { accountType, enabledFeatures });
+    if (item.href !== "/repair-orders") return { ...item, label };
     const hasRepairOrders = enabledFeatures.includes("repair_orders");
     return {
       ...item,
-      label:
-        hasRepairOrders || (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
-          ? "Repair Orders"
-          : "Invoices",
+      label,
       feature: hasRepairOrders ? "repair_orders" : "invoices",
     };
   });
