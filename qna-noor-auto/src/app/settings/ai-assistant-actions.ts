@@ -13,7 +13,7 @@ import { assertCanManageSettings } from "@/lib/permissions";
 
 const AssistantSettingsSchema = z.object({
   enabled: z.enum(["on"]).optional(),
-  provider: z.enum(["OLLAMA", "OPENAI", "ANTHROPIC"]),
+  provider: z.enum(["OPENAI", "ANTHROPIC"]),
   assistantName: z.string().trim().min(1).max(80),
   voice: z.string().trim().max(300).optional(),
   apiKey: z.string().trim().optional(),
@@ -32,7 +32,6 @@ export async function saveAiAssistantSettings(formData: FormData) {
     where: { id: user.orgId },
     select: {
       accountType: true,
-      aiHostedEnabled: true,
       aiAssistantApiKeyEncrypted: true,
     },
   });
@@ -53,22 +52,16 @@ export async function saveAiAssistantSettings(formData: FormData) {
   if (!parsed.success) redirect("/settings?assistant_error=invalid");
 
   const input = parsed.data;
-  if (input.provider === "OLLAMA" && !org.aiHostedEnabled) {
-    redirect(
-      "/settings?assistant_error=hosted_ai_required",
-    );
-  }
   const suppliedApiKey = input.apiKey ?? "";
-  const wantsOwnKey = input.provider === "OPENAI" || input.provider === "ANTHROPIC";
-  if (wantsOwnKey && !isAiKeyEncryptionConfigured() && suppliedApiKey) {
+  if (!isAiKeyEncryptionConfigured() && suppliedApiKey) {
     redirect("/settings?assistant_error=key_unavailable");
   }
-  if (wantsOwnKey && !suppliedApiKey && !org.aiAssistantApiKeyEncrypted) {
+  if (!suppliedApiKey && !org.aiAssistantApiKeyEncrypted) {
     redirect("/settings?assistant_error=key_required");
   }
 
   let encryptedKey = org.aiAssistantApiKeyEncrypted;
-  if (input.clearApiKey || input.provider === "OLLAMA") {
+  if (input.clearApiKey) {
     encryptedKey = null;
   } else if (suppliedApiKey) {
     if (!isAiKeyEncryptionConfigured()) {

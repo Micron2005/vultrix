@@ -500,11 +500,6 @@ export default async function SettingsPage({
             </Field>
             <Field label="Backend">
               <Select name="provider" defaultValue={org.aiAssistantProvider}>
-                <option value="OLLAMA" disabled={!org.aiHostedEnabled}>
-                  {org.aiHostedEnabled
-                    ? "Built-in (hosted Ollama)"
-                    : "Built-in (hosted Ollama) — enable in Billing first"}
-                </option>
                 <option value="OPENAI" disabled={!aiKeyConfigured}>
                   My own key — OpenAI
                 </option>
@@ -512,12 +507,6 @@ export default async function SettingsPage({
                   My own key — Anthropic
                 </option>
               </Select>
-              {!org.aiHostedEnabled && (
-                <p className="mt-1 text-xs text-amber-700">
-                  Hosted AI requires the Personal AI add-on in Billing. Your
-                  own OpenAI or Anthropic key remains free.
-                </p>
-              )}
               {!aiKeyConfigured && (
                 <p className="mt-1 text-xs text-amber-700">
                   Own-key backends are unavailable until AI_KEY_SECRET is
@@ -775,8 +764,6 @@ function assistantErrorMessage(code: string): string {
       return "Add an API key before selecting an own-key backend.";
     case "personal_only":
       return "AI assistant settings are currently available for personal accounts only.";
-    case "hosted_ai_required":
-      return "Enable the hosted AI add-on in Billing first, or use your own key.";
     case "invalid":
       return "Check the assistant settings and try again.";
     default:

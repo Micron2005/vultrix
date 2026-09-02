@@ -50,7 +50,6 @@ const OPENAI_MODEL =
 const ANTHROPIC_MODEL =
   process.env.ASSISTANT_ANTHROPIC_MODEL?.trim() ||
   "claude-3-5-sonnet-latest";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.1:8b";
 
 const requestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
@@ -267,7 +266,7 @@ const tools: AssistantToolDefinition[] = [
   },
 ];
 
-const providerSchema = z.enum(["OLLAMA", "OPENAI", "ANTHROPIC"]);
+const providerSchema = z.enum(["OPENAI", "ANTHROPIC"]);
 const MAX_TOOL_ITERATIONS = 6;
 
 function friendlyError(error: unknown): string {
@@ -399,7 +398,6 @@ export async function POST(request: Request) {
     select: {
       accountType: true,
       aiAssistantEnabled: true,
-      aiHostedEnabled: true,
       aiAssistantName: true,
       aiAssistantProvider: true,
       aiAssistantApiKeyEncrypted: true,
@@ -414,29 +412,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Assistant backend is invalid" }, { status: 500 });
   }
   const provider: AssistantProvider = providerResult.data;
-  if (provider === "OLLAMA" && !org.aiHostedEnabled) {
-    return Response.json({
-      reply:
-        "Hosted AI is not active on this account. Enable the hosted AI add-on in Billing, or add your own OpenAI or Anthropic key in Settings.",
-      steps: [],
-    });
-  }
   let apiKey: string | undefined;
-  if (provider !== "OLLAMA") {
-    if (!org.aiAssistantApiKeyEncrypted || !isAiKeyEncryptionConfigured()) {
-      return Response.json(
-        { error: "Own-key backend is not configured" },
-        { status: 503 },
-      );
-    }
-    try {
-      apiKey = decryptAiApiKey(org.aiAssistantApiKeyEncrypted);
-    } catch {
-      return Response.json(
-        { error: "Own-key backend is unavailable" },
-        { status: 503 },
-      );
-    }
+  if (!org.aiAssistantApiKeyEncrypted || !isAiKeyEncryptionConfigured()) {
+    return Response.json(
+      { error: "Own-key backend is not configured" },
+      { status: 503 },
+    );
+  }
+  try {
+    apiKey = decryptAiApiKey(org.aiAssistantApiKeyEncrypted);
+  } catch {
+    return Response.json(
+      { error: "Own-key backend is unavailable" },
+      { status: 503 },
+    );
   }
 
   let body: unknown;
@@ -460,12 +449,7 @@ export async function POST(request: Request) {
   ];
 
   const systemPrompt = buildSystemPrompt(org.aiAssistantName, timezone, now);
-  const model =
-    provider === "OLLAMA"
-      ? OLLAMA_MODEL
-      : provider === "OPENAI"
-        ? OPENAI_MODEL
-        : ANTHROPIC_MODEL;
+  const model = provider === "OPENAI" ? OPENAI_MODEL : ANTHROPIC_MODEL;
 
   const callProvider: ProviderCaller = (conversationMessages) =>
     runAssistantProvider({

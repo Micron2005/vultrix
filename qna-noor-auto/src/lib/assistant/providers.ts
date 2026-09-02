@@ -1,4 +1,4 @@
-export type AssistantProvider = "OLLAMA" | "OPENAI" | "ANTHROPIC";
+export type AssistantProvider = "OPENAI" | "ANTHROPIC";
 
 export type AssistantToolName =
   | "create_inventory_part"
@@ -236,67 +236,10 @@ async function callAnthropic(request: ProviderRequest): Promise<ProviderResponse
   };
 }
 
-async function callOllama(request: ProviderRequest): Promise<ProviderResponse> {
-  const baseUrl = (process.env.OLLAMA_BASE_URL ?? "http://localhost:11434").replace(
-    /\/$/,
-    "",
-  );
-  const response = await fetch(`${baseUrl}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(process.env.OLLAMA_API_KEY
-        ? { Authorization: `Bearer ${process.env.OLLAMA_API_KEY}` }
-        : {}),
-    },
-    body: JSON.stringify({
-      model: request.model,
-      stream: false,
-      messages: [
-        { role: "system", content: request.systemPrompt },
-        ...request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-          ...(message.toolCalls
-            ? {
-                tool_calls: message.toolCalls.map((call) => ({
-                  function: {
-                    name: call.name,
-                    arguments: call.arguments,
-                  },
-                })),
-              }
-            : {}),
-        })),
-      ],
-      tools: toolDefinitions(request.tools),
-    }),
-  });
-  const body = await readProviderResponse(response);
-  const message = isRecord(body.message) ? body.message : null;
-  if (!message) throw new Error("Ollama returned no assistant message.");
-  const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
-  return {
-    content: stringValue(message.content),
-    toolCalls: calls.flatMap((call, index) => {
-      if (!isRecord(call) || !isRecord(call.function)) return [];
-      const name = stringValue(call.function.name) as AssistantToolName;
-      if (!name) return [];
-      return [
-        {
-          id: `ollama-${index}`,
-          name,
-          arguments: call.function.arguments ?? {},
-        },
-      ];
-    }),
-  };
-}
-
 export async function runAssistantProvider(
   request: ProviderRequest,
 ): Promise<ProviderResponse> {
-  if (request.provider === "OPENAI") return callOpenAi(request);
-  if (request.provider === "ANTHROPIC") return callAnthropic(request);
-  return callOllama(request);
+  return request.provider === "OPENAI"
+    ? callOpenAi(request)
+    : callAnthropic(request);
 }
