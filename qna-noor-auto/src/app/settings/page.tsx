@@ -396,11 +396,11 @@ export default async function SettingsPage({
               timezone.
             </p>
             {(!process.env.RESEND_API_KEY ||
-              !process.env.MAIL_FROM ||
-              process.env.MAIL_FROM.includes("onboarding@resend.dev")) && (
+              process.env.MAIL_FROM?.includes("onboarding@resend.dev")) && (
               <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Reminders will not reach customers until RESEND_API_KEY and a
-                verified MAIL_FROM sending domain are configured.
+                {!process.env.RESEND_API_KEY
+                  ? "Reminders will not reach customers until RESEND_API_KEY is configured."
+                  : "Reminders are using Resend's onboarding sender. Set MAIL_FROM to a verified sender before sending to customers."}
               </p>
             )}
             <SaveButton>Save reminder settings</SaveButton>

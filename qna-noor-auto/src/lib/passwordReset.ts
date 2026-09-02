@@ -21,7 +21,7 @@ import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { sendEmail, escapeHtml } from "@/lib/email";
-import { APP_NAME } from "@/lib/branding";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/branding";
 
 const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const RESEND_COOLDOWN_MS = 60 * 1000; // don't issue a new code within 60s
@@ -127,6 +127,7 @@ export async function requestPasswordReset(identifier: string): Promise<void> {
     to: resolved.deliveryEmail,
     subject: `Your ${APP_NAME} password reset code: ${code}`,
     html: resetHtml({ username: resolved.username, code }),
+    replyTo: SUPPORT_EMAIL,
   });
 
   // Local/dev convenience: when email isn't configured the code can't be

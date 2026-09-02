@@ -6,7 +6,9 @@
 // Env vars (set in Vercel → Settings → Environment Variables):
 //   RESEND_API_KEY   your Resend API key (re_...)
 //   MAIL_FROM        (optional) verified sender; falls back to LEADS_FROM_EMAIL
-//                    and finally Resend's onboarding sender.
+//                    and finally the platform's default noreply sender.
+
+import { DEFAULT_MAIL_FROM } from "@/lib/branding";
 
 type SendArgs = {
   to: string;
@@ -41,7 +43,7 @@ export async function sendEmail({
   const from =
     process.env.MAIL_FROM ||
     process.env.LEADS_FROM_EMAIL ||
-    "Vultrix <onboarding@resend.dev>";
+    DEFAULT_MAIL_FROM;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

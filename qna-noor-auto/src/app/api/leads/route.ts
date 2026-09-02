@@ -8,10 +8,12 @@
 // Required env vars for email alerts (set in Vercel → Settings → Environment Variables):
 //   RESEND_API_KEY      your Resend API key (re_...)
 //   LEADS_NOTIFY_EMAIL  the inbox alerts are sent TO (kept out of the public repo)
-//   LEADS_FROM_EMAIL    (optional) verified sender; defaults to onboarding@resend.dev
+//   LEADS_FROM_EMAIL    (optional) verified sender; defaults to the platform's
+//                       default noreply sender
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { DEFAULT_MAIL_FROM } from "@/lib/branding";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -110,8 +112,7 @@ async function notifyNewLead(lead: LeadData): Promise<void> {
   const to = process.env.LEADS_NOTIFY_EMAIL;
   if (!apiKey || !to) return;
 
-  const from =
-    process.env.LEADS_FROM_EMAIL || "Vultrix Leads <onboarding@resend.dev>";
+  const from = process.env.LEADS_FROM_EMAIL || DEFAULT_MAIL_FROM;
 
   const row = (label: string, value: string) =>
     value
