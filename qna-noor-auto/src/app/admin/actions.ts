@@ -7,6 +7,7 @@ import { hashPassword } from "@/lib/auth";
 import { requireSuperadmin } from "@/lib/session";
 import { getStripe } from "@/lib/stripe";
 import { syncSubscriptionToOrg } from "@/lib/billing";
+import { sanitizeFeatureKeys } from "@/lib/features";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -26,8 +27,20 @@ export async function createBusiness(formData: FormData) {
   const username = String(formData.get("username") ?? "").trim();
   const usernameLower = username.toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const accountTypeRaw = String(formData.get("accountType") ?? "AUTO_SHOP")
+    .trim()
+    .toUpperCase();
+  const accountType =
+    accountTypeRaw === "BUSINESS" || accountTypeRaw === "PERSONAL"
+      ? accountTypeRaw
+      : "AUTO_SHOP";
+  const invoices = formData.get("invoices") === "on";
+  const features = sanitizeFeatureKeys(
+    accountType,
+    invoices ? ["invoices"] : [],
+  );
 
-  if (!name) back({ error: "Business name is required." });
+  if (!name) back({ error: "Account name is required." });
   if (!/^[a-z0-9._-]{3,}$/i.test(username)) {
     back({ error: "Owner username must be 3+ characters (letters, numbers, . _ -)." });
   }
@@ -41,7 +54,12 @@ export async function createBusiness(formData: FormData) {
   if (existing) back({ error: "That username is already taken." });
 
   const org = await db.organization.create({
-    data: { name, status: "ACTIVE" },
+    data: {
+      name,
+      status: "ACTIVE",
+      accountType,
+      features,
+    },
   });
 
   try {

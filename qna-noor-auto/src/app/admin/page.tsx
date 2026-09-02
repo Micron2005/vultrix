@@ -5,6 +5,7 @@ import {
   Field,
   Input,
   PageHeader,
+  Select,
 } from "@/components/ui";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireSuperadmin, roleLabel } from "@/lib/session";
@@ -22,14 +23,20 @@ import { DeleteBusiness } from "./DeleteBusiness";
 export const dynamic = "force-dynamic";
 
 const NOTICES: Record<string, string> = {
-  created: "Business created.",
-  suspended: "Business put on hold.",
-  reactivated: "Business reactivated.",
-  renamed: "Business renamed.",
-  deleted: "Business deleted.",
+  created: "Account created.",
+  suspended: "Account put on hold.",
+  reactivated: "Account reactivated.",
+  renamed: "Account renamed.",
+  deleted: "Account deleted.",
   "trial-extended": "Free trial extended.",
   "password-reset": "Password updated. Share the new password with the owner.",
 };
+
+function accountTypeLabel(accountType: string): string {
+  if (accountType === "PERSONAL") return "Personal";
+  if (accountType === "BUSINESS") return "Business";
+  return "Auto shop";
+}
 
 export default async function AdminPage({
   searchParams,
@@ -59,8 +66,8 @@ export default async function AdminPage({
   return (
     <div>
       <PageHeader
-        title="Manage businesses"
-        description={`Platform controls for ${APP_NAME}. Create a business, put one on hold, or delete it.`}
+        title="Manage accounts"
+        description={`Platform controls for ${APP_NAME}. Create an account, put one on hold, or delete it.`}
       />
 
       {sp.error && (
@@ -97,11 +104,36 @@ export default async function AdminPage({
 
       <div className="grid gap-6 md:grid-cols-[1fr_1.6fr]">
         <Card>
-          <CardHeader title="Add a business" />
+          <CardHeader title="Add an account" />
           <form action={createBusiness} className="p-4 space-y-3">
-            <Field label="Business name">
-              <Input name="name" required placeholder="e.g. Drive Nation Auto" />
+            <Field label="Account name">
+              <div className="space-y-1">
+                <Input name="name" required placeholder="e.g. Drive Nation Auto" />
+                <p className="text-xs text-zinc-500">
+                  The business name, or the person&apos;s full name for a
+                  personal account.
+                </p>
+              </div>
             </Field>
+            <Field label="Account type">
+              <Select name="accountType" defaultValue="AUTO_SHOP">
+                <option value="AUTO_SHOP">Auto shop</option>
+                <option value="BUSINESS">Business</option>
+                <option value="PERSONAL">Personal</option>
+              </Select>
+            </Field>
+            <label className="flex items-start gap-2 text-sm text-zinc-700">
+              <input type="checkbox" name="invoices" className="mt-0.5 h-4 w-4" />
+              <span>
+                <span className="block font-medium text-zinc-800">
+                  Include invoices and customers
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  This only affects personal accounts; shop and business
+                  accounts get everything.
+                </span>
+              </span>
+            </label>
             <Field label="Owner username">
               <Input
                 name="username"
@@ -120,18 +152,18 @@ export default async function AdminPage({
               />
             </Field>
             <p className="text-xs text-zinc-500">
-              Creates the business plus its first owner login. Share these
+              Creates the account plus its first owner login. Share these
               credentials with the owner; they can change the password and add
               staff from their Logins page.
             </p>
-            <Button type="submit">Create business</Button>
+            <Button type="submit">Create account</Button>
           </form>
         </Card>
 
         <Card>
-          <CardHeader title={`Businesses (${orgs.length})`} />
+          <CardHeader title={`Accounts (${orgs.length})`} />
           {orgs.length === 0 ? (
-            <div className="p-4 text-sm text-zinc-500">No businesses yet.</div>
+            <div className="p-4 text-sm text-zinc-500">No accounts yet.</div>
           ) : (
             <div className="divide-y divide-zinc-100">
               {orgs.map((org) => {
@@ -142,6 +174,9 @@ export default async function AdminPage({
                       <div>
                         <div className="text-sm font-medium text-zinc-900">
                           {org.name}
+                          <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">
+                            {accountTypeLabel(org.accountType)}
+                          </span>
                           {suspended && (
                             <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
                               On hold

@@ -156,7 +156,7 @@ export function describeBilling(org: {
     case "incomplete_expired":
       return "Awaiting payment";
     default:
-      return "No subscription";
+      return "Free — no subscription";
   }
 }
 
