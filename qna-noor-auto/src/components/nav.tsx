@@ -150,6 +150,23 @@ export function Nav({
     (item) => item.href !== "/sales" || !enabledFeatures.includes("invoices"),
   );
   const renderedHrefs = navItems.map((item) => item.href);
+  const searchTerms = [
+    enabledFeatures.includes("customers") ? "customers" : null,
+    enabledFeatures.includes("repair_orders") ||
+    enabledFeatures.includes("invoices")
+      ? (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
+        ? "ROs"
+        : "invoices"
+      : null,
+    enabledFeatures.includes("vehicles") ? "VINs" : null,
+    enabledFeatures.includes("knowledge") ? "notes" : null,
+    enabledFeatures.includes("inventory") ? "parts" : null,
+    enabledFeatures.includes("schedule") ? "events" : null,
+    enabledFeatures.includes("financials") ? "sales" : null,
+  ].filter((term): term is string => Boolean(term));
+  const searchPlaceholder = searchTerms.length
+    ? `Search ${searchTerms.join(", ")}…`
+    : "Search…";
 
   // Hide the shop sidebar on public, customer-facing routes and on login.
   // Also hide on the QR-scan flow so techs scanning stickers on their phone
@@ -214,8 +231,8 @@ export function Nav({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search customers, ROs, VIN…"
-            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            placeholder={searchPlaceholder}
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             aria-label="Search"
           />
         </form>

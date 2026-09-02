@@ -71,11 +71,16 @@ async function vehicleIdsForToken(orgId: string, token: string) {
 export async function findNormalizedSearchMatches(
   orgId: string,
   tokens: string[],
+  options: { customers?: boolean; vehicles?: boolean } = {},
 ): Promise<NormalizedSearchMatches> {
+  const includeCustomers = options.customers ?? true;
+  const includeVehicles = options.vehicles ?? true;
   const matches = await Promise.all(
     tokens.map(async (token) => ({
-      customerIds: await customerIdsForPhone(orgId, token),
-      vehicleIds: await vehicleIdsForToken(orgId, token),
+      customerIds: includeCustomers
+        ? await customerIdsForPhone(orgId, token)
+        : [],
+      vehicleIds: includeVehicles ? await vehicleIdsForToken(orgId, token) : [],
     })),
   );
 
