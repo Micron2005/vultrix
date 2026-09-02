@@ -10,6 +10,12 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
+import {
+  getEligibleNavItems,
+  navItemLabel,
+  normalizeNavLayout,
+  type NavCatalogItem,
+} from "@/lib/navLayout";
 
 type NavProps = {
   orgLabel: string;
@@ -20,29 +26,8 @@ type NavProps = {
   accountType?: string | null;
   aiAssistantEnabled?: boolean;
   canViewFinancials?: boolean;
+  navLayout?: string | null;
 };
-
-const items = [
-  { href: "/", label: "Dashboard" },
-  { href: "/customers", label: "Customers", feature: "customers" },
-  { href: "/businesses", label: "Businesses", feature: "customers" },
-  { href: "/vehicles", label: "Vehicles", feature: "vehicles" },
-  { href: "/vehicle-search", label: "Lookup", feature: "lookup" },
-  { href: "/repair-orders", label: "Repair Orders", feature: "repair_orders" },
-  { href: "/appointments", label: "Schedule", feature: "schedule" },
-  { href: "/reminders", label: "Reminders", feature: "reminders" },
-  { href: "/notes", label: "Knowledge", feature: "knowledge" },
-  { href: "/technicians", label: "Technicians", feature: "technicians" },
-  { href: "/inventory", label: "Inventory", feature: "inventory" },
-  { href: "/canned-jobs", label: "Presets", feature: "presets" },
-  { href: "/expenses", label: "Financials", feature: "financials" },
-  { href: "/goals", label: "Goals" },
-  { href: "/sales", label: "Sales", feature: "financials" },
-  { href: "/reports", label: "Reports", feature: "reports" },
-  { href: "/import", label: "Import", feature: "import_export" },
-  { href: "/export", label: "Export", feature: "import_export" },
-  { href: "/settings", label: "Settings" },
-];
 
 function matchesPath(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -73,6 +58,7 @@ export function Nav({
   accountType,
   aiAssistantEnabled = false,
   canViewFinancials = true,
+  navLayout,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -103,52 +89,46 @@ export function Nav({
 
   // Platform admins (no organization) only ever manage businesses — the shop
   // data pages are meaningless to them, so show a focused platform menu.
-  const baseItems = (isSuperadmin
+  const baseItems: NavCatalogItem[] = (isSuperadmin
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/leads", label: "Leads" },
       ]
-    : canManageUsers
-      ? [
-          ...items,
-          { href: "/settings/users", label: "Logins" },
-          { href: "/billing", label: "Billing" },
-        ]
-    : items
+    : getEligibleNavItems({
+        enabledFeatures,
+        accountType,
+        canViewFinancials,
+        canManageUsers: Boolean(canManageUsers),
+        aiAssistantEnabled,
+      })
   ).map((item) => {
-    if (item.href === "/appointments") {
-      return {
-        ...item,
-        label: accountType === "PERSONAL" ? "Calendar" : "Schedule",
-      };
-    }
-    if (item.href !== "/repair-orders") return item;
+    const label = navItemLabel(item, { accountType, enabledFeatures });
+    if (item.href !== "/repair-orders") return { ...item, label };
     const hasRepairOrders = enabledFeatures.includes("repair_orders");
     return {
       ...item,
-      label:
-        hasRepairOrders || (accountType ?? "AUTO_SHOP") === "AUTO_SHOP"
-          ? "Repair Orders"
-          : "Invoices",
+      label,
       feature: hasRepairOrders ? "repair_orders" : "invoices",
     };
   });
-  const navItems = [
-    ...baseItems,
-    ...(aiAssistantEnabled
-      ? [{ href: "/assistant", label: "Assistant", feature: undefined }]
-      : []),
-  ].filter(
-    (item) => !item.feature || enabledFeatures.includes(item.feature),
-  ).filter(
-    (item) =>
-      canViewFinancials ||
-      !["/expenses", "/goals", "/sales", "/reports", "/export", "/settings"].includes(
-        item.href,
-      ),
-  ).filter(
-    (item) => item.href !== "/sales" || !enabledFeatures.includes("invoices"),
-  );
+  const normalizedLayout = !isSuperadmin && navLayout
+    ? normalizeNavLayout(navLayout)
+    : null;
+  const navItems = normalizedLayout
+    ? baseItems
+        .map((item) => ({
+          item,
+          layoutIndex: normalizedLayout.items.findIndex(
+            (entry) => entry.href === item.href,
+          ),
+          visible: normalizedLayout.items.find(
+            (entry) => entry.href === item.href,
+          )?.visible,
+        }))
+        .filter(({ visible }) => visible !== false)
+        .sort((a, b) => a.layoutIndex - b.layoutIndex)
+        .map(({ item }) => item)
+    : baseItems;
   const renderedHrefs = navItems.map((item) => item.href);
   const searchTerms = [
     enabledFeatures.includes("customers") ? "customers" : null,
