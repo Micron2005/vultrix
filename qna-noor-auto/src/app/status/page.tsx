@@ -38,24 +38,47 @@ function statePillClass(state: StatusState): string {
   return "bg-red-100 text-red-800";
 }
 
-function headlineFor(checks: StatusCheck[]): {
+type IncidentHeadlineInput = {
+  severity: string;
+};
+
+function headlineFor(
+  checks: StatusCheck[],
+  activeIncidents: IncidentHeadlineInput[],
+): {
   label: string;
   className: string;
 } {
-  if (checks.some((check) => check.state === "down")) {
+  const visibleChecks = checks.filter(
+    (check) => check.state !== "not_configured",
+  );
+  if (visibleChecks.some((check) => check.state === "down")) {
     return {
       label: "Major outage",
       className: "border-red-200 bg-red-50 text-red-900",
     };
   }
+  if (activeIncidents.some((incident) => incident.severity === "MAJOR")) {
+    return {
+      label: "Service disruption",
+      className: "border-red-200 bg-red-50 text-red-900",
+    };
+  }
   if (
-    checks.some(
-      (check) =>
-        check.state === "degraded" || check.state === "not_configured",
-    )
+    visibleChecks.some((check) => check.state === "degraded") ||
+    activeIncidents.some((incident) => incident.severity === "MINOR")
   ) {
     return {
       label: "Some systems degraded",
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+    };
+  }
+  if (
+    activeIncidents.length > 0 &&
+    activeIncidents.every((incident) => incident.severity === "MAINTENANCE")
+  ) {
+    return {
+      label: "Maintenance in progress",
       className: "border-amber-200 bg-amber-50 text-amber-900",
     };
   }
@@ -137,7 +160,10 @@ export default async function StatusPage() {
     checksPromise,
     incidentsPromise,
   ]);
-  const headline = headlineFor(checks);
+  const headline = headlineFor(checks, incidentGroups.active);
+  const visibleChecks = checks.filter(
+    (check) => check.state !== "not_configured",
+  );
   const checkedAt = new Date();
 
   return (
@@ -177,7 +203,7 @@ export default async function StatusPage() {
         <Card>
           <CardHeader title="Systems" />
           <div className="divide-y divide-zinc-100">
-            {checks.map((check) => (
+            {visibleChecks.map((check) => (
               <div
                 key={check.key}
                 className="flex items-center justify-between gap-4 px-5 py-4"

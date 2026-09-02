@@ -21,9 +21,9 @@ import {
   createStatusIncident,
   updateStatusIncident,
   resolveStatusIncident,
-  deleteStatusIncident,
 } from "./actions";
 import { DeleteBusiness } from "./DeleteBusiness";
+import { DeleteStatusIncident } from "./DeleteStatusIncident";
 
 export const dynamic = "force-dynamic";
 
@@ -394,15 +394,7 @@ export default async function AdminPage({
                       {incident.severity} · {incident.state}
                     </div>
                   </div>
-                  <form action={deleteStatusIncident}>
-                    <input type="hidden" name="id" value={incident.id} />
-                    <button
-                      type="submit"
-                      className="text-xs text-red-600 hover:text-red-700 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </form>
+                  <DeleteStatusIncident id={incident.id} />
                 </div>
                 {incident.body && (
                   <p className="whitespace-pre-wrap text-sm text-zinc-600">
