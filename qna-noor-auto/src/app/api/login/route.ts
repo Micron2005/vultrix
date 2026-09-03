@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, makeToken, verifyPassword } from "@/lib/auth";
+import {
+  clearFailedLogins,
+  isLocked,
+  recordFailedLogin,
+} from "@/lib/adminAuth";
 import { db } from "@/lib/db";
 
 function safeNext(next: string | null | undefined): string {
@@ -37,7 +42,11 @@ export async function POST(req: Request) {
     include: { organization: true },
   });
 
-  if (!user || !user.isActive || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !user.isActive) return fail();
+  if (user.role === "SUPERADMIN") return fail();
+  if (isLocked(user)) return fail();
+  if (!verifyPassword(password, user.passwordHash)) {
+    await recordFailedLogin(user.id);
     return fail();
   }
 
@@ -51,6 +60,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.redirect(new URL(next, url), { status: 303 });
+  await clearFailedLogins(user.id);
   res.cookies.set(SESSION_COOKIE, makeToken(user.id), {
     httpOnly: true,
     sameSite: "lax",
