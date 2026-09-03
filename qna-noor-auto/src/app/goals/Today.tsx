@@ -42,7 +42,13 @@ function GoalQuickAction({
         <form action={setGoalManualProgress} className="mt-3 flex flex-wrap items-end gap-2">
           <input type="hidden" name="goalId" value={goal.id} />
           <label className="w-32 text-xs text-zinc-500 dark:text-zinc-400">
-            Progress
+            {goal.period === "WEEK"
+              ? "Where are you at this week?"
+              : goal.period === "MONTH"
+                ? "Where are you at this month?"
+                : goal.period === "YEAR"
+                  ? "Where are you at this year?"
+                  : "Progress"}
             <Input name="value" required inputMode="decimal" defaultValue={goal.manualProgress ?? ""} className="mt-1" />
           </label>
           <button type="submit" className={buttonClass}>Update</button>
