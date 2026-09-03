@@ -70,6 +70,34 @@ async function resolveOrigin(): Promise<string> {
   return "";
 }
 
+const DEFAULT_KIND_LABELS: Record<string, string> = {
+  appearance: "Appearance",
+  sidebar: "Sidebar",
+  dashboard: "Dashboard",
+};
+
+function describeDefaultsOutcome(value: string | undefined): string | null {
+  if (!value) return null;
+  const [kind, outcome] = value.split("-");
+  const label = DEFAULT_KIND_LABELS[kind];
+  if (!label) return null;
+  if (outcome === "published") {
+    return `${label} published as the account default. Other logins without their own saved preference will see it on their next page load.`;
+  }
+  if (outcome === "cleared") {
+    return `${label} account default cleared. Logins without their own preference go back to the built-in default.`;
+  }
+  return null;
+}
+
+function DefaultStatus({ set }: { set: boolean }) {
+  return (
+    <p className="text-center text-xs text-zinc-500">
+      {set ? "Account default set" : "No account default"}
+    </p>
+  );
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -79,6 +107,7 @@ export default async function SettingsPage({
     error?: string;
     assistant_saved?: string;
     assistant_error?: string;
+    defaults?: string;
   }>;
 }) {
   const orgId = await requireOrgId();
@@ -150,6 +179,7 @@ export default async function SettingsPage({
     featureSet.has("financials");
   const showIntakeQr = Boolean(user && showAutoSettings);
   const sp = (await searchParams) ?? {};
+  const defaultsNotice = describeDefaultsOutcome(sp.defaults);
   const settings = await getAllSettings(orgId);
   const owner = await db.user.findFirst({
     where: { orgId, role: "OWNER", isActive: true },
@@ -293,26 +323,34 @@ export default async function SettingsPage({
       {canManageOrgSettings && (
         <Card className="mb-6 max-w-2xl">
           <CardHeader title="Defaults for this account" />
-          <div className="space-y-4 p-6">
+          <div id="account-defaults" className="space-y-4 p-6">
+            {defaultsNotice && (
+              <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
+                {defaultsNotice}
+              </div>
+            )}
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               Publish your current appearance, sidebar, or dashboard as the
               default for everyone in this account.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <form action={publishAppearanceDefault}>
+              <form action={publishAppearanceDefault} className="space-y-1">
                 <Button type="submit" className="w-full">
                   Publish appearance
                 </Button>
+                <DefaultStatus set={Boolean(org.uiDefaults)} />
               </form>
-              <form action={publishNavDefault}>
+              <form action={publishNavDefault} className="space-y-1">
                 <Button type="submit" className="w-full">
                   Publish sidebar
                 </Button>
+                <DefaultStatus set={Boolean(org.navDefault)} />
               </form>
-              <form action={publishDashboardDefault}>
+              <form action={publishDashboardDefault} className="space-y-1">
                 <Button type="submit" className="w-full">
                   Publish dashboard
                 </Button>
+                <DefaultStatus set={Boolean(org.dashDefault)} />
               </form>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
