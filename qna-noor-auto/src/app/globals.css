@@ -214,17 +214,25 @@ body {
   background-size: 22px 22px;
 }
 
-/* Hero ambient glow (decorative, amber). */
+/* Subtle grid texture for configurable dark hero/CTA bands. */
+.vx-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Hero ambient glow (decorative, configurable). */
 .vx-hero-glow {
   background:
     radial-gradient(
       720px circle at 18% 8%,
-      rgba(245, 158, 11, 0.16),
+      color-mix(in srgb, var(--vx-accent) 16%, transparent),
       transparent 55%
     ),
     radial-gradient(
       620px circle at 86% 24%,
-      rgba(251, 191, 36, 0.09),
+      color-mix(in srgb, var(--vx-accent-soft) 9%, transparent),
       transparent 60%
     );
 }

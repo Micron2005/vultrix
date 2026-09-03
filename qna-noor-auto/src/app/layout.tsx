@@ -33,7 +33,12 @@ export default async function RootLayout({
   // the marketing landing page (homepage + /home), /login, /signup, the legal
   // pages, and the public customer portals — each renders its own full-screen
   // layout, so no sidebar/max-width wrapper here.
-  if (!user || pathname === "/home" || pathname === "/status") {
+  if (
+    !user ||
+    pathname === "/home" ||
+    pathname === "/status" ||
+    pathname === "/admin/landing/preview"
+  ) {
     return (
       <html lang="en" className="h-full">
         <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
