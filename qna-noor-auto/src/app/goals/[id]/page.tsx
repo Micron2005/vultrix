@@ -20,6 +20,7 @@ import {
   goalMetricLabel,
   goalUsesMoney,
   goalValueLabel,
+  loadGoalHistory,
   type GoalRecord,
 } from "@/lib/goals";
 import {
@@ -66,9 +67,10 @@ export default async function GoalDetailPage({
   const hasInvoices = features.has("invoices");
   const now = new Date();
   const record = goal as GoalRecord;
-  const [progress, series] = await Promise.all([
+  const [progress, series, history] = await Promise.all([
     computeGoalProgress(user.orgId, record, now, timezone, hasInvoices),
     loadGoalSeries(user.orgId, record, now, timezone, hasInvoices),
+    loadGoalHistory(user.orgId, record, now, timezone, hasInvoices),
   ]);
   const slices = await loadGoalBreakdown(
     user.orgId,
@@ -465,6 +467,68 @@ export default async function GoalDetailPage({
           />
         </div>
       </Card>
+
+      {history.length >= 2 && (
+        <Card className="mt-6 overflow-hidden">
+          <CardHeader title="Past periods" />
+          <div className="px-5 pb-4">
+            <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
+              Met {history.filter((period) => period.met).length} of the last{" "}
+              {history.length}{" "}
+              {record.period === "WEEK"
+                ? "weeks"
+                : record.period === "MONTH"
+                  ? "months"
+                  : "years"}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[28rem] text-left text-sm">
+                <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                  <tr>
+                    <th className="px-2 py-2 font-medium">Period</th>
+                    <th className="px-2 py-2 font-medium">Actual</th>
+                    <th className="px-2 py-2 font-medium">Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                  {history.map((period) => (
+                    <tr key={`${period.start.toISOString()}-${period.end.toISOString()}`}>
+                      <td className="px-2 py-3 text-zinc-700 dark:text-zinc-300">
+                        {period.label}
+                      </td>
+                      <td className="px-2 py-3 text-zinc-700 dark:text-zinc-300">
+                        {goalValueLabel(record.metric, period.actual, record.unit)}{" "}
+                        of {goalValueLabel(record.metric, period.target, record.unit)}
+                      </td>
+                      <td className="px-2 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            period.current
+                              ? statusClass(
+                                  progress.status,
+                                  record,
+                                  progress,
+                                )
+                              : period.met
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                          }`}
+                        >
+                          {period.current
+                            ? statusLabel(progress.status)
+                            : period.met
+                              ? "Met"
+                              : "Missed"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {(record.metric === "LOGGED_TOTAL" ||
         record.metric === "LOGGED_LATEST") && (

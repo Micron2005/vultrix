@@ -62,6 +62,16 @@ export type GoalProgress = {
   ended: boolean;
 };
 
+export type GoalPeriodResult = {
+  label: string;
+  start: Date;
+  end: Date;
+  actual: number;
+  target: number;
+  met: boolean;
+  current: boolean;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -322,7 +332,19 @@ async function metricActual(
         }),
       };
     case "MANUAL":
-      return { ...empty, actual: goal.manualProgress ?? 0 };
+      if (goal.period === "BY_DATE") {
+        return { ...empty, actual: goal.manualProgress ?? 0 };
+      }
+      const latestManualEntry = await db.goalEntry.findFirst({
+        where: {
+          orgId,
+          goalId: goal.id,
+          day: { gte: days.start, lte: days.end },
+        },
+        orderBy: [{ day: "desc" }, { createdAt: "desc" }],
+        select: { value: true },
+      });
+      return { ...empty, actual: latestManualEntry?.value ?? 0 };
     default:
       return empty;
   }
@@ -421,17 +443,105 @@ export async function computeGoalProgress(
   };
 }
 
+function historyLimit(period: GoalPeriod): number {
+  return period === "WEEK" ? 8 : period === "MONTH" ? 6 : 3;
+}
+
+function periodDateLabel(
+  period: GoalPeriod,
+  window: GoalWindow,
+  timezone: string,
+): string {
+  if (period === "YEAR") {
+    return formatInTimeZone(window.start, timezone, { year: "numeric" });
+  }
+  const start = formatInTimeZone(window.start, timezone, {
+    month: "short",
+    day: "numeric",
+  });
+  if (period === "MONTH") {
+    return formatInTimeZone(window.start, timezone, {
+      month: "short",
+      year: "numeric",
+    });
+  }
+  const end = formatInTimeZone(window.end, timezone, {
+    month: "short",
+    day: "numeric",
+  });
+  return `${start} – ${end}`;
+}
+
+export async function loadGoalHistory(
+  orgId: string,
+  goal: GoalRecord,
+  now: Date,
+  timezone: string,
+  hasInvoices: boolean,
+  limit?: number,
+): Promise<GoalPeriodResult[]> {
+  const period = goal.period as GoalPeriod;
+  if (period === "BY_DATE" || !["WEEK", "MONTH", "YEAR"].includes(period)) {
+    return [];
+  }
+  const windows: GoalWindow[] = [];
+  let window = periodWindow(period, now, timezone);
+  const goalStartDay = localCalendarDay(goal.startDate, timezone);
+  const count = limit ?? historyLimit(period);
+  for (let index = 0; index < count; index += 1) {
+    if (localCalendarDay(window.end, timezone) < goalStartDay) break;
+    windows.push(window);
+    window = periodWindow(
+      period,
+      new Date(window.start.getTime() - 1),
+      timezone,
+    );
+  }
+  const progress = await Promise.all(
+    windows.map((periodWindowValue, index) =>
+      computeGoalProgress(
+        orgId,
+        goal,
+        index === 0 ? now : periodWindowValue.end,
+        timezone,
+        hasInvoices,
+      ),
+    ),
+  );
+  return windows.map((periodWindowValue, index) => {
+    const current = index === 0;
+    const dateLabel = periodDateLabel(period, periodWindowValue, timezone);
+    const prefix =
+      period === "WEEK"
+        ? "This week"
+        : period === "MONTH"
+          ? "This month"
+          : "This year";
+    return {
+      label: current ? `${prefix} · ${dateLabel}` : dateLabel,
+      start: periodWindowValue.start,
+      end: periodWindowValue.end,
+      actual: progress[index].actual,
+      target: progress[index].target,
+      met: progress[index].status === "met",
+      current,
+    };
+  });
+}
+
 export async function loadActiveGoals(
   orgId: string,
   timezone: string,
   hasInvoices: boolean,
   limit?: number,
+  includeHistory = false,
 ): Promise<
   Array<{
     goal: GoalRecord;
     progress: GoalProgress;
     milestoneCount: number;
     milestoneDoneCount: number;
+    previousPeriod: GoalPeriodResult | null;
   }>
 > {
   const goals = await db.goal.findMany({
@@ -442,19 +552,23 @@ export async function loadActiveGoals(
   });
   const now = new Date();
   const scored = await Promise.all(
-    goals.map(async (goal) => ({
-      goal: goal as GoalRecord,
-      milestoneCount: goal.milestones.length,
-      milestoneDoneCount: goal.milestones.filter((milestone) => milestone.doneDay)
-        .length,
-      progress: await computeGoalProgress(
-        orgId,
-        goal as GoalRecord,
-        now,
-        timezone,
-        hasInvoices,
-      ),
-    })),
+    goals.map(async (goal) => {
+      const record = goal as GoalRecord;
+      const [progress, history] = await Promise.all([
+        computeGoalProgress(orgId, record, now, timezone, hasInvoices),
+        includeHistory
+          ? loadGoalHistory(orgId, record, now, timezone, hasInvoices, 2)
+          : Promise.resolve([]),
+      ]);
+      return {
+        goal: record,
+        milestoneCount: goal.milestones.length,
+        milestoneDoneCount: goal.milestones.filter((milestone) => milestone.doneDay)
+          .length,
+        progress,
+        previousPeriod: history[1] ?? null,
+      };
+    }),
   );
   return scored;
 }

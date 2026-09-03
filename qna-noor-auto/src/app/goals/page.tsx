@@ -17,6 +17,7 @@ import {
   goalMetricLabel,
   goalValueLabel,
   loadActiveGoals,
+  type GoalPeriodResult,
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
@@ -54,6 +55,7 @@ function GoalCard({
   progress,
   milestoneCount,
   milestoneDoneCount,
+  previousPeriod,
   accountType,
   hasInvoices,
 }: {
@@ -61,6 +63,7 @@ function GoalCard({
   progress: GoalProgress;
   milestoneCount: number;
   milestoneDoneCount: number;
+  previousPeriod: GoalPeriodResult | null;
   accountType: string;
   hasInvoices: boolean;
 }) {
@@ -112,6 +115,18 @@ function GoalCard({
         {(goal.metric === "LOGGED_TOTAL" || goal.metric === "LOGGED_LATEST") &&
           ` · ${atMost ? "Stay under" : "Reach at least"}`}
       </p>
+      {previousPeriod && (
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Last{" "}
+          {goal.period === "WEEK"
+            ? "week"
+            : goal.period === "MONTH"
+              ? "month"
+              : "year"}
+          : {goalValueLabel(goal.metric, previousPeriod.actual, goal.unit)} ·{" "}
+          {previousPeriod.met ? "Met" : "Missed"}
+        </p>
+      )}
 
       <div className="mt-4 flex items-end justify-between gap-3">
         <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -268,7 +283,7 @@ export default async function GoalsPage({
     );
   }
   const [active, routines, archivedGoals] = await Promise.all([
-    loadActiveGoals(user.orgId, timezone, hasInvoices),
+    loadActiveGoals(user.orgId, timezone, hasInvoices, undefined, true),
     db.routine.findMany({
       where: { orgId: user.orgId },
       orderBy: [{ archived: "asc" }, { updatedAt: "desc" }],
@@ -398,17 +413,26 @@ export default async function GoalsPage({
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {active.map(({ goal, progress, milestoneCount, milestoneDoneCount }) => (
+            {active.map(
+              ({
+                goal,
+                progress,
+                milestoneCount,
+                milestoneDoneCount,
+                previousPeriod,
+              }) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
                 progress={progress}
                 milestoneCount={milestoneCount}
                 milestoneDoneCount={milestoneDoneCount}
+                previousPeriod={previousPeriod}
                 accountType={accountType}
                 hasInvoices={hasInvoices}
               />
-            ))}
+              ),
+            )}
           </div>
         )}
       </div>
