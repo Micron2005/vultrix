@@ -95,6 +95,7 @@ export function Nav({
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/leads", label: "Leads" },
+        { href: "/admin/status", label: "Status page" },
       ]
     : getEligibleNavItems({
         enabledFeatures,

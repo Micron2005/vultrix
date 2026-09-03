@@ -1,6 +1,6 @@
 "use client";
 
-import { deleteStatusIncident } from "./actions";
+import { deleteStatusIncident } from "../actions";
 
 export function DeleteStatusIncident({ id }: { id: string }) {
   return (

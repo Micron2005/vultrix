@@ -24,8 +24,13 @@ function back(params: Record<string, string>): never {
   redirect(`/admin${qs ? `?${qs}` : ""}`);
 }
 
+function backStatus(params: Record<string, string>): never {
+  const qs = new URLSearchParams(params).toString();
+  redirect(`/admin/status${qs ? `?${qs}` : ""}`);
+}
+
 function revalidateStatusPages() {
-  revalidatePath("/admin");
+  revalidatePath("/admin/status");
   revalidatePath("/status");
 }
 
@@ -292,7 +297,7 @@ export async function createStatusIncident(formData: FormData) {
     ? severityRaw
     : "MINOR";
 
-  if (!title) back({ error: "Incident title is required." });
+  if (!title) backStatus({ error: "Incident title is required." });
 
   await db.statusIncident.create({
     data: {
@@ -304,7 +309,7 @@ export async function createStatusIncident(formData: FormData) {
     },
   });
   revalidateStatusPages();
-  back({ saved: "incident-created" });
+  backStatus({ notice: "incident-created" });
 }
 
 export async function updateStatusIncident(formData: FormData) {
@@ -320,7 +325,7 @@ export async function updateStatusIncident(formData: FormData) {
     ? stateRaw
     : "INVESTIGATING";
   const incident = await db.statusIncident.findUnique({ where: { id } });
-  if (!incident) back({ error: "Incident not found." });
+  if (!incident) backStatus({ error: "Incident not found." });
 
   await db.statusIncident.update({
     where: { id },
@@ -330,7 +335,7 @@ export async function updateStatusIncident(formData: FormData) {
     },
   });
   revalidateStatusPages();
-  back({ saved: "incident-updated" });
+  backStatus({ notice: "incident-updated" });
 }
 
 export async function resolveStatusIncident(formData: FormData) {
@@ -338,14 +343,14 @@ export async function resolveStatusIncident(formData: FormData) {
 
   const id = String(formData.get("id") ?? "").trim();
   const incident = await db.statusIncident.findUnique({ where: { id } });
-  if (!incident) back({ error: "Incident not found." });
+  if (!incident) backStatus({ error: "Incident not found." });
 
   await db.statusIncident.update({
     where: { id },
     data: { state: "RESOLVED", resolvedAt: new Date() },
   });
   revalidateStatusPages();
-  back({ saved: "incident-resolved" });
+  backStatus({ notice: "incident-resolved" });
 }
 
 export async function deleteStatusIncident(formData: FormData) {
@@ -353,9 +358,9 @@ export async function deleteStatusIncident(formData: FormData) {
 
   const id = String(formData.get("id") ?? "").trim();
   const incident = await db.statusIncident.findUnique({ where: { id } });
-  if (!incident) back({ error: "Incident not found." });
+  if (!incident) backStatus({ error: "Incident not found." });
 
   await db.statusIncident.delete({ where: { id } });
   revalidateStatusPages();
-  back({ saved: "incident-deleted" });
+  backStatus({ notice: "incident-deleted" });
 }
