@@ -16,6 +16,7 @@ import { requireSuperadmin } from "@/lib/session";
 const PENDING_COOKIE = "admin_totp_pending";
 const BACKUP_CODES_COOKIE = "admin_backup_codes_once";
 const COOKIE_MAX_AGE = 60 * 5;
+const PENDING_MAX_AGE = 60 * 30;
 
 function securityUrl(params?: Record<string, string>): string {
   const query = params ? new URLSearchParams(params).toString() : "";
@@ -31,7 +32,7 @@ export async function startTotpEnrollment() {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: COOKIE_MAX_AGE,
+    maxAge: PENDING_MAX_AGE,
   });
   revalidatePath("/admin/security");
   redirect("/admin/security");
