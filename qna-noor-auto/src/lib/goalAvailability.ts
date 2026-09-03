@@ -19,5 +19,5 @@ export function metricAllowed(
   if (metric === "UNITS_SOLD") return !hasInvoices && hasFinancials;
   if (metric === "EVENTS") return featureSet.has("schedule");
   if (metric === "NOTES_WRITTEN") return featureSet.has("knowledge");
-  return ["HABIT", "LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"].includes(metric);
+  return ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"].includes(metric);
 }

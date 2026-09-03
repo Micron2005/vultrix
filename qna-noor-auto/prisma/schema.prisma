@@ -805,6 +805,9 @@ model Routine {
   weekdays     String?
   day          String?
   dueTime      String?
+  endDay       String?
+  showStreak   Boolean  @default(false)
+  completedDay String?
   archived     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -845,6 +848,7 @@ model RoutineCheckOff {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   day       String
   late      Boolean  @default(false)
+  skipped   Boolean  @default(false)
   note      String?
   value     Float?
   createdAt DateTime @default(now())

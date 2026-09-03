@@ -32,6 +32,12 @@ function text(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
 }
 
+function redirectRoutineError(path: string, error: unknown): never {
+  const message =
+    error instanceof Error ? error.message : "Could not save routine.";
+  redirect(`${path}?error=${encodeURIComponent(message)}`);
+}
+
 function optionalNumber(fd: FormData, key: string): number | null {
   const value = text(fd, key);
   if (!value) return null;
@@ -57,7 +63,13 @@ function routineInput(fd: FormData) {
     .join(",");
   const day = text(fd, "day") || null;
   const dueTime = timeValue(text(fd, "dueTime"));
+  const endDay = text(fd, "endDay") || null;
+  const showStreak = text(fd, "showStreak") === "on";
   const goalId = text(fd, "goalId") || null;
+  const items = text(fd, "items")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
   if (!title) throw new Error("Routine name is required.");
   if (!ROUTINE_KINDS.includes(kind as (typeof ROUTINE_KINDS)[number])) {
     throw new Error("Routine type is invalid.");
@@ -65,16 +77,23 @@ function routineInput(fd: FormData) {
   if (kind === "WEEKDAYS" && !weekdays) {
     throw new Error("Choose at least one weekday.");
   }
-  if (kind === "ONE_OFF" && (!day || !isDateInput(day))) {
+  if (
+    (kind === "ONE_OFF" || kind === "REMINDER") &&
+    (!day || !isDateInput(day))
+  ) {
     throw new Error("A valid date is required.");
   }
+  if (endDay && !isDateInput(endDay)) throw new Error("End date is invalid.");
   return {
     title,
     kind,
     weekdays: kind === "WEEKDAYS" ? weekdays : null,
-    day: kind === "ONE_OFF" ? day : null,
+    day: kind === "ONE_OFF" || kind === "REMINDER" ? day : null,
     dueTime,
+    endDay: kind === "DAILY" || kind === "WEEKDAYS" || kind === "WEEKLY" ? endDay : null,
+    showStreak,
     goalId,
+    items: kind === "REMINDER" || items.length === 0 ? [title] : items,
   };
 }
 
@@ -90,6 +109,7 @@ async function goalForOrg(orgId: string, goalId: string | null) {
 
 function revalidateRoutine(id?: string, goalId?: string | null) {
   revalidatePath("/goals/routines");
+  revalidatePath("/goals/routines/[id]");
   if (id) revalidatePath(`/goals/routines/${id}`);
   revalidatePath("/goals");
   if (goalId) revalidatePath(`/goals/${goalId}`);
@@ -97,10 +117,38 @@ function revalidateRoutine(id?: string, goalId?: string | null) {
 }
 
 export async function createRoutine(fd: FormData) {
-  const { user, orgId } = await requireRoutinesContext();
-  const input = routineInput(fd);
-  await goalForOrg(orgId, input.goalId);
-  const routine = await db.routine.create({ data: { orgId, ...input } });
+  const { user, orgId, timezone } = await requireRoutinesContext();
+  let input: ReturnType<typeof routineInput>;
+  try {
+    input = routineInput(fd);
+    const today = localCalendarDay(new Date(), timezone);
+    if (input.endDay && input.endDay < today) {
+      throw new Error("End date must be today or later.");
+    }
+    await goalForOrg(orgId, input.goalId);
+  } catch (error) {
+    redirectRoutineError("/goals", error);
+  }
+  const routine = await db.routine.create({
+    data: {
+      orgId,
+      title: input.title,
+      kind: input.kind,
+      weekdays: input.weekdays,
+      day: input.day,
+      dueTime: input.dueTime,
+      endDay: input.endDay,
+      showStreak: input.showStreak,
+      goalId: input.goalId,
+      items: {
+        create: input.items.map((label, position) => ({
+          orgId,
+          label,
+          position,
+        })),
+      },
+    },
+  });
   await logActivity({
     orgId,
     user,
@@ -114,12 +162,30 @@ export async function createRoutine(fd: FormData) {
 }
 
 export async function updateRoutine(id: string, fd: FormData) {
-  const { user, orgId } = await requireRoutinesContext();
-  const input = routineInput(fd);
-  await goalForOrg(orgId, input.goalId);
+  const { user, orgId, timezone } = await requireRoutinesContext();
+  let input: ReturnType<typeof routineInput>;
+  try {
+    input = routineInput(fd);
+    const today = localCalendarDay(new Date(), timezone);
+    if (input.endDay && input.endDay < today) {
+      throw new Error("End date must be today or later.");
+    }
+    await goalForOrg(orgId, input.goalId);
+  } catch (error) {
+    redirectRoutineError(`/goals/routines/${id}`, error);
+  }
   const result = await db.routine.updateMany({
     where: { id, orgId },
-    data: input,
+    data: {
+      title: input.title,
+      kind: input.kind,
+      weekdays: input.weekdays,
+      day: input.day,
+      dueTime: input.dueTime,
+      endDay: input.endDay,
+      showStreak: input.showStreak,
+      goalId: input.goalId,
+    },
   });
   if (!result.count) throw new Error("Routine not found.");
   await logActivity({
@@ -210,6 +276,48 @@ async function routineForItem(orgId: string, itemId: string) {
   });
   if (!item) throw new Error("Routine item not found.");
   return item;
+}
+
+async function updateSingleDayCompletion(
+  routineId: string,
+  orgId: string,
+  routineDay: string | null,
+) {
+  if (!routineDay) return;
+  const routine = await db.routine.findFirst({
+    where: { id: routineId, orgId },
+    select: { kind: true, day: true },
+  });
+  if (
+    !routine ||
+    (routine.kind !== "ONE_OFF" && routine.kind !== "REMINDER") ||
+    !routine.day
+  ) {
+    return;
+  }
+  const [items, checkOffs] = await Promise.all([
+    db.routineItem.findMany({
+      where: { routineId, orgId },
+      select: { id: true },
+    }),
+    db.routineCheckOff.findMany({
+      where: { routineId, orgId, day: routine.day },
+      select: { itemId: true, skipped: true },
+    }),
+  ]);
+  const complete =
+    items.length > 0 &&
+    items.every((item) =>
+      checkOffs.some(
+        (checkOff) => checkOff.itemId === item.id,
+      ),
+    );
+  await db.routine.update({
+    where: { id: routineId },
+    data: complete
+      ? { completedDay: routine.day, archived: true }
+      : { completedDay: null, archived: false },
+  });
 }
 
 function itemInput(fd: FormData) {
@@ -387,6 +495,77 @@ export async function toggleRoutineCheckOff(
       summary: `Routine item checked off: ${item.label}`,
     });
   }
+  await updateSingleDayCompletion(routine.id, orgId, routine.day);
+  revalidateRoutine(routine.id, routine.goalId);
+}
+
+export async function skipRoutineDay(itemId: string, day: string) {
+  const { user, orgId } = await requireRoutinesContext();
+  if (!isDateInput(day)) throw new Error("Check-off date is invalid.");
+  const item = await routineForItem(orgId, itemId);
+  const routine = item.routine;
+  if (routine.kind === "ONE_OFF" || !dueOn(routine, day)) {
+    throw new Error("That item cannot be skipped on this day.");
+  }
+  const existing = await db.routineCheckOff.findUnique({
+    where: { itemId_day: { itemId, day } },
+  });
+  if (existing?.skipped) {
+    await db.routineCheckOff.delete({ where: { id: existing.id } });
+  } else {
+    const today = localCalendarDay(new Date(), await orgTimeZone(orgId));
+    await db.routineCheckOff.upsert({
+      where: { itemId_day: { itemId, day } },
+      update: { skipped: true },
+      create: {
+        itemId,
+        routineId: routine.id,
+        orgId,
+        day,
+        late: day < today,
+        skipped: true,
+      },
+    });
+  }
+  await logActivity({
+    orgId,
+    user,
+    action: "routine.skip",
+    entity: "RoutineCheckOff",
+    entityId: existing?.id ?? itemId,
+    summary: `Routine item skipped: ${item.label}`,
+  });
+  await updateSingleDayCompletion(routine.id, orgId, routine.day);
+  revalidateRoutine(routine.id, routine.goalId);
+}
+
+export async function snoozeRoutine(fd: FormData) {
+  const { user, orgId } = await requireRoutinesContext();
+  const id = text(fd, "id");
+  const routine = await db.routine.findFirst({
+    where: { id, orgId },
+    select: { id: true, kind: true, day: true, goalId: true },
+  });
+  if (!routine) throw new Error("Routine not found.");
+  if (
+    (routine.kind !== "ONE_OFF" && routine.kind !== "REMINDER") ||
+    !routine.day
+  ) {
+    throw new Error("Only one-time routines can be snoozed.");
+  }
+  const day = shiftCalendarDay(routine.day, 1);
+  await db.routine.update({
+    where: { id: routine.id },
+    data: { day, completedDay: null, archived: false },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "routine.snooze",
+    entity: "Routine",
+    entityId: routine.id,
+    summary: `Routine snoozed until ${day}`,
+  });
   revalidateRoutine(routine.id, routine.goalId);
 }
 
