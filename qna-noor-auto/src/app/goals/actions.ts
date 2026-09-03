@@ -20,6 +20,10 @@ import {
   type GoalMetric,
   type GoalPeriod,
 } from "@/lib/goals";
+import {
+  normalizeGoalTemplateAccountType,
+  templatesFor,
+} from "@/lib/goalTemplates";
 
 const GOAL_PERIODS = ["WEEK", "MONTH", "YEAR", "BY_DATE"] as const;
 
@@ -76,6 +80,13 @@ function optionalDateFromForm(
   if (!value) return null;
   if (!isDateInput(value)) throw new Error("Date is invalid.");
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
+}
+
+function optionalDayFromForm(fd: FormData, key: string): string | null {
+  const value = text(fd, key);
+  if (!value) return null;
+  if (!isDateInput(value)) throw new Error("Date is invalid.");
+  return value;
 }
 
 function goalInput(
@@ -152,6 +163,86 @@ export async function createGoal(fd: FormData) {
     entityId: goal.id,
     summary: `Goal created: ${goal.title}`,
   });
+  revalidatePath("/goals");
+  revalidatePath("/");
+  redirect("/goals");
+}
+
+export async function applyGoalTemplate(fd: FormData) {
+  const { orgId, timezone, accountType, features } = await requireGoalsContext();
+  const user = await requireUser();
+  const template = templatesFor(
+    normalizeGoalTemplateAccountType(accountType),
+    (metric) => metricAllowed(metric, { accountType, features }),
+  ).find((candidate) => candidate.id === text(fd, "templateId"));
+  if (!template) throw new Error("Starter idea is not available.");
+
+  const today = localCalendarDay(new Date(), timezone);
+  const startDate = dateInputInTimeZone(
+    today,
+    timezone,
+    new Date(Number.NaN),
+  );
+  if (Number.isNaN(startDate.getTime())) throw new Error("Date is invalid.");
+
+  if (template.goal) {
+    const goal = await db.goal.create({
+      data: {
+        orgId,
+        title: template.title,
+        metric: template.goal.metric,
+        period: template.goal.period,
+        target: template.goal.target,
+        category: null,
+        startDate,
+        dueDate: null,
+        manualProgress: null,
+        direction: template.goal.direction ?? "AT_LEAST",
+        unit: template.goal.unit ?? null,
+        notes: null,
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "goal.create",
+      entity: "Goal",
+      entityId: goal.id,
+      summary: `Goal created: ${goal.title}`,
+    });
+  } else if (template.routine) {
+    const routine = await db.routine.create({
+      data: {
+        orgId,
+        title: template.title,
+        kind: template.routine.kind,
+        weekdays: template.routine.weekdays ?? null,
+        day: null,
+        dueTime: template.routine.dueTime ?? null,
+        endDay: null,
+        showStreak: template.routine.showStreak ?? false,
+        goalId: null,
+        items: {
+          create: template.routine.items.map((label, position) => ({
+            orgId,
+            label,
+            position,
+          })),
+        },
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "routine.create",
+      entity: "Routine",
+      entityId: routine.id,
+      summary: `Routine created: ${routine.title}`,
+    });
+  } else {
+    throw new Error("Starter idea is invalid.");
+  }
+
   revalidatePath("/goals");
   revalidatePath("/");
   redirect("/goals");
@@ -243,6 +334,186 @@ export async function deleteGoalEntry(fd: FormData) {
   revalidatePath("/goals");
   revalidatePath(`/goals/${goalId}`);
   revalidatePath("/");
+}
+
+export async function addGoalMilestone(fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const goalId = text(fd, "goalId");
+  const title = text(fd, "title");
+  const dueDay = optionalDayFromForm(fd, "dueDay");
+  if (!goalId) throw new Error("Goal not found.");
+  if (!title) throw new Error("Step title is required.");
+  if (dueDay) {
+    const parsedDay = dateInputInTimeZone(dueDay, timezone, new Date(Number.NaN));
+    if (
+      Number.isNaN(parsedDay.getTime()) ||
+      localCalendarDay(parsedDay, timezone) !== dueDay
+    ) {
+      throw new Error("Date is invalid.");
+    }
+  }
+  const goal = await db.goal.findFirst({
+    where: { id: goalId, orgId },
+    select: { id: true },
+  });
+  if (!goal) throw new Error("Goal not found.");
+  const last = await db.goalMilestone.aggregate({
+    where: { orgId, goalId },
+    _max: { position: true },
+  });
+  const milestone = await db.goalMilestone.create({
+    data: {
+      orgId,
+      goalId,
+      title,
+      dueDay,
+      position: (last._max.position ?? -1) + 1,
+    },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_create",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step added: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${goalId}`);
+}
+
+export async function toggleGoalMilestone(id: string, _fd: FormData) {
+  void _fd;
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, doneDay: true, title: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const doneDay = milestone.doneDay
+    ? null
+    : localCalendarDay(new Date(), timezone);
+  await db.goalMilestone.update({
+    where: { id: milestone.id },
+    data: { doneDay, doneByUserId: doneDay ? user.id : null },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: doneDay ? "goal.milestone_done" : "goal.milestone_undone",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `${doneDay ? "Completed" : "Reopened"} goal step: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function deleteGoalMilestone(id: string, _fd: FormData) {
+  void _fd;
+  const { orgId } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, title: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  await db.goalMilestone.delete({ where: { id: milestone.id } });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_delete",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step deleted: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function moveGoalMilestone(
+  id: string,
+  direction: "up" | "down",
+) {
+  const { orgId } = await requireGoalsContext();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, position: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const neighbor = await db.goalMilestone.findFirst({
+    where: {
+      orgId,
+      goalId: milestone.goalId,
+      position: direction === "up"
+        ? { lt: milestone.position }
+        : { gt: milestone.position },
+    },
+    orderBy: { position: direction === "up" ? "desc" : "asc" },
+    select: { id: true, position: true },
+  });
+  if (neighbor) {
+    await db.$transaction([
+      db.goalMilestone.update({
+        where: { id: milestone.id },
+        data: { position: neighbor.position },
+      }),
+      db.goalMilestone.update({
+        where: { id: neighbor.id },
+        data: { position: milestone.position },
+      }),
+    ]);
+  }
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function updateGoalMilestone(id: string, fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const title = text(fd, "title");
+  const dueDay = optionalDayFromForm(fd, "dueDay");
+  if (!title) throw new Error("Step title is required.");
+  if (dueDay) {
+    const parsedDay = dateInputInTimeZone(dueDay, timezone, new Date(Number.NaN));
+    if (
+      Number.isNaN(parsedDay.getTime()) ||
+      localCalendarDay(parsedDay, timezone) !== dueDay
+    ) {
+      throw new Error("Date is invalid.");
+    }
+  }
+  await db.goalMilestone.update({
+    where: { id: milestone.id },
+    data: { title, dueDay },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_update",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step updated: ${title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
 }
 
 export async function archiveGoal(fd: FormData) {

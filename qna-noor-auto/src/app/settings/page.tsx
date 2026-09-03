@@ -283,6 +283,11 @@ export default async function SettingsPage({
         "weeklyReviewEmailEnabled",
         fd.has("weeklyReviewEmailEnabled") ? "true" : "false",
       );
+      await setSetting(
+        saveOrgId,
+        "dailyDigestEmailEnabled",
+        fd.has("dailyDigestEmailEnabled") ? "true" : "false",
+      );
     }
     revalidatePath("/settings");
     revalidatePath("/", "layout");
@@ -542,7 +547,7 @@ export default async function SettingsPage({
         </Card>
       )}
 
-      {showWeeklyReview && (
+      {canManageOrgSettings && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="Weekly review">
             <span className="text-xs font-normal text-zinc-500">
@@ -551,23 +556,41 @@ export default async function SettingsPage({
           </CardHeader>
           <form action={save} className="space-y-4 p-6">
             <input type="hidden" name="weeklyReviewForm" value="1" />
+            {showWeeklyReview && (
+              <>
+                <label className="flex items-center gap-3 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    name="weeklyReviewEmailEnabled"
+                    value="true"
+                    defaultChecked={settings.weeklyReviewEmailEnabled === "true"}
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                  Email me a weekly review on Monday
+                </label>
+                <p className="text-xs text-zinc-500">
+                  It will be sent to{" "}
+                  {settings.shopEmail ||
+                    org.billingEmail ||
+                    owner?.email ||
+                    "the owner email on your account"}
+                  .
+                </p>
+              </>
+            )}
             <label className="flex items-center gap-3 text-sm text-zinc-800">
               <input
                 type="checkbox"
-                name="weeklyReviewEmailEnabled"
+                name="dailyDigestEmailEnabled"
                 value="true"
-                defaultChecked={settings.weeklyReviewEmailEnabled === "true"}
+                defaultChecked={settings.dailyDigestEmailEnabled === "true"}
                 className="h-4 w-4 rounded border-zinc-300"
               />
-              Email me a weekly review on Monday
+              Email a daily goals digest
             </label>
             <p className="text-xs text-zinc-500">
-              It will be sent to{" "}
-              {settings.shopEmail ||
-                org.billingEmail ||
-                owner?.email ||
-                "the owner email on your account"}
-              .
+              Every morning, each login with an email gets what&apos;s due today and
+              any number goals falling behind.
             </p>
             <SaveButton>Save weekly review settings</SaveButton>
           </form>

@@ -10,7 +10,7 @@ import {
   Select,
   StatTile,
 } from "@/components/ui";
-import { assertCanViewFinancials } from "@/lib/permissions";
+import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
 import { db } from "@/lib/db";
@@ -33,11 +33,17 @@ import { ROUTINE_WEEKDAYS } from "@/lib/routines";
 import { createRoutine } from "../routines/actions";
 import {
   archiveGoal,
+  addGoalMilestone,
+  deleteGoalMilestone,
   deleteGoal,
   deleteGoalEntry,
   logGoalEntry,
+  moveGoalMilestone,
+  toggleGoalMilestone,
+  updateGoalMilestone,
 } from "../actions";
 import { DeleteGoalButton } from "../DeleteGoalButton";
+import { DeleteMilestoneButton } from "../DeleteMilestoneButton";
 import { Today } from "../Today";
 
 export default async function GoalDetailPage({
@@ -47,7 +53,7 @@ export default async function GoalDetailPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  assertCanViewFinancials(user.role);
+  if (!canViewFinancials(user.role)) redirect("/goals");
   if (!user.orgId) redirect("/");
   const { id } = await params;
   const goal = await db.goal.findFirst({
@@ -85,11 +91,18 @@ export default async function GoalDetailPage({
       ? db.goalEntry.count({ where: { orgId: user.orgId, goalId: record.id } })
       : 0,
   ]);
-  const linkedRoutines = await db.routine.findMany({
-    where: { orgId: user.orgId, goalId: record.id, archived: false },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, kind: true },
-  });
+  const [linkedRoutines, milestones] = await Promise.all([
+    db.routine.findMany({
+      where: { orgId: user.orgId, goalId: record.id, archived: false },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true, kind: true },
+    }),
+    db.goalMilestone.findMany({
+      where: { orgId: user.orgId, goalId: record.id },
+      orderBy: { position: "asc" },
+      include: { doneBy: { select: { username: true } } },
+    }),
+  ]);
   const emptyLatest =
     record.metric === "LOGGED_LATEST" &&
     progress.baseline === null &&
@@ -147,6 +160,158 @@ export default async function GoalDetailPage({
           {progress.periodLabel}
         </span>
       </div>
+      <Card className="mb-6 overflow-hidden dark:border-zinc-700 dark:bg-zinc-900">
+        <CardHeader title="Steps" />
+        <div className="px-4 pt-2">
+          {milestones.length ? (
+            <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
+              {milestones.map((milestone, index) => (
+                <div
+                  key={milestone.id}
+                  className="flex flex-wrap items-start justify-between gap-3 py-3"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <form
+                      action={toggleGoalMilestone.bind(null, milestone.id)}
+                    >
+                      <button
+                        type="submit"
+                        aria-label={milestone.doneDay ? "Undo" : "Check off"}
+                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs ${
+                          milestone.doneDay
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : "border-zinc-400 dark:border-zinc-500"
+                        }`}
+                      >
+                        {milestone.doneDay ? "✓" : ""}
+                      </button>
+                    </form>
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm ${
+                          milestone.doneDay
+                            ? "text-zinc-500 line-through dark:text-zinc-400"
+                            : "text-zinc-800 dark:text-zinc-200"
+                        }`}
+                      >
+                        {milestone.title}
+                      </p>
+                      {milestone.dueDay && !milestone.doneDay && (
+                        <p
+                          className={`text-xs ${
+                            milestone.dueDay < today
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-zinc-500 dark:text-zinc-400"
+                          }`}
+                        >
+                          by {milestone.dueDay}
+                        </p>
+                      )}
+                      {milestone.doneDay && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          Done {milestone.doneDay}
+                          {milestone.doneBy
+                            ? ` · ${milestone.doneBy.username}`
+                            : ""}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <form
+                      action={moveGoalMilestone.bind(null, milestone.id, "up")}
+                    >
+                      <button
+                        type="submit"
+                        disabled={index === 0}
+                        aria-label="Move step up"
+                        className="text-sm text-zinc-500 disabled:opacity-30 dark:text-zinc-400"
+                      >
+                        ↑
+                      </button>
+                    </form>
+                    <form
+                      action={moveGoalMilestone.bind(null, milestone.id, "down")}
+                    >
+                      <button
+                        type="submit"
+                        disabled={index === milestones.length - 1}
+                        aria-label="Move step down"
+                        className="text-sm text-zinc-500 disabled:opacity-30 dark:text-zinc-400"
+                      >
+                        ↓
+                      </button>
+                    </form>
+                    <details>
+                      <summary className="cursor-pointer text-xs font-medium text-zinc-600 underline dark:text-zinc-300">
+                        Edit
+                      </summary>
+                      <form
+                        action={updateGoalMilestone.bind(null, milestone.id)}
+                        className="mt-2 flex flex-wrap items-end gap-2"
+                      >
+                        <label className="text-xs text-zinc-500">
+                          Title
+                          <Input
+                            name="title"
+                            required
+                            defaultValue={milestone.title}
+                            className="mt-1 w-48"
+                          />
+                        </label>
+                        <label className="text-xs text-zinc-500">
+                          Due
+                          <Input
+                            name="dueDay"
+                            type="date"
+                            defaultValue={milestone.dueDay ?? ""}
+                            className="mt-1"
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          className="rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                        >
+                          Save
+                        </button>
+                      </form>
+                    </details>
+                    <DeleteMilestoneButton
+                      action={deleteGoalMilestone.bind(null, milestone.id)}
+                      title={milestone.title}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-3 text-sm text-zinc-500 dark:text-zinc-400">
+              Break this goal into steps — e.g. &apos;Post the ad&apos;,
+              &apos;Call 5 past customers&apos;.
+            </p>
+          )}
+          <form
+            action={addGoalMilestone}
+            className="mt-2 flex flex-wrap items-end gap-2 border-t border-zinc-200 py-4 dark:border-zinc-700"
+          >
+            <input type="hidden" name="goalId" value={record.id} />
+            <label className="text-xs text-zinc-500">
+              New step
+              <Input name="title" required placeholder="Post the ad" className="mt-1 w-56" />
+            </label>
+            <label className="text-xs text-zinc-500">
+              Due (optional)
+              <Input name="dueDay" type="date" className="mt-1" />
+            </label>
+            <button
+              type="submit"
+              className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Add step
+            </button>
+          </form>
+        </div>
+      </Card>
       <Card className="mb-6 overflow-hidden dark:border-zinc-700 dark:bg-zinc-900">
         <CardHeader title="Routines & checklists" />
         <div className="px-4 pt-4">
@@ -249,6 +414,7 @@ export default async function GoalDetailPage({
         hasInvoices={hasInvoices}
         goalId={record.id}
         showGoals={false}
+        canManage
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

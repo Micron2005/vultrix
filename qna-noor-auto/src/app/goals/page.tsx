@@ -21,10 +21,12 @@ import {
   type GoalRecord,
 } from "@/lib/goals";
 import {
+  goalPaceText,
   goalRemainingSummary,
   statusClass,
   statusLabel,
 } from "@/lib/goalStatus";
+import { metricAllowed } from "@/lib/goalAvailability";
 import { loadGoalDatasets, OVERVIEW_GOAL_LIMIT } from "@/lib/goalsOverview";
 import { Today } from "./Today";
 import { localCalendarDay } from "@/lib/timezone";
@@ -37,33 +39,34 @@ import {
 import { DeleteGoalButton } from "./DeleteGoalButton";
 import { DeleteRoutineButton } from "./DeleteRoutineButton";
 import { NewGoalPicker } from "./NewGoalPicker";
+import { StarterTemplates } from "./StarterTemplates";
 import { archiveRoutine, deleteRoutine, restoreRoutine } from "./routines/actions";
 import { loadTeamToday, routineLabel, routineStreak } from "@/lib/routines";
+import {
+  normalizeGoalTemplateAccountType,
+  templatesFor,
+} from "@/lib/goalTemplates";
 
 export const dynamic = "force-dynamic";
 
 function GoalCard({
   goal,
   progress,
+  milestoneCount,
+  milestoneDoneCount,
   accountType,
   hasInvoices,
 }: {
   goal: GoalRecord;
   progress: GoalProgress;
+  milestoneCount: number;
+  milestoneDoneCount: number;
   accountType: string;
   hasInvoices: boolean;
 }) {
   const atMost = goalIsAtMost(goal);
   const remaining = goalRemainingSummary(goal, progress);
-  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
-  const paceText =
-    progress.daysRemaining < 14
-      ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded, goal.unit)} a day ${
-          remainingDays === 1
-            ? "in the last day"
-            : `in the next ${remainingDays} days`
-        }`
-      : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
+  const paceText = goalPaceText(goal, progress);
   const emptyLatest =
     goal.metric === "LOGGED_LATEST" &&
     progress.baseline === null &&
@@ -139,6 +142,11 @@ function GoalCard({
         <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
           {supportText}
           {showPace && <> · {paceText}</>}
+        </p>
+      )}
+      {milestoneCount > 0 && (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Steps: {milestoneDoneCount} of {milestoneCount}
         </p>
       )}
 
@@ -250,6 +258,7 @@ export default async function GoalsPage({
       hasInvoices,
       forUserId: user.id,
       showGoals: false,
+      canManage: false,
     });
     return (
       <>
@@ -276,6 +285,14 @@ export default async function GoalsPage({
   const activeRoutines = routines.filter((routine) => !routine.archived);
   const archivedRoutines = routines.filter((routine) => routine.archived);
   const teamToday = users.length >= 2 ? await loadTeamToday(user.orgId, timezone) : [];
+  const starterTemplates = templatesFor(
+    normalizeGoalTemplateAccountType(accountType),
+    (metric) => metricAllowed(metric, { accountType, features }),
+  ).filter((template) => {
+    const title = template.title.trim().toLowerCase();
+    return !active.some(({ goal }) => goal.title.trim().toLowerCase() === title) &&
+      !activeRoutines.some((routine) => routine.title.trim().toLowerCase() === title);
+  });
   const today = localCalendarDay(new Date(), timezone);
   const charted = active.slice(0, OVERVIEW_GOAL_LIMIT);
   const datasets =
@@ -316,7 +333,12 @@ export default async function GoalsPage({
           {error}
         </div>
       )}
-      <Today orgId={user.orgId} timezone={timezone} hasInvoices={hasInvoices} />
+      <Today
+        orgId={user.orgId}
+        timezone={timezone}
+        hasInvoices={hasInvoices}
+        canManage
+      />
       {users.length >= 2 && (
         <Card className="mb-6 overflow-hidden">
           <CardHeader title="Team today" />
@@ -376,11 +398,13 @@ export default async function GoalsPage({
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {active.map(({ goal, progress }) => (
+            {active.map(({ goal, progress, milestoneCount, milestoneDoneCount }) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
                 progress={progress}
+                milestoneCount={milestoneCount}
+                milestoneDoneCount={milestoneDoneCount}
                 accountType={accountType}
                 hasInvoices={hasInvoices}
               />
@@ -505,6 +529,11 @@ export default async function GoalsPage({
           </details>
         </Card>
       )}
+
+      <StarterTemplates
+        templates={starterTemplates}
+        activeCount={active.length + activeRoutines.length}
+      />
 
       <div id="new-goal" className="scroll-mt-6">
         <Card className="mt-6 p-5">
