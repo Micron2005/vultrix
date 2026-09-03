@@ -426,16 +426,27 @@ export async function loadActiveGoals(
   timezone: string,
   hasInvoices: boolean,
   limit?: number,
-): Promise<Array<{ goal: GoalRecord; progress: GoalProgress }>> {
+): Promise<
+  Array<{
+    goal: GoalRecord;
+    progress: GoalProgress;
+    milestoneCount: number;
+    milestoneDoneCount: number;
+  }>
+> {
   const goals = await db.goal.findMany({
     where: { orgId, archived: false },
     orderBy: { createdAt: "desc" },
     ...(limit ? { take: limit } : {}),
+    include: { milestones: { select: { doneDay: true } } },
   });
   const now = new Date();
   const scored = await Promise.all(
     goals.map(async (goal) => ({
       goal: goal as GoalRecord,
+      milestoneCount: goal.milestones.length,
+      milestoneDoneCount: goal.milestones.filter((milestone) => milestone.doneDay)
+        .length,
       progress: await computeGoalProgress(
         orgId,
         goal as GoalRecord,

@@ -20,6 +20,7 @@ export async function TodayBlock({
       hasInvoices={hasInvoices}
       title={title}
       forUserId={user?.role === "STAFF" ? user.id : undefined}
+      canManage={user?.role !== "STAFF"}
     />
   );
 }
