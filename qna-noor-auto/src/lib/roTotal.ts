@@ -61,19 +61,17 @@ export async function computeRoPaid(repairOrderId: string): Promise<number> {
 export async function depositDue(
   roId: string,
 ): Promise<{ requested: number; paid: number; due: number }> {
-  const [requestedRows, paidAggregate] = await Promise.all([
-    db.$queryRaw<Array<{ depositRequested: number | null }>>`
-      SELECT "depositRequested"
-      FROM "RepairOrder"
-      WHERE "id" = ${roId}
-      LIMIT 1
-    `,
+  const [ro, paidAggregate] = await Promise.all([
+    db.repairOrder.findUnique({
+      where: { id: roId },
+      select: { depositRequested: true },
+    }),
     db.payment.aggregate({
       where: { repairOrderId: roId, isDeposit: true },
       _sum: { amount: true },
     }),
   ]);
-  const requested = requestedRows[0]?.depositRequested ?? 0;
+  const requested = ro?.depositRequested ?? 0;
   const paid = Math.round((paidAggregate._sum.amount ?? 0) * 100) / 100;
   const due = Math.max(0, Math.round((requested - paid) * 100) / 100);
   return { requested, paid, due };

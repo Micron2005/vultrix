@@ -1043,11 +1043,10 @@ export async function requestDeposit(repairOrderId: string, fd: FormData) {
       requested = Math.round(amount * 100) / 100;
     }
   }
-  await db.$executeRaw`
-    UPDATE "RepairOrder"
-    SET "depositRequested" = ${requested}
-    WHERE "id" = ${repairOrderId} AND "orgId" = ${orgId}
-  `;
+  await db.repairOrder.update({
+    where: { id: ro.id },
+    data: { depositRequested: requested },
+  });
   await logActivity({
     orgId,
     user,
