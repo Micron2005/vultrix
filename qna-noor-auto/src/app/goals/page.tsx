@@ -36,6 +36,7 @@ import {
   restoreGoal,
 } from "./actions";
 import { DeleteGoalButton } from "./DeleteGoalButton";
+import { DeleteRoutineButton } from "./DeleteRoutineButton";
 import { NewGoalPicker } from "./NewGoalPicker";
 import { archiveRoutine, deleteRoutine, restoreRoutine } from "./routines/actions";
 import { routineLabel, routineStreak } from "@/lib/routines";
@@ -225,11 +226,16 @@ function ArchivedGoal({
   );
 }
 
-export default async function GoalsPage() {
+export default async function GoalsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   assertCanViewFinancials(user.role);
   if (!user.orgId) return null;
+  const { error } = (await searchParams) ?? {};
   const accountType = user.accountType ?? "AUTO_SHOP";
   const features = enabledFeatureSet(user);
   const timezone = await orgTimeZone(user.orgId);
@@ -285,6 +291,11 @@ export default async function GoalsPage() {
           </>
         }
       />
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          {error}
+        </div>
+      )}
       <Today orgId={user.orgId} timezone={timezone} hasInvoices={hasInvoices} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -371,10 +382,17 @@ export default async function GoalsPage() {
                       Manage
                     </Link>
                   </div>
-                  <form action={archiveRoutine} className="mt-4 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700">
-                    <input type="hidden" name="id" value={routine.id} />
-                    <button className="font-medium text-zinc-500 underline dark:text-zinc-400">Archive</button>
-                  </form>
+                  <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700">
+                    <form action={archiveRoutine}>
+                      <input type="hidden" name="id" value={routine.id} />
+                      <button className="font-medium text-zinc-500 underline dark:text-zinc-400">Archive</button>
+                    </form>
+                    <DeleteRoutineButton
+                      action={deleteRoutine}
+                      routineId={routine.id}
+                      title={routine.title}
+                    />
+                  </div>
                 </Card>
               );
             })}
@@ -423,10 +441,11 @@ export default async function GoalsPage() {
                       <input type="hidden" name="id" value={routine.id} />
                       <button className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">Restore</button>
                     </form>
-                    <form action={deleteRoutine}>
-                      <input type="hidden" name="id" value={routine.id} />
-                      <button className="text-sm font-medium text-red-700 underline dark:text-red-400">Delete</button>
-                    </form>
+                    <DeleteRoutineButton
+                      action={deleteRoutine}
+                      routineId={routine.id}
+                      title={routine.title}
+                    />
                   </div>
                 </div>
               ))}

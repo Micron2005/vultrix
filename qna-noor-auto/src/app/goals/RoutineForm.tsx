@@ -90,7 +90,7 @@ export function RoutineForm({
             <Input
               name="day"
               type="date"
-              required
+              required={oneOff}
               defaultValue={initial?.day ?? ""}
               className="mt-1"
             />

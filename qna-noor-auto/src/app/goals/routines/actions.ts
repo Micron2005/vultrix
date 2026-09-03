@@ -32,6 +32,12 @@ function text(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
 }
 
+function redirectRoutineError(path: string, error: unknown): never {
+  const message =
+    error instanceof Error ? error.message : "Could not save routine.";
+  redirect(`${path}?error=${encodeURIComponent(message)}`);
+}
+
 function optionalNumber(fd: FormData, key: string): number | null {
   const value = text(fd, key);
   if (!value) return null;
@@ -112,12 +118,17 @@ function revalidateRoutine(id?: string, goalId?: string | null) {
 
 export async function createRoutine(fd: FormData) {
   const { user, orgId, timezone } = await requireRoutinesContext();
-  const input = routineInput(fd);
-  const today = localCalendarDay(new Date(), timezone);
-  if (input.endDay && input.endDay < today) {
-    throw new Error("End date must be today or later.");
+  let input: ReturnType<typeof routineInput>;
+  try {
+    input = routineInput(fd);
+    const today = localCalendarDay(new Date(), timezone);
+    if (input.endDay && input.endDay < today) {
+      throw new Error("End date must be today or later.");
+    }
+    await goalForOrg(orgId, input.goalId);
+  } catch (error) {
+    redirectRoutineError("/goals", error);
   }
-  await goalForOrg(orgId, input.goalId);
   const routine = await db.routine.create({
     data: {
       orgId,
@@ -152,12 +163,17 @@ export async function createRoutine(fd: FormData) {
 
 export async function updateRoutine(id: string, fd: FormData) {
   const { user, orgId, timezone } = await requireRoutinesContext();
-  const input = routineInput(fd);
-  const today = localCalendarDay(new Date(), timezone);
-  if (input.endDay && input.endDay < today) {
-    throw new Error("End date must be today or later.");
+  let input: ReturnType<typeof routineInput>;
+  try {
+    input = routineInput(fd);
+    const today = localCalendarDay(new Date(), timezone);
+    if (input.endDay && input.endDay < today) {
+      throw new Error("End date must be today or later.");
+    }
+    await goalForOrg(orgId, input.goalId);
+  } catch (error) {
+    redirectRoutineError(`/goals/routines/${id}`, error);
   }
-  await goalForOrg(orgId, input.goalId);
   const result = await db.routine.updateMany({
     where: { id, orgId },
     data: {

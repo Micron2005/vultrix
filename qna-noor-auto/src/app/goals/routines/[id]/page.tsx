@@ -1,21 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Card, CardHeader, Input, LinkButton, PageHeader, Select } from "@/components/ui";
+import { Card, CardHeader, Input, LinkButton, PageHeader } from "@/components/ui";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { localCalendarDay, shiftCalendarDay } from "@/lib/timezone";
-import { routineLabel, ROUTINE_WEEKDAYS, statusFor } from "@/lib/routines";
+import { routineLabel, statusFor } from "@/lib/routines";
 import { deleteRoutine, updateRoutine, addRoutineItem, updateRoutineItem, deleteRoutineItem, moveRoutineItem, archiveRoutine, restoreRoutine } from "../actions";
+import { DeleteRoutineButton } from "../../DeleteRoutineButton";
+import { RoutineSettingsForm } from "../../RoutineSettingsForm";
 
 
-export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RoutineDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   assertCanViewFinancials(user.role);
   if (!user.orgId) redirect("/admin");
   const { id } = await params;
+  const { error } = (await searchParams) ?? {};
   const timezone = await orgTimeZone(user.orgId);
   const routine = await db.routine.findFirst({
     where: { id, orgId: user.orgId },
@@ -27,6 +30,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   if (!routine) notFound();
   const goals = await db.goal.findMany({ where: { orgId: user.orgId, archived: false }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   const today = localCalendarDay(new Date(), timezone);
+  const createdDay = localCalendarDay(routine.createdAt, timezone);
   const days = Array.from({ length: 14 }, (_, index) => shiftCalendarDay(today, index - 13));
   return (
     <>
@@ -42,26 +46,28 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
       </div>
       <Card className="p-5 dark:border-zinc-700 dark:bg-zinc-900">
         <CardHeader title="Routine settings" />
-        <form action={updateRoutine.bind(null, routine.id)} className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Name<Input name="title" required defaultValue={routine.title} className="mt-1" /></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Schedule<Select name="kind" defaultValue={routine.kind} className="mt-1"><option value="DAILY">Every day</option><option value="WEEKDAYS">Selected weekdays</option><option value="WEEKLY">Weekly</option><option value="ONE_OFF">One time</option><option value="REMINDER">Reminder</option></Select></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Default due time<Input name="dueTime" type="time" defaultValue={routine.dueTime ?? ""} className="mt-1" /></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">One-off date<Input name="day" type="date" defaultValue={routine.day ?? ""} className="mt-1" /></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">End date<Input name="endDay" type="date" defaultValue={routine.endDay ?? ""} className="mt-1" /></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Part of goal<Select name="goalId" defaultValue={routine.goalId ?? ""} className="mt-1"><option value="">No linked goal</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</Select></label>
+        {error && (
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+            {error}
           </div>
-          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="showStreak" value="on" defaultChecked={routine.showStreak} />Show streak</label>
-          <fieldset><legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Weekdays</legend><div className="mt-2 flex flex-wrap gap-3">{ROUTINE_WEEKDAYS.map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="weekdays" value={value} defaultChecked={(routine.weekdays ?? "").split(",").includes(value)} />{label}</label>)}</div></fieldset>
-          <button className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Save settings</button>
-        </form>
+        )}
+        <RoutineSettingsForm
+          action={updateRoutine.bind(null, routine.id)}
+          initial={routine}
+          goals={goals}
+        />
         <div className="mt-3 flex flex-wrap gap-3">
           {routine.archived ? (
             <form action={restoreRoutine}><input type="hidden" name="id" value={id} /><button className="px-3 py-2 text-sm underline">Restore</button></form>
           ) : (
             <form action={archiveRoutine}><input type="hidden" name="id" value={id} /><button className="px-3 py-2 text-sm text-zinc-500 underline">Archive</button></form>
           )}
-          <form action={deleteRoutine}><input type="hidden" name="id" value={id} /><button className="px-3 py-2 text-sm text-red-600 underline">Delete</button></form>
+          <DeleteRoutineButton
+            action={deleteRoutine}
+            routineId={id}
+            title={routine.title}
+            className="px-3 py-2 text-sm text-red-600 underline"
+          />
         </div>
       </Card>
       <Card className="mt-6 p-5 dark:border-zinc-700 dark:bg-zinc-900">
@@ -101,7 +107,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           <table className="min-w-[42rem] w-full text-left text-xs">
             <thead><tr><th className="pb-2 pr-3 font-medium text-zinc-500">Item</th>{days.map((day) => <th key={day} className="px-1 pb-2 text-center font-medium text-zinc-500">{day.slice(5)}</th>)}</tr></thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700 dark:text-zinc-300">{item.label}</th>{days.map((day) => { const status = statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center"><span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : status === "skipped" ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" : status === "late" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : status === "missed" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>{status === "done" ? "✓" : status === "skipped" ? "S" : status === "not_due" ? "–" : "!"}</span></td>; })}</tr>)}
+              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700 dark:text-zinc-300">{item.label}</th>{days.map((day) => { const beforeCreation = day < createdDay; const status = beforeCreation ? "not_due" : statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center">{beforeCreation ? null : <span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : status === "skipped" ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" : status === "late" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : status === "missed" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>{status === "done" ? "✓" : status === "skipped" ? "S" : status === "not_due" ? "–" : "!"}</span>}</td>; })}</tr>)}
             </tbody>
           </table>
           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">✓ done · S skipped · amber late · red missed · – not due</p>
