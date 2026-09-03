@@ -11,6 +11,7 @@ import {
   type DashboardBlockId,
   type DashboardLayout,
 } from "@/lib/dashboard";
+import { resolveNavLayout } from "@/lib/navLayout";
 import { DashboardGrid } from "./DashboardGrid";
 import { GoalsBlock } from "./dashboard-blocks/GoalsBlock";
 import { LowStockBlock } from "./dashboard-blocks/LowStockBlock";
@@ -243,11 +244,11 @@ export async function Dashboard({
     orgTimeZone(orgId),
     db.user.findUnique({
       where: { id: user.id },
-      select: { dashLayout: true },
+      select: { dashLayout: true, navLayout: true },
     }),
     db.organization.findUnique({
       where: { id: orgId },
-      select: { dashDefault: true },
+      select: { dashDefault: true, navDefault: true },
     }),
   ]);
   const features = enabledFeatureSet(user);
@@ -270,6 +271,21 @@ export async function Dashboard({
     orgRecord?.dashDefault,
     user.accountType,
   );
+  const navLayout = resolveNavLayout(
+    layoutRecord?.navLayout,
+    orgRecord?.navDefault,
+    {
+      accountType: user.accountType,
+      enabledFeatures: features,
+    },
+  );
+  const renderedLayout =
+    navLayout.mode === "top"
+      ? {
+          ...layout,
+          blocks: layout.blocks.map((block) => ({ ...block, visible: true })),
+        }
+      : layout;
   const accountDefaultLayout = resolveDashboardLayout(
     null,
     orgRecord?.dashDefault,
@@ -283,7 +299,7 @@ export async function Dashboard({
     hasRequiredFeatures(block.id, block.requires, context),
   );
   const availableIds = new Set(available.map((block) => block.id));
-  const renderableBlocks = layout.blocks.filter(
+  const renderableBlocks = renderedLayout.blocks.filter(
     (block) => availableIds.has(block.id) && (editing || block.visible),
   );
   const nodes = await Promise.all(
@@ -347,11 +363,12 @@ export async function Dashboard({
         }
       />
       <DashboardGrid
-        layout={layout}
+        layout={renderedLayout}
         resetLayout={accountDefaultLayout}
         blocks={blockDescriptors}
         editing={editing}
         defaultGreeting={defaultGreeting}
+        allowHide={navLayout.mode !== "top"}
       />
     </>
   );

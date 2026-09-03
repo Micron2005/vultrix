@@ -124,6 +124,41 @@ export function LinkButton({
   );
 }
 
+export function SegmentedControl({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-zinc-600">{label}</span>
+      <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={
+              value === option.value
+                ? "bg-[var(--vx-accent-600)] px-3 py-1.5 text-xs font-medium text-[var(--vx-accent-fg)]"
+                : "px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }
+            onClick={() => onChange(option.value)}
+            aria-pressed={value === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input

@@ -7,7 +7,12 @@ export type NavCatalogItem = {
   required?: boolean;
 };
 
+export type NavMode = "sidebar" | "top";
+export type NavUtilityPlacement = "top" | "bottom";
+
 export type NavLayout = {
+  mode: NavMode;
+  utilities: NavUtilityPlacement;
   items: Array<{ href: string; visible: boolean; label?: string }>;
 };
 
@@ -113,6 +118,20 @@ function parseNavLayout(raw: unknown): unknown[] {
   return Array.isArray(record.items) ? record.items : [];
 }
 
+function parseNavSettings(raw: unknown): {
+  mode: NavMode;
+  utilities: NavUtilityPlacement;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { mode: "sidebar", utilities: "top" };
+  }
+  const record = raw as Record<string, unknown>;
+  return {
+    mode: record.mode === "top" ? "top" : "sidebar",
+    utilities: record.utilities === "bottom" ? "bottom" : "top",
+  };
+}
+
 export function normalizeNavLayout(
   raw: unknown,
   options: NavLabelOptions,
@@ -149,7 +168,18 @@ export function normalizeNavLayout(
     }
   }
 
-  return { items };
+  const settings = parseNavSettings(
+    typeof raw === "string"
+      ? (() => {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return null;
+          }
+        })()
+      : raw,
+  );
+  return { ...settings, items };
 }
 
 export function resolveNavLayout(
