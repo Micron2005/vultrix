@@ -92,7 +92,7 @@ export default async function CustomerPortalROPage({
     Boolean(org?.stripeConnectChargesEnabled);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10">
+    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
       <div className="mx-auto max-w-3xl px-4">
         <div className="mb-4">
           <Link

@@ -55,7 +55,7 @@ export default async function CustomerStatementPage({
   const contact = [customer.phone, customer.email].filter(Boolean).join(" · ");
 
   return (
-    <div>
+    <div data-force-light className="rounded-lg bg-zinc-50 p-4 text-zinc-900">
       <div className="mx-auto max-w-5xl print:max-w-full">
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white print:rounded-none print:border-0">
           <header className="border-b border-zinc-200 px-8 py-6">

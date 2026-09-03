@@ -108,7 +108,7 @@ export default async function CustomerPortalPage({
     .filter((r) => r.dueItems.length > 0);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10">
+    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
       <div className="mx-auto max-w-4xl px-4 space-y-6">
         <header className="rounded-lg bg-white shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-zinc-200 flex items-start justify-between gap-4">
