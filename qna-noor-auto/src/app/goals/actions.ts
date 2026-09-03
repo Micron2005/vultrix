@@ -82,6 +82,13 @@ function optionalDateFromForm(
   return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
+function optionalDayFromForm(fd: FormData, key: string): string | null {
+  const value = text(fd, key);
+  if (!value) return null;
+  if (!isDateInput(value)) throw new Error("Date is invalid.");
+  return value;
+}
+
 function goalInput(
   fd: FormData,
   timezone: string,
@@ -327,6 +334,186 @@ export async function deleteGoalEntry(fd: FormData) {
   revalidatePath("/goals");
   revalidatePath(`/goals/${goalId}`);
   revalidatePath("/");
+}
+
+export async function addGoalMilestone(fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const goalId = text(fd, "goalId");
+  const title = text(fd, "title");
+  const dueDay = optionalDayFromForm(fd, "dueDay");
+  if (!goalId) throw new Error("Goal not found.");
+  if (!title) throw new Error("Step title is required.");
+  if (dueDay) {
+    const parsedDay = dateInputInTimeZone(dueDay, timezone, new Date(Number.NaN));
+    if (
+      Number.isNaN(parsedDay.getTime()) ||
+      localCalendarDay(parsedDay, timezone) !== dueDay
+    ) {
+      throw new Error("Date is invalid.");
+    }
+  }
+  const goal = await db.goal.findFirst({
+    where: { id: goalId, orgId },
+    select: { id: true },
+  });
+  if (!goal) throw new Error("Goal not found.");
+  const last = await db.goalMilestone.aggregate({
+    where: { orgId, goalId },
+    _max: { position: true },
+  });
+  const milestone = await db.goalMilestone.create({
+    data: {
+      orgId,
+      goalId,
+      title,
+      dueDay,
+      position: (last._max.position ?? -1) + 1,
+    },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_create",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step added: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${goalId}`);
+}
+
+export async function toggleGoalMilestone(id: string, _fd: FormData) {
+  void _fd;
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, doneDay: true, title: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const doneDay = milestone.doneDay
+    ? null
+    : localCalendarDay(new Date(), timezone);
+  await db.goalMilestone.update({
+    where: { id: milestone.id },
+    data: { doneDay, doneByUserId: doneDay ? user.id : null },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: doneDay ? "goal.milestone_done" : "goal.milestone_undone",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `${doneDay ? "Completed" : "Reopened"} goal step: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function deleteGoalMilestone(id: string, _fd: FormData) {
+  void _fd;
+  const { orgId } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, title: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  await db.goalMilestone.delete({ where: { id: milestone.id } });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_delete",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step deleted: ${milestone.title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function moveGoalMilestone(
+  id: string,
+  direction: "up" | "down",
+) {
+  const { orgId } = await requireGoalsContext();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true, position: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const neighbor = await db.goalMilestone.findFirst({
+    where: {
+      orgId,
+      goalId: milestone.goalId,
+      position: direction === "up"
+        ? { lt: milestone.position }
+        : { gt: milestone.position },
+    },
+    orderBy: { position: direction === "up" ? "desc" : "asc" },
+    select: { id: true, position: true },
+  });
+  if (neighbor) {
+    await db.$transaction([
+      db.goalMilestone.update({
+        where: { id: milestone.id },
+        data: { position: neighbor.position },
+      }),
+      db.goalMilestone.update({
+        where: { id: neighbor.id },
+        data: { position: milestone.position },
+      }),
+    ]);
+  }
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
+}
+
+export async function updateGoalMilestone(id: string, fd: FormData) {
+  const { orgId, timezone } = await requireGoalsContext();
+  const user = await requireUser();
+  const milestone = await db.goalMilestone.findFirst({
+    where: { id, orgId },
+    select: { id: true, goalId: true },
+  });
+  if (!milestone) throw new Error("Step not found.");
+  const title = text(fd, "title");
+  const dueDay = optionalDayFromForm(fd, "dueDay");
+  if (!title) throw new Error("Step title is required.");
+  if (dueDay) {
+    const parsedDay = dateInputInTimeZone(dueDay, timezone, new Date(Number.NaN));
+    if (
+      Number.isNaN(parsedDay.getTime()) ||
+      localCalendarDay(parsedDay, timezone) !== dueDay
+    ) {
+      throw new Error("Date is invalid.");
+    }
+  }
+  await db.goalMilestone.update({
+    where: { id: milestone.id },
+    data: { title, dueDay },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "goal.milestone_update",
+    entity: "GoalMilestone",
+    entityId: milestone.id,
+    summary: `Goal step updated: ${title}`,
+  });
+  revalidatePath("/goals");
+  revalidatePath(`/goals/${milestone.goalId}`);
+  revalidatePath("/");
+  redirect(`/goals/${milestone.goalId}`);
 }
 
 export async function archiveGoal(fd: FormData) {
