@@ -306,6 +306,7 @@ html {
 
 html.dark [data-force-light] {
   color-scheme: light;
+  color: #18181b;
   --color-white: #ffffff;
   --color-black: #000000;
   --color-zinc-50: #fafafa;

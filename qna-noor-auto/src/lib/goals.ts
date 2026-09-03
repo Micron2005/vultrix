@@ -153,7 +153,7 @@ export function goalWindow(
       month: "short",
       day: "numeric",
     })}`,
-    valid: dueDay > startDay,
+    valid: dueDay >= startDay,
   };
 }
 
@@ -550,5 +550,6 @@ export function goalValueLabel(
     })}`;
   }
   const formatted = value.toLocaleString("en-US", { maximumFractionDigits: 1 });
+  if (metric === "HABIT") return formatted;
   return unit ? `${formatted} ${unit}` : formatted;
 }
