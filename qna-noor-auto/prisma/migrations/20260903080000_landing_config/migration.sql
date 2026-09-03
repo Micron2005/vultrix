@@ -1,0 +1,1 @@
+ALTER TABLE "LandingContent" ADD COLUMN "config" TEXT NOT NULL DEFAULT '{}';

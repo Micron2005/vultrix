@@ -1065,12 +1065,11 @@ model LandingBlock {
   @@index([sortOrder])
 }
 
-// Rich-text landing page content (singleton row, id = "singleton").
-// Legacy — the /site website builder was removed; kept for migration history.
 model LandingContent {
   id        String   @id @default("singleton")
   html      String   @default("")
   theme     String   @default("{}")
+  config    String   @default("{}")
   updatedAt DateTime @updatedAt
 }
 

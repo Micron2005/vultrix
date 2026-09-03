@@ -6,7 +6,9 @@
 // Place at: src/components/marketing/VultrixLanding.jsx (or components/marketing/).
 // See README-VULTRIX-LANDING.md for wiring + the CSS snippet + Prisma model.
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { accentVarsFromHex } from "@/lib/appearance";
+import { DEFAULT_LANDING_CONFIG } from "@/lib/landingConfig";
 import { SUPPORT_EMAIL } from "@/lib/branding";
 import {
   Wrench, FileText, Car, Search, Boxes, Package, QrCode, Bell, Calendar,
@@ -15,8 +17,26 @@ import {
   CreditCard, Clock, BadgeCheck, ArrowRight, ArrowUpRight, Check, X,
   Menu, Mail, Phone, MapPin, RefreshCw, Send, CheckCircle2, LayoutDashboard,
   ScanLine, Plus, Home,
+  Star, Heart, Zap, Target, Sparkles,
 } from "lucide-react";
 import VultrixAssistant from "./VultrixAssistant";
+
+const LandingConfigContext = createContext(DEFAULT_LANDING_CONFIG);
+const ICONS = {
+  Wrench, FileText, Car, Search, Boxes, Package, QrCode, Bell, Calendar,
+  UserCog, Building2, Receipt, BarChart3, Upload, ClipboardList, Users,
+  ShieldCheck, Smartphone, Download, HardHat, Bot, Globe, Store, MessageSquare,
+  CreditCard, Clock, BadgeCheck, CheckCircle2, LayoutDashboard, ScanLine, Home,
+  RefreshCw, Star, Heart, Zap, Target, Sparkles,
+};
+const useLandingConfig = () => useContext(LandingConfigContext);
+const text = (value, cfg, trialDays) =>
+  String(value ?? "")
+    .replaceAll("{brand}", cfg.site.brand)
+    .replaceAll("{shopName}", cfg.site.shopName)
+    .replaceAll("{tagline}", cfg.site.tagline)
+    .replaceAll("{trialDays}", String(trialDays));
+const icon = (name) => ICONS[name] || Star;
 
 /* ----------------------------------------------------------------------------
    CONFIG — edit freely
@@ -339,8 +359,8 @@ function Counter({ value, prefix = "", suffix = "" }) {
 ---------------------------------------------------------------------------- */
 const btnBase = "inline-flex items-center justify-center font-semibold rounded-xl transition-colors";
 const VultrixLogo = () => (
-  <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-amber-500">
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="#09090b" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+  <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--vx-accent)]">
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="var(--vx-accent-fg)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 4l8 16 8-16" />
     </svg>
   </span>
@@ -643,6 +663,7 @@ const MOCKS = { workorder: WorkOrderMock, lookup: LookupMock, inventory: Invento
    NAVBAR
 ---------------------------------------------------------------------------- */
 const Navbar = () => {
+  const cfg = useLandingConfig();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -656,16 +677,16 @@ const Navbar = () => {
       <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="#top" className="flex items-center gap-2">
           <VultrixLogo />
-          <span className={`font-display text-lg font-extrabold tracking-tight ${scrolled ? "text-zinc-900" : "text-white"}`}>{SITE.brand}</span>
+          <span className={`font-display text-lg font-extrabold tracking-tight ${scrolled ? "text-zinc-900" : "text-white"}`}>{cfg.site.brand}</span>
         </a>
         <div className="hidden md:flex items-center gap-1">
-          {NAV_LINKS.map((l) => (
+          {cfg.nav.map((l) => (
             <a key={l.href} href={l.href} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${scrolled ? "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100" : "text-zinc-200 hover:text-white hover:bg-white/10"}`}>{l.label}</a>
           ))}
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <a href={URLS.login} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>Log in</a>
-          <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up <ArrowRight className="ml-1.5 h-4 w-4" /></a>
+          <a href={URLS.login} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>{cfg.site.loginLabel}</a>
+          <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800`}>{cfg.site.signupLabel} <ArrowRight className="ml-1.5 h-4 w-4" /></a>
         </div>
         <button className={`md:hidden p-2 rounded-lg ${scrolled ? "text-zinc-900 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`} aria-label="Open menu" onClick={() => setOpen((o) => !o)}>
           <Menu className="h-6 w-6" />
@@ -674,13 +695,13 @@ const Navbar = () => {
       {open && (
         <div className="md:hidden bg-white border-t border-zinc-200 px-4 py-4">
           <div className="flex flex-col gap-1">
-            {NAV_LINKS.map((l) => (
+          {cfg.nav.map((l) => (
               <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="px-3 py-3 rounded-lg text-base font-medium text-zinc-700 hover:bg-zinc-100">{l.label}</a>
             ))}
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800`}>Sign up</a>
-            <a href={URLS.login} className={`${btnBase} w-full h-11 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>Log in</a>
+            <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800`}>{cfg.site.signupLabel}</a>
+            <a href={URLS.login} className={`${btnBase} w-full h-11 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>{cfg.site.loginLabel}</a>
           </div>
         </div>
       )}
@@ -691,30 +712,35 @@ const Navbar = () => {
 /* ----------------------------------------------------------------------------
    SECTIONS
 ---------------------------------------------------------------------------- */
-const Hero = ({ trialDays }) => (
-  <section id="top" className="relative overflow-hidden bg-zinc-950 text-white">
+const Hero = ({ trialDays }) => {
+  const cfg = useLandingConfig();
+  const hero = cfg.hero;
+  return (
+  <section id="top" className="relative overflow-hidden bg-[var(--vx-dark)] text-white">
     <div className="absolute inset-0 vx-hero-glow" aria-hidden="true" />
-    <div className="absolute inset-0 vx-dots opacity-60" aria-hidden="true" />
+    {cfg.theme.pattern === "dots" && <div className="absolute inset-0 vx-dots opacity-60" aria-hidden="true" />}
+    {cfg.theme.pattern === "grid" && <div className="absolute inset-0 vx-grid opacity-60" aria-hidden="true" />}
     <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 sm:pt-32 sm:pb-24">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
         <Reveal className="lg:col-span-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
-            <HardHat className="h-3.5 w-3.5" /> Built by a working mechanic — now for everyone
+          <div className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--vx-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--vx-accent)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--vx-accent-soft)]">
+            <HardHat className="h-3.5 w-3.5" /> {hero.badge}
           </div>
           <h1 className="mt-5 font-display text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.05]">
-            Everything you run, from <span className="text-amber-400">one screen.</span>
+            {hero.headline} <span className="text-[var(--vx-accent-soft)]">{hero.headlineAccent}</span>
           </h1>
           <p className="mt-5 text-base sm:text-lg text-zinc-300 leading-relaxed max-w-xl">
-            {SITE.brand} began as software for auto repair shops and grew into an all-in-one system for any small business — or your personal life. Jobs, invoices, inventory, scheduling, expenses, reminders, and a built-in AI assistant, minus the clunky, overpriced tools.
+            {text(hero.body, cfg, trialDays)}
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
-            <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your {trialDays}-day free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
+            <a href={URLS.signup} className={`${btnBase} h-12 px-6 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)] text-base`}>{text(hero.ctaLabel, cfg, trialDays)} <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-zinc-400">
-            <span className="font-semibold text-white">Plans from ${PRICING.startingPrice}/mo</span>
-            {TRUST_BADGES.map((b) => (
-              <span key={b.label} className="inline-flex items-center gap-1.5"><b.icon className="h-4 w-4 text-amber-400" /> {b.label}</span>
-            ))}
+            {hero.showFromPrice && <span className="font-semibold text-white">Plans from ${PRICING.startingPrice}/mo</span>}
+            {hero.trustBadges.map((b) => {
+              const Badge = icon(b.icon);
+              return <span key={b.label} className="inline-flex items-center gap-1.5"><Badge className="h-4 w-4 text-[var(--vx-accent-soft)]" /> {b.label}</span>;
+            })}
           </div>
         </Reveal>
         <Reveal className="lg:col-span-6" delay={0.1}>
@@ -723,38 +749,48 @@ const Hero = ({ trialDays }) => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
-const CredibilityStrip = () => (
+const CredibilityStrip = () => {
+  const cfg = useLandingConfig();
+  return (
   <section className="border-b border-zinc-200 bg-white">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {CREDIBILITY.map((c) => (
+        {cfg.credibility.map((c) => {
+          const CIcon = icon(c.icon);
+          return (
           <div key={c.label} className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700"><c.icon className="h-5 w-5" /></span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700"><CIcon className="h-5 w-5" /></span>
             <span className="text-sm font-medium text-zinc-700">{c.label}</span>
           </div>
-        ))}
+          );
+            })}
       </div>
     </div>
   </section>
-);
+  );
+};
 
-const WhatIs = () => (
-  <section id="about" className="scroll-anchor bg-[#fafafa]">
+const WhatIs = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.whatIs;
+  return (
+  <section id="about" className="scroll-anchor bg-[var(--vx-light)]">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
         <Reveal className="lg:col-span-6">
-          <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">What is {SITE.brand}?</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">The all-in-one system, shaped to how you work</h2>
-          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{SITE.brand} began in a busy auto repair shop and grew into a flexible platform for any small business — or your personal life. Write up jobs and invoices, track inventory and expenses, plan your week, and keep customers (or yourself) on track — without bouncing between five different tools or paying enterprise prices.</p>
-          <p className="mt-4 text-base text-zinc-600 leading-relaxed">It runs in any browser, on the shop computer, your phone, or a tablet in the bay. You choose your setup at sign-up and only see the tools you need. Your data is always yours, and you can export it anytime.</p>
+          <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{text(section.kicker, cfg)}</div>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">{section.title}</h2>
+          <p className="mt-5 text-base sm:text-lg text-zinc-600 leading-relaxed">{text(section.p1, cfg)}</p>
+          <p className="mt-4 text-base text-zinc-600 leading-relaxed">{section.p2}</p>
         </Reveal>
         <Reveal className="lg:col-span-6" delay={0.1}>
           <div className="rounded-[18px] bg-white border border-zinc-200 shadow-sm p-6 sm:p-8">
-            <div className="text-sm font-semibold text-zinc-900">What you get out of the box</div>
+            <div className="text-sm font-semibold text-zinc-900">{section.boxTitle}</div>
             <ul className="mt-4 space-y-4">
-              {WHAT_IS.map((w) => (
+              {section.items.map((w) => (
                 <li key={w} className="flex items-start gap-3"><CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" /><span className="text-zinc-700">{w}</span></li>
               ))}
             </ul>
@@ -763,22 +799,28 @@ const WhatIs = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
-const Audiences = () => (
+const Audiences = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.audiences;
+  return (
   <section id="who" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <Reveal>
-        <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Who it's for</div>
-        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Built for the bay — flexible enough for anyone.</h2>
-        <p className="mt-4 text-zinc-600 max-w-2xl">Pick your setup when you sign up and {SITE.brand} shapes itself to match — you only ever see the tools that fit how you work.</p>
+        <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">{section.title}</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">{text(section.body, cfg)}</p>
       </Reveal>
       <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-        {AUDIENCES.map((a, i) => (
+        {section.cards.map((a, i) => {
+          const AIcon = icon(a.icon);
+          return (
           <Reveal key={a.kicker} delay={(i % 3) * 0.06}>
             <div className="h-full rounded-[16px] bg-white border border-zinc-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 text-amber-400"><a.icon className="h-6 w-6" /></span>
-              <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-600">{a.kicker}</div>
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 text-[var(--vx-accent-soft)]"><AIcon className="h-6 w-6" /></span>
+              <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--vx-accent)]">{a.kicker}</div>
               <h3 className="mt-1 font-display text-xl font-extrabold text-zinc-900">{a.title}</h3>
               <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{a.desc}</p>
               <ul className="mt-4 space-y-2">
@@ -788,98 +830,108 @@ const Audiences = () => (
               </ul>
             </div>
           </Reveal>
-        ))}
+          );
+        })}
       </div>
       <Reveal delay={0.1}>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>Choose your setup <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>{section.ctaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
         </div>
       </Reveal>
     </div>
   </section>
-);
+  );
+};
 
-const FounderStory = () => (
+const FounderStory = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.founder;
+  return (
   <section className="bg-white border-y border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
       <div className="max-w-3xl">
         <Reveal>
-          <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Why I built it</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">I got tired of clunky, overpriced tools. So I built a better one.</h2>
+          <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">{section.title}</h2>
           <div className="mt-5 space-y-4 text-base text-zinc-600 leading-relaxed">
-            <p>I work on cars. The software I was stuck with was slow, confusing, and cost a small fortune every month — and it still couldn't do half of what a busy shop actually needs.</p>
-            <p>So I built {SITE.brand}: the system I wish I'd had on day one. Everything a shop touches in a day — estimates, parts, inventory, customers, reminders, and the money — in one fast, clean place. No fluff, no lock-in, no enterprise price tag.</p>
-            <p>It started in my own shop. But scattered tools, ugly screens, and monthly fees for half the features hit every small business — and honestly, everyday life too. So {SITE.brand} now flexes to fit auto shops, other businesses, and personal use. Same clean system, shaped to whatever you're running.</p>
+            {section.paragraphs.map((paragraph) => <p key={paragraph}>{text(paragraph, cfg)}</p>)}
           </div>
         </Reveal>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const FeatureCard = ({ f, i }) => (
   <Reveal delay={(i % 3) * 0.05} className="h-full">
     <div className="group h-full rounded-[14px] bg-white border border-zinc-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-shadow">
-      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors"><f.icon className="h-5 w-5" /></span>
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-[var(--vx-accent-soft)] group-hover:bg-[var(--vx-accent)] group-hover:text-[var(--vx-accent-fg)] transition-colors"><f.icon className="h-5 w-5" /></span>
       <h3 className="mt-4 font-display text-base font-bold text-zinc-900">{f.title}</h3>
       <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{f.desc}</p>
-      {f.tag && <span className="mt-3 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{f.tag}</span>}
+      {f.tag && <span className="mt-3 inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--vx-accent)_10%,white)] border border-[color-mix(in_srgb,var(--vx-accent)_25%,white)] px-2 py-0.5 text-[11px] font-semibold text-[var(--vx-accent)]">{f.tag}</span>}
     </div>
   </Reveal>
 );
 
-const Features = () => (
+const Features = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.features;
+  return (
   <section id="features" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <Reveal>
-        <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Everything in one place</div>
-        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Powerful tools, tailored to how you work.</h2>
-        <p className="mt-4 text-zinc-600 max-w-2xl">Pick your setup at sign-up and {SITE.brand} shows only what fits. Here's what comes with every account — plus the extra toolkit built just for auto repair shops.</p>
+        <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">{section.title}</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">{text(section.body, cfg)}</p>
       </Reveal>
 
       <div className="mt-12">
         <Reveal>
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 shrink-0"><LayoutDashboard className="h-5 w-5" /></span>
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-[var(--vx-accent-soft)] shrink-0"><LayoutDashboard className="h-5 w-5" /></span>
             <div>
-              <h3 className="font-display text-xl font-extrabold text-zinc-900">In every account</h3>
-              <p className="text-sm text-zinc-600">Auto shop, business, or personal. Invoicing &amp; customers are built in for shops and businesses — and an add-on for personal accounts.</p>
+              <h3 className="font-display text-xl font-extrabold text-zinc-900">{section.generalTitle}</h3>
+              <p className="text-sm text-zinc-600">{section.generalBody}</p>
             </div>
           </div>
         </Reveal>
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {GENERAL_FEATURES.map((f, i) => (<FeatureCard key={f.title} f={f} i={i} />))}
+          {section.general.map((f, i) => (<FeatureCard key={f.title} f={{ ...f, icon: icon(f.icon) }} i={i} />))}
         </div>
       </div>
 
       <div className="mt-14">
         <Reveal>
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-zinc-950 shrink-0"><Wrench className="h-5 w-5" /></span>
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] shrink-0"><Wrench className="h-5 w-5" /></span>
             <div>
-              <h3 className="font-display text-xl font-extrabold text-zinc-900">Auto repair shops only</h3>
-              <p className="text-sm text-zinc-600">The shop-floor toolkit — exclusive to auto repair accounts.</p>
+              <h3 className="font-display text-xl font-extrabold text-zinc-900">{section.autoTitle}</h3>
+              <p className="text-sm text-zinc-600">{section.autoBody}</p>
             </div>
           </div>
         </Reveal>
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {AUTO_FEATURES.map((f, i) => (<FeatureCard key={f.title} f={f} i={i} />))}
+          {section.auto.map((f, i) => (<FeatureCard key={f.title} f={{ ...f, icon: icon(f.icon) }} i={i} />))}
         </div>
       </div>
     </div>
   </section>
-);
+  );
+};
 
-const DeepDives = () => (
-  <section id="deep-dives" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
+const DeepDives = () => {
+  const cfg = useLandingConfig();
+  return (
+  <section id="deep-dives" className="scroll-anchor bg-[var(--vx-light)] border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 space-y-16 sm:space-y-24">
-      {DEEP_DIVES.map((d, i) => {
-        const Mock = MOCKS[d.mock];
+      {cfg.deepDives.map((d, i) => {
+        const Mock = MOCKS[d.mock] || DashboardMock;
         const reverse = i % 2 === 1;
         return (
           <div key={d.id} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             <Reveal className={`lg:col-span-5 ${reverse ? "lg:order-2" : ""}`}>
-              <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">{d.eyebrow}</div>
+              <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{d.eyebrow}</div>
               <h3 className="mt-3 font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900">{d.title}</h3>
               <ul className="mt-5 space-y-3">
                 {d.points.map((p) => (
@@ -893,19 +945,25 @@ const DeepDives = () => (
       })}
     </div>
   </section>
-);
+  );
+};
 
 const Stats = ({ trialDays }) => {
-  const stats = STATS.map((s) =>
-    s.label === "Days free to try" ? { ...s, value: trialDays } : s,
+  const cfg = useLandingConfig();
+  const stats = cfg.stats.items.map((s) =>
+    s.label === "Days free to try"
+      ? { ...s, value: trialDays }
+      : s.label === "Tools in one place"
+        ? { ...s, value: cfg.features.general.length + cfg.features.auto.length }
+        : s,
   );
   return (
-    <section className="bg-zinc-950 text-white">
+    <section className="bg-[var(--vx-dark)] text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-amber-400"><Counter value={s.value} prefix={s.prefix || ""} suffix={s.suffix || ""} /></div>
+              <div className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--vx-accent-soft)]"><Counter value={s.value} prefix={s.prefix || ""} suffix={s.suffix || ""} /></div>
               <div className="mt-2 text-sm text-zinc-400">{s.label}</div>
             </div>
           ))}
@@ -916,17 +974,18 @@ const Stats = ({ trialDays }) => {
 };
 
 const ImportSection = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.importSection;
   const STEPS = [
-    { icon: Upload, title: "Import by CSV", desc: "Bring your customers, vehicles, and history straight in." },
-    { icon: RefreshCw, title: "Pick up where you left off", desc: "Your jobs, parts, and numbers organized from day one." },
-    { icon: ShieldCheck, title: "Your data stays yours", desc: "Export anytime. No lock-in, no holding your shop hostage." },
+    ...section.points.map((step) => ({ ...step, icon: icon(step.icon) })),
   ];
   return (
-    <section className="bg-[#fafafa] border-t border-zinc-200">
+  <section className="bg-[var(--vx-light)] border-t border-zinc-200">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
         <Reveal>
-          <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Make the switch</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">Switch in minutes. Your data stays yours.</h2>
+          <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">{section.title}</h2>
+          {section.body && <p className="mt-4 text-zinc-600 max-w-2xl">{text(section.body, cfg)}</p>}
         </Reveal>
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
           {STEPS.map((s, i) => (
@@ -945,24 +1004,26 @@ const ImportSection = () => {
 };
 
 const ShopRecommendation = () => {
-  const live = Boolean(URLS.shopUrl);
+  const cfg = useLandingConfig();
+  const section = cfg.shopRecommendation;
+  const live = Boolean(cfg.site.shopUrl);
   return (
-    <section className="bg-[#fafafa]">
+    <section className="bg-[var(--vx-light)]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <Reveal>
-          <div className="rounded-[18px] bg-zinc-950 text-white p-8 sm:p-10 relative overflow-hidden">
+          <div className="rounded-[18px] bg-[var(--vx-dark)] text-white p-8 sm:p-10 relative overflow-hidden">
             <div className="absolute inset-0 vx-hero-glow opacity-70" aria-hidden="true" />
             <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300"><Store className="h-3.5 w-3.5" /> Proven in a real, working shop</div>
-                <h2 className="mt-4 font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{SITE.brand} runs the floor at {URLS.shopName}</h2>
-                <p className="mt-3 text-zinc-300">Every feature here is battle-tested in a busy shop, day in and day out. Want to see the shop behind the software?</p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--vx-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--vx-accent)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--vx-accent-soft)]"><Store className="h-3.5 w-3.5" /> {section.kicker}</div>
+                <h2 className="mt-4 font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{text(section.title, cfg)}</h2>
+                <p className="mt-3 text-zinc-300">{text(section.body, cfg)}</p>
               </div>
               <div className="shrink-0">
                 {live ? (
-                  <a href={URLS.shopUrl} target="_blank" rel="noopener noreferrer" className={`${btnBase} h-12 px-6 bg-amber-500 text-zinc-950 hover:bg-amber-400`}>Visit {URLS.shopName} <ArrowUpRight className="ml-2 h-4 w-4" /></a>
+                  <a href={cfg.site.shopUrl} target="_blank" rel="noopener noreferrer" className={`${btnBase} h-12 px-6 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{text(section.ctaLabel, cfg)} <ArrowUpRight className="ml-2 h-4 w-4" /></a>
                 ) : (
-                  <span className={`${btnBase} h-12 px-6 bg-zinc-800 text-zinc-400 cursor-not-allowed`}><MapPin className="mr-2 h-4 w-4" /> Shop site coming soon</span>
+                  <span className={`${btnBase} h-12 px-6 bg-zinc-800 text-zinc-400 cursor-not-allowed`}><MapPin className="mr-2 h-4 w-4" /> {section.fallbackCtaLabel}</span>
                 )}
               </div>
             </div>
@@ -973,23 +1034,27 @@ const ShopRecommendation = () => {
   );
 };
 
-const Roadmap = () => (
+const Roadmap = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.roadmap;
+  return (
   <section id="roadmap" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <Reveal>
-        <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">The road ahead</div>
-        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">What's coming to {SITE.brand}</h2>
-        <p className="mt-4 text-zinc-600 max-w-2xl">{SITE.brand} keeps getting better. Here's what's on the roadmap — these are planned features in active thinking, not promises on specific dates.</p>
+        <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+        <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">{text(section.title, cfg)}</h2>
+        <p className="mt-4 text-zinc-600 max-w-2xl">{text(section.body, cfg)}</p>
       </Reveal>
       <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {ROADMAP.map((r, i) => {
+        {section.items.map((r, i) => {
+          const RIcon = icon(r.icon);
           const soon = r.status === "Coming soon";
           const live = r.status.startsWith("Live");
           return (
             <Reveal key={r.title} delay={(i % 3) * 0.05}>
-              <div className="h-full rounded-[14px] bg-[#fafafa] border border-zinc-200 p-6 hover:border-zinc-300 transition-colors">
+              <div className="h-full rounded-[14px] bg-[var(--vx-light)] border border-zinc-200 p-6 hover:border-zinc-300 transition-colors">
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-zinc-200 text-zinc-900"><r.icon className="h-5 w-5" /></span>
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-zinc-200 text-zinc-900"><RIcon className="h-5 w-5" /></span>
                   <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${live ? "bg-green-100 text-green-700" : soon ? "bg-amber-100 text-amber-700" : "bg-zinc-200 text-zinc-700"}`}>{r.status}</span>
                 </div>
                 <h3 className="mt-4 font-display text-base font-bold text-zinc-900">{r.title}</h3>
@@ -999,10 +1064,11 @@ const Roadmap = () => (
           );
         })}
       </div>
-      <Reveal delay={0.1}><p className="mt-8 text-xs text-zinc-500">Roadmap items are subject to change. Have a request? <a href="#contact" className="font-medium text-zinc-700 underline underline-offset-2">Tell us what you'd build.</a></p></Reveal>
+      <Reveal delay={0.1}><p className="mt-8 text-xs text-zinc-500">{text(section.requestText, cfg)}{" "}<a href="#contact" className="font-medium text-zinc-700 underline underline-offset-2">{section.requestLinkLabel}</a></p></Reveal>
     </div>
   </section>
-);
+  );
+};
 
 const money = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
 
@@ -1027,32 +1093,36 @@ const PriceToggle = ({ checked, onChange, label, hint, testId }) => (
 );
 
 const Pricing = ({ trialDays }) => {
+  const cfg = useLandingConfig();
+  const section = cfg.pricing;
   const [addInvoices, setAddInvoices] = useState(false);
   const personalPrice =
     PRICING.personalBase +
     (addInvoices ? PRICING.invoicesAddon : 0);
 
   return (
-    <section id="pricing" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
+    <section id="pricing" className="scroll-anchor bg-[var(--vx-light)] border-t border-zinc-200">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <Reveal>
           <div className="text-center">
-            <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Simple, honest pricing</div>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">One price for how you work.</h2>
-            <p className="mt-4 text-zinc-600 max-w-2xl mx-auto">Pick the setup that matches your account type — you only pay for what fits. Every plan includes a {trialDays}-day free trial, month-to-month billing, and your data exportable anytime.</p>
+            <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">{section.title}</h2>
+            <p className="mt-4 text-zinc-600 max-w-2xl mx-auto">{text(section.body, cfg, trialDays)}</p>
           </div>
         </Reveal>
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          {PLANS.map((p, i) => {
+          {PLANS.map((basePlan, i) => {
+            const copy = section.plans.find((plan) => plan.id === basePlan.id) || {};
+            const p = { ...basePlan, ...copy, icon: typeof copy.icon === "string" ? icon(copy.icon) : basePlan.icon };
             const price = p.personal ? personalPrice : p.monthly;
             return (
               <Reveal key={p.id} delay={(i % 3) * 0.06} className="h-full">
                 <div
                   data-testid={`pricing-card-${p.id}`}
-                  className={`relative flex h-full flex-col rounded-[20px] p-7 bg-white ${p.highlight ? "border-2 border-amber-400 shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}
+                  className={`relative flex h-full flex-col rounded-[20px] p-7 bg-white ${p.highlight ? "border-2 border-[var(--vx-accent)] shadow-[0_18px_50px_-18px_rgba(245,158,11,0.45)]" : "border border-zinc-200 shadow-sm"}`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-amber-400 shrink-0"><p.icon className="h-5 w-5" /></span>
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-[var(--vx-accent-soft)] shrink-0"><p.icon className="h-5 w-5" /></span>
                     <div className="min-w-0">
                       <h3 className="font-display text-xl font-extrabold tracking-tight text-zinc-900 leading-tight">{p.name}</h3>
                       {p.badge && <span className={`mt-1 inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.highlight ? "bg-amber-100 text-amber-700" : "bg-zinc-100 text-zinc-600"}`}>{p.badge}</span>}
@@ -1061,25 +1131,23 @@ const Pricing = ({ trialDays }) => {
                   <p className="mt-3 text-sm text-zinc-600 leading-relaxed">{p.tagline}</p>
                   <div className="mt-5 flex items-end gap-1">
                     <span className="font-display text-5xl font-extrabold tracking-tight text-zinc-900" data-testid={`pricing-amount-${p.id}`}>{money(price)}</span>
-                    <span className="mb-1.5 text-zinc-500">/mo</span>
+                    <span className="mb-1.5 text-zinc-500">{p.monthlyLabel}</span>
                   </div>
-                  <div className="mt-1 text-xs text-zinc-500">Billed monthly · cancel anytime</div>
+                  <div className="mt-1 text-xs text-zinc-500">{section.billingNote}</div>
 
                   {p.personal ? (
                     <div className="mt-5 space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Make it yours</div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">{section.personalCustomTitle}</div>
                       <PriceToggle
                         checked={addInvoices}
                         onChange={setAddInvoices}
-                        label="Add invoices & customers"
+                        label={section.personalToggleLabel}
                         hint={`+${money(PRICING.invoicesAddon)}/mo`}
                         testId="personal-invoices-toggle"
                       />
                       <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-600">
                         <Bot className="mr-1.5 inline-block h-3.5 w-3.5 align-[-0.15em]" />
-                        The AI assistant is included on Personal when you
-                        connect your own OpenAI or Anthropic key — no add-on
-                        fee.
+                        {section.personalAiNote}
                       </div>
                     </div>
                   ) : (
@@ -1110,9 +1178,12 @@ const Pricing = ({ trialDays }) => {
         <Reveal delay={0.15}>
           <div className="mt-10 flex flex-col items-center gap-3">
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
-              {TRUST_BADGES.map((b) => (<span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><b.icon className="h-4 w-4 text-amber-500" /> {b.label}</span>))}
+              {cfg.hero.trustBadges.map((b) => {
+                const Badge = icon(b.icon);
+                return <span key={b.label} className="inline-flex items-center gap-1.5 text-sm text-zinc-600"><Badge className="h-4 w-4 text-[var(--vx-accent)]" /> {b.label}</span>;
+              })}
             </div>
-            <p className="text-xs text-zinc-500 text-center max-w-md">{trialDays}-day free trial. You won't be charged until your trial ends. Billing is securely handled by Stripe.</p>
+            <p className="text-xs text-zinc-500 text-center max-w-md">{text(section.trialNote, cfg, trialDays)}</p>
           </div>
         </Reveal>
       </div>
@@ -1120,41 +1191,43 @@ const Pricing = ({ trialDays }) => {
   );
 };
 
-const Comparison = () => (
+const Comparison = () => {
+  const cfg = useLandingConfig();
+  const section = cfg.comparison;
+  return (
   <section className="bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-      <Reveal><h2 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 text-center">{SITE.brand} vs. the old way</h2></Reveal>
+      <Reveal><h2 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 text-center">{text(section.title, cfg)}</h2></Reveal>
       <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5">
         <Reveal>
-          <div className="rounded-[18px] border border-zinc-200 bg-[#fafafa] p-7">
-            <div className="font-display text-lg font-bold text-zinc-500">The old way</div>
-            <ul className="mt-5 space-y-3.5">{COMPARISON.oldWay.map((o) => (<li key={o} className="flex items-start gap-3 text-zinc-500"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-zinc-500 shrink-0"><X className="h-3.5 w-3.5" /></span><span className="text-sm">{o}</span></li>))}</ul>
+          <div className="rounded-[18px] border border-zinc-200 bg-[var(--vx-light)] p-7">
+            <div className="font-display text-lg font-bold text-zinc-500">{section.oldWayTitle}</div>
+            <ul className="mt-5 space-y-3.5">{section.oldWay.map((o) => (<li key={o} className="flex items-start gap-3 text-zinc-500"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-zinc-500 shrink-0"><X className="h-3.5 w-3.5" /></span><span className="text-sm">{o}</span></li>))}</ul>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
           <div className="rounded-[18px] border-2 border-amber-400 bg-white p-7 shadow-[0_10px_40px_-16px_rgba(245,158,11,0.5)]">
-            <div className="font-display text-lg font-bold text-zinc-900">With {SITE.brand}</div>
-            <ul className="mt-5 space-y-3.5">{COMPARISON.vultrix.map((v) => (<li key={v} className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 shrink-0"><Check className="h-3.5 w-3.5" /></span><span className="text-sm text-zinc-800 font-medium">{v}</span></li>))}</ul>
+            <div className="font-display text-lg font-bold text-zinc-900">{text(section.vultrixTitle, cfg)}</div>
+            <ul className="mt-5 space-y-3.5">{section.vultrix.map((v) => (<li key={v} className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-700 shrink-0"><Check className="h-3.5 w-3.5" /></span><span className="text-sm text-zinc-800 font-medium">{v}</span></li>))}</ul>
           </div>
         </Reveal>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const Faq = ({ trialDays }) => {
+  const cfg = useLandingConfig();
+  const section = cfg.faq;
   const [openIdx, setOpenIdx] = useState(0);
-  const faqs = FAQS.map((f) =>
-    f.q === "How does the free trial work?"
-      ? { ...f, a: `You get ${trialDays} days free. You won't be charged until the trial ends, and you can cancel before then at no cost.` }
-      : f,
-  );
+  const faqs = section.items.map((f) => ({ ...f, a: text(f.a, cfg, trialDays) }));
   return (
-    <section id="faq" className="scroll-anchor bg-[#fafafa] border-t border-zinc-200">
+  <section id="faq" className="scroll-anchor bg-[var(--vx-light)] border-t border-zinc-200">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <Reveal>
-          <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Questions</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">Frequently asked</h2>
+          <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">{section.title}</h2>
         </Reveal>
         <Reveal delay={0.1}>
           <div className="mt-8 divide-y divide-zinc-200 border-y border-zinc-200">
@@ -1174,7 +1247,7 @@ const Faq = ({ trialDays }) => {
   );
 };
 
-const ContactForm = () => {
+const ContactForm = ({ copy }) => {
   const [form, setForm] = useState({ name: "", shop: "", email: "", phone: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -1183,14 +1256,14 @@ const ContactForm = () => {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name.trim() || !form.email.trim()) { setError("Please add your name and email."); return; }
+    if (!form.name.trim() || !form.email.trim()) { setError(copy.validationError); return; }
     setBusy(true);
     try {
       const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, source: "contact" }) });
       if (!res.ok) throw new Error();
       setDone(true);
       setForm({ name: "", shop: "", email: "", phone: "", message: "" });
-    } catch { setError("Something went wrong. Please try again."); }
+    } catch { setError(copy.failureError); }
     finally { setBusy(false); }
   };
   const inputCls = "mt-1.5 w-full h-11 rounded-lg border border-zinc-300 px-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-400";
@@ -1198,104 +1271,114 @@ const ContactForm = () => {
     return (
       <div className="rounded-[14px] bg-white border border-zinc-200 shadow-sm p-8 text-center">
         <div className="mx-auto h-14 w-14 rounded-full bg-green-50 flex items-center justify-center"><CheckCircle2 className="h-7 w-7 text-green-600" /></div>
-        <h3 className="mt-4 font-display text-xl font-bold text-zinc-900">Message received</h3>
-        <p className="mt-2 text-sm text-zinc-600">Thanks for reaching out. We'll get back to you at the email you provided.</p>
-        <button onClick={() => setDone(false)} className={`${btnBase} mt-5 h-10 px-4 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>Send another message</button>
+        <h3 className="mt-4 font-display text-xl font-bold text-zinc-900">{copy.successTitle}</h3>
+        <p className="mt-2 text-sm text-zinc-600">{copy.successBody}</p>
+        <button onClick={() => setDone(false)} className={`${btnBase} mt-5 h-10 px-4 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>{copy.anotherLabel}</button>
       </div>
     );
   }
   return (
     <form onSubmit={submit} className="rounded-[14px] bg-white border border-zinc-200 shadow-sm p-6 sm:p-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div><label className="text-sm text-zinc-700">Name</label><input value={form.name} onChange={upd("name")} placeholder="Your name" className={inputCls} /></div>
-        <div><label className="text-sm text-zinc-700">Shop name</label><input value={form.shop} onChange={upd("shop")} placeholder="Your shop" className={inputCls} /></div>
-        <div><label className="text-sm text-zinc-700">Email</label><input type="email" value={form.email} onChange={upd("email")} placeholder="you@yourshop.com" className={inputCls} /></div>
-        <div><label className="text-sm text-zinc-700">Phone <span className="text-zinc-400">(optional)</span></label><input value={form.phone} onChange={upd("phone")} placeholder="(555) 555-5555" className={inputCls} /></div>
+        <div><label className="text-sm text-zinc-700">{copy.nameLabel}</label><input value={form.name} onChange={upd("name")} placeholder={copy.namePlaceholder} className={inputCls} /></div>
+        <div><label className="text-sm text-zinc-700">{copy.shopLabel}</label><input value={form.shop} onChange={upd("shop")} placeholder={copy.shopPlaceholder} className={inputCls} /></div>
+        <div><label className="text-sm text-zinc-700">{copy.emailLabel}</label><input type="email" value={form.email} onChange={upd("email")} placeholder={copy.emailPlaceholder} className={inputCls} /></div>
+        <div><label className="text-sm text-zinc-700">{copy.phoneLabel} <span className="text-zinc-400">{copy.phoneOptionalLabel}</span></label><input value={form.phone} onChange={upd("phone")} placeholder={copy.phonePlaceholder} className={inputCls} /></div>
       </div>
-      <div className="mt-4"><label className="text-sm text-zinc-700">How can we help?</label><textarea value={form.message} onChange={upd("message")} placeholder="Tell us about your shop or ask a question…" className="mt-1.5 w-full min-h-[120px] rounded-lg border border-zinc-300 p-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-400" /></div>
+      <div className="mt-4"><label className="text-sm text-zinc-700">{copy.messageLabel}</label><textarea value={form.message} onChange={upd("message")} placeholder={copy.messagePlaceholder} className="mt-1.5 w-full min-h-[120px] rounded-lg border border-zinc-300 p-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-400" /></div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy} className={`${btnBase} mt-5 w-full h-12 bg-zinc-900 text-white hover:bg-zinc-800 text-base`}>{busy ? "Sending…" : (<>Send message <Send className="ml-2 h-4 w-4" /></>)}</button>
-      <p className="mt-3 text-xs text-zinc-500 text-center">We'll never share your details. No spam, ever.</p>
+      <button type="submit" disabled={busy} className={`${btnBase} mt-5 w-full h-12 bg-zinc-900 text-white hover:bg-zinc-800 text-base`}>{busy ? copy.sendingLabel : (<>{copy.submitLabel} <Send className="ml-2 h-4 w-4" /></>)}</button>
+      <p className="mt-3 text-xs text-zinc-500 text-center">{copy.privacyNote}</p>
     </form>
   );
 };
 
-const Contact = ({ trialDays }) => (
+const Contact = ({ trialDays }) => {
+  const cfg = useLandingConfig();
+  const section = cfg.contact;
+  return (
   <section id="contact" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <Reveal className="lg:col-span-5">
-          <div className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Get in touch</div>
-          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">Talk to a real person</h2>
-          <p className="mt-4 text-zinc-600 leading-relaxed">Questions about {SITE.brand}, want a walkthrough, or thinking about switching your shop over? Send a note or give us a call.</p>
+          <div className="text-sm font-semibold text-[var(--vx-accent)] uppercase tracking-wide">{section.kicker}</div>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">{section.title}</h2>
+          <p className="mt-4 text-zinc-600 leading-relaxed">{text(section.body, cfg)}</p>
           <ul className="mt-6 space-y-4">
-            <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Phone className="h-5 w-5" /></span><a href={`tel:${SITE.phoneHref}`} className="hover:text-zinc-900 font-medium">{SITE.phone}</a></li>
-            {SITE.supportEmail ? (
-              <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Mail className="h-5 w-5" /></span><a href={`mailto:${SITE.supportEmail}`} className="hover:text-zinc-900">{SITE.supportEmail}</a></li>
+            <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Phone className="h-5 w-5" /></span><a href={`tel:${cfg.site.phoneHref}`} className="hover:text-zinc-900 font-medium">{cfg.site.phone}</a></li>
+            {cfg.site.supportEmail ? (
+              <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Mail className="h-5 w-5" /></span><a href={`mailto:${cfg.site.supportEmail}`} className="hover:text-zinc-900">{cfg.site.supportEmail}</a></li>
             ) : (
-              <li className="flex items-start gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 shrink-0"><Mail className="h-5 w-5" /></span><span>Reach us through the form — we'll reply by email.</span></li>
+              <li className="flex items-start gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 shrink-0"><Mail className="h-5 w-5" /></span><span>{section.fallbackEmailNote}</span></li>
             )}
-            <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Clock className="h-5 w-5" /></span>We usually reply within one business day</li>
+            <li className="flex items-center gap-3 text-zinc-700"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100"><Clock className="h-5 w-5" /></span>{section.replyNote}</li>
           </ul>
-          <div className="mt-8 rounded-[14px] bg-[#fafafa] border border-zinc-200 p-5">
-            <div className="text-sm font-semibold text-zinc-900">Ready to jump in?</div>
-            <p className="mt-1 text-sm text-zinc-600">Start your {trialDays}-day free trial — no card charged until it ends.</p>
-            <a href={URLS.signup} className={`${btnBase} mt-3 h-11 px-4 bg-zinc-900 text-white hover:bg-zinc-800`}>Start free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <div className="mt-8 rounded-[14px] bg-[var(--vx-light)] border border-zinc-200 p-5">
+            <div className="text-sm font-semibold text-zinc-900">{section.quickCtaTitle}</div>
+            <p className="mt-1 text-sm text-zinc-600">{text(section.quickCtaBody, cfg, trialDays)}</p>
+            <a href={URLS.signup} className={`${btnBase} mt-3 h-11 px-4 bg-zinc-900 text-white hover:bg-zinc-800`}>{section.quickCtaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
         </Reveal>
-        <Reveal className="lg:col-span-7" delay={0.1}><ContactForm /></Reveal>
+        <Reveal className="lg:col-span-7" delay={0.1}><ContactForm copy={section.form} /></Reveal>
       </div>
     </div>
   </section>
-);
+  );
+};
 
-const FinalCta = ({ trialDays }) => (
-  <section className="bg-zinc-950 text-white relative overflow-hidden">
+const FinalCta = ({ trialDays }) => {
+  const cfg = useLandingConfig();
+  const section = cfg.finalCta;
+  return (
+  <section className="bg-[var(--vx-dark)] text-white relative overflow-hidden">
     <div className="absolute inset-0 vx-hero-glow" aria-hidden="true" />
-    <div className="absolute inset-0 vx-dots opacity-50" aria-hidden="true" />
+    {cfg.theme.pattern === "dots" && <div className="absolute inset-0 vx-dots opacity-50" aria-hidden="true" />}
+    {cfg.theme.pattern === "grid" && <div className="absolute inset-0 vx-grid opacity-50" aria-hidden="true" />}
     <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
       <Reveal>
-        <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight">Run everything like a system.</h2>
-        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">Try {SITE.brand} free for {trialDays} days — plans from ${PRICING.startingPrice}/month after that. Cancel anytime.</p>
+        <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight">{section.title}</h2>
+        <p className="mt-4 text-lg text-zinc-300 max-w-xl mx-auto">{text(section.body, cfg, trialDays)}</p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <a href={URLS.signup} className={`${btnBase} h-12 px-7 bg-amber-500 text-zinc-950 hover:bg-amber-400 text-base`}>Start your free trial <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <a href={URLS.signup} className={`${btnBase} h-12 px-7 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)] text-base`}>{section.ctaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
         </div>
       </Reveal>
     </div>
   </section>
-);
+  );
+};
 
 const Footer = () => {
+  const cfg = useLandingConfig();
   const year = new Date().getFullYear();
   return (
-    <footer className="bg-zinc-950 text-zinc-300">
+    <footer className="bg-[var(--vx-dark)] text-zinc-300">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
-            <div className="flex items-center gap-2"><VultrixLogo /><span className="font-display text-xl font-extrabold tracking-tight text-white">{SITE.brand}</span></div>
-            <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{SITE.tagline} The all-in-one platform for auto repair shops, small businesses, and personal life — built by a working mechanic.</p>
+            <div className="flex items-center gap-2"><VultrixLogo /><span className="font-display text-xl font-extrabold tracking-tight text-white">{cfg.site.brand}</span></div>
+            <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{text(cfg.footer.blurb, cfg)}</p>
           </div>
           <div className="md:col-span-3">
-            <div className="text-sm font-semibold text-white">Product</div>
-            <ul className="mt-4 space-y-3 text-sm">{NAV_LINKS.map((l) => (<li key={l.href}><a href={l.href} className="text-zinc-400 hover:text-white transition-colors">{l.label}</a></li>))}</ul>
+            <div className="text-sm font-semibold text-white">{cfg.footer.productTitle}</div>
+            <ul className="mt-4 space-y-3 text-sm">{cfg.nav.map((l) => (<li key={l.href}><a href={l.href} className="text-zinc-400 hover:text-white transition-colors">{l.label}</a></li>))}</ul>
           </div>
           <div className="md:col-span-4">
-            <div className="text-sm font-semibold text-white">Get started</div>
+            <div className="text-sm font-semibold text-white">{cfg.footer.getStartedTitle}</div>
             <ul className="mt-4 space-y-3 text-sm">
-              <li><a href={URLS.signup} className="text-zinc-400 hover:text-white transition-colors">Start free trial</a></li>
-              <li><a href={URLS.login} className="text-zinc-400 hover:text-white transition-colors">Log in</a></li>
-              <li><a href="#contact" className="text-zinc-400 hover:text-white transition-colors">Contact us</a></li>
-              <li><a href={`tel:${SITE.phoneHref}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Phone className="h-4 w-4" /> {SITE.phone}</a></li>
-              {SITE.supportEmail && (<li><a href={`mailto:${SITE.supportEmail}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Mail className="h-4 w-4" /> {SITE.supportEmail}</a></li>)}
+              <li><a href={URLS.signup} className="text-zinc-400 hover:text-white transition-colors">{cfg.footer.startTrialLabel}</a></li>
+              <li><a href={URLS.login} className="text-zinc-400 hover:text-white transition-colors">{cfg.footer.loginLabel}</a></li>
+              <li><a href="#contact" className="text-zinc-400 hover:text-white transition-colors">{cfg.footer.contactLabel}</a></li>
+              <li><a href={`tel:${cfg.site.phoneHref}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Phone className="h-4 w-4" /> {cfg.site.phone}</a></li>
+              {cfg.site.supportEmail && (<li><a href={`mailto:${cfg.site.supportEmail}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"><Mail className="h-4 w-4" /> {cfg.site.supportEmail}</a></li>)}
             </ul>
           </div>
         </div>
         <div className="mt-12 pt-6 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-zinc-500">© {year} {SITE.owner}. All rights reserved.</p>
+          <p className="text-xs text-zinc-500">© {year} {cfg.site.owner}. All rights reserved.</p>
           <div className="flex items-center gap-6 text-xs">
-            <a href={URLS.terms} className="text-zinc-400 hover:text-white">Terms</a>
-            <a href={URLS.privacy} className="text-zinc-400 hover:text-white">Privacy</a>
-            <a href={URLS.status} className="text-zinc-400 hover:text-white">Status</a>
+            <a href={URLS.terms} className="text-zinc-400 hover:text-white">{cfg.footer.termsLabel}</a>
+            <a href={URLS.privacy} className="text-zinc-400 hover:text-white">{cfg.footer.privacyLabel}</a>
+            <a href={URLS.status} className="text-zinc-400 hover:text-white">{cfg.footer.statusLabel}</a>
           </div>
         </div>
       </div>
@@ -1303,41 +1386,99 @@ const Footer = () => {
   );
 };
 
+const CustomSectionView = ({ section }) => {
+  const dark = section.dark;
+  const itemIcon = (item) => {
+    const ItemIcon = icon(item.icon);
+    return <ItemIcon className="h-5 w-5" />;
+  };
+  return (
+    <section className={`${dark ? "bg-[var(--vx-dark)] text-white" : "bg-[var(--vx-light)]"} border-t border-zinc-200`}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <Reveal>
+          {section.kicker && <div className={`text-sm font-semibold uppercase tracking-wide ${dark ? "text-[var(--vx-accent-soft)]" : "text-[var(--vx-accent)]"}`}>{section.kicker}</div>}
+          <h2 className={`mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight ${dark ? "text-white" : "text-zinc-900"}`}>{section.title}</h2>
+          {section.body && <p className={`mt-4 max-w-2xl leading-relaxed ${dark ? "text-zinc-300" : "text-zinc-600"}`}>{section.body}</p>}
+        </Reveal>
+        {section.kind !== "faq" && section.items?.length ? (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {section.items.map((item, index) => (
+              <Reveal key={`${item.title}-${index}`} delay={(index % 3) * 0.06}>
+                <div className={`h-full rounded-[14px] border p-6 ${dark ? "border-zinc-700 bg-zinc-900" : "border-zinc-200 bg-white"}`}>
+                  {item.icon && <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${dark ? "bg-[var(--vx-accent)] text-[var(--vx-accent-fg)]" : "bg-zinc-900 text-[var(--vx-accent-soft)]"}`}>{itemIcon(item)}</span>}
+                  <h3 className={`mt-4 font-display text-lg font-bold ${dark ? "text-white" : "text-zinc-900"}`}>{item.title}</h3>
+                  <p className={`mt-1.5 text-sm leading-relaxed ${dark ? "text-zinc-300" : "text-zinc-600"}`}>{item.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        ) : null}
+        {section.kind === "faq" && section.items?.length ? (
+          <div className="mt-8 divide-y divide-zinc-200 border-y border-zinc-200">
+            {section.items.map((item, index) => <details key={`${item.title}-${index}`} className="py-4"><summary className="cursor-pointer font-semibold">{item.title}</summary><p className="mt-2 text-sm leading-relaxed">{item.desc}</p></details>)}
+          </div>
+        ) : null}
+        {section.kind === "cta" && section.ctaLabel && (
+          <a href={section.ctaHref || URLS.signup} className={`${btnBase} mt-7 h-12 px-6 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{section.ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></a>
+        )}
+      </div>
+    </section>
+  );
+};
+
 /* ----------------------------------------------------------------------------
    PAGE
 ---------------------------------------------------------------------------- */
-export default function VultrixLanding({ trialDays = SITE.trialDays }) {
+export default function VultrixLanding({ trialDays = SITE.trialDays, config = DEFAULT_LANDING_CONFIG }) {
+  const cfg = config || DEFAULT_LANDING_CONFIG;
+  const accentVars = accentVarsFromHex(cfg.theme.accent);
+  const style = {
+    "--vx-accent": cfg.theme.accent,
+    "--vx-accent-soft": cfg.theme.accentSoft,
+    "--vx-dark": cfg.theme.dark,
+    "--vx-light": cfg.theme.light,
+    ...accentVars,
+  };
+  const sections = {
+    hero: <Hero trialDays={trialDays} />,
+    credibility: <CredibilityStrip />,
+    whatIs: <WhatIs />,
+    audiences: <Audiences />,
+    founder: <FounderStory />,
+    features: <Features />,
+    deepDives: <DeepDives />,
+    stats: <Stats trialDays={trialDays} />,
+    import: <ImportSection />,
+    shopRecommendation: <ShopRecommendation />,
+    roadmap: <Roadmap />,
+    pricing: <Pricing trialDays={trialDays} />,
+    comparison: <Comparison />,
+    faq: <Faq trialDays={trialDays} />,
+    contact: <Contact trialDays={trialDays} />,
+    finalCta: <FinalCta trialDays={trialDays} />,
+  };
+  const customSections = Object.fromEntries(cfg.customSections.map((section) => [section.id, <CustomSectionView key={section.id} section={section} />]));
   return (
-    <div className="min-h-screen bg-[#fafafa] overflow-x-hidden">
-      <Navbar />
-      <main>
-        <Hero trialDays={trialDays} />
-        <CredibilityStrip />
-        <WhatIs />
-        <Audiences />
-        <FounderStory />
-        <Features />
-        <Stats trialDays={trialDays} />
-        <ImportSection />
-        <ShopRecommendation />
-        <Roadmap />
-        <Pricing trialDays={trialDays} />
-        <Comparison />
-        <Faq trialDays={trialDays} />
-        <Contact trialDays={trialDays} />
-        <FinalCta trialDays={trialDays} />
-      </main>
-      <Footer />
-      <VultrixAssistant
-        brand={SITE.brand}
+    <LandingConfigContext.Provider value={cfg}>
+      <div className="min-h-screen bg-[var(--vx-light)] overflow-x-hidden" style={style}>
+        <Navbar />
+        <main>
+          {cfg.order.map((entry) => entry.enabled ? (
+            <div key={entry.id}>{sections[entry.id] || customSections[entry.id] || null}</div>
+          ) : null)}
+        </main>
+        <Footer />
+        <VultrixAssistant
+        brand={cfg.site.brand}
         pricing={PRICING}
         trialDays={trialDays}
-        phone={SITE.phone}
-        phoneHref={SITE.phoneHref}
-        shopName={URLS.shopName}
-        shopUrl={URLS.shopUrl}
+        phone={cfg.site.phone}
+        phoneHref={cfg.site.phoneHref}
+        shopName={cfg.site.shopName}
+        shopUrl={cfg.site.shopUrl}
         signupUrl={URLS.signup}
-      />
-    </div>
+        />
+      </div>
+    </LandingConfigContext.Provider>
   );
 }
