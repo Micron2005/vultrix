@@ -39,7 +39,7 @@ export function GoalForm({
 }: GoalFormProps) {
   const defaultMetric =
     initial?.metric ??
-    (features.includes("financials") ? "MONEY_IN" : "HABIT");
+    (features.includes("financials") ? "MONEY_IN" : "LOGGED_TOTAL");
   const [metric, setMetric] = useState(defaultMetric);
   const [direction, setDirection] = useState(initial?.direction ?? "AT_LEAST");
   const [period, setPeriod] = useState(
@@ -54,7 +54,6 @@ export function GoalForm({
     NET_SAVED: "Money saved",
     JOBS: autoShop ? "Jobs completed" : `${repairNouns.plural} completed`,
     UNITS_SOLD: "Units sold",
-    HABIT: "Something I do — I'll check it off",
     LOGGED_TOTAL: "A number I add up (miles, hours, pages)",
     LOGGED_LATEST: "A number I track (weight, savings balance)",
     EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",

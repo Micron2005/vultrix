@@ -298,18 +298,6 @@ export async function loadGoalSeries(
       }
       break;
     }
-    case "HABIT": {
-      const rows = await db.goalCheckIn.findMany({
-        where: {
-          orgId,
-          goalId: goal.id,
-          day: { gte: range.startDay, lte: range.endDay },
-        },
-        select: { day: true },
-      });
-      for (const row of rows) addToBucket(buckets, row.day, 1);
-      break;
-    }
     case "LOGGED_TOTAL":
       {
         const rows = await db.goalEntry.findMany({
@@ -468,14 +456,6 @@ export async function loadGoalBreakdown(
         value: amount,
       })),
     );
-  }
-  if (goal.metric === "HABIT") {
-    const series = await seriesFor();
-    const daysChecked = series.points.reduce((sum, point) => sum + point.value, 0);
-    return positiveSlices([
-      { label: "Done", value: daysChecked },
-      { label: "Missed", value: range.days.length - daysChecked },
-    ]);
   }
   const series = await seriesFor();
   if (series.points.length === 0) return [];

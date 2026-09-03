@@ -6,7 +6,13 @@ import {
   shiftCalendarDay,
 } from "@/lib/timezone";
 
-export const ROUTINE_KINDS = ["DAILY", "WEEKDAYS", "WEEKLY", "ONE_OFF"] as const;
+export const ROUTINE_KINDS = [
+  "DAILY",
+  "WEEKDAYS",
+  "WEEKLY",
+  "ONE_OFF",
+  "REMINDER",
+] as const;
 export type RoutineKind = (typeof ROUTINE_KINDS)[number];
 
 export const ROUTINE_WEEKDAYS: Array<[string, string]> = [
@@ -40,6 +46,9 @@ export type RoutineRecord = {
   weekdays: string | null;
   day: string | null;
   dueTime: string | null;
+  endDay: string | null;
+  showStreak: boolean;
+  completedDay: string | null;
   archived: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +62,7 @@ export type RoutineCheckOffRecord = {
   orgId: string;
   day: string;
   late: boolean;
+  skipped: boolean;
   note: string | null;
   value: number | null;
   createdAt: Date;
@@ -73,12 +83,15 @@ export function isoWeekKey(day: string): string {
 }
 
 export function dueOn(
-  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day">,
+  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day" | "endDay">,
   day: string,
 ): boolean {
   if (!isDateInput(day)) return false;
+  if (routine.endDay && day > routine.endDay) return false;
   if (routine.kind === "DAILY" || routine.kind === "WEEKLY") return true;
-  if (routine.kind === "ONE_OFF") return routine.day === day;
+  if (routine.kind === "ONE_OFF" || routine.kind === "REMINDER") {
+    return routine.day === day;
+  }
   const selected = (routine.weekdays ?? "")
     .split(",")
     .map(Number)
@@ -125,20 +138,20 @@ export function deadlinePassed(
 }
 
 export function statusFor(
-  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day" | "dueTime">,
+  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day" | "dueTime" | "endDay">,
   item: Pick<RoutineItemRecord, "dueTime">,
   day: string,
   today: string,
   now: Date,
   timezone: string,
-  checkOffs: Pick<RoutineCheckOffRecord, "day" | "late">[],
-): "done" | "late" | "missed" | "not_due" {
+  checkOffs: Pick<RoutineCheckOffRecord, "day" | "late" | "skipped">[],
+): "done" | "skipped" | "late" | "missed" | "not_due" {
   if (!dueOn(routine, day)) return "not_due";
-  const relevant =
-    routine.kind === "WEEKLY"
-      ? checkOffs.some((checkOff) => isoWeekKey(checkOff.day) === isoWeekKey(day))
-      : checkOffs.some((checkOff) => checkOff.day === day);
-  if (relevant) return "done";
+  const checkOff = routine.kind === "WEEKLY"
+    ? checkOffs.find((entry) => isoWeekKey(entry.day) === isoWeekKey(day))
+    : checkOffs.find((entry) => entry.day === day);
+  if (checkOff?.skipped) return "skipped";
+  if (checkOff) return "done";
   const dueTime = effectiveDueTime(routine, item);
   const passed = deadlinePassed(dueTime, day, today, now, timezone);
   return passed ? (dueTime ? "late" : "missed") : "not_due";
@@ -166,11 +179,18 @@ export async function loadTodayRoutines(
     orderBy: [{ createdAt: "asc" }],
     include: {
       items: { orderBy: { position: "asc" } },
-      checkOffs: { where: { day: { gte: shiftCalendarDay(today, -7) } } },
+      checkOffs: { where: { day: { gte: shiftCalendarDay(today, -400) } } },
     },
   });
   return routines
-    .filter((routine) => dueOn(routine, today))
+    .filter(
+      (routine) =>
+        dueOn(routine, today) ||
+        ((routine.kind === "ONE_OFF" || routine.kind === "REMINDER") &&
+          routine.day !== null &&
+          routine.day < today &&
+          routine.completedDay === null),
+    )
     .map((routine) => ({
       routine,
       items: routine.items.map((item) => {
@@ -182,13 +202,17 @@ export async function loadTodayRoutines(
             ? checkOffs.find(
                 (entry) => isoWeekKey(entry.day) === isoWeekKey(today),
               ) ?? null
-            : checkOffs.find((entry) => entry.day === today) ?? null;
+            : checkOffs.find(
+                (entry) =>
+                  entry.day ===
+                  (routine.day && routine.day < today ? routine.day : today),
+              ) ?? null;
         return {
           ...item,
           status: statusFor(
             routine,
             item,
-            today,
+            routine.day && routine.day < today ? routine.day : today,
             today,
             now,
             timezone,
@@ -198,20 +222,36 @@ export async function loadTodayRoutines(
         };
       }),
     }))
-    .filter(({ items }) => items.some((item) => item.status !== "done"));
+    .filter(({ items }) => items.some((item) => item.status !== "done" && item.status !== "skipped"));
 }
 
 export function routineLabel(
-  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day">,
+  routine: Pick<
+    RoutineRecord,
+    "kind" | "weekdays" | "day" | "dueTime" | "endDay"
+  >,
 ): string {
-  if (routine.kind === "DAILY") return "Every day";
+  if (routine.kind === "DAILY") {
+    return routine.endDay
+      ? `Every day until ${formatInTimeZone(
+          new Date(`${routine.endDay}T12:00:00Z`),
+          "UTC",
+          { month: "short", day: "numeric" },
+        )}`
+      : "Every day";
+  }
   if (routine.kind === "WEEKLY") return "Weekly";
-  if (routine.kind === "ONE_OFF") {
-    return routine.day
+  if (routine.kind === "ONE_OFF" || routine.kind === "REMINDER") {
+    const date = routine.day
       ? formatInTimeZone(new Date(`${routine.day}T12:00:00Z`), "UTC", {
-          dateStyle: "medium",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
         })
-      : "One time";
+      : "unscheduled";
+    return routine.kind === "REMINDER"
+      ? `Reminder · ${date}${routine.dueTime ? ` ${formatTime(routine.dueTime)}` : ""}`
+      : `Once · ${date}`;
   }
   const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return (
@@ -222,4 +262,57 @@ export function routineLabel(
       .map((day) => names[day])
       .join(", ") || "Selected weekdays"
   );
+}
+
+function formatTime(value: string): string {
+  const [hour, minute] = value.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(Date.UTC(2000, 0, 1, hour, minute)));
+}
+
+export function routineStreak(
+  routine: Pick<RoutineRecord, "kind" | "weekdays" | "day" | "endDay">,
+  items: Array<Pick<RoutineItemRecord, "id">>,
+  checkOffs: Array<Pick<RoutineCheckOffRecord, "itemId" | "day" | "skipped">>,
+  today: string,
+): number {
+  if (items.length === 0) return 0;
+  const statusForDay = (day: string) =>
+    items.map((item) =>
+      checkOffs.find(
+        (checkOff) =>
+          checkOff.itemId === item.id &&
+          (routine.kind === "WEEKLY"
+            ? isoWeekKey(checkOff.day) === isoWeekKey(day)
+            : checkOff.day === day),
+      ),
+    );
+  const completedToday = statusForDay(today);
+  const todayDone =
+    completedToday.length > 0 &&
+    completedToday.every(Boolean) &&
+    completedToday.every((status) => !status?.skipped);
+  let day = todayDone ? today : shiftCalendarDay(today, -1);
+  let streak = 0;
+  while (isDateInput(day)) {
+    if (!dueOn(routine, day)) {
+      day = shiftCalendarDay(day, -1);
+      continue;
+    }
+    const statuses = statusForDay(day);
+    if (statuses.every(Boolean) && statuses.some((status) => status?.skipped)) {
+      day = shiftCalendarDay(day, -1);
+      continue;
+    }
+    if (statuses.every(Boolean)) {
+      streak += 1;
+      day = shiftCalendarDay(day, -1);
+      continue;
+    }
+    break;
+  }
+  return streak;
 }

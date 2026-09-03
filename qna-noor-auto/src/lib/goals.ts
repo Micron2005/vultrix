@@ -15,7 +15,6 @@ export const GOAL_METRICS = [
   "NET_SAVED",
   "JOBS",
   "UNITS_SOLD",
-  "HABIT",
   "LOGGED_TOTAL",
   "LOGGED_LATEST",
   "EVENTS",
@@ -60,8 +59,6 @@ export type GoalProgress = {
   periodLabel: string;
   daysRemaining: number;
   baseline: number | null;
-  todayChecked: boolean;
-  currentStreak: number;
   ended: boolean;
 };
 
@@ -158,19 +155,6 @@ export function goalWindow(
   };
 }
 
-/** The calendar day a habit check-in applies to: today, or the goal's last day once it has ended. */
-export function habitCheckInDay(
-  goal: GoalRecord,
-  now: Date,
-  timezone: string,
-): string {
-  const window = goalWindow(goal, now, timezone);
-  return localCalendarDay(
-    new Date(Math.min(now.getTime(), window.end.getTime())),
-    timezone,
-  );
-}
-
 export function goalIsAtMost(goal: Pick<GoalRecord, "metric" | "direction">): boolean {
   return goal.metric === "SPENDING" || goal.direction === "AT_MOST";
 }
@@ -224,19 +208,12 @@ async function metricActual(
   goal: GoalRecord,
   range: { from: Date; to: Date },
   hasInvoices: boolean,
-  days: { start: string; end: string; today: string },
+  days: { start: string; end: string },
 ): Promise<{
   actual: number;
   baseline: number | null;
-  todayChecked: boolean;
-  currentStreak: number;
 }> {
-  const empty = {
-    actual: 0,
-    baseline: null,
-    todayChecked: false,
-    currentStreak: 0,
-  };
+  const empty = { actual: 0, baseline: null };
   switch (goal.metric) {
     case "MONEY_IN":
       return { ...empty, actual: await loadMoneyInTotal(orgId, range, hasInvoices) };
@@ -275,43 +252,6 @@ async function metricActual(
       return {
         ...empty,
         actual: sales.reduce((sum, sale) => sum + sale.quantity, 0),
-      };
-    }
-    case "HABIT": {
-      const [checkIns, allCheckIns] = await Promise.all([
-        db.goalCheckIn.findMany({
-          where: {
-            orgId,
-            goalId: goal.id,
-            day: { gte: days.start, lte: days.end },
-          },
-          select: { day: true },
-        }),
-        db.goalCheckIn.findMany({
-          where: {
-            orgId,
-            goalId: goal.id,
-            day: { gte: shiftCalendarDay(days.today, -400), lte: days.today },
-          },
-          select: { day: true },
-          orderBy: { day: "desc" },
-        }),
-      ]);
-      const checkedDays = new Set(allCheckIns.map(({ day }) => day));
-      const todayChecked = checkedDays.has(days.today);
-      let currentStreak = 0;
-      let streakDay = todayChecked
-        ? days.today
-        : shiftCalendarDay(days.today, -1);
-      while (checkedDays.has(streakDay)) {
-        currentStreak += 1;
-        streakDay = shiftCalendarDay(streakDay, -1);
-      }
-      return {
-        ...empty,
-        actual: checkIns.length,
-        todayChecked,
-        currentStreak,
       };
     }
     case "LOGGED_TOTAL": {
@@ -407,8 +347,6 @@ export async function computeGoalProgress(
       ? {
           actual: 0,
           baseline: null,
-          todayChecked: false,
-          currentStreak: 0,
         }
       : await metricActual(
           orgId,
@@ -418,7 +356,6 @@ export async function computeGoalProgress(
           {
             start: startDay,
             end: queryEndDay,
-            today: queryEndDay,
           },
         );
   const actual = result.actual;
@@ -480,8 +417,6 @@ export async function computeGoalProgress(
     periodLabel: window.label,
     daysRemaining: daysLeft,
     baseline: result.baseline,
-    todayChecked: result.todayChecked,
-    currentStreak: result.currentStreak,
     ended: now.getTime() >= window.end.getTime(),
   };
 }
@@ -529,7 +464,6 @@ export function goalMetricLabel(
         ? "Jobs completed"
         : `${repairNouns.plural} completed`,
     UNITS_SOLD: "Units sold",
-    HABIT: "Something I do — I'll check it off",
     LOGGED_TOTAL: "A number I add up (miles, hours, pages)",
     LOGGED_LATEST: "A number I track (weight, savings balance)",
     EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",
@@ -565,13 +499,5 @@ export function goalValueLabel(
     })}`;
   }
   const formatted = value.toLocaleString("en-US", { maximumFractionDigits: 1 });
-  if (metric === "HABIT") return formatted;
   return unit ? `${formatted} ${unit}` : formatted;
-}
-
-export function habitButtonLabel(
-  progress: Pick<GoalProgress, "todayChecked" | "ended">,
-): string {
-  if (progress.ended) return progress.todayChecked ? "Undo" : "Mark done (late)";
-  return progress.todayChecked ? "Undo today" : "Done today";
 }

@@ -17,7 +17,6 @@ import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
 import {
   GOAL_METRICS,
-  habitCheckInDay,
   type GoalMetric,
   type GoalPeriod,
 } from "@/lib/goals";
@@ -133,7 +132,7 @@ function goalInput(
     dueDate: period === "BY_DATE" ? dueDate : null,
     manualProgress: metric === "MANUAL" ? manualProgress : null,
     direction,
-    unit: ["LOGGED_TOTAL", "LOGGED_LATEST", "HABIT", "MANUAL"].includes(metric)
+    unit: ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"].includes(metric)
       ? unit
       : null,
     notes,
@@ -179,31 +178,6 @@ export async function updateGoal(id: string, fd: FormData) {
   revalidatePath(`/goals/${id}`);
   revalidatePath("/");
   redirect("/goals");
-}
-
-export async function toggleHabitCheckIn(fd: FormData) {
-  const { orgId, timezone } = await requireGoalsContext();
-  const id = text(fd, "goalId");
-  if (!id) throw new Error("Goal not found.");
-  await db.$transaction(async (tx) => {
-    const goal = await tx.goal.findFirst({ where: { id, orgId } });
-    if (!goal || goal.metric !== "HABIT") throw new Error("Habit goal not found.");
-    const day = habitCheckInDay(goal, new Date(), timezone);
-    await tx.goalCheckIn.deleteMany({
-      where: { goalId: id, orgId, day: { gt: day } },
-    });
-    const existing = await tx.goalCheckIn.findUnique({
-      where: { goalId_day: { goalId: id, day } },
-    });
-    if (existing) {
-      await tx.goalCheckIn.delete({ where: { id: existing.id } });
-    } else {
-      await tx.goalCheckIn.create({ data: { goalId: id, orgId, day } });
-    }
-  });
-  revalidatePath("/goals");
-  revalidatePath(`/goals/${id}`);
-  revalidatePath("/");
 }
 
 export async function logGoalEntry(fd: FormData) {

@@ -20,7 +20,6 @@ import {
   loadActiveGoals,
   type GoalProgress,
   type GoalRecord,
-  habitButtonLabel,
 } from "@/lib/goals";
 import {
   goalRemainingSummary,
@@ -33,13 +32,13 @@ import { localCalendarDay } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   archiveGoal,
-  createGoal,
   deleteGoal,
   restoreGoal,
-  toggleHabitCheckIn,
 } from "./actions";
 import { DeleteGoalButton } from "./DeleteGoalButton";
-import { GoalForm } from "./GoalForm";
+import { NewGoalPicker } from "./NewGoalPicker";
+import { archiveRoutine, deleteRoutine, restoreRoutine } from "./routines/actions";
+import { routineLabel, routineStreak } from "@/lib/routines";
 
 export const dynamic = "force-dynamic";
 
@@ -82,17 +81,11 @@ function GoalCard({
       : progress.status === "on_pace"
         ? "bg-blue-500"
         : "bg-emerald-500";
-  const supportText =
-    goal.metric === "HABIT"
-      ? `${Math.round(progress.actual)} of ${Math.round(progress.target)} days ${progress.periodLabel}`
-      : emptyLatest
-        ? null
-        : remaining.text;
+  const supportText = emptyLatest ? null : remaining.text;
   const showPace =
     progress.perDayNeeded > 0 &&
     progress.status !== "met" &&
-    !atMost &&
-    goal.metric !== "HABIT";
+    !atMost;
 
   return (
     <Card className="flex flex-col p-5">
@@ -147,26 +140,6 @@ function GoalCard({
           {supportText}
           {showPace && <> · {paceText}</>}
         </p>
-      )}
-
-      {goal.metric === "HABIT" && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-          <form action={toggleHabitCheckIn}>
-            <input type="hidden" name="goalId" value={goal.id} />
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-            >
-              {habitButtonLabel(progress)}
-            </button>
-          </form>
-          {!progress.ended && (
-            <span className="text-zinc-600 dark:text-zinc-400">
-              Streak: {progress.currentStreak} day
-              {progress.currentStreak === 1 ? "" : "s"}
-            </span>
-          )}
-        </div>
       )}
 
       <div className="mt-5 flex flex-wrap gap-3 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-700">
@@ -261,11 +234,22 @@ export default async function GoalsPage() {
   const features = enabledFeatureSet(user);
   const timezone = await orgTimeZone(user.orgId);
   const hasInvoices = features.has("invoices");
-  const active = await loadActiveGoals(user.orgId, timezone, hasInvoices);
-  const archived = await db.goal.findMany({
-    where: { orgId: user.orgId, archived: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [active, routines, archivedGoals] = await Promise.all([
+    loadActiveGoals(user.orgId, timezone, hasInvoices),
+    db.routine.findMany({
+      where: { orgId: user.orgId },
+      orderBy: [{ archived: "asc" }, { updatedAt: "desc" }],
+      include: {
+        items: { orderBy: { position: "asc" }, include: { checkOffs: true } },
+      },
+    }),
+    db.goal.findMany({
+      where: { orgId: user.orgId, archived: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+  const activeRoutines = routines.filter((routine) => !routine.archived);
+  const archivedRoutines = routines.filter((routine) => routine.archived);
   const today = localCalendarDay(new Date(), timezone);
   const charted = active.slice(0, OVERVIEW_GOAL_LIMIT);
   const datasets =
@@ -292,12 +276,9 @@ export default async function GoalsPage() {
     <>
       <PageHeader
         title="Goals"
-        description="Track progress and tick off today’s routines, scored from the records already in your account."
+        description="Numbers to hit, things to do, and reminders — all in one place."
         actions={
           <>
-            <LinkButton href="/goals/routines" variant="secondary">
-              Routines
-            </LinkButton>
             <LinkButton href="#new-goal" variant="secondary">
               New goal
             </LinkButton>
@@ -307,7 +288,7 @@ export default async function GoalsPage() {
       <Today orgId={user.orgId} timezone={timezone} hasInvoices={hasInvoices} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Active goals" value={String(counts.total)} />
+        <StatTile label="Number goals" value={String(counts.total)} />
         <StatTile label="Ahead or on pace" value={String(counts.onPace)} />
         <StatTile label="Behind" value={String(counts.behind)} />
         <StatTile label="Met" value={String(counts.met)} />
@@ -332,8 +313,8 @@ export default async function GoalsPage() {
       <div className="mt-6">
         {active.length === 0 ? (
           <EmptyState
-            title="No active goals yet"
-            description="Create a goal to see progress scored from your existing records."
+            title="No number goals yet"
+            description="Create a number goal to see progress scored from your existing records."
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -350,15 +331,65 @@ export default async function GoalsPage() {
         )}
       </div>
 
-      {archived.length > 0 && (
+      {activeRoutines.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Things to do
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {activeRoutines.map((routine) => {
+              const streak = routine.showStreak
+                ? routineStreak(
+                    routine,
+                    routine.items,
+                    routine.items.flatMap((item) => item.checkOffs),
+                    today,
+                  )
+                : 0;
+              return (
+                <Card key={routine.id} className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {routine.title}
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {routineLabel(routine)} · {routine.items.length} item
+                        {routine.items.length === 1 ? "" : "s"}
+                      </p>
+                      {routine.showStreak && (
+                        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+                          🔥 {streak} days
+                        </p>
+                      )}
+                    </div>
+                    <Link
+                      href={`/goals/routines/${routine.id}`}
+                      className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300"
+                    >
+                      Manage
+                    </Link>
+                  </div>
+                  <form action={archiveRoutine} className="mt-4 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700">
+                    <input type="hidden" name="id" value={routine.id} />
+                    <button className="font-medium text-zinc-500 underline dark:text-zinc-400">Archive</button>
+                  </form>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {archivedGoals.length + archivedRoutines.length > 0 && (
         <Card className="mt-6 p-5">
           <details>
             <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              Archived goals ({archived.length})
+              Archived &amp; completed ({archivedGoals.length + archivedRoutines.length})
             </summary>
             <div className="mt-2">
               {await Promise.all(
-                archived.map(async (goal) => (
+                archivedGoals.map(async (goal) => (
                   <ArchivedGoal
                     key={goal.id}
                     goal={goal as GoalRecord}
@@ -374,6 +405,30 @@ export default async function GoalsPage() {
                   />
                 )),
               )}
+              {archivedRoutines.map((routine) => (
+                <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0 dark:border-zinc-700">
+                  <div>
+                    <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-800 underline dark:text-zinc-200">
+                      {routine.title}
+                    </Link>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {routine.completedDay
+                        ? `Completed ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${routine.completedDay}T12:00:00Z`))}`
+                        : "Archived"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <form action={restoreRoutine}>
+                      <input type="hidden" name="id" value={routine.id} />
+                      <button className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">Restore</button>
+                    </form>
+                    <form action={deleteRoutine}>
+                      <input type="hidden" name="id" value={routine.id} />
+                      <button className="text-sm font-medium text-red-700 underline dark:text-red-400">Delete</button>
+                    </form>
+                  </div>
+                </div>
+              ))}
             </div>
           </details>
         </Card>
@@ -383,12 +438,12 @@ export default async function GoalsPage() {
         <Card className="mt-6 p-5">
           <CardHeader title="Create a goal" />
           <div className="mt-4 max-w-2xl">
-            <GoalForm
-              action={createGoal}
+            <NewGoalPicker
               accountType={accountType}
               features={[...features]}
               hasInvoices={hasInvoices}
-              initial={{ startDate: today }}
+              today={today}
+              goals={active.map(({ goal }) => ({ id: goal.id, title: goal.title }))}
             />
           </div>
         </Card>

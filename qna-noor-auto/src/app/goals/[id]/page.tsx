@@ -21,7 +21,6 @@ import {
   goalUsesMoney,
   goalValueLabel,
   type GoalRecord,
-  habitButtonLabel,
 } from "@/lib/goals";
 import {
   goalRemainingSummary,
@@ -37,7 +36,6 @@ import {
   deleteGoal,
   deleteGoalEntry,
   logGoalEntry,
-  toggleHabitCheckIn,
 } from "../actions";
 import { DeleteGoalButton } from "../DeleteGoalButton";
 import { Today } from "../Today";
@@ -75,7 +73,7 @@ export default async function GoalDetailPage({
     series,
   );
   const today = localCalendarDay(now, timezone);
-  const [entries, entryCount, checkIns] = await Promise.all([
+  const [entries, entryCount] = await Promise.all([
     record.metric === "LOGGED_TOTAL" || record.metric === "LOGGED_LATEST"
       ? db.goalEntry.findMany({
           where: { orgId: user.orgId, goalId: record.id },
@@ -86,14 +84,6 @@ export default async function GoalDetailPage({
     record.metric === "LOGGED_TOTAL" || record.metric === "LOGGED_LATEST"
       ? db.goalEntry.count({ where: { orgId: user.orgId, goalId: record.id } })
       : 0,
-    record.metric === "HABIT"
-      ? db.goalCheckIn.findMany({
-          where: { orgId: user.orgId, goalId: record.id },
-          orderBy: { day: "desc" },
-          take: 60,
-          select: { id: true, day: true, note: true },
-        })
-      : [],
   ]);
   const linkedRoutines = await db.routine.findMany({
     where: { orgId: user.orgId, goalId: record.id, archived: false },
@@ -203,6 +193,7 @@ export default async function GoalDetailPage({
                   <option value="WEEKDAYS">Selected weekdays</option>
                   <option value="WEEKLY">Weekly</option>
                   <option value="ONE_OFF">One time</option>
+                  <option value="REMINDER">Reminder</option>
                 </Select>
               </label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
@@ -241,6 +232,14 @@ export default async function GoalDetailPage({
               One-off date (only for one-time routines)
               <Input name="day" type="date" className="mt-1 max-w-48" />
             </label>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              End date (optional)
+              <Input name="endDay" type="date" className="mt-1 max-w-48" />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input type="checkbox" name="showStreak" value="on" />
+              Show streak
+            </label>
           </form>
         </div>
       </Card>
@@ -267,12 +266,6 @@ export default async function GoalDetailPage({
               : `${Math.round(progress.pct)}% / ${Math.round(progress.expectedPct)}%`
           }
         />
-        {record.metric === "HABIT" && !progress.ended && (
-          <StatTile
-            label="Current streak"
-            value={`${progress.currentStreak} day${progress.currentStreak === 1 ? "" : "s"}`}
-          />
-        )}
       </div>
 
       {record.notes && (
@@ -370,30 +363,6 @@ export default async function GoalDetailPage({
         </Card>
       )}
 
-      {record.metric === "HABIT" && (
-        <Card className="mt-6 p-5">
-          <CardHeader title="Habit history" />
-          <div className="pt-4">
-            <form action={toggleHabitCheckIn}>
-              <input type="hidden" name="goalId" value={record.id} />
-              <button
-                type="submit"
-                className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-              >
-                {habitButtonLabel(progress)}
-              </button>
-            </form>
-            <div className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-700">
-              {checkIns.map((checkIn) => (
-                <div key={checkIn.id} className="py-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  {checkIn.day}
-                  {checkIn.note ? ` · ${checkIn.note}` : ""}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-      )}
     </>
   );
 }

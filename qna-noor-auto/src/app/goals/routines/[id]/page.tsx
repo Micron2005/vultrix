@@ -32,8 +32,8 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     <>
       <PageHeader
         title={routine.title}
-        description={<Link href="/goals/routines" className="text-zinc-600 underline dark:text-zinc-400">← Back to routines</Link>}
-        actions={<LinkButton href="/goals/routines" variant="secondary">All routines</LinkButton>}
+        description={<Link href="/goals" className="text-zinc-600 underline dark:text-zinc-400">← Back to Goals</Link>}
+        actions={<LinkButton href="/goals" variant="secondary">Back to Goals</LinkButton>}
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
         <span>{routineLabel(routine)}</span>
@@ -45,11 +45,13 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
         <form action={updateRoutine.bind(null, routine.id)} className="mt-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Name<Input name="title" required defaultValue={routine.title} className="mt-1" /></label>
-            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Schedule<Select name="kind" defaultValue={routine.kind} className="mt-1"><option value="DAILY">Every day</option><option value="WEEKDAYS">Selected weekdays</option><option value="WEEKLY">Weekly</option><option value="ONE_OFF">One time</option></Select></label>
+            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Schedule<Select name="kind" defaultValue={routine.kind} className="mt-1"><option value="DAILY">Every day</option><option value="WEEKDAYS">Selected weekdays</option><option value="WEEKLY">Weekly</option><option value="ONE_OFF">One time</option><option value="REMINDER">Reminder</option></Select></label>
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Default due time<Input name="dueTime" type="time" defaultValue={routine.dueTime ?? ""} className="mt-1" /></label>
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">One-off date<Input name="day" type="date" defaultValue={routine.day ?? ""} className="mt-1" /></label>
+            <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">End date<Input name="endDay" type="date" defaultValue={routine.endDay ?? ""} className="mt-1" /></label>
             <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Part of goal<Select name="goalId" defaultValue={routine.goalId ?? ""} className="mt-1"><option value="">No linked goal</option>{goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</Select></label>
           </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="showStreak" value="on" defaultChecked={routine.showStreak} />Show streak</label>
           <fieldset><legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Weekdays</legend><div className="mt-2 flex flex-wrap gap-3">{ROUTINE_WEEKDAYS.map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"><input type="checkbox" name="weekdays" value={value} defaultChecked={(routine.weekdays ?? "").split(",").includes(value)} />{label}</label>)}</div></fieldset>
           <button className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Save settings</button>
         </form>
@@ -98,11 +100,11 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
         <div className="overflow-x-auto p-4">
           <table className="min-w-[42rem] w-full text-left text-xs">
             <thead><tr><th className="pb-2 pr-3 font-medium text-zinc-500">Item</th>{days.map((day) => <th key={day} className="px-1 pb-2 text-center font-medium text-zinc-500">{day.slice(5)}</th>)}</tr></thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700 dark:text-zinc-300">{item.label}</th>{days.map((day) => { const status = statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center"><span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : status === "late" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : status === "missed" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>{status === "done" ? "✓" : status === "not_due" ? "–" : "!"}</span></td>; })}</tr>)}
+          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700 dark:text-zinc-300">{item.label}</th>{days.map((day) => { const status = statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center"><span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : status === "skipped" ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" : status === "late" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : status === "missed" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>{status === "done" ? "✓" : status === "skipped" ? "S" : status === "not_due" ? "–" : "!"}</span></td>; })}</tr>)}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">✓ done · amber late · red missed · – not due</p>
+          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">✓ done · S skipped · amber late · red missed · – not due</p>
         </div>
       </Card>
     </>
