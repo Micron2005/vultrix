@@ -8,7 +8,6 @@ import {
   StatTile,
 } from "@/components/ui";
 import { GoalsOverview } from "@/components/charts/GoalsOverview";
-import { assertCanViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { enabledFeatureSet } from "@/lib/features";
@@ -39,7 +38,7 @@ import { DeleteGoalButton } from "./DeleteGoalButton";
 import { DeleteRoutineButton } from "./DeleteRoutineButton";
 import { NewGoalPicker } from "./NewGoalPicker";
 import { archiveRoutine, deleteRoutine, restoreRoutine } from "./routines/actions";
-import { routineLabel, routineStreak } from "@/lib/routines";
+import { loadTeamToday, routineLabel, routineStreak } from "@/lib/routines";
 
 export const dynamic = "force-dynamic";
 
@@ -233,13 +232,32 @@ export default async function GoalsPage({
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  assertCanViewFinancials(user.role);
   if (!user.orgId) return null;
   const { error } = (await searchParams) ?? {};
   const accountType = user.accountType ?? "AUTO_SHOP";
   const features = enabledFeatureSet(user);
   const timezone = await orgTimeZone(user.orgId);
   const hasInvoices = features.has("invoices");
+  const users = await db.user.findMany({
+    where: { orgId: user.orgId, isActive: true, role: { not: "SUPERADMIN" } },
+    orderBy: { username: "asc" },
+    select: { id: true, username: true },
+  });
+  if (user.role === "STAFF") {
+    const today = await Today({
+      orgId: user.orgId,
+      timezone,
+      hasInvoices,
+      forUserId: user.id,
+      showGoals: false,
+    });
+    return (
+      <>
+        <PageHeader title="My tasks" />
+        {today ?? <EmptyState title="Nothing assigned to you today." />}
+      </>
+    );
+  }
   const [active, routines, archivedGoals] = await Promise.all([
     loadActiveGoals(user.orgId, timezone, hasInvoices),
     db.routine.findMany({
@@ -247,6 +265,7 @@ export default async function GoalsPage({
       orderBy: [{ archived: "asc" }, { updatedAt: "desc" }],
       include: {
         items: { orderBy: { position: "asc" }, include: { checkOffs: true } },
+        assignee: { select: { id: true, username: true } },
       },
     }),
     db.goal.findMany({
@@ -256,6 +275,7 @@ export default async function GoalsPage({
   ]);
   const activeRoutines = routines.filter((routine) => !routine.archived);
   const archivedRoutines = routines.filter((routine) => routine.archived);
+  const teamToday = users.length >= 2 ? await loadTeamToday(user.orgId, timezone) : [];
   const today = localCalendarDay(new Date(), timezone);
   const charted = active.slice(0, OVERVIEW_GOAL_LIMIT);
   const datasets =
@@ -297,6 +317,33 @@ export default async function GoalsPage({
         </div>
       )}
       <Today orgId={user.orgId} timezone={timezone} hasInvoices={hasInvoices} />
+      {users.length >= 2 && (
+        <Card className="mb-6 overflow-hidden">
+          <CardHeader title="Team today" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Username</th>
+                  <th className="px-4 py-3 font-medium">Role</th>
+                  <th className="px-4 py-3 font-medium">Done/total today</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                {teamToday.map((member) => (
+                  <tr key={member.userId}>
+                    <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">{member.username}</td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{member.role}</td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                      {member.total ? `${member.done} / ${member.total}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Number goals" value={String(counts.total)} />
@@ -372,6 +419,11 @@ export default async function GoalsPage({
                       {routine.showStreak && (
                         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
                           🔥 {streak} days
+                        </p>
+                      )}
+                      {routine.assignee && (
+                        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          Assigned to {routine.assignee.username}
                         </p>
                       )}
                     </div>
@@ -464,6 +516,7 @@ export default async function GoalsPage({
               hasInvoices={hasInvoices}
               today={today}
               goals={active.map(({ goal }) => ({ id: goal.id, title: goal.title }))}
+              users={users}
             />
           </div>
         </Card>

@@ -12,6 +12,7 @@ type NewGoalPickerProps = {
   hasInvoices: boolean;
   today: string;
   goals: Array<{ id: string; title: string }>;
+  users: Array<{ id: string; username: string }>;
 };
 
 export function NewGoalPicker({
@@ -20,6 +21,7 @@ export function NewGoalPicker({
   hasInvoices,
   today,
   goals,
+  users,
 }: NewGoalPickerProps) {
   const [mode, setMode] = useState<"number" | "routine" | "reminder">("number");
   return (
@@ -57,6 +59,7 @@ export function NewGoalPicker({
           <RoutineForm
             action={createRoutine}
             goals={goals}
+            users={users}
             initial={mode === "reminder" ? { kind: "REMINDER" } : undefined}
             reminderOnly={mode === "reminder"}
             submitLabel={mode === "reminder" ? "Create reminder" : "Create"}

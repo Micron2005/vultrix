@@ -1,4 +1,5 @@
 import { Today } from "@/app/goals/Today";
+import { getCurrentUser } from "@/lib/session";
 
 export async function TodayBlock({
   orgId,
@@ -11,12 +12,14 @@ export async function TodayBlock({
   hasInvoices: boolean;
   title?: string;
 }) {
+  const user = await getCurrentUser();
   return (
     <Today
       orgId={orgId}
       timezone={timezone}
       hasInvoices={hasInvoices}
       title={title}
+      forUserId={user?.role === "STAFF" ? user.id : undefined}
     />
   );
 }

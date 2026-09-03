@@ -1,6 +1,10 @@
 import type { Prisma, ServiceInterval, ServiceLog, Vehicle } from "@prisma/client";
 import { db } from "@/lib/db";
 
+type ServiceReminderClient = Prisma.TransactionClient;
+const defaultServiceReminderClient =
+  db as unknown as ServiceReminderClient;
+
 export const DEFAULT_SERVICE_INTERVALS: Array<{
   key: string;
   label: string;
@@ -20,7 +24,7 @@ export const DEFAULT_SERVICE_INTERVALS: Array<{
 ];
 
 export async function ensureDefaultServiceIntervals(
-  client: Prisma.TransactionClient | typeof db = db,
+  client: ServiceReminderClient = defaultServiceReminderClient,
 ): Promise<void> {
   for (const d of DEFAULT_SERVICE_INTERVALS) {
     await client.serviceInterval.upsert({
@@ -332,7 +336,7 @@ export function matchIntervalFromDescription(
 
 export async function autoLogServicesForRO(
   repairOrderId: string,
-  client: Prisma.TransactionClient | typeof db = db,
+  client: ServiceReminderClient = defaultServiceReminderClient,
 ): Promise<number> {
   const ro = await client.repairOrder.findUnique({
     where: { id: repairOrderId },

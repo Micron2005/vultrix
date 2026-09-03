@@ -29,6 +29,11 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
   });
   if (!routine) notFound();
   const goals = await db.goal.findMany({ where: { orgId: user.orgId, archived: false }, orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const users = await db.user.findMany({
+    where: { orgId: user.orgId, isActive: true, role: { not: "SUPERADMIN" } },
+    orderBy: { username: "asc" },
+    select: { id: true, username: true },
+  });
   const today = localCalendarDay(new Date(), timezone);
   const createdDay = localCalendarDay(routine.createdAt, timezone);
   const days = Array.from({ length: 14 }, (_, index) => shiftCalendarDay(today, index - 13));
@@ -55,6 +60,7 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           action={updateRoutine.bind(null, routine.id)}
           initial={routine}
           goals={goals}
+          users={users}
         />
         <div className="mt-3 flex flex-wrap gap-3">
           {routine.archived ? (

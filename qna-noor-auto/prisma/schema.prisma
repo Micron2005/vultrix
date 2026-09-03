@@ -800,6 +800,8 @@ model Routine {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   goalId       String?
   goal         Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  assigneeUserId String?
+  assignee      User?   @relation("RoutineAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
   title        String
   kind         String
   weekdays     String?
@@ -817,6 +819,7 @@ model Routine {
 
   @@index([orgId])
   @@index([goalId])
+  @@index([assigneeUserId])
 }
 
 model RoutineItem {
@@ -846,6 +849,8 @@ model RoutineCheckOff {
   routine   Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
   orgId     String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User? @relation("RoutineCheckOffUser", fields: [userId], references: [id], onDelete: SetNull)
   day       String
   late      Boolean  @default(false)
   skipped   Boolean  @default(false)
@@ -1195,6 +1200,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   passwordResetTokens PasswordResetToken[]
+  assignedRoutines   Routine[]            @relation("RoutineAssignee")
+  routineCheckOffs   RoutineCheckOff[]    @relation("RoutineCheckOffUser")
 
   @@index([orgId])
 }
