@@ -343,13 +343,14 @@ export function DashboardGrid({
                   )}
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant={entry.collapsed ? "primary" : "secondary"}
                     size="sm"
+                    aria-pressed={entry.collapsed}
                     onClick={() =>
                       updateBlock(entry.id, { collapsed: !entry.collapsed })
                     }
                   >
-                    {entry.collapsed ? "Expanded" : "Collapsed"}
+                    Collapsed
                   </Button>
                 </div>
               </div>
@@ -388,7 +389,13 @@ export function DashboardGrid({
                   </label>
                 ))}
               </div>
-              {block.node}
+              {entry.collapsed ? (
+                <div className="px-4 py-3 text-xs text-zinc-500">
+                  Shows as a folded title bar — click it on the dashboard to open.
+                </div>
+              ) : (
+                block.node
+              )}
             </div>
           );
         })}
