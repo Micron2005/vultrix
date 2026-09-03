@@ -21,6 +21,7 @@ import {
   type GoalRecord,
 } from "@/lib/goals";
 import {
+  goalPaceText,
   goalRemainingSummary,
   statusClass,
   statusLabel,
@@ -61,15 +62,7 @@ function GoalCard({
 }) {
   const atMost = goalIsAtMost(goal);
   const remaining = goalRemainingSummary(goal, progress);
-  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
-  const paceText =
-    progress.daysRemaining < 14
-      ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded, goal.unit)} a day ${
-          remainingDays === 1
-            ? "in the last day"
-            : `in the next ${remainingDays} days`
-        }`
-      : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
+  const paceText = goalPaceText(goal, progress);
   const emptyLatest =
     goal.metric === "LOGGED_LATEST" &&
     progress.baseline === null &&

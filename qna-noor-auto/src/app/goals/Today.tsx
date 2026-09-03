@@ -13,6 +13,7 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
+import { goalPaceText } from "@/lib/goalStatus";
 import { localCalendarDay } from "@/lib/timezone";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
@@ -168,16 +169,11 @@ function RoutineSection({
 }
 
 function BehindGoal({ goal, progress }: { goal: GoalRecord; progress: GoalProgress }) {
-  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
-  const paceText =
-    progress.daysRemaining < 14
-      ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded, goal.unit)} a day in ${remainingDays === 1 ? "the last day" : `the next ${remainingDays} days`}`
-      : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
       <div>
         <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100">{goal.title}</Link>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{paceText}</p>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{goalPaceText(goal, progress)}</p>
       </div>
       <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">View goal</Link>
     </div>
