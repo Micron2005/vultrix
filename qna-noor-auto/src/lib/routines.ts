@@ -265,7 +265,7 @@ export async function loadTeamToday(
       where: { orgId, archived: false, assigneeUserId: { not: null } },
       include: {
         items: { orderBy: { position: "asc" } },
-        checkOffs: { where: { day: today } },
+        checkOffs: { where: { day: { gte: shiftCalendarDay(today, -7) } } },
       },
     }),
   ]);

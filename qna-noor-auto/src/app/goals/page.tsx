@@ -8,7 +8,7 @@ import {
   StatTile,
 } from "@/components/ui";
 import { GoalsOverview } from "@/components/charts/GoalsOverview";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, roleLabel } from "@/lib/session";
 import { db } from "@/lib/db";
 import { enabledFeatureSet } from "@/lib/features";
 import {
@@ -333,7 +333,7 @@ export default async function GoalsPage({
                 {teamToday.map((member) => (
                   <tr key={member.userId}>
                     <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">{member.username}</td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{member.role}</td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{roleLabel(member.role)}</td>
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
                       {member.total ? `${member.done} / ${member.total}` : "—"}
                     </td>
