@@ -97,7 +97,7 @@ async function checkEmailUncached(): Promise<StatusCheck> {
         detail: "API key rejected",
       };
     }
-    if (response.status === 403) {
+    if (response.status === 400 || response.status === 403) {
       return {
         key: "email",
         label: "Email",
