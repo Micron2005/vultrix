@@ -20,6 +20,10 @@ import {
   type GoalMetric,
   type GoalPeriod,
 } from "@/lib/goals";
+import {
+  normalizeGoalTemplateAccountType,
+  templatesFor,
+} from "@/lib/goalTemplates";
 
 const GOAL_PERIODS = ["WEEK", "MONTH", "YEAR", "BY_DATE"] as const;
 
@@ -152,6 +156,86 @@ export async function createGoal(fd: FormData) {
     entityId: goal.id,
     summary: `Goal created: ${goal.title}`,
   });
+  revalidatePath("/goals");
+  revalidatePath("/");
+  redirect("/goals");
+}
+
+export async function applyGoalTemplate(fd: FormData) {
+  const { orgId, timezone, accountType, features } = await requireGoalsContext();
+  const user = await requireUser();
+  const template = templatesFor(
+    normalizeGoalTemplateAccountType(accountType),
+    (metric) => metricAllowed(metric, { accountType, features }),
+  ).find((candidate) => candidate.id === text(fd, "templateId"));
+  if (!template) throw new Error("Starter idea is not available.");
+
+  const today = localCalendarDay(new Date(), timezone);
+  const startDate = dateInputInTimeZone(
+    today,
+    timezone,
+    new Date(Number.NaN),
+  );
+  if (Number.isNaN(startDate.getTime())) throw new Error("Date is invalid.");
+
+  if (template.goal) {
+    const goal = await db.goal.create({
+      data: {
+        orgId,
+        title: template.title,
+        metric: template.goal.metric,
+        period: template.goal.period,
+        target: template.goal.target,
+        category: null,
+        startDate,
+        dueDate: null,
+        manualProgress: null,
+        direction: template.goal.direction ?? "AT_LEAST",
+        unit: template.goal.unit ?? null,
+        notes: null,
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "goal.create",
+      entity: "Goal",
+      entityId: goal.id,
+      summary: `Goal created: ${goal.title}`,
+    });
+  } else if (template.routine) {
+    const routine = await db.routine.create({
+      data: {
+        orgId,
+        title: template.title,
+        kind: template.routine.kind,
+        weekdays: template.routine.weekdays ?? null,
+        day: null,
+        dueTime: template.routine.dueTime ?? null,
+        endDay: null,
+        showStreak: template.routine.showStreak ?? false,
+        goalId: null,
+        items: {
+          create: template.routine.items.map((label, position) => ({
+            orgId,
+            label,
+            position,
+          })),
+        },
+      },
+    });
+    await logActivity({
+      orgId,
+      user,
+      action: "routine.create",
+      entity: "Routine",
+      entityId: routine.id,
+      summary: `Routine created: ${routine.title}`,
+    });
+  } else {
+    throw new Error("Starter idea is invalid.");
+  }
+
   revalidatePath("/goals");
   revalidatePath("/");
   redirect("/goals");

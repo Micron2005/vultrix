@@ -25,6 +25,7 @@ import {
   statusClass,
   statusLabel,
 } from "@/lib/goalStatus";
+import { metricAllowed } from "@/lib/goalAvailability";
 import { loadGoalDatasets, OVERVIEW_GOAL_LIMIT } from "@/lib/goalsOverview";
 import { Today } from "./Today";
 import { localCalendarDay } from "@/lib/timezone";
@@ -37,8 +38,13 @@ import {
 import { DeleteGoalButton } from "./DeleteGoalButton";
 import { DeleteRoutineButton } from "./DeleteRoutineButton";
 import { NewGoalPicker } from "./NewGoalPicker";
+import { StarterTemplates } from "./StarterTemplates";
 import { archiveRoutine, deleteRoutine, restoreRoutine } from "./routines/actions";
 import { loadTeamToday, routineLabel, routineStreak } from "@/lib/routines";
+import {
+  normalizeGoalTemplateAccountType,
+  templatesFor,
+} from "@/lib/goalTemplates";
 
 export const dynamic = "force-dynamic";
 
@@ -276,6 +282,14 @@ export default async function GoalsPage({
   const activeRoutines = routines.filter((routine) => !routine.archived);
   const archivedRoutines = routines.filter((routine) => routine.archived);
   const teamToday = users.length >= 2 ? await loadTeamToday(user.orgId, timezone) : [];
+  const starterTemplates = templatesFor(
+    normalizeGoalTemplateAccountType(accountType),
+    (metric) => metricAllowed(metric, { accountType, features }),
+  ).filter((template) => {
+    const title = template.title.trim().toLowerCase();
+    return !active.some(({ goal }) => goal.title.trim().toLowerCase() === title) &&
+      !activeRoutines.some((routine) => routine.title.trim().toLowerCase() === title);
+  });
   const today = localCalendarDay(new Date(), timezone);
   const charted = active.slice(0, OVERVIEW_GOAL_LIMIT);
   const datasets =
@@ -505,6 +519,11 @@ export default async function GoalsPage({
           </details>
         </Card>
       )}
+
+      <StarterTemplates
+        templates={starterTemplates}
+        activeCount={active.length + activeRoutines.length}
+      />
 
       <div id="new-goal" className="scroll-mt-6">
         <Card className="mt-6 p-5">
