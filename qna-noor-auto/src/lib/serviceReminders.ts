@@ -1,9 +1,5 @@
-import type { Prisma, ServiceInterval, ServiceLog, Vehicle } from "@prisma/client";
+import type { ServiceInterval, ServiceLog, Vehicle } from "@prisma/client";
 import { db } from "@/lib/db";
-
-type ServiceReminderClient = Prisma.TransactionClient;
-const defaultServiceReminderClient =
-  db as unknown as ServiceReminderClient;
 
 export const DEFAULT_SERVICE_INTERVALS: Array<{
   key: string;
@@ -23,11 +19,9 @@ export const DEFAULT_SERVICE_INTERVALS: Array<{
   { key: "spark_plugs", label: "Spark plugs", everyMiles: 60000, everyMonths: null, sortOrder: 70, keywords: ["spark plug", "spark plugs"] },
 ];
 
-export async function ensureDefaultServiceIntervals(
-  client: ServiceReminderClient = defaultServiceReminderClient,
-): Promise<void> {
+export async function ensureDefaultServiceIntervals(): Promise<void> {
   for (const d of DEFAULT_SERVICE_INTERVALS) {
-    await client.serviceInterval.upsert({
+    await db.serviceInterval.upsert({
       where: { key: d.key },
       create: {
         key: d.key,
@@ -336,16 +330,15 @@ export function matchIntervalFromDescription(
 
 export async function autoLogServicesForRO(
   repairOrderId: string,
-  client: ServiceReminderClient = defaultServiceReminderClient,
 ): Promise<number> {
-  const ro = await client.repairOrder.findUnique({
+  const ro = await db.repairOrder.findUnique({
     where: { id: repairOrderId },
     include: { laborLines: true },
   });
   if (!ro) return 0;
   if (!ro.vehicleId) return 0;
 
-  const intervals = await client.serviceInterval.findMany({
+  const intervals = await db.serviceInterval.findMany({
     where: { archived: false },
   });
   const byKey = new Map(intervals.map((i) => [i.key, i]));
@@ -364,7 +357,7 @@ export async function autoLogServicesForRO(
   for (const key of matched) {
     const interval = byKey.get(key);
     if (!interval) continue;
-    const existing = await client.serviceLog.findFirst({
+    const existing = await db.serviceLog.findFirst({
       where: {
         vehicleId: ro.vehicleId,
         intervalId: interval.id,
@@ -372,7 +365,7 @@ export async function autoLogServicesForRO(
       },
     });
     if (existing) continue;
-    await client.serviceLog.create({
+    await db.serviceLog.create({
       data: {
         vehicleId: ro.vehicleId,
         intervalId: interval.id,
