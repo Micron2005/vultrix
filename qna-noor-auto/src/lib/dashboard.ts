@@ -233,7 +233,7 @@ function parsedLayout(raw: unknown): {
     }
   }
   if (!value || typeof value !== "object") {
-    return { columns: 2, density: undefined, greeting: undefined, blocks: [] };
+    return { columns: 1, density: undefined, greeting: undefined, blocks: [] };
   }
   const record = value as Record<string, unknown>;
   const rawColumns = record.columns;
@@ -242,7 +242,7 @@ function parsedLayout(raw: unknown): {
     columns:
       numericColumns === 1 || numericColumns === 2 || numericColumns === 3
         ? numericColumns
-        : 2,
+        : 1,
     density: record.density,
     greeting: record.greeting,
     blocks: Array.isArray(record.blocks) ? record.blocks : [],

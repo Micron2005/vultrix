@@ -314,18 +314,18 @@ export async function Dashboard({
     };
   });
   const nouns = repairOrderNouns(user.accountType);
+  const defaultGreeting = context.autoShop
+    ? "Overview of shop activity"
+    : user.accountType === "BUSINESS"
+      ? "Overview of your activity"
+      : "Plan your day and keep your important notes close";
   return (
     <>
       <PageHeader
         title="Dashboard"
         description={
           layout.greeting.show
-            ? (layout.greeting.text ??
-              (context.autoShop
-                ? "Overview of shop activity"
-                : user.accountType === "BUSINESS"
-                  ? "Overview of your activity"
-                  : "Plan your day and keep your important notes close"))
+            ? (layout.greeting.text ?? defaultGreeting)
             : undefined
         }
         actions={
@@ -351,6 +351,7 @@ export async function Dashboard({
         resetLayout={accountDefaultLayout}
         blocks={blockDescriptors}
         editing={editing}
+        defaultGreeting={defaultGreeting}
       />
     </>
   );

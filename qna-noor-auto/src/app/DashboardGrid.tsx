@@ -61,11 +61,13 @@ export function DashboardGrid({
   resetLayout,
   blocks,
   editing,
+  defaultGreeting,
 }: {
   layout: DashboardLayout;
   resetLayout: DashboardLayout;
   blocks: DashboardBlock[];
   editing: boolean;
+  defaultGreeting: string;
 }) {
   const [current, setCurrent] = useState(layout);
   const blockById = new Map(blocks.map((block) => [block.id, block]));
@@ -205,7 +207,7 @@ export function DashboardGrid({
                     },
                   })
                 }
-                placeholder="Plan your day and keep your important notes close"
+                placeholder={defaultGreeting}
                 className="w-64 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400"
                 aria-label="Greeting text"
               />
