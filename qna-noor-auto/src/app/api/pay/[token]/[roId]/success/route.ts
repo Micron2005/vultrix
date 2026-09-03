@@ -2,14 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { recordOnlinePayment } from "@/lib/connect";
-
-function baseUrl(req: Request): string {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  return `${proto}://${host}`;
-}
+import { baseUrl } from "@/lib/requestUrl";
 
 /**
  * Stripe redirects the customer here after a successful Checkout. We record the

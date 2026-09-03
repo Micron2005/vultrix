@@ -238,6 +238,7 @@ model Payment {
   method    String // CASH | CARD | CHECK | TRANSFER | OTHER
   reference String? // check # / auth # / last 4
   note      String?
+  isDeposit Boolean @default(false)
   paidAt    DateTime @default(now())
 
   createdAt DateTime @default(now())

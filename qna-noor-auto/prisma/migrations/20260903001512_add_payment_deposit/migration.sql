@@ -1,0 +1,1 @@
+ALTER TABLE "Payment" ADD COLUMN "isDeposit" BOOLEAN NOT NULL DEFAULT false;

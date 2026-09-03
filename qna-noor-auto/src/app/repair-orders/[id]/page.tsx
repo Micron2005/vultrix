@@ -80,10 +80,13 @@ export const dynamic = "force-dynamic";
 
 export default async function RepairOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ paid?: string; payerror?: string }>;
 }) {
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
   const orgId = await requireOrgId();
   const user = await requireUser();
   const ro = await db.repairOrder.findFirst({
@@ -125,8 +128,16 @@ export default async function RepairOrderDetailPage({
     },
   });
   if (!ro) notFound();
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { stripeConnectChargesEnabled: true },
+  });
   const contactLists = getCustomerContactLists(ro.customer);
   const nouns = repairOrderNouns(user.accountType);
+  const preInvoice =
+    ro.status === "ESTIMATE" ||
+    ro.status === "IN_PROGRESS" ||
+    ro.status === "COMPLETED";
   const canRepeat =
     user.role !== "STAFF" &&
     enabledFeatureSet(user).has("invoices") &&
@@ -152,6 +163,9 @@ export default async function RepairOrderDetailPage({
   const totals = computeTotals({ ...filtered, shopFees: appliedShopFees });
   const partsProfit = computePartsProfit(filtered.partLines);
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const depositTotal = ro.payments
+    .filter((p) => p.isDeposit)
+    .reduce((sum, p) => sum + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
   const defaultLaborRate = await getSetting(orgId, "defaultLaborRate");
 
@@ -324,6 +338,17 @@ export default async function RepairOrderDetailPage({
           </div>
         }
       />
+
+      {sp.paid === "1" && (
+        <div className="mb-4 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
+          Card payment recorded.
+        </div>
+      )}
+      {sp.payerror && (
+        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+          Card payment couldn&apos;t be started — check Stripe in Billing.
+        </div>
+      )}
 
       {duplicates.length > 0 && (
         <div className="mb-4">
@@ -904,8 +929,10 @@ export default async function RepairOrderDetailPage({
       <Card className="mb-4">
         <CardHeader title={`Payments (${ro.payments.length})`}>
           <span className="text-xs text-zinc-500 font-normal">
-            {balance > 0
-              ? `Balance due: ${formatMoney(balance)}`
+            {preInvoice && ro.payments.length > 0
+              ? `Deposits received: ${formatMoney(depositTotal)} · Remaining: ${formatMoney(balance)}`
+              : balance > 0
+                ? `Balance due: ${formatMoney(balance)}`
               : ro.payments.length > 0
                 ? "Paid in full"
                 : "No payments recorded"}
@@ -933,7 +960,11 @@ export default async function RepairOrderDetailPage({
                     <td className="px-4 py-2 text-zinc-600">
                       {formatDate(p.paidAt)}
                     </td>
-                    <td className="px-4 py-2">{prettyPaymentMethod(p.method)}</td>
+                    <td className="px-4 py-2">
+                      {p.isDeposit
+                        ? `Deposit · ${prettyPaymentMethod(p.method)}`
+                        : prettyPaymentMethod(p.method)}
+                    </td>
                     <td className="px-4 py-2 font-mono text-xs text-zinc-600">
                       {p.reference ?? "—"}
                     </td>
@@ -966,10 +997,11 @@ export default async function RepairOrderDetailPage({
             <div className="col-span-2">
               <Field label="Amount">
                 <Input
-                  key={balance.toFixed(2)}
+                  key={`${preInvoice}-${balance.toFixed(2)}`}
                   name="amount"
                   inputMode="decimal"
-                  defaultValue={balance.toFixed(2)}
+                  defaultValue={preInvoice ? "" : balance.toFixed(2)}
+                  placeholder="0.00"
                   required
                 />
               </Field>
@@ -985,6 +1017,18 @@ export default async function RepairOrderDetailPage({
                 </Select>
               </Field>
             </div>
+            {preInvoice && (
+              <div className="col-span-2">
+                <Field label="Apply as">
+                  <Select name="kind" defaultValue="deposit">
+                    <option value="deposit">
+                      Deposit — keep {nouns.singular.toLowerCase()} open
+                    </option>
+                    <option value="final">Final payment — invoice now</option>
+                  </Select>
+                </Field>
+              </div>
+            )}
             <div className="col-span-2">
               <Field label="Date">
                 <Input
@@ -1011,6 +1055,41 @@ export default async function RepairOrderDetailPage({
             </div>
           </form>
         )}
+        {canManagePayments(user.role) &&
+          balance > 0 &&
+          organization?.stripeConnectChargesEnabled && (
+            <form
+              method="post"
+              action={`/api/pay/in-person/${ro.id}`}
+              className="p-3 border-t border-zinc-200 flex flex-wrap items-end gap-2 bg-zinc-50"
+            >
+              <Field
+                label={
+                  preInvoice
+                    ? "Charge a deposit by card on this screen"
+                    : "Charge card on this screen"
+                }
+              >
+                <Input
+                  name="amount"
+                  inputMode="decimal"
+                  defaultValue={preInvoice ? "" : balance.toFixed(2)}
+                  placeholder="0.00"
+                  className="w-32"
+                  required
+                />
+              </Field>
+              {preInvoice && <input type="hidden" name="kind" value="deposit" />}
+              <Button type="submit" variant="secondary">
+                Open card form
+              </Button>
+              <span className="text-xs text-zinc-500">
+                Opens Stripe&apos;s card page here — hand the customer the
+                keyboard or type the card for them. Money goes to your Stripe
+                account like online payments.
+              </span>
+            </form>
+          )}
       </Card>
 
       {/* Bottom action bar: Save + Save & Exit on the left, Delete on the
