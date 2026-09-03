@@ -43,6 +43,7 @@ import {
   deletePayment,
   deleteRepairOrder,
   recordPayment,
+  requestDeposit,
   updateFeeLine,
   updateJob,
   updateLaborLine,
@@ -75,6 +76,7 @@ import {
 } from "@/app/settings/shop-fees-actions";
 import { getCustomerContactLists } from "@/lib/customerContacts";
 import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
+import { depositDue } from "@/lib/roTotal";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +161,7 @@ export default async function RepairOrderDetailPage({
   const depositTotal = ro.payments
     .filter((p) => p.isDeposit)
     .reduce((sum, p) => sum + p.amount, 0);
+  const depositInfo = await depositDue(ro.id);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
   const defaultLaborRate = await getSetting(orgId, "defaultLaborRate");
 
@@ -325,6 +328,7 @@ export default async function RepairOrderDetailPage({
                     ? "Invoice"
                     : "Estimate"
                 }
+                depositDue={depositInfo.due}
                 compact
               />
             )}
@@ -636,6 +640,7 @@ export default async function RepairOrderDetailPage({
                 roNumber={ro.roNumber}
                 shopName={shopName}
                 docLabel={DocWord}
+                depositDue={depositInfo.due}
               />
               {ro.approvedAt ? (
                 <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-900">
@@ -970,6 +975,44 @@ export default async function RepairOrderDetailPage({
               })}
             </tbody>
           </table>
+        )}
+        {preInvoice && canManagePayments(user.role) && (
+          <div className="border-t border-zinc-200 bg-zinc-50 p-3 text-sm">
+            {depositInfo.requested > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-zinc-700">
+                  Deposit requested: {formatMoney(depositInfo.requested)} ·{" "}
+                  {formatMoney(depositInfo.paid)} received ·{" "}
+                  {formatMoney(depositInfo.due)} due
+                </span>
+                <form action={requestDeposit.bind(null, ro.id)}>
+                  <input type="hidden" name="amount" value="" />
+                  <button
+                    type="submit"
+                    className="text-xs text-red-700 hover:underline"
+                  >
+                    Clear request
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <form
+                action={requestDeposit.bind(null, ro.id)}
+                className="flex flex-wrap items-end gap-2"
+              >
+                <Field label="Request deposit">
+                  <Input
+                    name="amount"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    className="w-32"
+                    required
+                  />
+                </Field>
+                <Button type="submit">Request</Button>
+              </form>
+            )}
+          </div>
         )}
         {canManagePayments(user.role) && balance > 0 && (
           <form

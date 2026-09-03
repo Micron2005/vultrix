@@ -2,6 +2,7 @@
 
 import { ShareActions } from "./ShareActions";
 import type { CustomerContactLists } from "@/lib/customerContacts";
+import { formatMoney } from "@/lib/utils";
 
 export function ROShareActions({
   token,
@@ -10,6 +11,7 @@ export function ROShareActions({
   roNumber,
   shopName,
   docLabel,
+  depositDue = 0,
   compact = false,
 }: {
   token: string;
@@ -18,6 +20,7 @@ export function ROShareActions({
   roNumber: number;
   shopName: string;
   docLabel: "Estimate" | "Invoice";
+  depositDue?: number;
   compact?: boolean;
 }) {
   const firstName = customerName.split(" ")[0] || "there";
@@ -36,10 +39,14 @@ export function ROShareActions({
         (docLabel === "Estimate"
           ? `You can review the details, approve the estimate, and see your balance.\n\n`
           : `You can review the itemized charges, print a copy, or reply to this message with any questions.\n\n`) +
+        (depositDue > 0
+          ? `A deposit of ${formatMoney(depositDue)} is requested — you can pay it securely from the link above.\n\n`
+          : "") +
         `Thanks,\n${shopName}`
       }
       buildSmsBody={(shareUrl) =>
-        `${shopName} — ${verb} for RO #${roNumber}: ${shareUrl}`
+        `${shopName} — ${verb} for RO #${roNumber}: ${shareUrl}` +
+        (depositDue > 0 ? ` Deposit due: ${formatMoney(depositDue)}.` : "")
       }
     />
   );
