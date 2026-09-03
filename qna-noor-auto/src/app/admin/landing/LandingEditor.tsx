@@ -16,6 +16,7 @@ type EditorProps = {
   value: unknown;
   path: string[];
   onChange: (value: unknown) => void;
+  customItemTemplate?: unknown;
 };
 
 const sectionLabels: Record<string, string> = {
@@ -53,13 +54,46 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function defaultFor(sample: unknown): unknown {
+function blankShape(sample: unknown): unknown {
   if (typeof sample === "string") return "";
   if (typeof sample === "number") return 0;
   if (typeof sample === "boolean") return false;
   if (Array.isArray(sample)) return [];
-  if (sample && typeof sample === "object") return {};
+  if (sample && typeof sample === "object") {
+    return Object.fromEntries(
+      Object.entries(sample).map(([key, value]) => [key, blankShape(value)]),
+    );
+  }
   return "";
+}
+
+function valueAtPath(root: unknown, path: string[]): unknown {
+  return path.reduce<unknown>((current, key) => {
+    if (Array.isArray(current)) return current[Number(key)];
+    if (current && typeof current === "object") {
+      return (current as AnyRecord)[key];
+    }
+    return undefined;
+  }, root);
+}
+
+function itemTemplate(
+  path: string[],
+  current: unknown[],
+  customItemTemplate?: unknown,
+): unknown {
+  if (customItemTemplate && path.at(-1) === "items") {
+    return clone(customItemTemplate);
+  }
+  const defaultItems = valueAtPath(DEFAULT_LANDING_CONFIG, path);
+  if (Array.isArray(defaultItems) && defaultItems.length > 0) {
+    return clone(defaultItems[0]);
+  }
+  return blankShape(current[0]);
+}
+
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value);
 }
 
 function moveItem(items: unknown[], from: number, to: number): unknown[] {
@@ -69,7 +103,7 @@ function moveItem(items: unknown[], from: number, to: number): unknown[] {
   return next;
 }
 
-function ObjectEditor({ value, path, onChange }: EditorProps) {
+function ObjectEditor({ value, path, onChange, customItemTemplate }: EditorProps) {
   if (typeof value === "string") {
     const multiline = value.length > 90 || value.includes("\n") || path.at(-1)?.toLowerCase().includes("body");
     return multiline ? (
@@ -97,10 +131,10 @@ function ObjectEditor({ value, path, onChange }: EditorProps) {
                 <Button type="button" size="sm" variant="ghost" onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}>Remove</Button>
               </div>
             </div>
-            <ObjectEditor value={item} path={[...path, String(index)]} onChange={(next) => onChange(value.map((current, itemIndex) => itemIndex === index ? next : current))} />
+            <ObjectEditor value={item} path={[...path, String(index)]} onChange={(next) => onChange(value.map((current, itemIndex) => itemIndex === index ? next : current))} customItemTemplate={customItemTemplate} />
           </div>
         ))}
-        <Button type="button" variant="secondary" size="sm" onClick={() => onChange([...value, defaultFor(value[0])])}>Add item</Button>
+        <Button type="button" variant="secondary" size="sm" onClick={() => onChange([...value, itemTemplate(path, value, customItemTemplate)])}>Add item</Button>
       </div>
     );
   }
@@ -116,7 +150,7 @@ function ObjectEditor({ value, path, onChange }: EditorProps) {
                 {LANDING_ICONS.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
               </select>
             ) : (
-              <ObjectEditor value={child} path={[...path, key]} onChange={(next) => onChange({ ...record, [key]: next })} />
+              <ObjectEditor value={child} path={[...path, key]} onChange={(next) => onChange({ ...record, [key]: next })} customItemTemplate={customItemTemplate} />
             )}
           </div>
         ))}
@@ -136,7 +170,7 @@ export default function LandingEditor({ initial }: { initial: LandingConfig }) {
   const customById = useMemo(() => new Map(config.customSections.map((section) => [section.id, section])), [config.customSections]);
 
   const update = (next: LandingConfig) => {
-    setConfig(normalizeLandingConfig(next));
+    setConfig(next);
     setDirty(true);
     setMessage("");
   };
@@ -166,6 +200,7 @@ export default function LandingEditor({ initial }: { initial: LandingConfig }) {
     update({ ...config, customSections: [...config.customSections, section], order: [...config.order, { id, enabled: true }] });
     setSelected(id);
   };
+  const themeColorsValid = (["accent", "accentSoft", "dark", "light"] as const).every((key) => isHexColor(config.theme[key]));
   const moveSection = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;
     if (nextIndex < 0 || nextIndex >= config.order.length) return;
@@ -188,9 +223,10 @@ export default function LandingEditor({ initial }: { initial: LandingConfig }) {
                 <div key={key}>
                   <label className="mb-1 block text-sm font-medium text-zinc-700">{labelize(key)}</label>
                   <div className="flex gap-2">
-                    <input type="color" value={config.theme[key]} onChange={(event) => update({ ...config, theme: { ...config.theme, [key]: event.target.value } })} className="h-10 w-12 rounded border border-zinc-300 p-1" />
+                    <input type="color" value={isHexColor(config.theme[key]) ? config.theme[key] : "#000000"} onChange={(event) => update({ ...config, theme: { ...config.theme, [key]: event.target.value } })} className="h-10 w-12 rounded border border-zinc-300 p-1" />
                     <Input value={config.theme[key]} onChange={(event) => update({ ...config, theme: { ...config.theme, [key]: event.target.value } })} />
                   </div>
+                  {!isHexColor(config.theme[key]) && <p className="mt-1 text-xs text-red-600">Use a 6-digit hex like #f59e0b</p>}
                 </div>
               ))}
             </div>
@@ -234,7 +270,7 @@ export default function LandingEditor({ initial }: { initial: LandingConfig }) {
           </Card>
           <Card>
             <CardHeader title={sectionLabels[selected] || customById.get(selected)?.title || "Section details"} />
-            <div className="p-4">{selectedValue && <ObjectEditor value={selectedValue} path={[selected]} onChange={(next) => { if (customById.has(selected)) update({ ...config, customSections: config.customSections.map((item) => item.id === selected ? next as LandingConfig["customSections"][number] : item) }); else update({ ...config, [selected]: next } as LandingConfig); }} />}</div>
+            <div className="p-4">{selectedValue && <ObjectEditor value={selectedValue} path={[selected]} customItemTemplate={customById.get(selected)?.kind === "cards" ? { icon: "Star", title: "", desc: "" } : customById.get(selected)?.kind === "faq" ? { title: "", desc: "" } : undefined} onChange={(next) => { if (customById.has(selected)) update({ ...config, customSections: config.customSections.map((item) => item.id === selected ? next as LandingConfig["customSections"][number] : item) }); else update({ ...config, [selected]: next } as LandingConfig); }} />}</div>
           </Card>
         </div>
       )}
@@ -242,7 +278,7 @@ export default function LandingEditor({ initial }: { initial: LandingConfig }) {
         <span className={`text-sm ${dirty ? "text-amber-700" : "text-zinc-500"}`}>{dirty ? "Unsaved changes" : "All changes saved"}</span>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" onClick={() => { if (window.confirm("Reset all landing-page content to defaults?")) { const defaults = clone(DEFAULT_LANDING_CONFIG); update(defaults); save(defaults); } }}>Reset to defaults</Button>
-          <Button type="button" disabled={!dirty || isPending} onClick={() => save()}>{isPending ? "Saving…" : "Save changes"}</Button>
+          <Button type="button" disabled={!dirty || isPending || !themeColorsValid} onClick={() => save()}>{isPending ? "Saving…" : "Save changes"}</Button>
         </div>
       </div>
     </div>

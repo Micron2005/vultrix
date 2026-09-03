@@ -2,10 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuperadmin } from "@/lib/session";
-import {
-  normalizeLandingConfig,
-  type LandingConfig,
-} from "@/lib/landingConfig";
+import { normalizeLandingConfig } from "@/lib/landingConfig";
 import { saveLandingConfig } from "@/lib/landing";
 
 export async function saveLanding(json: string): Promise<{ ok: boolean; error?: string }> {
@@ -20,7 +17,7 @@ export async function saveLanding(json: string): Promise<{ ok: boolean; error?: 
     return { ok: false, error: "Landing configuration is not valid JSON." };
   }
   try {
-    await saveLandingConfig(normalizeLandingConfig(raw) as LandingConfig);
+    await saveLandingConfig(normalizeLandingConfig(raw));
     revalidatePath("/");
     revalidatePath("/admin/landing");
     revalidatePath("/admin/landing/preview");

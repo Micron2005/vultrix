@@ -93,10 +93,10 @@ export function Nav({
   // data pages are meaningless to them, so show a focused platform menu.
   const baseItems: NavCatalogItem[] = (isSuperadmin
     ? [
-      { href: "/admin", label: "Manage businesses" },
-      { href: "/admin/leads", label: "Leads" },
-      { href: "/admin/status", label: "Status page" },
-      { href: "/admin/landing", label: "Customize site" },
+        { href: "/admin", label: "Manage businesses" },
+        { href: "/admin/leads", label: "Leads" },
+        { href: "/admin/status", label: "Status page" },
+        { href: "/admin/landing", label: "Customize site" },
       ]
     : getEligibleNavItems({
         enabledFeatures,
