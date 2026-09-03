@@ -23,6 +23,30 @@ function sign(value: string): string {
     .digest("hex");
 }
 
+export function makeSignedValue(value: string): string {
+  return `${value}.${sign(value)}`;
+}
+
+export function verifySignedValue(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const separator = value.lastIndexOf(".");
+  if (separator <= 0) return null;
+  const body = value.slice(0, separator);
+  const provided = value.slice(separator + 1);
+  const expected = sign(body);
+  if (expected.length !== provided.length) return null;
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, "hex"),
+      Buffer.from(provided, "hex"),
+    )
+      ? body
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Session token: a signed cookie that identifies the logged-in user. The body
 // embeds the userId so each request can resolve the user (and their org).
@@ -33,7 +57,7 @@ export function makeToken(userId: string): string {
   const body = `${userId}.${Date.now().toString(36)}.${crypto
     .randomBytes(16)
     .toString("hex")}`;
-  return `${body}.${sign(body)}`;
+  return makeSignedValue(body);
 }
 
 /** Verify a token's signature and return the userId it carries, else null. */
@@ -89,13 +113,27 @@ export async function createSession(
   userId: string,
   remember = true,
 ): Promise<void> {
+  await setSessionCookie(userId, remember ? COOKIE_MAX_AGE : undefined);
+}
+
+export async function createSessionWithMaxAge(
+  userId: string,
+  maxAge: number,
+): Promise<void> {
+  await setSessionCookie(userId, maxAge);
+}
+
+async function setSessionCookie(
+  userId: string,
+  maxAge: number | undefined,
+): Promise<void> {
   const store = await cookies();
   store.set(SESSION_COOKIE, makeToken(userId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    ...(remember ? { maxAge: COOKIE_MAX_AGE } : {}),
+    ...(maxAge === undefined ? {} : { maxAge }),
   });
 }
 
@@ -111,6 +149,7 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true;
   if (pathname === "/home") return true;
   if (pathname === "/login") return true;
+  if (pathname === "/admin/login") return true;
   if (pathname === "/signup") return true;
   if (pathname === "/forgot-password") return true;
   if (pathname === "/reset-password") return true;

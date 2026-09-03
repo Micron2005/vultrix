@@ -43,9 +43,13 @@ export function proxy(req: NextRequest) {
   if (verifyToken(token)) return pass();
 
   const url = req.nextUrl.clone();
-  url.pathname = "/login";
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
+  url.pathname = isAdminPath ? "/admin/login" : "/login";
   const next = pathname + (req.nextUrl.search || "");
-  url.search = next && next !== "/" ? `?next=${encodeURIComponent(next)}` : "";
+  url.search =
+    isAdminPath || !next || next === "/"
+      ? ""
+      : `?next=${encodeURIComponent(next)}`;
   return NextResponse.redirect(url);
 }
 
