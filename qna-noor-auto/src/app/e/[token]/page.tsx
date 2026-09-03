@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
+import { depositDue } from "@/lib/roTotal";
 import {
   formatDate,
   formatMoney,
@@ -88,6 +89,11 @@ export default async function PublicEstimatePage({
   });
   const canPayOnline =
     isInvoiced && balance > 0 && Boolean(org?.stripeConnectChargesEnabled);
+  const depositInfo = await depositDue(ro.id);
+  const canPayDeposit =
+    !isInvoiced &&
+    depositInfo.due > 0 &&
+    Boolean(org?.stripeConnectChargesEnabled);
 
   const approve = approveEstimate.bind(null, token);
   const decline = declineEstimate.bind(null, token);
@@ -540,7 +546,10 @@ export default async function PublicEstimatePage({
             </div>
           </section>
 
-          {isInvoiced && (sp.paid || sp.payerror || canPayOnline) && (
+          {(sp.paid ||
+            sp.payerror ||
+            canPayOnline ||
+            (!isInvoiced && depositInfo.due > 0)) && (
             <section className="px-8 py-6 border-b border-zinc-200">
               {sp.paid && (
                 <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
@@ -552,6 +561,27 @@ export default async function PublicEstimatePage({
                 <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
                   Sorry, we couldn&apos;t start the payment. Please try again or
                   contact the shop.
+                </div>
+              )}
+              {!isInvoiced && depositInfo.due > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="text-sm font-medium text-zinc-800">
+                    Deposit requested: {formatMoney(depositInfo.due)}
+                  </div>
+                  {canPayDeposit && (
+                    <form
+                      method="post"
+                      action={`/api/pay/share/${token}`}
+                    >
+                      <input type="hidden" name="kind" value="deposit" />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                      >
+                        Pay {formatMoney(depositInfo.due)} deposit
+                      </button>
+                    </form>
+                  )}
                 </div>
               )}
               {canPayOnline && (

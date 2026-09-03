@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
+import { depositDue } from "@/lib/roTotal";
 import {
   formatDate,
   formatMoney,
@@ -84,6 +85,11 @@ export default async function CustomerPortalROPage({
   });
   const canPayOnline =
     isInvoiced && balance > 0 && Boolean(org?.stripeConnectChargesEnabled);
+  const depositInfo = await depositDue(ro.id);
+  const canPayDeposit =
+    !isInvoiced &&
+    depositInfo.due > 0 &&
+    Boolean(org?.stripeConnectChargesEnabled);
 
   return (
     <div className="min-h-screen bg-zinc-100 py-10">
@@ -468,7 +474,11 @@ export default async function CustomerPortalROPage({
             </section>
           )}
 
-          {(isInvoiced || ro.payments.length > 0) && (
+          {(isInvoiced ||
+            ro.payments.length > 0 ||
+            depositInfo.due > 0 ||
+            sp.paid ||
+            sp.payerror) && (
             <section className="px-8 py-4">
               {sp.paid && (
                 <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
@@ -488,6 +498,14 @@ export default async function CustomerPortalROPage({
                     <dt>Paid</dt>
                     <dd className="tabular-nums">{formatMoney(paid)}</dd>
                   </div>
+                  {depositInfo.paid > 0 && (
+                    <div className="flex justify-between text-zinc-600">
+                      <dt>Deposit received</dt>
+                      <dd className="tabular-nums">
+                        {formatMoney(depositInfo.paid)}
+                      </dd>
+                    </div>
+                  )}
                   <div
                     className={
                       "flex justify-between pt-2 border-t border-zinc-200 text-base font-semibold " +
@@ -506,6 +524,24 @@ export default async function CustomerPortalROPage({
                   </div>
                 </dl>
               </div>
+              {!isInvoiced && depositInfo.due > 0 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="text-sm font-medium text-zinc-800">
+                    Deposit requested: {formatMoney(depositInfo.due)}
+                  </div>
+                  {canPayDeposit && (
+                    <form method="post" action={`/api/pay/${token}/${roId}`}>
+                      <input type="hidden" name="kind" value="deposit" />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                      >
+                        Pay {formatMoney(depositInfo.due)} deposit
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
               {canPayOnline && (
                 <div className="mt-4 flex justify-end">
                   <form method="post" action={`/api/pay/${token}/${roId}`}>

@@ -2,15 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
-import { computeRoTotal, computeRoPaid } from "@/lib/roTotal";
-
-function baseUrl(req: Request): string {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  return `${proto}://${host}`;
-}
+import { computeRoTotal, computeRoPaid, depositDue } from "@/lib/roTotal";
+import { baseUrl } from "@/lib/requestUrl";
 
 /**
  * Start a Stripe Checkout for a customer paying their invoice straight from the
@@ -23,6 +16,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const formData = await req.formData();
+  const wantsDeposit = String(formData.get("kind") ?? "") === "deposit";
   const root = baseUrl(req);
   const invoice = `${root}/e/${token}`;
 
@@ -50,15 +45,32 @@ export async function POST(
     return NextResponse.redirect(`${invoice}?payerror=1`, { status: 303 });
   }
 
-  const [total, paid] = await Promise.all([
-    computeRoTotal(ro.orgId, ro.id),
-    computeRoPaid(ro.id),
-  ]);
-  const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
-  if (balance <= 0) {
-    return NextResponse.redirect(`${invoice}?paid=1`, { status: 303 });
+  const preInvoice =
+    ro.status === "ESTIMATE" ||
+    ro.status === "IN_PROGRESS" ||
+    ro.status === "COMPLETED";
+  const isDeposit = wantsDeposit && preInvoice;
+  const amount = isDeposit
+    ? (await depositDue(ro.id)).due
+    : await (async () => {
+        const [total, paid] = await Promise.all([
+          computeRoTotal(ro.orgId, ro.id),
+          computeRoPaid(ro.id),
+        ]);
+        return Math.max(0, Math.round((total - paid) * 100) / 100);
+      })();
+  if (amount <= 0) {
+    return NextResponse.redirect(
+      `${invoice}?${isDeposit ? "payerror=1" : "paid=1"}`,
+      { status: 303 },
+    );
   }
 
+  const metadata = {
+    repairOrderId: ro.id,
+    orgId: ro.orgId,
+    ...(isDeposit ? { deposit: "1" } : {}),
+  };
   const stripe = getStripe();
   let session: Stripe.Checkout.Session;
   try {
@@ -70,15 +82,19 @@ export async function POST(
           {
             price_data: {
               currency: "usd",
-              product_data: { name: `Invoice #${ro.roNumber} — ${org.name}` },
-              unit_amount: Math.round(balance * 100),
+              product_data: {
+                name: isDeposit
+                  ? `Deposit — RO #${ro.roNumber} — ${org.name}`
+                  : `Invoice #${ro.roNumber} — ${org.name}`,
+              },
+              unit_amount: Math.round(amount * 100),
             },
             quantity: 1,
           },
         ],
-        metadata: { repairOrderId: ro.id, orgId: ro.orgId },
+        metadata,
         payment_intent_data: {
-          metadata: { repairOrderId: ro.id, orgId: ro.orgId },
+          metadata,
         },
         success_url: `${root}/api/pay/share/${token}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: invoice,

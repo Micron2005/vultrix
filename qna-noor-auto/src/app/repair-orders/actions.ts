@@ -1015,6 +1015,54 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
   revalidatePath("/");
 }
 
+export async function requestDeposit(repairOrderId: string, fd: FormData) {
+  const orgId = await requireOrgId();
+  const user = await requireUser();
+  assertCanManagePayments(user.role);
+
+  const ro = await db.repairOrder.findFirst({
+    where: { id: repairOrderId, orgId },
+    select: { id: true, roNumber: true, status: true },
+  });
+  if (!ro) return;
+
+  const preInvoice =
+    ro.status === "ESTIMATE" ||
+    ro.status === "IN_PROGRESS" ||
+    ro.status === "COMPLETED";
+  if (!preInvoice) return;
+
+  const rawAmount = String(fd.get("amount") ?? "").trim();
+  let requested: number | null = null;
+  if (rawAmount) {
+    const amount = parseDecimal(rawAmount);
+    if (amount === null || amount < 0) return;
+    if (amount > 0) {
+      const total = await computeRoTotal(orgId, repairOrderId);
+      if (amount > total) return;
+      requested = Math.round(amount * 100) / 100;
+    }
+  }
+  await db.repairOrder.update({
+    where: { id: ro.id },
+    data: { depositRequested: requested },
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "repair_order.deposit_request",
+    entity: "RepairOrder",
+    entityId: ro.id,
+    summary:
+      requested === null
+        ? `Deposit request cleared for RO #${ro.roNumber}`
+        : `Deposit of ${formatMoney(requested)} requested for RO #${ro.roNumber}`,
+  });
+  revalidatePath(`/repair-orders/${repairOrderId}`);
+  revalidatePath("/repair-orders");
+  revalidatePath("/");
+}
+
 export async function deletePayment(id: string, repairOrderId: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();

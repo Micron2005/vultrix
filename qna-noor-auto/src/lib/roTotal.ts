@@ -56,3 +56,23 @@ export async function computeRoPaid(repairOrderId: string): Promise<number> {
   });
   return Math.round(payments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
 }
+
+/** Amount of the requested deposit that has not yet been paid. */
+export async function depositDue(
+  roId: string,
+): Promise<{ requested: number; paid: number; due: number }> {
+  const [ro, paidAggregate] = await Promise.all([
+    db.repairOrder.findUnique({
+      where: { id: roId },
+      select: { depositRequested: true },
+    }),
+    db.payment.aggregate({
+      where: { repairOrderId: roId, isDeposit: true },
+      _sum: { amount: true },
+    }),
+  ]);
+  const requested = ro?.depositRequested ?? 0;
+  const paid = Math.round((paidAggregate._sum.amount ?? 0) * 100) / 100;
+  const due = Math.max(0, Math.round((requested - paid) * 100) / 100);
+  return { requested, paid, due };
+}

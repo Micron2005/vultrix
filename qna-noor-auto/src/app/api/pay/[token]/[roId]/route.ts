@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
-import { computeRoTotal, computeRoPaid } from "@/lib/roTotal";
+import { computeRoTotal, computeRoPaid, depositDue } from "@/lib/roTotal";
 import { baseUrl } from "@/lib/requestUrl";
 
 /**
@@ -16,6 +16,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string; roId: string }> },
 ) {
   const { token, roId } = await params;
+  const formData = await req.formData();
+  const wantsDeposit = String(formData.get("kind") ?? "") === "deposit";
   const root = baseUrl(req);
   const portal = `${root}/p/${token}/ro/${roId}`;
 
@@ -51,15 +53,32 @@ export async function POST(
     return NextResponse.redirect(`${portal}?payerror=1`, { status: 303 });
   }
 
-  const [total, paid] = await Promise.all([
-    computeRoTotal(ro.orgId, ro.id),
-    computeRoPaid(ro.id),
-  ]);
-  const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
-  if (balance <= 0) {
-    return NextResponse.redirect(`${portal}?paid=1`, { status: 303 });
+  const preInvoice =
+    ro.status === "ESTIMATE" ||
+    ro.status === "IN_PROGRESS" ||
+    ro.status === "COMPLETED";
+  const isDeposit = wantsDeposit && preInvoice;
+  const amount = isDeposit
+    ? (await depositDue(ro.id)).due
+    : await (async () => {
+        const [total, paid] = await Promise.all([
+          computeRoTotal(ro.orgId, ro.id),
+          computeRoPaid(ro.id),
+        ]);
+        return Math.max(0, Math.round((total - paid) * 100) / 100);
+      })();
+  if (amount <= 0) {
+    return NextResponse.redirect(
+      `${portal}?${isDeposit ? "payerror=1" : "paid=1"}`,
+      { status: 303 },
+    );
   }
 
+  const metadata = {
+    repairOrderId: ro.id,
+    orgId: ro.orgId,
+    ...(isDeposit ? { deposit: "1" } : {}),
+  };
   const stripe = getStripe();
   let session: Stripe.Checkout.Session;
   try {
@@ -71,15 +90,19 @@ export async function POST(
         {
           price_data: {
             currency: "usd",
-            product_data: { name: `Invoice #${ro.roNumber} — ${org.name}` },
-            unit_amount: Math.round(balance * 100),
+            product_data: {
+              name: isDeposit
+                ? `Deposit — RO #${ro.roNumber} — ${org.name}`
+                : `Invoice #${ro.roNumber} — ${org.name}`,
+            },
+            unit_amount: Math.round(amount * 100),
           },
           quantity: 1,
         },
       ],
-      metadata: { repairOrderId: ro.id, orgId: ro.orgId },
+      metadata,
       payment_intent_data: {
-        metadata: { repairOrderId: ro.id, orgId: ro.orgId },
+        metadata,
       },
       success_url: `${root}/api/pay/${token}/${roId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: portal,

@@ -163,6 +163,7 @@ model RepairOrder {
 
   taxRate  Float @default(0)
   discount Float @default(0)
+  depositRequested Float?
 
   // Shareable estimate link. Token is a non-guessable random string; if null,
   // the public /e/[token] route doesn't exist for this RO.
