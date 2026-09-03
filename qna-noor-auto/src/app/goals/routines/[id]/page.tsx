@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardHeader, Input, LinkButton, PageHeader } from "@/components/ui";
-import { assertCanViewFinancials } from "@/lib/permissions";
+import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { orgTimeZone } from "@/lib/orgTimezone";
@@ -15,7 +15,7 @@ import { RoutineSettingsForm } from "../../RoutineSettingsForm";
 export default async function RoutineDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  assertCanViewFinancials(user.role);
+  if (!canViewFinancials(user.role)) redirect("/goals");
   if (!user.orgId) redirect("/admin");
   const { id } = await params;
   const { error } = (await searchParams) ?? {};

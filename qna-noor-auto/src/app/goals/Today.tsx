@@ -89,11 +89,13 @@ function RoutineSection({
   items,
   today,
   reminder,
+  canManage,
 }: {
   routine: RoutineGroup["routine"];
   items: RoutineGroup["items"];
   today: string;
   reminder: boolean;
+  canManage: boolean;
 }) {
   const actionDay =
     (routine.kind === "ONE_OFF" || routine.kind === "REMINDER") && routine.day
@@ -102,9 +104,13 @@ function RoutineSection({
   return (
     <section className="px-4 py-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
-          {routine.title}
-        </Link>
+        {canManage ? (
+          <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+            {routine.title}
+          </Link>
+        ) : (
+          <span className="font-medium text-zinc-900 dark:text-zinc-100">{routine.title}</span>
+        )}
         {routine.assignee && (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             · Assigned to {routine.assignee.username}
@@ -212,13 +218,13 @@ export async function Today({
         {reminders.length > 0 && (
           <section>
             <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Reminders</div>
-            {reminders.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder />)}
+            {reminders.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder canManage={!forUserId} />)}
           </section>
         )}
         {todo.length > 0 && (
           <section>
             <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">To do today</div>
-            {todo.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder={false} />)}
+            {todo.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder={false} canManage={!forUserId} />)}
           </section>
         )}
         {(quickGoals.length > 0 || behindGoals.length > 0) && (
