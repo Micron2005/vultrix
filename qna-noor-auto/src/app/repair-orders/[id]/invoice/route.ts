@@ -437,13 +437,13 @@ export async function GET(
   page.drawText("TOTAL", { x: 360, y, size: 12, font: bold, color: black });
   drawRight(page, formatMoney(totals.total), 612 - margin, y, bold, 14, black);
 
-  // Payments / balance — invoice only (estimates have no payments yet)
+  // Payments / balance
   const paidTotal = ro.payments.reduce((s, p) => s + p.amount, 0);
   const balance = Math.round((totals.total - paidTotal) * 100) / 100;
-  if (!isEstimate && ro.payments.length > 0) {
+  if (ro.payments.length > 0) {
     ensureSpace(22 + 14 + ro.payments.length * 12 + 4 + 16 + 16);
     y -= 22;
-    page.drawText("PAYMENTS RECEIVED", {
+    page.drawText(ro.payments.every((p) => p.isDeposit) ? "DEPOSITS RECEIVED" : "PAYMENTS RECEIVED", {
       x: 360,
       y,
       size: 9,
@@ -452,7 +452,9 @@ export async function GET(
     });
     y -= 14;
     for (const p of ro.payments) {
-      const line = `${formatDate(p.paidAt)} · ${prettyPdfMethod(p.method)}${
+      const line = `${formatDate(p.paidAt)} · ${
+        p.isDeposit ? "Deposit · " : ""
+      }${prettyPdfMethod(p.method)}${
         p.reference ? ` · ${p.reference}` : ""
       }`;
       page.drawText(line, { x: 360, y, size: 9, font, color: black });
@@ -467,7 +469,7 @@ export async function GET(
       color: black,
     });
     y -= 16;
-    const balLabel = balance <= 0 ? "BALANCE DUE" : "BALANCE DUE";
+    const balLabel = isEstimate ? "REMAINING" : "BALANCE DUE";
     page.drawText(balLabel, { x: 360, y, size: 12, font: bold, color: black });
     drawRight(
       page,

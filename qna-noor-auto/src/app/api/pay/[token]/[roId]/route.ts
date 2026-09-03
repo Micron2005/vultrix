@@ -3,14 +3,7 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { computeRoTotal, computeRoPaid } from "@/lib/roTotal";
-
-function baseUrl(req: Request): string {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  return `${proto}://${host}`;
-}
+import { baseUrl } from "@/lib/requestUrl";
 
 /**
  * Start a Stripe Checkout for a customer paying their invoice. The charge is a

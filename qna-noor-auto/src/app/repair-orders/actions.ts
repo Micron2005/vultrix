@@ -931,10 +931,17 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
     select: {
       id: true,
       roNumber: true,
+      status: true,
       customer: { select: { firstName: true, lastName: true, companyName: true } },
     },
   });
   if (!ownedRO) return;
+  const kind = String(fd.get("kind") ?? "final");
+  const isDeposit =
+    kind === "deposit" &&
+    (ownedRO.status === "ESTIMATE" ||
+      ownedRO.status === "IN_PROGRESS" ||
+      ownedRO.status === "COMPLETED");
   const amount = parseDecimal(String(fd.get("amount") ?? "0"));
   if (amount === null || amount <= 0) return;
 
@@ -957,36 +964,39 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
       method,
       reference,
       note,
+      isDeposit,
       paidAt: isNaN(paidAt.getTime()) ? new Date() : paidAt,
     },
   });
 
   // If the running total of payments covers the RO total, auto-flip to PAID.
-  const [ro, payments, total] = await Promise.all([
-    db.repairOrder.findFirst({ where: { id: repairOrderId, orgId } }),
-    db.payment.findMany({
-      where: { repairOrderId },
-      select: { amount: true },
-    }),
-    computeRoTotal(orgId, repairOrderId),
-  ]);
-  if (ro) {
-    const paid = payments.reduce((s, p) => s + p.amount, 0);
-    // Also advance to INVOICED if the shop records a payment before formally
-    // invoicing — that's a real shop workflow (customer hands over cash on
-    // pickup before you hit "Generate Invoice").
-    const data: Record<string, unknown> = {};
-    if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
-      data.status = "INVOICED";
-      if (!ro.invoicedAt) data.invoicedAt = new Date();
-    }
-    if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
-      data.status = "PAID";
-      data.paidAt = new Date();
-      data.closedAt = new Date();
-    }
-    if (Object.keys(data).length > 0) {
-      await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
+  if (!isDeposit) {
+    const [ro, payments, total] = await Promise.all([
+      db.repairOrder.findFirst({ where: { id: repairOrderId, orgId } }),
+      db.payment.findMany({
+        where: { repairOrderId },
+        select: { amount: true },
+      }),
+      computeRoTotal(orgId, repairOrderId),
+    ]);
+    if (ro) {
+      const paid = payments.reduce((s, p) => s + p.amount, 0);
+      // Also advance to INVOICED if the shop records a payment before formally
+      // invoicing — that's a real shop workflow (customer hands over cash on
+      // pickup before you hit "Generate Invoice").
+      const data: Record<string, unknown> = {};
+      if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
+        data.status = "INVOICED";
+        if (!ro.invoicedAt) data.invoicedAt = new Date();
+      }
+      if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
+        data.status = "PAID";
+        data.paidAt = new Date();
+        data.closedAt = new Date();
+      }
+      if (Object.keys(data).length > 0) {
+        await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
+      }
     }
   }
 
@@ -996,7 +1006,9 @@ export async function recordPayment(repairOrderId: string, fd: FormData) {
     action: "payment.create",
     entity: "Payment",
     entityId: payment.id,
-    summary: `Payment of ${formatMoney(payment.amount)} recorded for RO #${ownedRO.roNumber} (${fullName(ownedRO.customer)})`,
+    summary: isDeposit
+      ? `Deposit of ${formatMoney(payment.amount)} recorded for RO #${ownedRO.roNumber}`
+      : `Payment of ${formatMoney(payment.amount)} recorded for RO #${ownedRO.roNumber} (${fullName(ownedRO.customer)})`,
   });
   revalidatePath(`/repair-orders/${repairOrderId}`);
   revalidatePath("/repair-orders");

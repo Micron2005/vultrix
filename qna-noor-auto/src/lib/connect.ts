@@ -100,6 +100,7 @@ async function applyOnlinePayment(
   repairOrderId: string,
   amount: number,
   reference: string,
+  opts: { deposit: boolean; note: string },
 ): Promise<void> {
   if (amount <= 0) return;
 
@@ -124,27 +125,30 @@ async function applyOnlinePayment(
       amount,
       method: "CARD",
       reference,
-      note: "Online payment",
+      note: opts.note,
+      isDeposit: opts.deposit,
     },
   });
 
-  const [total, paid] = await Promise.all([
-    computeRoTotal(orgId, repairOrderId),
-    computeRoPaid(repairOrderId),
-  ]);
+  if (!opts.deposit) {
+    const [total, paid] = await Promise.all([
+      computeRoTotal(orgId, repairOrderId),
+      computeRoPaid(repairOrderId),
+    ]);
 
-  const data: Record<string, unknown> = {};
-  if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
-    data.status = "INVOICED";
-    if (!ro.invoicedAt) data.invoicedAt = new Date();
-  }
-  if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
-    data.status = "PAID";
-    data.paidAt = new Date();
-    data.closedAt = new Date();
-  }
-  if (Object.keys(data).length > 0) {
-    await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
+    const data: Record<string, unknown> = {};
+    if (ro.status === "ESTIMATE" || ro.status === "IN_PROGRESS" || ro.status === "COMPLETED") {
+      data.status = "INVOICED";
+      if (!ro.invoicedAt) data.invoicedAt = new Date();
+    }
+    if (paid + 0.005 >= total && ro.status !== "PAID" && ro.status !== "CANCELLED") {
+      data.status = "PAID";
+      data.paidAt = new Date();
+      data.closedAt = new Date();
+    }
+    if (Object.keys(data).length > 0) {
+      await db.repairOrder.update({ where: { id: repairOrderId, orgId }, data });
+    }
   }
 }
 
@@ -186,6 +190,13 @@ export async function recordOnlinePayment(
     repairOrderId,
     amount,
     paymentIntentIdOf(session),
+    {
+      deposit: session.metadata?.deposit === "1",
+      note:
+        session.metadata?.source === "in_person"
+          ? "Card payment (in person)"
+          : "Online payment",
+    },
   );
 }
 
@@ -226,6 +237,7 @@ export async function recordBulkOnlinePayment(
         entry.r,
         entry.a,
         `${paymentIntentId}:${entry.r}`,
+        { deposit: false, note: "Online payment" },
       );
     }
     return;
@@ -260,7 +272,13 @@ export async function recordBulkOnlinePayment(
     const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
     if (balance <= 0) continue;
     const amount = Math.min(balance, remaining);
-    await applyOnlinePayment(orgId, ro.id, amount, `${paymentIntentId}:${ro.id}`);
+    await applyOnlinePayment(
+      orgId,
+      ro.id,
+      amount,
+      `${paymentIntentId}:${ro.id}`,
+      { deposit: false, note: "Online payment" },
+    );
     remaining = Math.round((remaining - amount) * 100) / 100;
   }
 }

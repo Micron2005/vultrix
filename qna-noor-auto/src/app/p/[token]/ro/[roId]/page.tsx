@@ -453,7 +453,9 @@ export default async function CustomerPortalROPage({
                         {formatDate(p.paidAt)}
                       </td>
                       <td className="py-2 text-zinc-700">
-                        {METHOD_LABEL[p.method] ?? p.method}
+                        {p.isDeposit
+                          ? `Deposit · ${METHOD_LABEL[p.method] ?? p.method}`
+                          : METHOD_LABEL[p.method] ?? p.method}
                       </td>
                       <td className="py-2 text-zinc-600">{p.reference ?? "—"}</td>
                       <td className="py-2 text-right text-zinc-900 tabular-nums">
@@ -466,7 +468,7 @@ export default async function CustomerPortalROPage({
             </section>
           )}
 
-          {isInvoiced && (
+          {(isInvoiced || ro.payments.length > 0) && (
             <section className="px-8 py-4">
               {sp.paid && (
                 <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
@@ -492,7 +494,14 @@ export default async function CustomerPortalROPage({
                       (balance <= 0 ? "text-green-700" : "text-amber-900")
                     }
                   >
-                    <dt>{balance <= 0 ? "Paid in full" : "Balance due"}</dt>
+                    <dt>
+                      {balance <= 0
+                        ? "Paid in full"
+                        : ro.status === "INVOICED" ||
+                            ro.status === "PAID"
+                          ? "Balance due"
+                          : "Remaining"}
+                    </dt>
                     <dd className="tabular-nums">{formatMoney(balance)}</dd>
                   </div>
                 </dl>
