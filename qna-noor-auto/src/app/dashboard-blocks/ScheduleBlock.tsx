@@ -6,6 +6,7 @@ import {
   localCalendarDay,
   shiftCalendarDay,
 } from "@/lib/timezone";
+import type { CurrentUser } from "@/lib/session";
 import { fullName, vehicleLabel } from "@/lib/utils";
 
 function ymd(date: Date, timezone: string): string {
@@ -17,11 +18,15 @@ export async function ScheduleBlock({
   timezone,
   accountType,
   hasVehicles,
+  window = "today",
+  title,
 }: {
   orgId: string;
   timezone: string;
-  accountType: string | null;
+  accountType: CurrentUser["accountType"];
   hasVehicles: boolean;
+  window?: string;
+  title?: string;
 }) {
   const personal = accountType === "PERSONAL";
   const today = localCalendarDay(new Date(), timezone);
@@ -36,10 +41,11 @@ export async function ScheduleBlock({
     timezone,
     new Date(Number.NaN),
   );
+  const rangeEnd = window === "week" ? weekEnd : dayEnd;
   const [events, appointments] = await Promise.all([
     personal
       ? db.calendarEvent.findMany({
-          where: { orgId, startsAt: { gte: dayStart, lt: weekEnd } },
+          where: { orgId, startsAt: { gte: dayStart, lt: rangeEnd } },
           orderBy: { startsAt: "asc" },
           take: 8,
         })
@@ -47,7 +53,7 @@ export async function ScheduleBlock({
     personal
       ? Promise.resolve([])
       : db.appointment.findMany({
-          where: { orgId, startsAt: { gte: dayStart, lt: dayEnd } },
+          where: { orgId, startsAt: { gte: dayStart, lt: rangeEnd } },
           orderBy: { startsAt: "asc" },
           include: { customer: true, vehicle: true },
         }),
@@ -55,11 +61,16 @@ export async function ScheduleBlock({
   const todayEvents = events.filter(
     (event) => event.startsAt >= dayStart && event.startsAt < dayEnd,
   );
+  const shownEvents = window === "week" ? events : todayEvents;
+  const heading = window === "week" ? "Next 7 days" : "Today's schedule";
 
   return (
     <Card className="mb-6">
       <CardHeader
-        title={`Today's schedule (${personal ? todayEvents.length : appointments.length})`}
+        title={
+          title ??
+          `${heading} (${personal ? shownEvents.length : appointments.length})`
+        }
       >
         <LinkButton href="/appointments" variant="ghost" size="sm">
           {personal ? "Calendar →" : "Full week →"}
@@ -69,9 +80,9 @@ export async function ScheduleBlock({
         </LinkButton>
       </CardHeader>
       {personal ? (
-        todayEvents.length > 0 ? (
+        shownEvents.length > 0 ? (
         <ul className="divide-y divide-zinc-200">
-          {todayEvents.map((event) => (
+          {shownEvents.map((event) => (
             <li key={event.id}>
               <Link
                 href={`/appointments?view=day&date=${ymd(event.startsAt, timezone)}`}
@@ -104,7 +115,7 @@ export async function ScheduleBlock({
             </li>
           ))}
         </ul>
-        ) : events.some((event) => event.startsAt >= dayEnd) ? (
+        ) : window !== "week" && events.some((event) => event.startsAt >= dayEnd) ? (
         <>
           <div className="px-4 pt-4 text-sm font-medium text-zinc-700">
             Nothing scheduled for today. Coming up this week:
@@ -145,7 +156,7 @@ export async function ScheduleBlock({
         )
       ) : appointments.length === 0 ? (
         <div className="p-6 text-sm text-zinc-500 text-center">
-          Nothing scheduled for today.
+          Nothing scheduled for {window === "week" ? "the next 7 days" : "today"}.
         </div>
       ) : (
         <ul className="divide-y divide-zinc-200">

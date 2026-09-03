@@ -2,7 +2,13 @@ import Link from "next/link";
 import { Card, CardHeader, LinkButton } from "@/components/ui";
 import { db } from "@/lib/db";
 
-export async function TechHoursBlock({ orgId }: { orgId: string }) {
+export async function TechHoursBlock({
+  orgId,
+  title,
+}: {
+  orgId: string;
+  title?: string;
+}) {
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -35,7 +41,10 @@ export async function TechHoursBlock({ orgId }: { orgId: string }) {
   return (
     <Card className="mb-6">
       <CardHeader
-        title={`Hours logged this week (${hoursThisWeek.length} tech${hoursThisWeek.length === 1 ? "" : "s"})`}
+        title={
+          title ??
+          `Hours logged this week (${hoursThisWeek.length} tech${hoursThisWeek.length === 1 ? "" : "s"})`
+        }
       >
         <LinkButton href="/technicians" variant="ghost" size="sm">
           Manage techs →

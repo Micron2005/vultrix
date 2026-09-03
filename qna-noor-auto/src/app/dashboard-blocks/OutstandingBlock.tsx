@@ -9,10 +9,12 @@ export async function OutstandingBlock({
   orgId,
   autoShop,
   hasVehicles,
+  title,
 }: {
   orgId: string;
   autoShop: boolean;
   hasVehicles: boolean;
+  title?: string;
 }) {
   const outstandingROs = await db.repairOrder.findMany({
     where: { orgId, status: "INVOICED" },
@@ -58,7 +60,10 @@ export async function OutstandingBlock({
   return (
     <Card className="mb-6 border-amber-200">
       <CardHeader
-        title={`Outstanding invoices (${outstandingWithBalance.length}) · ${formatMoney(moneyOwed)} owed`}
+        title={
+          title ??
+          `Outstanding invoices (${outstandingWithBalance.length}) · ${formatMoney(moneyOwed)} owed`
+        }
       />
       <table className="w-full text-sm">
         <thead className="bg-amber-50 text-left text-xs uppercase tracking-wider text-amber-900">

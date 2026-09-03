@@ -6,20 +6,24 @@ import { formatDate } from "@/lib/utils";
 export async function NotesBlock({
   orgId,
   showMoneyCards,
+  count = 5,
+  title,
 }: {
   orgId: string;
   showMoneyCards: boolean;
+  count?: number;
+  title?: string;
 }) {
   if (showMoneyCards) return null;
   const recentNotes = await db.repairNote.findMany({
     where: { orgId },
     orderBy: { updatedAt: "desc" },
-    take: 5,
+    take: count,
     select: { id: true, title: true, updatedAt: true },
   });
   return (
     <Card className="mb-6">
-      <CardHeader title="Recent notes">
+      <CardHeader title={title ?? "Recent notes"}>
         <LinkButton href="/notes" variant="ghost" size="sm">
           All notes →
         </LinkButton>

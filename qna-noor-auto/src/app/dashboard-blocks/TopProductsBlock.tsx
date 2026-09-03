@@ -26,14 +26,16 @@ function monthToDateRange(timezone: string) {
 export async function TopProductsBlock({
   orgId,
   timezone,
+  title,
 }: {
   orgId: string;
   timezone: string;
+  title?: string;
 }) {
   const products = await loadTopSellingProducts(orgId, monthToDateRange(timezone), 5);
   return (
     <Card className="mb-6">
-      <CardHeader title="Best sellers this month">
+      <CardHeader title={title ?? "Best sellers this month"}>
         <Link href="/sales" className="text-xs font-medium text-zinc-600 underline">
           View sales →
         </Link>

@@ -10,16 +10,20 @@ export async function RecentRecordsBlock({
   autoShop,
   nouns,
   hasVehicles,
+  take = 8,
+  title,
 }: {
   orgId: string;
   autoShop: boolean;
   nouns: { singular: string; plural: string };
   hasVehicles: boolean;
+  take?: number;
+  title?: string;
 }) {
   const recentROs = await db.repairOrder.findMany({
     where: { orgId },
     orderBy: { openedAt: "desc" },
-    take: 8,
+    take,
     include: {
       customer: true,
       vehicle: true,
@@ -43,7 +47,7 @@ export async function RecentRecordsBlock({
 
   return (
     <Card className="mb-6">
-      <CardHeader title={autoShop ? "Recent Repair Orders" : `Recent ${nouns.plural}`}>
+      <CardHeader title={title ?? (autoShop ? "Recent Repair Orders" : `Recent ${nouns.plural}`)}>
         <Link href="/repair-orders" className="text-xs font-medium text-zinc-600 underline">
           View all →
         </Link>

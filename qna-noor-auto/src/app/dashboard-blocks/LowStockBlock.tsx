@@ -2,7 +2,15 @@ import Link from "next/link";
 import { Card, CardHeader, LinkButton } from "@/components/ui";
 import { db } from "@/lib/db";
 
-export async function LowStockBlock({ orgId }: { orgId: string }) {
+export async function LowStockBlock({
+  orgId,
+  limit = "10",
+  title,
+}: {
+  orgId: string;
+  limit?: string;
+  title?: string;
+}) {
   const activeParts = await db.part.findMany({
     where: { orgId, archived: false },
     orderBy: { name: "asc" },
@@ -21,9 +29,11 @@ export async function LowStockBlock({ orgId }: { orgId: string }) {
         a.qtyOnHand - a.reorderLevel - (b.qtyOnHand - b.reorderLevel),
     );
   if (lowStockParts.length === 0) return null;
+  const visibleParts =
+    limit === "all" ? lowStockParts : lowStockParts.slice(0, Number(limit));
   return (
     <Card className="mb-6 border-amber-200">
-      <CardHeader title={`Low stock (${lowStockParts.length})`}>
+      <CardHeader title={title ?? `Low stock (${lowStockParts.length})`}>
         <LinkButton href="/inventory?filter=low" variant="ghost" size="sm">
           Full inventory →
         </LinkButton>
@@ -39,7 +49,7 @@ export async function LowStockBlock({ orgId }: { orgId: string }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200">
-          {lowStockParts.map((part) => {
+          {visibleParts.map((part) => {
             const out = part.qtyOnHand <= 0;
             return (
               <tr key={part.id} className="hover:bg-zinc-50">

@@ -21,13 +21,21 @@ function monthToDateRange(timezone: string) {
   return { from, to: new Date(endExclusive.getTime() - 1) };
 }
 
-export async function SpendingBlock({ orgId, timezone }: { orgId: string; timezone: string }) {
+export async function SpendingBlock({
+  orgId,
+  timezone,
+  title,
+}: {
+  orgId: string;
+  timezone: string;
+  title?: string;
+}) {
   const totals = await loadExpenseCategoryTotals(orgId, monthToDateRange(timezone));
   const topTotals = totals.slice(0, 6);
   const maxAmount = topTotals[0]?.amount ?? 0;
   return (
     <Card className="mb-6">
-      <CardHeader title="Spending this month">
+      <CardHeader title={title ?? "Spending this month"}>
         <Link href="/expenses" className="text-xs font-medium text-zinc-600 underline">
           View expenses →
         </Link>
