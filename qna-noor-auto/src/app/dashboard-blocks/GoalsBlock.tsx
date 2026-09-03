@@ -13,6 +13,7 @@ export async function GoalsBlock({
   accountType,
   role,
   editing,
+  title,
 }: {
   orgId: string;
   timezone: string;
@@ -20,13 +21,14 @@ export async function GoalsBlock({
   accountType: string | null;
   role: string;
   editing: boolean;
+  title?: string;
 }) {
   if (role === "STAFF") return null;
   const activeGoals = await loadActiveGoals(orgId, timezone, hasInvoices, 3);
   if (activeGoals.length === 0 && !editing) return null;
   return (
     <Card className="mb-6">
-      <CardHeader title="Goals">
+      <CardHeader title={title ?? "Goals"}>
         <LinkButton href="/goals" variant="ghost" size="sm">
           View all →
         </LinkButton>

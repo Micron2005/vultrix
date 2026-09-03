@@ -3,7 +3,13 @@ import { Card, CardHeader, LinkButton } from "@/components/ui";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
 import { vehicleLabel } from "@/lib/utils";
 
-export async function VehiclesDueBlock({ orgId }: { orgId: string }) {
+export async function VehiclesDueBlock({
+  orgId,
+  title,
+}: {
+  orgId: string;
+  title?: string;
+}) {
   const allReminders = await computeAllVehicleReminders(orgId);
   const vehiclesDue = allReminders
     .map((reminder) => ({
@@ -16,7 +22,7 @@ export async function VehiclesDueBlock({ orgId }: { orgId: string }) {
 
   return (
     <Card className="mb-6 border-amber-200">
-      <CardHeader title={`Vehicles due for service (${vehiclesDue.length})`}>
+      <CardHeader title={title ?? `Vehicles due for service (${vehiclesDue.length})`}>
         <LinkButton href="/vehicles" variant="ghost" size="sm">
           All vehicles →
         </LinkButton>

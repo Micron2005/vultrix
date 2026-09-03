@@ -4,9 +4,11 @@ import type { FeatureKey } from "@/lib/features";
 export async function QuickAddBlock({
   features,
   salesAvailable,
+  title,
 }: {
   features: Set<FeatureKey>;
   salesAvailable: boolean;
+  title?: string;
 }) {
   const links: Array<{ href: string; label: string; requires: FeatureKey[] }> = [
     { href: "/notes/new", label: "New note", requires: ["knowledge"] },
@@ -23,7 +25,7 @@ export async function QuickAddBlock({
   );
   return (
     <Card className="mb-6">
-      <CardHeader title="Quick actions" />
+      <CardHeader title={title ?? "Quick actions"} />
       <div className="flex flex-wrap gap-2 p-4">
         {availableLinks.map((link) => (
           <LinkButton key={link.href} href={link.href} size="sm">

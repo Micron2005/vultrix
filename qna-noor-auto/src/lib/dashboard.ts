@@ -18,14 +18,25 @@ export type DashboardBlockId =
   | "recent_records";
 
 export type DashboardLayout = {
-  columns: 1 | 2;
+  columns: 1 | 2 | 3;
+  density: DashboardDensity;
+  greeting: {
+    show: boolean;
+    text: string | null;
+  };
   blocks: Array<{
     id: DashboardBlockId;
     visible: boolean;
+    size: DashboardBlockSize;
+    collapsed: boolean;
+    title: string | null;
+    options: Record<string, string>;
   }>;
 };
 
-export const DASHBOARD_BLOCKS: Array<{
+export type DashboardDensity = "comfortable" | "compact";
+export type DashboardBlockSize = "normal" | "wide";
+export type DashboardBlockDefinition = {
   id: DashboardBlockId;
   label: string;
   hint: string;
@@ -33,7 +44,15 @@ export const DASHBOARD_BLOCKS: Array<{
   defaultVisiblePersonal?: boolean;
   requires: FeatureKey[];
   wide?: boolean;
-}> = [
+  settings?: Array<{
+    key: string;
+    label: string;
+    choices: Array<{ value: string; label: string }>;
+    default: string;
+  }>;
+};
+
+export const DASHBOARD_BLOCKS: DashboardBlockDefinition[] = [
   {
     id: "today",
     label: "Today",
@@ -55,6 +74,18 @@ export const DASHBOARD_BLOCKS: Array<{
     hint: "Money in, money out, and your monthly net.",
     defaultVisible: true,
     requires: ["financials"],
+    settings: [
+      {
+        key: "period",
+        label: "Period",
+        choices: [
+          { value: "month", label: "This month" },
+          { value: "30d", label: "Last 30 days" },
+          { value: "year", label: "This year" },
+        ],
+        default: "month",
+      },
+    ],
   },
   {
     id: "goals",
@@ -69,6 +100,17 @@ export const DASHBOARD_BLOCKS: Array<{
     hint: "Today's events and what is coming up this week.",
     defaultVisible: true,
     requires: ["schedule"],
+    settings: [
+      {
+        key: "window",
+        label: "Window",
+        choices: [
+          { value: "today", label: "Today" },
+          { value: "week", label: "Next 7 days" },
+        ],
+        default: "today",
+      },
+    ],
   },
   {
     id: "notes",
@@ -76,6 +118,18 @@ export const DASHBOARD_BLOCKS: Array<{
     hint: "Your latest notes and quick access to capture another.",
     defaultVisible: true,
     requires: ["knowledge"],
+    settings: [
+      {
+        key: "count",
+        label: "Notes",
+        choices: [
+          { value: "3", label: "3" },
+          { value: "5", label: "5" },
+          { value: "10", label: "10" },
+        ],
+        default: "5",
+      },
+    ],
   },
   {
     id: "quick_add",
@@ -112,6 +166,18 @@ export const DASHBOARD_BLOCKS: Array<{
     defaultVisible: true,
     defaultVisiblePersonal: false,
     requires: ["inventory"],
+    settings: [
+      {
+        key: "limit",
+        label: "Show",
+        choices: [
+          { value: "5", label: "5" },
+          { value: "10", label: "10" },
+          { value: "all", label: "All" },
+        ],
+        default: "10",
+      },
+    ],
   },
   {
     id: "tech_hours",
@@ -136,10 +202,28 @@ export const DASHBOARD_BLOCKS: Array<{
     defaultVisible: true,
     requires: [],
     wide: true,
+    settings: [
+      {
+        key: "count",
+        label: "Records",
+        choices: [
+          { value: "5", label: "5" },
+          { value: "8", label: "8" },
+          { value: "10", label: "10" },
+          { value: "20", label: "20" },
+        ],
+        default: "8",
+      },
+    ],
   },
 ];
 
-function parsedLayout(raw: unknown): { columns: 1 | 2; blocks: unknown[] } {
+function parsedLayout(raw: unknown): {
+  columns: DashboardLayout["columns"];
+  density: unknown;
+  greeting: unknown;
+  blocks: unknown[];
+} {
   let value = raw;
   if (typeof value === "string") {
     try {
@@ -149,16 +233,18 @@ function parsedLayout(raw: unknown): { columns: 1 | 2; blocks: unknown[] } {
     }
   }
   if (!value || typeof value !== "object") {
-    return { columns: 1, blocks: [] };
+    return { columns: 2, density: undefined, greeting: undefined, blocks: [] };
   }
   const record = value as Record<string, unknown>;
   const rawColumns = record.columns;
+  const numericColumns = Number(rawColumns);
   return {
     columns:
-      (typeof rawColumns === "number" || typeof rawColumns === "string") &&
-      Number(rawColumns) === 2
-        ? 2
-        : 1,
+      numericColumns === 1 || numericColumns === 2 || numericColumns === 3
+        ? numericColumns
+        : 2,
+    density: record.density,
+    greeting: record.greeting,
     blocks: Array.isArray(record.blocks) ? record.blocks : [],
   };
 }
@@ -178,8 +264,56 @@ export function normalizeDashboardLayout(
 ): DashboardLayout {
   const parsed = parsedLayout(raw);
   const known = new Set(DASHBOARD_BLOCKS.map((block) => block.id));
+  const definitionById = new Map(DASHBOARD_BLOCKS.map((block) => [block.id, block]));
   const blocks: DashboardLayout["blocks"] = [];
   const seen = new Set<DashboardBlockId>();
+  const density: DashboardDensity =
+    parsed.density === "compact" ? "compact" : "comfortable";
+  const rawGreeting =
+    parsed.greeting && typeof parsed.greeting === "object"
+      ? (parsed.greeting as Record<string, unknown>)
+      : {};
+  const greetingText =
+    typeof rawGreeting.text === "string"
+      ? rawGreeting.text.trim() || null
+      : null;
+  const greeting = {
+    show: rawGreeting.show !== false,
+    text: greetingText,
+  };
+
+  const normalizedBlock = (
+    blockId: DashboardBlockId,
+    record?: Record<string, unknown>,
+  ): DashboardLayout["blocks"][number] => {
+    const definition = definitionById.get(blockId);
+    const rawOptions =
+      record?.options && typeof record.options === "object"
+        ? (record.options as Record<string, unknown>)
+        : {};
+    const options = Object.fromEntries(
+      (definition?.settings ?? []).map((setting) => {
+        const value = rawOptions[setting.key];
+        const valid = setting.choices.some((choice) => choice.value === value);
+        return [setting.key, valid ? String(value) : setting.default];
+      }),
+    );
+    const rawTitle = typeof record?.title === "string" ? record.title.trim() : "";
+    const rawSize = record?.size;
+    return {
+      id: blockId,
+      visible: record?.visible === true,
+      size:
+        rawSize === "normal" || rawSize === "wide"
+          ? rawSize
+          : definition?.wide
+            ? "wide"
+            : "normal",
+      collapsed: record?.collapsed === true,
+      title: rawTitle ? rawTitle.slice(0, 40) : null,
+      options,
+    };
+  };
 
   for (const rawBlock of parsed.blocks) {
     if (!rawBlock || typeof rawBlock !== "object") continue;
@@ -189,14 +323,16 @@ export function normalizeDashboardLayout(
     const blockId = id as DashboardBlockId;
     if (seen.has(blockId)) continue;
     seen.add(blockId);
-    blocks.push({ id: blockId, visible: record.visible === true });
+    blocks.push(normalizedBlock(blockId, record));
   }
 
   if (blocks.length === 0) {
     return {
       columns: parsed.columns,
+      density,
+      greeting,
       blocks: DASHBOARD_BLOCKS.map((block) => ({
-        id: block.id,
+        ...normalizedBlock(block.id),
         visible: defaultVisibleFor(block, accountType),
       })),
     };
@@ -205,13 +341,13 @@ export function normalizeDashboardLayout(
   for (const block of DASHBOARD_BLOCKS) {
     if (!seen.has(block.id)) {
       blocks.push({
-        id: block.id,
+        ...normalizedBlock(block.id),
         visible: defaultVisibleFor(block, accountType),
       });
     }
   }
 
-  return { columns: parsed.columns, blocks };
+  return { columns: parsed.columns, density, greeting, blocks };
 }
 
 export function resolveDashboardLayout(

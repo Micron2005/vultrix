@@ -108,12 +108,14 @@ export async function Today({
   hasInvoices,
   goalId,
   showGoals = true,
+  title,
 }: {
   orgId: string;
   timezone: string;
   hasInvoices: boolean;
   goalId?: string;
   showGoals?: boolean;
+  title?: string;
 }) {
   const [groups, goals] = await Promise.all([
     loadTodayRoutines(orgId, timezone, goalId),
@@ -130,7 +132,7 @@ export async function Today({
   const day = localCalendarDay(new Date(), timezone);
   return (
     <Card className="mb-6 overflow-hidden">
-      <CardHeader title="Today">
+      <CardHeader title={title ?? "Today"}>
         <Link
           href="/goals/routines"
           className="text-xs font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"

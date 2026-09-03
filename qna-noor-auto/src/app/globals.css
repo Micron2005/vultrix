@@ -365,3 +365,17 @@ html.dark [data-force-light] {
   --color-indigo-900: #312c85;
   --color-yellow-200: #fff085;
 }
+
+[data-density="compact"] .dash-block {
+  margin-bottom: 0.75rem;
+}
+
+[data-density="compact"] .dash-block > * {
+  margin-bottom: 0.75rem;
+}
+
+[data-density="compact"] .dash-block td,
+[data-density="compact"] .dash-block th {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}

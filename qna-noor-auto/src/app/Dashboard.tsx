@@ -9,6 +9,7 @@ import {
   DASHBOARD_BLOCKS,
   resolveDashboardLayout,
   type DashboardBlockId,
+  type DashboardLayout,
 } from "@/lib/dashboard";
 import { DashboardGrid } from "./DashboardGrid";
 import { GoalsBlock } from "./dashboard-blocks/GoalsBlock";
@@ -112,9 +113,12 @@ async function blockNode(
     context: DashboardContext;
     user: CurrentUser;
     editing: boolean;
+    entry: DashboardLayout["blocks"][number];
   },
 ): Promise<ReactNode> {
   const { context } = props;
+  const title = props.entry.title ?? undefined;
+  const options = props.entry.options;
   switch (id) {
     case "today":
       return (
@@ -122,13 +126,19 @@ async function blockNode(
           orgId={props.orgId}
           timezone={props.timezone}
           hasInvoices={context.hasInvoices}
+          title={title}
         />
       );
     case "counts":
       return <CountsBlock orgId={props.orgId} user={props.user} />;
     case "stats":
       return (
-        <StatsBlock orgId={props.orgId} hasInvoices={context.hasInvoices} />
+        <StatsBlock
+          orgId={props.orgId}
+          timezone={props.timezone}
+          hasInvoices={context.hasInvoices}
+          period={options.period}
+        />
       );
     case "goals":
       return (
@@ -139,6 +149,7 @@ async function blockNode(
           accountType={context.accountType}
           role={context.role}
           editing={props.editing}
+          title={title}
         />
       );
     case "schedule":
@@ -148,6 +159,8 @@ async function blockNode(
           timezone={props.timezone}
           accountType={context.accountType}
           hasVehicles={context.hasVehicles}
+          title={title}
+          window={options.window}
         />
       );
     case "notes":
@@ -155,24 +168,41 @@ async function blockNode(
         <NotesBlock
           orgId={props.orgId}
           showMoneyCards={context.showMoneyCards}
+          count={Number(options.count)}
+          title={title}
         />
       );
     case "spending":
-      return <SpendingBlock orgId={props.orgId} timezone={props.timezone} />;
+      return (
+        <SpendingBlock orgId={props.orgId} timezone={props.timezone} title={title} />
+      );
     case "top_products":
-      return <TopProductsBlock orgId={props.orgId} timezone={props.timezone} />;
+      return (
+        <TopProductsBlock
+          orgId={props.orgId}
+          timezone={props.timezone}
+          title={title}
+        />
+      );
     case "low_stock":
-      return <LowStockBlock orgId={props.orgId} />;
+      return (
+        <LowStockBlock
+          orgId={props.orgId}
+          limit={options.limit}
+          title={title}
+        />
+      );
     case "vehicles_due":
-      return <VehiclesDueBlock orgId={props.orgId} />;
+      return <VehiclesDueBlock orgId={props.orgId} title={title} />;
     case "tech_hours":
-      return <TechHoursBlock orgId={props.orgId} />;
+      return <TechHoursBlock orgId={props.orgId} title={title} />;
     case "outstanding":
       return (
         <OutstandingBlock
           orgId={props.orgId}
           autoShop={context.autoShop}
           hasVehicles={context.hasVehicles}
+          title={title}
         />
       );
     case "recent_records":
@@ -182,6 +212,8 @@ async function blockNode(
           autoShop={context.autoShop}
           nouns={repairOrderNouns(context.accountType)}
           hasVehicles={context.hasVehicles}
+          take={Number(options.count)}
+          title={title}
         />
       );
     case "quick_add":
@@ -193,6 +225,7 @@ async function blockNode(
             context.features.has("financials") &&
             !context.features.has("invoices")
           }
+          title={title}
         />
       );
   }
@@ -254,15 +287,18 @@ export async function Dashboard({
     (block) => availableIds.has(block.id) && (editing || block.visible),
   );
   const nodes = await Promise.all(
-    renderableBlocks.map((block) =>
-      blockNode(block.id, {
+    renderableBlocks.map((block) => {
+      const definition = available.find((candidate) => candidate.id === block.id);
+      if (!definition) return null;
+      return blockNode(block.id, {
         orgId,
         timezone,
         context,
         user,
         editing,
-      }),
-    ),
+        entry: block,
+      });
+    }),
   );
   const blockDescriptors = renderableBlocks.map((block, index) => {
     const definition = available.find((candidate) => candidate.id === block.id);
@@ -271,7 +307,10 @@ export async function Dashboard({
       label: definition?.label ?? block.id,
       hint: definition?.hint ?? "",
       node: nodes[index],
-      wide: definition?.wide,
+      size: block.size,
+      title: block.title,
+      settings: definition?.settings ?? [],
+      collapsed: block.collapsed,
     };
   });
   const nouns = repairOrderNouns(user.accountType);
@@ -280,11 +319,14 @@ export async function Dashboard({
       <PageHeader
         title="Dashboard"
         description={
-          context.autoShop
-            ? "Overview of shop activity"
-            : user.accountType === "BUSINESS"
-              ? "Overview of your activity"
-              : "Plan your day and keep your important notes close"
+          layout.greeting.show
+            ? (layout.greeting.text ??
+              (context.autoShop
+                ? "Overview of shop activity"
+                : user.accountType === "BUSINESS"
+                  ? "Overview of your activity"
+                  : "Plan your day and keep your important notes close"))
+            : undefined
         }
         actions={
           <>
