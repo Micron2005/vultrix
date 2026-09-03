@@ -51,7 +51,6 @@ type NavEligibilityOptions = {
 
 const STAFF_HIDDEN_HREFS = new Set([
   "/expenses",
-  "/goals",
   "/sales",
   "/reports",
   "/export",

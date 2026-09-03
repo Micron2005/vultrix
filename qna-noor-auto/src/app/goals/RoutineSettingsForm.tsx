@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Input, Select } from "@/components/ui";
-import { ROUTINE_WEEKDAYS } from "@/lib/routines";
+import { ROUTINE_WEEKDAYS } from "@/lib/routineConstants";
 
 type RoutineSettingsFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -13,16 +13,19 @@ type RoutineSettingsFormProps = {
     day: string | null;
     endDay: string | null;
     goalId: string | null;
+    assigneeUserId: string | null;
     showStreak: boolean;
     weekdays: string | null;
   };
   goals: Array<{ id: string; title: string }>;
+  users: Array<{ id: string; username: string }>;
 };
 
 export function RoutineSettingsForm({
   action,
   initial,
   goals,
+  users,
 }: RoutineSettingsFormProps) {
   const [kind, setKind] = useState(initial.kind);
   const oneOff = kind === "ONE_OFF" || kind === "REMINDER";
@@ -39,6 +42,23 @@ export function RoutineSettingsForm({
             className="mt-1"
           />
         </label>
+        {users.length > 1 && (
+          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            Assign to
+            <Select
+              name="assigneeUserId"
+              defaultValue={initial.assigneeUserId ?? ""}
+              className="mt-1"
+            >
+              <option value="">Anyone</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
         <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Schedule
           <Select

@@ -8,6 +8,7 @@ type RoutineAction = (formData: FormData) => void | Promise<void>;
 type RoutineFormProps = {
   action: RoutineAction;
   goals: Array<{ id: string; title: string }>;
+  users: Array<{ id: string; username: string }>;
   initial?: Partial<{
     title: string;
     kind: string;
@@ -17,6 +18,7 @@ type RoutineFormProps = {
     endDay: string | null;
     showStreak: boolean;
     goalId: string | null;
+    assigneeUserId: string | null;
     items: string;
   }>;
   submitLabel?: string;
@@ -36,6 +38,7 @@ const weekdays = [
 export function RoutineForm({
   action,
   goals,
+  users,
   initial,
   submitLabel = "Create",
   reminderOnly = false,
@@ -71,6 +74,23 @@ export function RoutineForm({
               <option value="WEEKLY">Weekly</option>
               <option value="ONE_OFF">One time</option>
               <option value="REMINDER">Reminder</option>
+            </Select>
+          </label>
+        )}
+        {users.length > 1 && (
+          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            Assign to
+            <Select
+              name="assigneeUserId"
+              defaultValue={initial?.assigneeUserId ?? ""}
+              className="mt-1"
+            >
+              <option value="">Anyone</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
             </Select>
           </label>
         )}

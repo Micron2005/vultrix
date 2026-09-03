@@ -15,15 +15,7 @@ export const ROUTINE_KINDS = [
 ] as const;
 export type RoutineKind = (typeof ROUTINE_KINDS)[number];
 
-export const ROUTINE_WEEKDAYS: Array<[string, string]> = [
-  ["0", "Sun"],
-  ["1", "Mon"],
-  ["2", "Tue"],
-  ["3", "Wed"],
-  ["4", "Thu"],
-  ["5", "Fri"],
-  ["6", "Sat"],
-];
+export { ROUTINE_WEEKDAYS } from "@/lib/routineConstants";
 
 export type RoutineItemRecord = {
   id: string;
@@ -41,6 +33,8 @@ export type RoutineRecord = {
   id: string;
   orgId: string;
   goalId: string | null;
+  assigneeUserId: string | null;
+  assignee?: { id: string; username: string } | null;
   title: string;
   kind: string;
   weekdays: string | null;
@@ -65,6 +59,7 @@ export type RoutineCheckOffRecord = {
   skipped: boolean;
   note: string | null;
   value: number | null;
+  user?: { username: string } | null;
   createdAt: Date;
 };
 
@@ -160,7 +155,7 @@ export function statusFor(
 export async function loadTodayRoutines(
   orgId: string,
   timezone: string,
-  goalId?: string,
+  opts: { goalId?: string; forUserId?: string } = {},
 ): Promise<
   Array<{
     routine: RoutineRecord;
@@ -175,11 +170,24 @@ export async function loadTodayRoutines(
   const now = new Date();
   const today = localCalendarDay(now, timezone);
   const routines = await db.routine.findMany({
-    where: { orgId, archived: false, ...(goalId ? { goalId } : {}) },
+    where: {
+      orgId,
+      archived: false,
+      ...(opts.goalId ? { goalId: opts.goalId } : {}),
+      ...(opts.forUserId
+        ? {
+            OR: [{ assigneeUserId: null }, { assigneeUserId: opts.forUserId }],
+          }
+        : {}),
+    },
     orderBy: [{ createdAt: "asc" }],
     include: {
       items: { orderBy: { position: "asc" } },
-      checkOffs: { where: { day: { gte: shiftCalendarDay(today, -400) } } },
+      checkOffs: {
+        where: { day: { gte: shiftCalendarDay(today, -400) } },
+        include: { user: { select: { username: true } } },
+      },
+      assignee: { select: { id: true, username: true } },
     },
   });
   return routines
@@ -223,6 +231,61 @@ export async function loadTodayRoutines(
       }),
     }))
     .filter(({ items }) => items.some((item) => item.status !== "done" && item.status !== "skipped"));
+}
+
+export async function loadTeamToday(
+  orgId: string,
+  timezone: string,
+): Promise<
+  Array<{
+    userId: string;
+    username: string;
+    role: string;
+    done: number;
+    total: number;
+  }>
+> {
+  const now = new Date();
+  const today = localCalendarDay(now, timezone);
+  const [users, routines] = await Promise.all([
+    db.user.findMany({
+      where: { orgId, isActive: true, role: { not: "SUPERADMIN" } },
+      select: { id: true, username: true, role: true },
+      orderBy: { username: "asc" },
+    }),
+    db.routine.findMany({
+      where: { orgId, archived: false, assigneeUserId: { not: null } },
+      include: {
+        items: { orderBy: { position: "asc" } },
+        checkOffs: { where: { day: { gte: shiftCalendarDay(today, -7) } } },
+      },
+    }),
+  ]);
+  const totals = new Map(
+    users.map((user) => [
+      user.id,
+      { userId: user.id, username: user.username, role: user.role, done: 0, total: 0 },
+    ]),
+  );
+  for (const routine of routines) {
+    if (!routine.assigneeUserId || !dueOn(routine, today)) continue;
+    const total = totals.get(routine.assigneeUserId);
+    if (!total) continue;
+    for (const item of routine.items) {
+      total.total += 1;
+      const status = statusFor(
+        routine,
+        item,
+        today,
+        today,
+        now,
+        timezone,
+        routine.checkOffs.filter((checkOff) => checkOff.itemId === item.id),
+      );
+      if (status === "done" || status === "skipped") total.done += 1;
+    }
+  }
+  return users.map((user) => totals.get(user.id)!);
 }
 
 export function routineLabel(

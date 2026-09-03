@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardHeader, Input, LinkButton, PageHeader } from "@/components/ui";
-import { assertCanViewFinancials } from "@/lib/permissions";
+import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import { orgTimeZone } from "@/lib/orgTimezone";
@@ -15,7 +15,7 @@ import { RoutineSettingsForm } from "../../RoutineSettingsForm";
 export default async function RoutineDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  assertCanViewFinancials(user.role);
+  if (!canViewFinancials(user.role)) redirect("/goals");
   if (!user.orgId) redirect("/admin");
   const { id } = await params;
   const { error } = (await searchParams) ?? {};
@@ -29,6 +29,11 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
   });
   if (!routine) notFound();
   const goals = await db.goal.findMany({ where: { orgId: user.orgId, archived: false }, orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const users = await db.user.findMany({
+    where: { orgId: user.orgId, isActive: true, role: { not: "SUPERADMIN" } },
+    orderBy: { username: "asc" },
+    select: { id: true, username: true },
+  });
   const today = localCalendarDay(new Date(), timezone);
   const createdDay = localCalendarDay(routine.createdAt, timezone);
   const days = Array.from({ length: 14 }, (_, index) => shiftCalendarDay(today, index - 13));
@@ -55,6 +60,7 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           action={updateRoutine.bind(null, routine.id)}
           initial={routine}
           goals={goals}
+          users={users}
         />
         <div className="mt-3 flex flex-wrap gap-3">
           {routine.archived ? (
