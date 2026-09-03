@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
 import { SESSION_COOKIE, userIdFromToken } from "./auth";
 
@@ -33,6 +33,7 @@ export type CurrentUser = {
   aiAssistantEnabled: boolean;
   aiAssistantName: string;
   aiAssistantVoice: string | null;
+  totpEnrolled: boolean;
 };
 
 /**
@@ -68,6 +69,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
     aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
     aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,
+    totpEnrolled: Boolean(user.totpSecret),
   };
 }
 
@@ -104,8 +106,14 @@ export async function requireOrgId(): Promise<string> {
  * platform). Anyone with an organization is a tenant user and is sent back to
  * their own dashboard, since the platform controls aren't theirs to see.
  */
-export async function requireSuperadmin(): Promise<CurrentUser> {
-  const user = await requireUser();
-  if (user.role !== "SUPERADMIN") redirect("/");
+export async function requireSuperadmin(options?: {
+  allowUnenrolled?: boolean;
+}): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/admin/login");
+  if (user.role !== "SUPERADMIN") notFound();
+  if (!options?.allowUnenrolled && !user.totpEnrolled) {
+    redirect("/admin/security");
+  }
   return user;
 }

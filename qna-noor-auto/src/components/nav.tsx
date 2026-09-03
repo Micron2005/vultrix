@@ -97,6 +97,7 @@ export function Nav({
         { href: "/admin/leads", label: "Leads" },
         { href: "/admin/status", label: "Status page" },
         { href: "/admin/landing", label: "Customize site" },
+        { href: "/admin/security", label: "Security" },
       ]
     : getEligibleNavItems({
         enabledFeatures,
