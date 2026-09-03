@@ -61,7 +61,7 @@ export default async function AdminSecurityPage({
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {sp.error === "reset-code"
             ? "Enter a valid current authenticator code to reset the authenticator."
-            : "That authenticator code is not valid."}
+            : "That code didn't match. Type the 6 digits your authenticator app is showing right now for \"Vultrix admin\" — the code changes every 30 seconds. If you scanned an older QR code, press \"Start over with a new QR code\" below, delete the old Vultrix admin entry in your app and scan again."}
         </div>
       )}
 
@@ -92,10 +92,18 @@ export default async function AdminSecurityPage({
           <CardHeader title="Set up authenticator" />
           <div className="space-y-4 p-4">
             <p className="text-sm text-zinc-600">
-              Admin sign-in requires an authenticator app. Scan this code in
-              Google Authenticator / 1Password / Authy, then enter the 6-digit
-              code to finish.
+              Admin sign-in requires an authenticator app (Google Authenticator,
+              Microsoft Authenticator, 1Password or Authy — free on your phone).
             </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-600">
+              <li>Open the app on your phone and choose Add / + / Scan a QR code.</li>
+              <li>Point the camera at the code below (or type the setup key by hand).</li>
+              <li>
+                The app now shows a 6-digit number for &quot;Vultrix admin&quot; that
+                changes every 30 seconds. You don&apos;t pick this number — type
+                the one currently showing into the box and press Turn on.
+              </li>
+            </ol>
             {!pendingSecret ? (
               <form action={startTotpEnrollment}>
                 <Button type="submit">Generate QR code</Button>
@@ -191,11 +199,17 @@ async function EnrollmentForm({
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
+            placeholder="6-digit code from the app"
             required
             pattern="[0-9]{6}"
           />
         </Field>
         <Button type="submit">Turn on</Button>
+      </form>
+      <form action={startTotpEnrollment}>
+        <Button type="submit" variant="secondary">
+          Start over with a new QR code
+        </Button>
       </form>
     </div>
   );
