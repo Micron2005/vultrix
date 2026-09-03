@@ -16,6 +16,7 @@ import {
   appearanceCss,
   resolveAppearance,
 } from "@/lib/appearance";
+import { resolveNavLayout } from "@/lib/navLayout";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -72,6 +73,14 @@ export default async function RootLayout({
     organization?.uiDefaults ?? DEFAULT_APPEARANCE,
   );
   const appearanceStyles = appearanceCss(appearancePrefs);
+  const navLayout = resolveNavLayout(
+    appearanceRecord?.navLayout,
+    organization?.navDefault,
+    {
+      accountType: user.accountType,
+      enabledFeatures,
+    },
+  );
 
   return (
     <html
@@ -97,7 +106,13 @@ export default async function RootLayout({
         )}
       </head>
       <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
-        <div className="flex min-h-screen">
+        <div
+          className={
+            navLayout.mode === "top"
+              ? "flex min-h-screen flex-col"
+              : "flex min-h-screen"
+          }
+        >
           <Nav
             orgLabel={orgLabel}
             username={user.username}
@@ -111,6 +126,8 @@ export default async function RootLayout({
             }
             navLayout={appearanceRecord?.navLayout}
             navDefault={organization?.navDefault}
+            mode={navLayout.mode}
+            utilities={navLayout.utilities}
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}

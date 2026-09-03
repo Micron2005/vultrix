@@ -283,7 +283,7 @@ export default async function SettingsPage({
         />
       </Card>
       <Card className="mb-6 max-w-2xl">
-        <CardHeader title="Sidebar" />
+        <CardHeader title="Navigation" />
         <NavLayoutEditor
           initialLayout={navLayout}
           resetLayout={accountDefaultNavLayout}
@@ -295,7 +295,7 @@ export default async function SettingsPage({
           <CardHeader title="Defaults for this account" />
           <div className="space-y-4 p-6">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Publish your current appearance, sidebar, or dashboard as the
+              Publish your current appearance, navigation, or dashboard as the
               default for everyone in this account.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -306,7 +306,7 @@ export default async function SettingsPage({
               </form>
               <form action={publishNavDefault}>
                 <Button type="submit" className="w-full">
-                  Publish sidebar
+                  Publish navigation
                 </Button>
               </form>
               <form action={publishDashboardDefault}>
@@ -323,7 +323,7 @@ export default async function SettingsPage({
               </form>
               <form action={clearNavDefault}>
                 <Button type="submit" variant="ghost" className="w-full">
-                  Clear sidebar
+                  Clear navigation
                 </Button>
               </form>
               <form action={clearDashboardDefault}>

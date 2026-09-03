@@ -10,11 +10,14 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
+import { LinkButton } from "@/components/ui";
 import {
   getEligibleNavItems,
   navItemLabel,
   resolveNavLayout,
   type NavCatalogItem,
+  type NavMode,
+  type NavUtilityPlacement,
 } from "@/lib/navLayout";
 
 type NavProps = {
@@ -28,6 +31,8 @@ type NavProps = {
   canViewFinancials?: boolean;
   navLayout?: string | null;
   navDefault?: string | null;
+  mode?: NavMode;
+  utilities?: NavUtilityPlacement;
 };
 
 function matchesPath(pathname: string, href: string): boolean {
@@ -61,6 +66,8 @@ export function Nav({
   canViewFinancials = true,
   navLayout,
   navDefault,
+  mode,
+  utilities,
 }: NavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -140,7 +147,12 @@ export function Nav({
           label: label ?? item.label,
         }))
     : baseItems;
+  const navMode = mode ?? normalizedLayout?.mode ?? "sidebar";
+  const navUtilities = utilities ?? normalizedLayout?.utilities ?? "top";
   const renderedHrefs = navItems.map((item) => item.href);
+  const utilityHrefs = new Set(["/settings", "/settings/users", "/billing"]);
+  const mainNavItems = navItems.filter((item) => !utilityHrefs.has(item.href));
+  const utilityItems = navItems.filter((item) => utilityHrefs.has(item.href));
   const searchTerms = [
     enabledFeatures.includes("customers") ? "customers" : null,
     enabledFeatures.includes("repair_orders") ||
@@ -189,6 +201,41 @@ export function Nav({
     if (!trimmed) return;
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
+
+  const utilityLinks = (
+    <>
+      {utilityItems.map((item) => (
+        <LinkButton
+          key={item.href}
+          href={item.href}
+          variant="secondary"
+          size="sm"
+          className="whitespace-nowrap dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          {item.label}
+        </LinkButton>
+      ))}
+      <LinkButton
+        href="/home"
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="secondary"
+        size="sm"
+        className="whitespace-nowrap dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+      >
+        <ExternalLink className="mr-1.5 h-4 w-4" />
+        View landing page
+      </LinkButton>
+      <form action="/logout" method="post">
+        <button
+          type="submit"
+          className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          Sign out
+        </button>
+      </form>
+    </>
+  );
 
   const sidebarBody = (
     <>
@@ -278,6 +325,62 @@ export function Nav({
 
   return (
     <>
+      {navMode === "top" && (
+        <header className="no-print hidden border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950 lg:sticky lg:top-0 lg:z-40 lg:block">
+          <div className="flex items-center gap-4 px-5 py-3">
+            <Link
+              href="/"
+              className="max-w-56 shrink-0 truncate text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
+            >
+              {orgLabel}
+            </Link>
+            {!isSuperadmin && (
+              <form onSubmit={onSubmit} className="min-w-0 flex-1">
+                <input
+                  type="search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                  aria-label="Search"
+                />
+              </form>
+            )}
+            {username && (
+              <span className="max-w-40 shrink-0 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                {username}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 px-5 pb-2">
+            <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+              {mainNavItems.map((item) => {
+                const active = isActive(pathname, item.href, renderedHrefs);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={
+                      "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors " +
+                      (active
+                        ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
+                        : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100")
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            {navUtilities === "top" && (
+              <div className="flex shrink-0 items-center gap-1 border-l border-zinc-200 pl-2 dark:border-zinc-700">
+                {utilityLinks}
+              </div>
+            )}
+          </div>
+        </header>
+      )}
       {/* Mobile top bar — only on small screens. */}
       <header className="no-print lg:hidden fixed top-0 inset-x-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-200 bg-white px-4">
         <button
@@ -314,6 +417,7 @@ export function Nav({
           "no-print bg-white border-r border-zinc-200 overflow-y-auto " +
           "fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-out " +
           "lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 " +
+          (navMode === "top" ? "lg:hidden " : "") +
           (desktopCollapsed ? "lg:hidden " : "") +
           (mobileOpen ? "translate-x-0" : "-translate-x-full")
         }
@@ -321,7 +425,7 @@ export function Nav({
       >
         {sidebarBody}
       </aside>
-      {desktopCollapsed && (
+      {desktopCollapsed && navMode === "sidebar" && (
         <button
           type="button"
           onClick={expandDesktopSidebar}
@@ -331,6 +435,11 @@ export function Nav({
         >
           <PanelLeft className="h-5 w-5" />
         </button>
+      )}
+      {navMode === "top" && navUtilities === "bottom" && (
+        <footer className="no-print order-last hidden items-center justify-end gap-2 border-t border-zinc-200 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-950 lg:flex">
+          {utilityLinks}
+        </footer>
       )}
     </>
   );
