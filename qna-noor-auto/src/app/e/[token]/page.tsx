@@ -99,7 +99,7 @@ export default async function PublicEstimatePage({
   const decline = declineEstimate.bind(null, token);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10">
+    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
       <div className="mx-auto max-w-3xl px-4">
         <div className="rounded-lg bg-white shadow-sm overflow-hidden">
           <header className="px-8 py-6 border-b border-zinc-200">

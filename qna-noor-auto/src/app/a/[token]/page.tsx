@@ -43,7 +43,7 @@ export default async function PublicReminderPage({
   });
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0">
+    <div className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0" data-force-light>
       <div className="mx-auto max-w-xl px-4 print:px-0 print:max-w-full">
         <div className="rounded-lg bg-white shadow-sm overflow-hidden print:shadow-none print:rounded-none">
           <header className="px-8 py-6 border-b border-zinc-200 text-center">
