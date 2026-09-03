@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   canManageUsers,
   requireUser,
@@ -30,9 +31,12 @@ async function requireOrgSettingsUser(): Promise<
   return { ...user, orgId: user.orgId };
 }
 
-async function revalidateDefaults() {
+type DefaultKind = "appearance" | "sidebar" | "dashboard";
+
+function finishDefaults(kind: DefaultKind, outcome: "published" | "cleared") {
   revalidatePath("/settings");
   revalidatePath("/", "layout");
+  redirect(`/settings?defaults=${kind}-${outcome}#account-defaults`);
 }
 
 export async function publishAppearanceDefault() {
@@ -58,7 +62,7 @@ export async function publishAppearanceDefault() {
     where: { id: user.orgId },
     data: { uiDefaults: JSON.stringify(appearance) },
   });
-  await revalidateDefaults();
+  finishDefaults("appearance", "published");
 }
 
 export async function clearAppearanceDefault() {
@@ -67,7 +71,7 @@ export async function clearAppearanceDefault() {
     where: { id: user.orgId },
     data: { uiDefaults: null },
   });
-  await revalidateDefaults();
+  finishDefaults("appearance", "cleared");
 }
 
 export async function publishNavDefault() {
@@ -100,7 +104,7 @@ export async function publishNavDefault() {
     where: { id: user.orgId },
     data: { navDefault: serializeNavLayout(layout) },
   });
-  await revalidateDefaults();
+  finishDefaults("sidebar", "published");
 }
 
 export async function clearNavDefault() {
@@ -109,7 +113,7 @@ export async function clearNavDefault() {
     where: { id: user.orgId },
     data: { navDefault: null },
   });
-  await revalidateDefaults();
+  finishDefaults("sidebar", "cleared");
 }
 
 export async function publishDashboardDefault() {
@@ -133,7 +137,7 @@ export async function publishDashboardDefault() {
     where: { id: user.orgId },
     data: { dashDefault: serializeDashboardLayout(layout) },
   });
-  await revalidateDefaults();
+  finishDefaults("dashboard", "published");
 }
 
 export async function clearDashboardDefault() {
@@ -142,5 +146,5 @@ export async function clearDashboardDefault() {
     where: { id: user.orgId },
     data: { dashDefault: null },
   });
-  await revalidateDefaults();
+  finishDefaults("dashboard", "cleared");
 }
