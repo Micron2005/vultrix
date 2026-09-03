@@ -21,6 +21,7 @@ import {
   goalUsesMoney,
   goalValueLabel,
   type GoalRecord,
+  habitButtonLabel,
 } from "@/lib/goals";
 import {
   goalRemainingSummary,
@@ -266,7 +267,7 @@ export default async function GoalDetailPage({
               : `${Math.round(progress.pct)}% / ${Math.round(progress.expectedPct)}%`
           }
         />
-        {record.metric === "HABIT" && (
+        {record.metric === "HABIT" && !progress.ended && (
           <StatTile
             label="Current streak"
             value={`${progress.currentStreak} day${progress.currentStreak === 1 ? "" : "s"}`}
@@ -379,7 +380,7 @@ export default async function GoalDetailPage({
                 type="submit"
                 className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
               >
-                {progress.todayChecked ? "Undo today" : "Done today"}
+                {habitButtonLabel(progress)}
               </button>
             </form>
             <div className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-700">

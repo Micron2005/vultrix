@@ -15,7 +15,12 @@ import {
 } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { parseDecimal } from "@/lib/utils";
-import { GOAL_METRICS, type GoalMetric, type GoalPeriod } from "@/lib/goals";
+import {
+  GOAL_METRICS,
+  habitCheckInDay,
+  type GoalMetric,
+  type GoalPeriod,
+} from "@/lib/goals";
 
 const GOAL_PERIODS = ["WEEK", "MONTH", "YEAR", "BY_DATE"] as const;
 
@@ -180,13 +185,13 @@ export async function toggleHabitCheckIn(fd: FormData) {
   const { orgId, timezone } = await requireGoalsContext();
   const id = text(fd, "goalId");
   if (!id) throw new Error("Goal not found.");
-  const day = localCalendarDay(new Date(), timezone);
   await db.$transaction(async (tx) => {
-    const goal = await tx.goal.findFirst({
-      where: { id, orgId },
-      select: { metric: true },
-    });
+    const goal = await tx.goal.findFirst({ where: { id, orgId } });
     if (!goal || goal.metric !== "HABIT") throw new Error("Habit goal not found.");
+    const day = habitCheckInDay(goal, new Date(), timezone);
+    await tx.goalCheckIn.deleteMany({
+      where: { goalId: id, orgId, day: { gt: day } },
+    });
     const existing = await tx.goalCheckIn.findUnique({
       where: { goalId_day: { goalId: id, day } },
     });

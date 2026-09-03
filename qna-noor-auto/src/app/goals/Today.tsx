@@ -12,6 +12,7 @@ import {
   loadActiveGoals,
   type GoalProgress,
   type GoalRecord,
+  habitButtonLabel,
 } from "@/lib/goals";
 import { localCalendarDay } from "@/lib/timezone";
 
@@ -50,12 +51,14 @@ function GoalQuickAction({
         <form action={toggleHabitCheckIn} className="mt-3 flex items-center gap-3">
           <input type="hidden" name="goalId" value={goal.id} />
           <button type="submit" className={buttonClass}>
-            {progress.todayChecked ? "Undo today" : "Done today"}
+            {habitButtonLabel(progress)}
           </button>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            Streak: {progress.currentStreak} day
-            {progress.currentStreak === 1 ? "" : "s"}
-          </span>
+          {!progress.ended && (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              Streak: {progress.currentStreak} day
+              {progress.currentStreak === 1 ? "" : "s"}
+            </span>
+          )}
         </form>
       ) : goal.metric === "MANUAL" ? (
         <form
