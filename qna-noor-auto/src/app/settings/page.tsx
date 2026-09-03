@@ -667,7 +667,7 @@ export default async function SettingsPage({
         )}
         <div className="p-6 space-y-6">
           {shopFees.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-zinc-500">
               No shop fees yet. Add one below.
             </p>
           ) : (
@@ -675,23 +675,23 @@ export default async function SettingsPage({
               {shopFees.map((f) => (
                 <div
                   key={f.id}
-                  className="rounded-md border bg-neutral-50 p-3 space-y-2"
+                  className="rounded-md border border-zinc-200 bg-zinc-50 p-3 space-y-2"
                 >
                 <form
                   action={updateShopFee.bind(null, f.id)}
-                  className="grid grid-cols-12 gap-2 items-end"
+                  className="grid grid-cols-6 md:grid-cols-12 gap-2 items-end"
                 >
-                  <div className="col-span-3">
+                  <div className="col-span-6 md:col-span-3">
                     <Field label="Name">
                       <Input name="name" defaultValue={f.name} required />
                     </Field>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-6 md:col-span-3">
                     <Field label="Description (shown on invoice)">
                       <Input name="description" defaultValue={f.description ?? ""} />
                     </Field>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-2 md:col-span-1">
                     <Field label="Parts %">
                       <Input
                         name="partsPercent"
@@ -700,7 +700,7 @@ export default async function SettingsPage({
                       />
                     </Field>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-2 md:col-span-1">
                     <Field label="Labor %">
                       <Input
                         name="laborPercent"
@@ -709,7 +709,7 @@ export default async function SettingsPage({
                       />
                     </Field>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-2 md:col-span-1">
                     <Field label="Max $">
                       <Input
                         name="maxCap"
@@ -719,25 +719,29 @@ export default async function SettingsPage({
                       />
                     </Field>
                   </div>
-                  <div className="col-span-1 flex flex-col items-start gap-1">
-                    <label className="text-xs text-muted-foreground">Taxable</label>
-                    <input
-                      type="checkbox"
-                      name="taxable"
-                      defaultChecked={f.taxable}
-                      className="h-4 w-4"
-                    />
+                  <div className="col-span-2 md:col-span-1 flex flex-col gap-1">
+                    <span className="text-xs font-medium text-zinc-600">Taxable</span>
+                    <label className="flex h-9 items-center">
+                      <input
+                        type="checkbox"
+                        name="taxable"
+                        defaultChecked={f.taxable}
+                        className="h-4 w-4"
+                      />
+                    </label>
                   </div>
-                  <div className="col-span-1 flex flex-col items-start gap-1">
-                    <label className="text-xs text-muted-foreground">Active</label>
-                    <input
-                      type="checkbox"
-                      name="active"
-                      defaultChecked={f.active}
-                      className="h-4 w-4"
-                    />
+                  <div className="col-span-2 md:col-span-1 flex flex-col gap-1">
+                    <span className="text-xs font-medium text-zinc-600">Active</span>
+                    <label className="flex h-9 items-center">
+                      <input
+                        type="checkbox"
+                        name="active"
+                        defaultChecked={f.active}
+                        className="h-4 w-4"
+                      />
+                    </label>
                   </div>
-                  <div className="col-span-1 flex gap-1">
+                  <div className="col-span-2 md:col-span-1 flex gap-1">
                     <SaveButton>Save</SaveButton>
                   </div>
                 </form>
@@ -759,48 +763,52 @@ export default async function SettingsPage({
 
           <form
             action={createShopFee}
-            className="grid grid-cols-12 gap-2 items-end rounded-md border border-dashed border-neutral-300 p-3"
+            className="grid grid-cols-6 md:grid-cols-12 gap-2 items-end rounded-md border border-dashed border-zinc-300 p-3"
           >
             <div className="col-span-12 -mb-1 text-sm font-medium">Add shop fee</div>
-            <div className="col-span-3">
+            <div className="col-span-6 md:col-span-3">
               <Field label="Name">
                 <Input name="name" placeholder="Shop Supplies" required />
               </Field>
             </div>
-            <div className="col-span-3">
+            <div className="col-span-6 md:col-span-3">
               <Field label="Description">
                 <Input name="description" placeholder="Shop Supplies" />
               </Field>
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2 md:col-span-1">
               <Field label="Parts %">
                 <Input name="partsPercent" defaultValue="0" inputMode="decimal" />
               </Field>
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2 md:col-span-1">
               <Field label="Labor %">
                 <Input name="laborPercent" defaultValue="0" inputMode="decimal" />
               </Field>
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2 md:col-span-1">
               <Field label="Max $">
                 <Input name="maxCap" placeholder="no cap" inputMode="decimal" />
               </Field>
             </div>
-            <div className="col-span-1 flex flex-col items-start gap-1">
-              <label className="text-xs text-muted-foreground">Taxable</label>
-              <input type="checkbox" name="taxable" className="h-4 w-4" />
+            <div className="col-span-2 md:col-span-1 flex flex-col gap-1">
+              <span className="text-xs font-medium text-zinc-600">Taxable</span>
+              <label className="flex h-9 items-center">
+                <input type="checkbox" name="taxable" className="h-4 w-4" />
+              </label>
             </div>
-            <div className="col-span-1 flex flex-col items-start gap-1">
-              <label className="text-xs text-muted-foreground">Active</label>
-              <input
-                type="checkbox"
-                name="active"
-                defaultChecked
-                className="h-4 w-4"
-              />
+            <div className="col-span-2 md:col-span-1 flex flex-col gap-1">
+              <span className="text-xs font-medium text-zinc-600">Active</span>
+              <label className="flex h-9 items-center">
+                <input
+                  type="checkbox"
+                  name="active"
+                  defaultChecked
+                  className="h-4 w-4"
+                />
+              </label>
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2 md:col-span-1">
               <Button type="submit" className="h-9">
                 Add
               </Button>
