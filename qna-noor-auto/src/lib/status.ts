@@ -89,12 +89,28 @@ async function checkEmailUncached(): Promise<StatusCheck> {
       }),
       CHECK_TIMEOUT_MS,
     );
+    if (response.status === 401) {
+      return {
+        key: "email",
+        label: "Email",
+        state: "down",
+        detail: "API key rejected",
+      };
+    }
+    if (response.status === 403) {
+      return {
+        key: "email",
+        label: "Email",
+        state: "operational",
+        detail: "Sending configured (key can't read domain status)",
+      };
+    }
     if (!response.ok) {
       return {
         key: "email",
         label: "Email",
         state: "down",
-        detail: "Provider unavailable",
+        detail: `Provider error (HTTP ${response.status})`,
       };
     }
 
