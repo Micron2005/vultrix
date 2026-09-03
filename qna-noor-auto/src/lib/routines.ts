@@ -15,15 +15,7 @@ export const ROUTINE_KINDS = [
 ] as const;
 export type RoutineKind = (typeof ROUTINE_KINDS)[number];
 
-export const ROUTINE_WEEKDAYS: Array<[string, string]> = [
-  ["0", "Sun"],
-  ["1", "Mon"],
-  ["2", "Tue"],
-  ["3", "Wed"],
-  ["4", "Thu"],
-  ["5", "Fri"],
-  ["6", "Sat"],
-];
+export { ROUTINE_WEEKDAYS } from "@/lib/routineConstants";
 
 export type RoutineItemRecord = {
   id: string;

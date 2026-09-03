@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Input, Select } from "@/components/ui";
-import { ROUTINE_WEEKDAYS } from "@/lib/routines";
+import { ROUTINE_WEEKDAYS } from "@/lib/routineConstants";
 
 type RoutineSettingsFormProps = {
   action: (formData: FormData) => void | Promise<void>;
