@@ -344,6 +344,7 @@ export default async function GoalsPage() {
                     routine.items,
                     routine.items.flatMap((item) => item.checkOffs),
                     today,
+                    localCalendarDay(routine.createdAt, timezone),
                   )
                 : 0;
               return (

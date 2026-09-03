@@ -278,8 +278,11 @@ export function routineStreak(
   items: Array<Pick<RoutineItemRecord, "id">>,
   checkOffs: Array<Pick<RoutineCheckOffRecord, "itemId" | "day" | "skipped">>,
   today: string,
+  createdDay: string,
 ): number {
-  if (items.length === 0) return 0;
+  if (items.length === 0 || !isDateInput(today) || !isDateInput(createdDay)) {
+    return 0;
+  }
   const statusForDay = (day: string) =>
     items.map((item) =>
       checkOffs.find(
@@ -290,29 +293,36 @@ export function routineStreak(
             : checkOff.day === day),
       ),
     );
-  const completedToday = statusForDay(today);
-  const todayDone =
-    completedToday.length > 0 &&
-    completedToday.every(Boolean) &&
-    completedToday.every((status) => !status?.skipped);
-  let day = todayDone ? today : shiftCalendarDay(today, -1);
+  const completeDay = (day: string) => {
+    const statuses = statusForDay(day);
+    return {
+      complete: statuses.every(Boolean),
+      skipped: statuses.some((status) => status?.skipped),
+    };
+  };
+  const todayStatus = completeDay(today);
+  let day = todayStatus.complete && !todayStatus.skipped
+    ? today
+    : shiftCalendarDay(today, -1);
   let streak = 0;
-  while (isDateInput(day)) {
+  let iterations = 0;
+  while (isDateInput(day) && day >= createdDay && iterations < 1000) {
+    iterations += 1;
+    if (routine.kind === "WEEKLY") {
+      const status = completeDay(day);
+      if (!status.complete) break;
+      if (!status.skipped) streak += 1;
+      day = shiftCalendarDay(day, -7);
+      continue;
+    }
     if (!dueOn(routine, day)) {
       day = shiftCalendarDay(day, -1);
       continue;
     }
-    const statuses = statusForDay(day);
-    if (statuses.every(Boolean) && statuses.some((status) => status?.skipped)) {
-      day = shiftCalendarDay(day, -1);
-      continue;
-    }
-    if (statuses.every(Boolean)) {
-      streak += 1;
-      day = shiftCalendarDay(day, -1);
-      continue;
-    }
-    break;
+    const status = completeDay(day);
+    if (!status.complete) break;
+    if (!status.skipped) streak += 1;
+    day = shiftCalendarDay(day, -1);
   }
   return streak;
 }

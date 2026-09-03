@@ -14,7 +14,7 @@ SELECT
       THEN 'ONE_OFF'
     ELSE 'DAILY'
   END,
-  NULL,
+  '__HABIT_MIGRATION__',
   CASE
     WHEN g.period='BY_DATE' AND date(g."startDate")=date(g."dueDate")
       THEN to_char(g."dueDate",'YYYY-MM-DD')
@@ -34,7 +34,7 @@ INSERT INTO "RoutineItem" (
 SELECT
   md5(random()::text || r.id), r.id, r."orgId", r.title, 0, r."createdAt"
 FROM "Routine" r
-WHERE r."goalId" IN (SELECT id FROM "Goal" WHERE metric='HABIT');
+WHERE r.weekdays = '__HABIT_MIGRATION__';
 
 INSERT INTO "RoutineCheckOff" (
   id,"itemId","routineId","orgId",day,late,skipped,note,"createdAt"
@@ -44,13 +44,14 @@ SELECT
   c.note, c."createdAt"
 FROM "GoalCheckIn" c
 JOIN "Routine" r ON r."goalId" = c."goalId"
+  AND r.weekdays = '__HABIT_MIGRATION__'
 JOIN "RoutineItem" i ON i."routineId" = r.id AND i.position = 0
 WHERE c."orgId" = r."orgId";
 
 UPDATE "Routine" r
 SET "completedDay" = r.day, archived = true
 WHERE r.kind = 'ONE_OFF'
-  AND r."goalId" IN (SELECT id FROM "Goal" WHERE metric='HABIT')
+  AND r.weekdays = '__HABIT_MIGRATION__'
   AND EXISTS (
     SELECT 1
     FROM "RoutineItem" i
@@ -58,6 +59,10 @@ WHERE r.kind = 'ONE_OFF'
     WHERE i."routineId" = r.id
       AND c.day = r.day
   );
+
+UPDATE "Routine"
+SET weekdays = NULL
+WHERE weekdays = '__HABIT_MIGRATION__';
 
 UPDATE "Routine"
 SET "goalId" = NULL
