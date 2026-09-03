@@ -10,7 +10,7 @@ import {
   Select,
   StatTile,
 } from "@/components/ui";
-import { assertCanViewFinancials } from "@/lib/permissions";
+import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
 import { db } from "@/lib/db";
@@ -53,7 +53,7 @@ export default async function GoalDetailPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  assertCanViewFinancials(user.role);
+  if (!canViewFinancials(user.role)) redirect("/goals");
   if (!user.orgId) redirect("/");
   const { id } = await params;
   const goal = await db.goal.findFirst({

@@ -205,7 +205,7 @@ export async function Today({
   const today = localCalendarDay(new Date(), timezone);
   const [groups, goals, milestones] = await Promise.all([
     loadTodayRoutines(orgId, timezone, { goalId, forUserId }),
-    showGoals ? loadActiveGoals(orgId, timezone, hasInvoices) : Promise.resolve([]),
+    showGoals && !forUserId ? loadActiveGoals(orgId, timezone, hasInvoices) : Promise.resolve([]),
     manager
       ? db.goalMilestone.findMany({
           where: {
