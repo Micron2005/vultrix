@@ -62,6 +62,7 @@ export type GoalProgress = {
   baseline: number | null;
   todayChecked: boolean;
   currentStreak: number;
+  ended: boolean;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -155,6 +156,19 @@ export function goalWindow(
     })}`,
     valid: dueDay >= startDay,
   };
+}
+
+/** The calendar day a habit check-in applies to: today, or the goal's last day once it has ended. */
+export function habitCheckInDay(
+  goal: GoalRecord,
+  now: Date,
+  timezone: string,
+): string {
+  const window = goalWindow(goal, now, timezone);
+  return localCalendarDay(
+    new Date(Math.min(now.getTime(), window.end.getTime())),
+    timezone,
+  );
 }
 
 export function goalIsAtMost(goal: Pick<GoalRecord, "metric" | "direction">): boolean {
@@ -404,7 +418,7 @@ export async function computeGoalProgress(
           {
             start: startDay,
             end: queryEndDay,
-            today: localCalendarDay(now, timezone),
+            today: queryEndDay,
           },
         );
   const actual = result.actual;
@@ -468,6 +482,7 @@ export async function computeGoalProgress(
     baseline: result.baseline,
     todayChecked: result.todayChecked,
     currentStreak: result.currentStreak,
+    ended: now.getTime() >= window.end.getTime(),
   };
 }
 
@@ -552,4 +567,11 @@ export function goalValueLabel(
   const formatted = value.toLocaleString("en-US", { maximumFractionDigits: 1 });
   if (metric === "HABIT") return formatted;
   return unit ? `${formatted} ${unit}` : formatted;
+}
+
+export function habitButtonLabel(
+  progress: Pick<GoalProgress, "todayChecked" | "ended">,
+): string {
+  if (progress.ended) return progress.todayChecked ? "Undo" : "Mark done (late)";
+  return progress.todayChecked ? "Undo today" : "Done today";
 }

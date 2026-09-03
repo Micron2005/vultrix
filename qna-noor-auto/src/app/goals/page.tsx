@@ -20,6 +20,7 @@ import {
   loadActiveGoals,
   type GoalProgress,
   type GoalRecord,
+  habitButtonLabel,
 } from "@/lib/goals";
 import {
   goalRemainingSummary,
@@ -156,13 +157,15 @@ function GoalCard({
               type="submit"
               className="rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
             >
-              {progress.todayChecked ? "Undo today" : "Done today"}
+              {habitButtonLabel(progress)}
             </button>
           </form>
-          <span className="text-zinc-600 dark:text-zinc-400">
-            Streak: {progress.currentStreak} day
-            {progress.currentStreak === 1 ? "" : "s"}
-          </span>
+          {!progress.ended && (
+            <span className="text-zinc-600 dark:text-zinc-400">
+              Streak: {progress.currentStreak} day
+              {progress.currentStreak === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       )}
 
