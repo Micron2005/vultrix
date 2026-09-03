@@ -67,7 +67,6 @@ export function GoalForm({
   const directionChoice =
     metric === "LOGGED_TOTAL" || metric === "LOGGED_LATEST";
   const unitChoice =
-    metric === "HABIT" ||
     metric === "LOGGED_TOTAL" ||
     metric === "LOGGED_LATEST" ||
     metric === "MANUAL";
@@ -157,7 +156,7 @@ export function GoalForm({
             <Input
               name="unit"
               defaultValue={initial?.unit ?? ""}
-              placeholder={metric === "HABIT" ? "days" : "miles"}
+              placeholder="miles"
               className="mt-1"
             />
           </label>
