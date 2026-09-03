@@ -66,3 +66,17 @@ export function goalRemainingSummary(
     ? { label: "Left to spend", text: `${value(left)} left to spend` }
     : { label: "Under target", text: `${value(left)} under target` };
 }
+
+export function goalPaceText(
+  goal: GoalRecord,
+  progress: GoalProgress,
+): string {
+  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
+  return progress.daysRemaining < 14
+    ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded, goal.unit)} a day ${
+        remainingDays === 1
+          ? "in the last day"
+          : `in the next ${remainingDays} days`
+      }`
+    : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
+}

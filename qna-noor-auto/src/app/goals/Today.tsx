@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, CardHeader, Input } from "@/components/ui";
+import { db } from "@/lib/db";
 import {
   skipRoutineDay,
   snoozeRoutine,
@@ -13,7 +14,9 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from "@/lib/goals";
+import { goalPaceText } from "@/lib/goalStatus";
 import { localCalendarDay } from "@/lib/timezone";
+import { toggleGoalMilestone } from "./actions";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
 const buttonClass =
@@ -168,16 +171,11 @@ function RoutineSection({
 }
 
 function BehindGoal({ goal, progress }: { goal: GoalRecord; progress: GoalProgress }) {
-  const remainingDays = Math.max(1, Math.ceil(progress.daysRemaining));
-  const paceText =
-    progress.daysRemaining < 14
-      ? `about ${goalValueLabel(goal.metric, progress.perDayNeeded, goal.unit)} a day in ${remainingDays === 1 ? "the last day" : `the next ${remainingDays} days`}`
-      : `about ${goalValueLabel(goal.metric, progress.perDayNeeded * 7, goal.unit)} a week`;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
       <div>
         <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100">{goal.title}</Link>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{paceText}</p>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{goalPaceText(goal, progress)}</p>
       </div>
       <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">View goal</Link>
     </div>
@@ -192,6 +190,7 @@ export async function Today({
   showGoals = true,
   title,
   forUserId,
+  canManage,
 }: {
   orgId: string;
   timezone: string;
@@ -200,17 +199,42 @@ export async function Today({
   showGoals?: boolean;
   title?: string;
   forUserId?: string;
+  canManage?: boolean;
 }) {
-  const [groups, goals] = await Promise.all([
+  const manager = canManage ?? false;
+  const today = localCalendarDay(new Date(), timezone);
+  const [groups, goals, milestones] = await Promise.all([
     loadTodayRoutines(orgId, timezone, { goalId, forUserId }),
     showGoals ? loadActiveGoals(orgId, timezone, hasInvoices) : Promise.resolve([]),
+    manager
+      ? db.goalMilestone.findMany({
+          where: {
+            orgId,
+            doneDay: null,
+            dueDay: { lte: today },
+          },
+          orderBy: [{ dueDay: "asc" }, { position: "asc" }],
+          select: {
+            id: true,
+            title: true,
+            dueDay: true,
+            goal: { select: { id: true, title: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
   const quickGoals = goals.filter(({ goal }) => CHECKABLE_METRICS.includes(goal.metric) && (!goalId || goal.id === goalId));
   const behindGoals = goals.filter(({ goal, progress }) => progress.status === "behind" && !quickGoals.some(({ goal: quickGoal }) => quickGoal.id === goal.id));
   const reminders = groups.filter(({ routine }) => routine.kind === "REMINDER");
   const todo = groups.filter(({ routine }) => routine.kind !== "REMINDER");
-  if (!reminders.length && !todo.length && !quickGoals.length && !behindGoals.length) return null;
-  const today = localCalendarDay(new Date(), timezone);
+  if (
+    !reminders.length &&
+    !todo.length &&
+    !quickGoals.length &&
+    !behindGoals.length &&
+    !milestones.length
+  )
+    return null;
   return (
     <Card className="mb-6 overflow-hidden">
       <CardHeader title={title ?? "Today"} />
@@ -225,6 +249,43 @@ export async function Today({
           <section>
             <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">To do today</div>
             {todo.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder={false} canManage={!forUserId} />)}
+          </section>
+        )}
+        {milestones.length > 0 && (
+          <section className="px-4 py-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Steps due today
+            </p>
+            <div className="space-y-3">
+              {milestones.map((milestone) => (
+                <div
+                  key={milestone.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                      {milestone.title}
+                    </p>
+                    <Link
+                      href={`/goals/${milestone.goal.id}`}
+                      className="text-xs text-zinc-500 underline dark:text-zinc-400"
+                    >
+                      {milestone.goal.title}
+                    </Link>
+                    {milestone.dueDay && milestone.dueDay < today && (
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        Overdue
+                      </p>
+                    )}
+                  </div>
+                  <form action={toggleGoalMilestone.bind(null, milestone.id)}>
+                    <button type="submit" className={buttonClass}>
+                      Check off
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
           </section>
         )}
         {(quickGoals.length > 0 || behindGoals.length > 0) && (

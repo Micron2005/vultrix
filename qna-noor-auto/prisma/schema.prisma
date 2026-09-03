@@ -788,6 +788,7 @@ model Goal {
 
   checkIns GoalCheckIn[]
   entries GoalEntry[]
+  milestones GoalMilestone[]
   routines Routine[]
 
   @@index([orgId])
@@ -890,6 +891,24 @@ model GoalEntry {
 
   @@index([goalId, day])
   @@index([orgId])
+}
+
+model GoalMilestone {
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  goalId       String
+  goal         Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title        String
+  position     Int      @default(0)
+  dueDay       String?
+  doneDay      String?
+  doneByUserId String?
+  doneBy       User?    @relation("GoalMilestoneDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([orgId, goalId])
 }
 
 model Budget {
@@ -1132,6 +1151,7 @@ model Organization {
   goals             Goal[]
   goalCheckIns      GoalCheckIn[]
   goalEntries       GoalEntry[]
+  goalMilestones    GoalMilestone[]
   routines          Routine[]
   routineItems      RoutineItem[]
   routineCheckOffs  RoutineCheckOff[]
@@ -1202,6 +1222,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   assignedRoutines   Routine[]            @relation("RoutineAssignee")
   routineCheckOffs   RoutineCheckOff[]    @relation("RoutineCheckOffUser")
+  completedMilestones GoalMilestone[]     @relation("GoalMilestoneDoneBy")
 
   @@index([orgId])
 }

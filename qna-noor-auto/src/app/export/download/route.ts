@@ -77,6 +77,7 @@ export async function GET() {
     goals,
     goalCheckIns,
     goalEntries,
+    goalMilestones,
     routines,
     routineItems,
     routineCheckOffs,
@@ -141,6 +142,10 @@ export async function GET() {
     db.goalEntry.findMany({
       where: { orgId },
       orderBy: { createdAt: "asc" },
+    }),
+    db.goalMilestone.findMany({
+      where: { orgId },
+      orderBy: [{ goalId: "asc" }, { position: "asc" }],
     }),
     db.routine.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
     db.routineItem.findMany({
@@ -593,6 +598,24 @@ export async function GET() {
   );
 
   zip.file(
+    "goal-milestones.csv",
+    csv(
+      goalMilestones.map((m) => ({
+        id: m.id,
+        goalId: m.goalId,
+        orgId: m.orgId,
+        title: m.title,
+        position: m.position,
+        dueDay: m.dueDay ?? "",
+        doneDay: m.doneDay ?? "",
+        doneByUserId: m.doneByUserId ?? "",
+        createdAt: toIso(m.createdAt),
+        updatedAt: toIso(m.updatedAt),
+      })),
+    ),
+  );
+
+  zip.file(
     "routines.csv",
     csv(
       routines.map((r) => ({
@@ -923,7 +946,8 @@ export async function GET() {
     "  customers.id → customer-contacts.customerId",
     "  vehicles.id → repair-orders.vehicleId, appointments.vehicleId",
     "  repair-orders.id → labor-lines.repairOrderId, part-lines.repairOrderId, payments.repairOrderId, appointments.repairOrderId, jobs.repairOrderId, fee-lines.repairOrderId, repair-order-photos.repairOrderId",
-    "  goals.id → goal-check-ins.goalId, goal-entries.goalId, routines.goalId",
+    "  goals.id → goal-check-ins.goalId, goal-entries.goalId, goal-milestones.goalId, routines.goalId",
+    "  users.id → goal-milestones.doneByUserId",
     "  routines.id → routine-items.routineId",
     "  routine-items.id → routine-check-offs.itemId",
     "  income.id → sales.incomeId",
