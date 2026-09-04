@@ -59,7 +59,7 @@ export function ThemeToggle({
 
   return (
     <div
-      className="inline-flex rounded-md border border-zinc-300 bg-white p-0.5 shadow-sm"
+      className="flex w-full rounded-md border border-zinc-300 bg-white p-0.5 shadow-sm sm:w-auto"
       role="group"
       aria-label="Appearance"
     >
@@ -69,7 +69,7 @@ export function ThemeToggle({
           type="button"
           onClick={() => chooseTheme(choice.value)}
           aria-pressed={theme === choice.value}
-          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+          className={`min-h-9 flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
             theme === choice.value
               ? "bg-zinc-900 text-white"
               : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"

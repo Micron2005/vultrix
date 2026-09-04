@@ -33,7 +33,7 @@ function SegmentedControl({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
       <span className="text-xs font-medium text-zinc-600">{label}</span>
       <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white">
         {options.map((option) => (
@@ -42,8 +42,8 @@ function SegmentedControl({
             type="button"
             className={
               value === option.value
-                ? "bg-[var(--vx-accent-600)] px-3 py-1.5 text-xs font-medium text-[var(--vx-accent-fg)]"
-                : "px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                ? "min-h-9 bg-[var(--vx-accent-600)] px-3 py-2 text-xs font-medium text-[var(--vx-accent-fg)]"
+                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
             }
             onClick={() => onChange(option.value)}
             aria-pressed={value === option.value}
@@ -208,7 +208,7 @@ export function DashboardGrid({
                   })
                 }
                 placeholder={defaultGreeting}
-                className="w-64 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400"
+                className="min-h-9 w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 sm:w-64"
                 aria-label="Greeting text"
               />
               <form action={saveDashboardLayout}>
@@ -218,11 +218,11 @@ export function DashboardGrid({
                   value={JSON.stringify(current)}
                   readOnly
                 />
-                <Button type="submit" size="sm">Save</Button>
+                <Button type="submit" size="sm" className="min-h-9">Save</Button>
               </form>
-              <LinkButton href="/" variant="secondary" size="sm">Cancel</LinkButton>
+              <LinkButton href="/" variant="secondary" size="sm" className="min-h-9">Cancel</LinkButton>
               <form action={reset}>
-                <Button type="submit" variant="ghost" size="sm">Reset to default</Button>
+                <Button type="submit" variant="ghost" size="sm" className="min-h-9">Reset to default</Button>
               </form>
             </div>
           </div>
@@ -292,11 +292,12 @@ export function DashboardGrid({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className="min-h-9"
                     onClick={() => move(entry.id, -1)}
                     disabled={renderedIndex === 0}
                     aria-label={`Move ${block.label} up`}
@@ -307,6 +308,7 @@ export function DashboardGrid({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className="min-h-9"
                     onClick={() => move(entry.id, 1)}
                     disabled={renderedIndex === orderedBlocks.length - 1}
                     aria-label={`Move ${block.label} down`}
@@ -317,6 +319,7 @@ export function DashboardGrid({
                     type="button"
                     variant="secondary"
                     size="sm"
+                    className="min-h-9"
                     onClick={() => toggle(entry.id)}
                   >
                     {entry.visible ? "Hide" : "Show"}
@@ -327,6 +330,7 @@ export function DashboardGrid({
                         type="button"
                         variant={entry.size === "normal" ? "primary" : "secondary"}
                         size="sm"
+                        className="min-h-9"
                         onClick={() => updateBlock(entry.id, { size: "normal" })}
                       >
                         Normal
@@ -335,6 +339,7 @@ export function DashboardGrid({
                         type="button"
                         variant={entry.size === "wide" ? "primary" : "secondary"}
                         size="sm"
+                        className="min-h-9"
                         onClick={() => updateBlock(entry.id, { size: "wide" })}
                       >
                         Wide
@@ -345,6 +350,7 @@ export function DashboardGrid({
                     type="button"
                     variant={entry.collapsed ? "primary" : "secondary"}
                     size="sm"
+                    className="min-h-9"
                     aria-pressed={entry.collapsed}
                     onClick={() =>
                       updateBlock(entry.id, { collapsed: !entry.collapsed })
@@ -364,7 +370,7 @@ export function DashboardGrid({
                       updateBlock(entry.id, { title: event.target.value })
                     }
                     placeholder={block.label}
-                    className="w-40 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400"
+                    className="min-h-9 w-40 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400"
                   />
                 </label>
                 {block.settings?.map((setting) => (
