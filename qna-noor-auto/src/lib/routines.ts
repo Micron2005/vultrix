@@ -233,12 +233,7 @@ export async function loadTodayRoutines(
       }),
     }))
     .filter(({ items }) =>
-      items.some(
-        (item) =>
-          (item.status !== "done" && item.status !== "skipped") ||
-          item.sets != null ||
-          item.restSeconds != null,
-      ),
+      items.some((item) => item.status !== "done" && item.status !== "skipped"),
     );
 }
 

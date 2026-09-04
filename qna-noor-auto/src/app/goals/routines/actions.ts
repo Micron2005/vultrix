@@ -63,10 +63,12 @@ function optionalInt(fd: FormData, key: string, minimum: number): number | null 
 function parseRoutineItem(line: string) {
   const match = line.match(/(?:\s*[x×](\d+))?(?:\s+rest\s+(\d+)\s*s?)?$/i);
   const label = line.slice(0, match?.index ?? line.length).trim() || line;
+  const sets = match?.[1] ? Number(match[1]) : null;
+  const restSeconds = match?.[2] ? Number(match[2]) : null;
   return {
     label,
-    sets: match?.[1] ? Number(match[1]) : null,
-    restSeconds: match?.[2] ? Number(match[2]) : null,
+    sets: sets != null && sets >= 1 ? sets : null,
+    restSeconds: restSeconds != null && restSeconds >= 5 ? restSeconds : null,
   };
 }
 

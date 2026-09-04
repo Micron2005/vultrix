@@ -142,8 +142,8 @@ function RoutineSection({
                 {statusLabel(item.status)}
               </span>
             </div>
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              {(item.restSeconds != null || item.sets != null) && (
+            {(item.restSeconds != null || item.sets != null) && (
+              <div className="mt-3">
                 <SetTimer
                   item={{
                     id: item.id,
@@ -155,8 +155,8 @@ function RoutineSection({
                   done={item.status === "done"}
                   onComplete={toggleRoutineCheckOff.bind(null, item.id, actionDay)}
                 />
-              )}
-            </div>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <form action={toggleRoutineCheckOff.bind(null, item.id, actionDay)}>
                 <button type="submit" className={buttonClass}>
