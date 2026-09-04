@@ -26,6 +26,8 @@ import { VehiclesDueBlock } from "./dashboard-blocks/VehiclesDueBlock";
 import { TechHoursBlock } from "./dashboard-blocks/TechHoursBlock";
 import { OutstandingBlock } from "./dashboard-blocks/OutstandingBlock";
 import { RecentRecordsBlock } from "./dashboard-blocks/RecentRecordsBlock";
+import { GetStartedCard } from "./dashboard-blocks/GetStartedCard";
+import { loadOnboarding } from "@/lib/onboarding";
 
 type SearchParams = Promise<{
   customize?: string | string[];
@@ -239,7 +241,7 @@ export async function Dashboard({
   searchParams: SearchParams;
 }) {
   const orgId = user.orgId as string;
-  const [timezone, layoutRecord, orgRecord] = await Promise.all([
+  const [timezone, layoutRecord, orgRecord, onboarding] = await Promise.all([
     orgTimeZone(orgId),
     db.user.findUnique({
       where: { id: user.id },
@@ -249,6 +251,7 @@ export async function Dashboard({
       where: { id: orgId },
       select: { dashDefault: true },
     }),
+    loadOnboarding(user),
   ]);
   const features = enabledFeatureSet(user);
   const context: DashboardContext = {
@@ -346,6 +349,7 @@ export async function Dashboard({
           </>
         }
       />
+      {!editing && onboarding && <GetStartedCard {...onboarding} />}
       <DashboardGrid
         layout={layout}
         resetLayout={accountDefaultLayout}

@@ -55,6 +55,7 @@ import {
   publishDashboardDefault,
   publishNavDefault,
 } from "./default-actions";
+import { resetOnboarding } from "@/app/onboarding-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -317,6 +318,25 @@ export default async function SettingsPage({
           resetPrefs={accountDefaultAppearance}
         />
       </Card>
+      {canManageOrgSettings && (
+        <Card className="mb-6 max-w-2xl">
+          <CardHeader title="Get started checklist" />
+          <div className="flex items-center justify-between gap-4 p-6">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {org.onboardingDismissedAt
+                ? "The checklist is hidden from your dashboard."
+                : "Showing on the dashboard until every step is done."}
+            </p>
+            {org.onboardingDismissedAt && (
+              <form action={resetOnboarding}>
+                <Button type="submit" variant="secondary">
+                  Show again
+                </Button>
+              </form>
+            )}
+          </div>
+        </Card>
+      )}
       <Card className="mb-6 max-w-2xl">
         <CardHeader title="Sidebar" />
         <NavLayoutEditor
