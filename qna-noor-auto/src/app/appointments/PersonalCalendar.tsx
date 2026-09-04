@@ -57,21 +57,23 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-1">
-          <LinkButton href={href(view, previous)} variant="secondary" size="sm">← Prev</LinkButton>
-          <LinkButton href={href(view, new Date())} variant="ghost" size="sm">Today</LinkButton>
-          <LinkButton href={href(view, next)} variant="secondary" size="sm">Next →</LinkButton>
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <LinkButton className="min-h-9" href={href(view, previous)} variant="secondary" size="sm">← Prev</LinkButton>
+            <LinkButton className="min-h-9" href={href(view, new Date())} variant="ghost" size="sm">Today</LinkButton>
+            <LinkButton className="min-h-9" href={href(view, next)} variant="secondary" size="sm">Next →</LinkButton>
+          </div>
+          <Button className="min-h-9" type="button" size="sm" onClick={() => setDialog({ date: date })}>+ Add event</Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-semibold text-zinc-800">{title}</div>
           <div className="flex rounded-md border border-zinc-300 bg-white p-0.5">
-            {views.map((item) => <LinkButton key={item} href={href(item, selectedDate)} variant={item === view ? "primary" : "ghost"} size="sm">{item[0].toUpperCase() + item.slice(1)}</LinkButton>)}
+            {views.map((item) => <LinkButton className="min-h-9" key={item} href={href(item, selectedDate)} variant={item === view ? "primary" : "ghost"} size="sm">{item[0].toUpperCase() + item.slice(1)}</LinkButton>)}
           </div>
-          <Button type="button" size="sm" onClick={() => setDialog({ date: date })}>+ Add event</Button>
         </div>
       </div>
-      {view === "month" && <MonthView date={selectedDate} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
+      {view === "month" && <MonthView key={ymd(startOfMonth(selectedDate))} date={selectedDate} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
       {view === "week" && <WeekView date={rangeAnchor} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
       {view === "day" && <DayView date={selectedDate} events={eventsFor(selectedDate)} onAdd={() => setDialog({ date })} onEvent={(event) => setDialog({ date, event })} />}
       {view === "year" && <YearView date={selectedDate} eventsFor={eventsFor} onMonth={(month) => window.location.href = href("month", month)} />}
@@ -91,10 +93,112 @@ function MonthView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor:
   const days = Array.from({ length: 42 }, (_, index) =>
     addDays(startOfWeek(startOfMonth(date), { weekStartsOn: 1 }), index),
   );
-  return <Card><div className="grid grid-cols-7 border-b border-zinc-200">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <div key={day} className="p-2 text-center text-xs font-semibold text-zinc-500">{day}</div>)}</div><div className="grid grid-cols-7">{days.map((day) => <DayCell key={ymd(day)} day={day} currentMonth={isSameMonth(day, date)} events={eventsFor(day)} onDay={onDay} onEvent={onEvent} />)}</div></Card>;
+  const [selected, setSelected] = useState<string | null>(() => {
+    const today = new Date();
+    return isSameMonth(today, date) ? ymd(today) : ymd(startOfMonth(date));
+  });
+  const selectedDay = new Date(`${selected ?? ymd(startOfMonth(date))}T00:00:00`);
+
+  return (
+    <Card>
+      <div className="grid grid-cols-7 border-b border-zinc-200">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          <div key={day} className="p-2 text-center text-xs font-semibold text-zinc-500">
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 md:hidden">
+        {days.map((day) => (
+          <DayCell
+            key={ymd(day)}
+            day={day}
+            compact
+            selected={selected === ymd(day)}
+            currentMonth={isSameMonth(day, date)}
+            events={eventsFor(day)}
+            onDay={() => setSelected(ymd(day))}
+            onEvent={onEvent}
+          />
+        ))}
+      </div>
+      <div className="hidden md:grid grid-cols-7">
+        {days.map((day) => (
+          <DayCell
+            key={ymd(day)}
+            day={day}
+            currentMonth={isSameMonth(day, date)}
+            events={eventsFor(day)}
+            onDay={onDay}
+            onEvent={onEvent}
+          />
+        ))}
+      </div>
+      <div className="border-t border-zinc-200 p-3 md:hidden">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-zinc-800">
+            {format(selectedDay, "EEEE, MMMM d")}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-9"
+            onClick={() => onDay(selectedDay)}
+          >
+            + Add
+          </Button>
+        </div>
+        {eventsFor(selectedDay).length > 0 ? (
+          <div className="space-y-1">
+            {eventsFor(selectedDay).map((event) => (
+              <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">Nothing planned</p>
+        )}
+      </div>
+    </Card>
+  );
 }
 
-function DayCell({ day, currentMonth, events, onDay, onEvent }: { day: Date; currentMonth: boolean; events: CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
+function DayCell({ day, compact = false, selected = false, currentMonth, events, onDay, onEvent }: { day: Date; compact?: boolean; selected?: boolean; currentMonth: boolean; events: CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
+  if (compact) {
+    return (
+      <div
+        className={
+          "flex min-h-11 flex-col items-center border-b border-r border-zinc-200 p-1 " +
+          (!currentMonth ? "bg-zinc-50 text-zinc-400 " : "") +
+          (selected ? "ring-2 ring-inset ring-[var(--vx-accent-600)]" : "")
+        }
+      >
+        <button
+          type="button"
+          onClick={() => onDay(day)}
+          className={
+            "flex min-h-9 min-w-9 items-center justify-center text-xs font-semibold " +
+            (isToday(day)
+              ? "rounded-full bg-zinc-900 px-1.5 py-0.5 text-white"
+              : "text-zinc-700")
+          }
+        >
+          {format(day, "d")}
+        </button>
+        <div className="flex min-h-1.5 gap-0.5">
+          {events.slice(0, 3).map((event) => (
+            <span
+              key={event.id}
+              className={
+                "h-1.5 w-1.5 rounded-full " +
+                (event.isReminder ? "bg-amber-400" : "bg-[var(--vx-accent-600)]")
+              }
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
   return <div className={"min-h-28 border-b border-r border-zinc-200 p-2 " + (!currentMonth ? "bg-zinc-50 text-zinc-400" : "")}><button type="button" onClick={() => onDay(day)} className={"mb-1 text-xs font-semibold " + (isToday(day) ? "rounded-full bg-zinc-900 px-1.5 py-0.5 text-white" : "text-zinc-700")}>{format(day, "d")}</button><div className="space-y-1">{events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}{events.length > 3 && <div className="text-[11px] text-zinc-500">+{events.length - 3} more</div>}</div></div>;
 }
 
@@ -113,5 +217,5 @@ function YearView({ date, eventsFor, onMonth }: { date: Date; eventsFor: (day: D
 
 function EventDialog({ initialDate, event, onClose, canDelete = true }: { initialDate: string; event?: CalendarEventItem; onClose: () => void; canDelete?: boolean }) {
   const action = event ? updateCalendarEvent.bind(null, event.id) : createCalendarEvent;
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"><div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{event ? "Edit event" : "Add event"}</h2><button type="button" onClick={onClose} className="text-zinc-500 hover:text-zinc-900" aria-label="Close">×</button></div><form action={async (fd) => { const date = String(fd.get("date") ?? ""); const startTime = String(fd.get("startTime") || "09:00"); const endTime = String(fd.get("endTime") || ""); const allDay = fd.get("allDay") === "on"; const start = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}`); if (!Number.isNaN(start.getTime())) fd.set("startsAtISO", start.toISOString()); if (endTime) { const end = new Date(`${date}T${endTime}`); if (!Number.isNaN(end.getTime())) fd.set("endsAtISO", end.toISOString()); } await action(fd); onClose(); }} className="space-y-4"><Field label="Title *"><Input name="title" required defaultValue={event?.title ?? ""} autoFocus /></Field><div className="grid grid-cols-2 gap-3"><Field label="Date *"><Input name="date" type="date" required defaultValue={initialDate} /></Field><Field label="Start time"><Input name="startTime" type="time" defaultValue={event && !event.allDay ? format(eventDate(event), "HH:mm") : "09:00"} /></Field><Field label="End time"><Input name="endTime" type="time" defaultValue={event?.endsAt ? format(new Date(event.endsAt), "HH:mm") : ""} /></Field></div><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="allDay" defaultChecked={event?.allDay} /> All day</label><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="isReminder" defaultChecked={event?.isReminder} /> Reminder</label><Field label="Notes"><Textarea name="notes" rows={3} defaultValue={event?.notes ?? ""} /></Field><div className="flex justify-between"><div>{event && canDelete && <button type="button" onClick={async () => { await deleteCalendarEvent(event.id); onClose(); }} className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Delete</button>}</div><div className="flex gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><SaveButton>Save</SaveButton></div></div></form></div></div>;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"><div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{event ? "Edit event" : "Add event"}</h2><button type="button" onClick={onClose} className="text-zinc-500 hover:text-zinc-900" aria-label="Close">×</button></div><form action={async (fd) => { const date = String(fd.get("date") ?? ""); const startTime = String(fd.get("startTime") || "09:00"); const endTime = String(fd.get("endTime") || ""); const allDay = fd.get("allDay") === "on"; const start = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}`); if (!Number.isNaN(start.getTime())) fd.set("startsAtISO", start.toISOString()); if (endTime) { const end = new Date(`${date}T${endTime}`); if (!Number.isNaN(end.getTime())) fd.set("endsAtISO", end.toISOString()); } await action(fd); onClose(); }} className="space-y-4"><Field label="Title *"><Input name="title" required defaultValue={event?.title ?? ""} autoFocus /></Field><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><Field label="Date *"><Input name="date" type="date" required defaultValue={initialDate} /></Field><Field label="Start time"><Input name="startTime" type="time" defaultValue={event && !event.allDay ? format(eventDate(event), "HH:mm") : "09:00"} /></Field><Field label="End time"><Input name="endTime" type="time" defaultValue={event?.endsAt ? format(new Date(event.endsAt), "HH:mm") : ""} /></Field></div><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="allDay" defaultChecked={event?.allDay} /> All day</label><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="isReminder" defaultChecked={event?.isReminder} /> Reminder</label><Field label="Notes"><Textarea name="notes" rows={3} defaultValue={event?.notes ?? ""} /></Field><div className="flex justify-between"><div>{event && canDelete && <button type="button" onClick={async () => { await deleteCalendarEvent(event.id); onClose(); }} className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Delete</button>}</div><div className="flex gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><SaveButton>Save</SaveButton></div></div></form></div></div>;
 }
