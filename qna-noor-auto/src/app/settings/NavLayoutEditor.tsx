@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, SegmentedControl } from "@/components/ui";
 import {
   type NavCatalogItem,
   type NavLayout,
@@ -46,12 +46,13 @@ export function NavLayoutEditor({
       nextItems[targetIndex],
       nextItems[index],
     ];
-    setCurrent({ items: nextItems });
+    setCurrent({ ...current, items: nextItems });
   };
 
   const toggle = (item: NavCatalogItem) => {
     if (item.required) return;
     setCurrent({
+      ...current,
       items: current.items.map((entry) =>
         entry.href === item.href
           ? { ...entry, visible: !entry.visible }
@@ -68,9 +69,41 @@ export function NavLayoutEditor({
   return (
     <div className="space-y-4 p-6">
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Choose which sidebar items you see and arrange them in the order you
+        Choose which navigation items you see and arrange them in the order you
         prefer.
       </p>
+      <div className="flex flex-wrap items-center gap-4">
+        <SegmentedControl
+          label="Layout"
+          value={current.mode}
+          options={[
+            { value: "sidebar", label: "Sidebar" },
+            { value: "top", label: "Top bar" },
+          ]}
+          onChange={(mode) =>
+            setCurrent({
+              ...current,
+              mode: mode as NavLayout["mode"],
+            })
+          }
+        />
+        {current.mode === "top" && (
+          <SegmentedControl
+            label="Settings, Billing & Sign out"
+            value={current.utilities}
+            options={[
+              { value: "top", label: "Top right" },
+              { value: "bottom", label: "Bottom of page" },
+            ]}
+            onChange={(utilities) =>
+              setCurrent({
+                ...current,
+                utilities: utilities as NavLayout["utilities"],
+              })
+            }
+          />
+        )}
+      </div>
       <div className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
         {orderedItems.map(({ entry, item }, index) => (
           <div
@@ -91,6 +124,7 @@ export function NavLayoutEditor({
                   onChange={(event) => {
                     const label = event.target.value;
                     setCurrent({
+                      ...current,
                       items: current.items.map((currentEntry) =>
                         currentEntry.href === entry.href
                           ? {
@@ -117,6 +151,7 @@ export function NavLayoutEditor({
                   className="dark:text-zinc-300 dark:hover:bg-zinc-800"
                   onClick={() =>
                     setCurrent({
+                      ...current,
                       items: current.items.map((currentEntry) =>
                         currentEntry.href === entry.href
                           ? { ...currentEntry, label: undefined }
