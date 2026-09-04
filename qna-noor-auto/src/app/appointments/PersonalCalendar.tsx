@@ -73,7 +73,7 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
           </div>
         </div>
       </div>
-      {view === "month" && <MonthView date={selectedDate} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
+      {view === "month" && <MonthView key={ymd(startOfMonth(selectedDate))} date={selectedDate} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
       {view === "week" && <WeekView date={rangeAnchor} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
       {view === "day" && <DayView date={selectedDate} events={eventsFor(selectedDate)} onAdd={() => setDialog({ date })} onEvent={(event) => setDialog({ date, event })} />}
       {view === "year" && <YearView date={selectedDate} eventsFor={eventsFor} onMonth={(month) => window.location.href = href("month", month)} />}
