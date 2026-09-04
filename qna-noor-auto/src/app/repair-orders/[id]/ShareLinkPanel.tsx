@@ -13,9 +13,10 @@ export function ShareLinkPanel({
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setHref(`${window.location.origin}${pathPrefix}${token}`);
-    }
+    if (typeof window === "undefined") return;
+    const nextHref = `${window.location.origin}${pathPrefix}${token}`;
+    const frame = window.requestAnimationFrame(() => setHref(nextHref));
+    return () => window.cancelAnimationFrame(frame);
   }, [token, pathPrefix]);
 
   async function copy() {
@@ -38,12 +39,12 @@ export function ShareLinkPanel({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap gap-2">
       <input
         readOnly
         value={href}
         onFocus={(e) => e.currentTarget.select()}
-        className="flex-1 min-w-0 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm font-mono text-zinc-700"
+        className="min-w-0 flex-1 basis-full sm:basis-auto rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm font-mono text-zinc-700"
       />
       <button
         type="button"

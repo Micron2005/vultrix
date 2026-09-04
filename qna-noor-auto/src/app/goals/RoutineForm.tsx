@@ -178,10 +178,13 @@ export function RoutineForm({
             <Textarea
               name="items"
               defaultValue={initial?.items ?? ""}
-              placeholder="Drink water&#10;Go for a walk"
+              placeholder={"Drink water\nSquats x4 rest 90"}
               className="mt-1"
               rows={4}
             />
+            <p className="mt-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+              Tip: &quot;Squats x4 rest 90&quot; makes 4 sets with a 90-second rest timer.
+            </p>
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
             <input

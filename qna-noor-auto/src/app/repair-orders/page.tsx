@@ -166,7 +166,7 @@ export default async function RepairOrdersPage({
         title={nouns.plural}
         description={`All ${nouns.plural.toLowerCase()} across the shop`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {user.role !== "STAFF" && enabledFeatureSet(user).has("invoices") && (
               <LinkButton href="/repair-orders/recurring" variant="secondary">
                 Recurring {nouns.plural}
@@ -265,7 +265,8 @@ export default async function RepairOrdersPage({
         />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">RO #</th>
@@ -313,7 +314,8 @@ export default async function RepairOrdersPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
     </>

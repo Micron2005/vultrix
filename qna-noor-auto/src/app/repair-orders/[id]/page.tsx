@@ -837,7 +837,8 @@ export default async function RepairOrderDetailPage({
               Auto-applied percentage fees. Remove any that don&apos;t apply to this job.
             </span>
           </CardHeader>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">Fee</th>
@@ -909,7 +910,8 @@ export default async function RepairOrderDetailPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
 
@@ -926,7 +928,8 @@ export default async function RepairOrderDetailPage({
           </span>
         </CardHeader>
         {ro.payments.length > 0 && (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium w-28">Date</th>
@@ -974,7 +977,8 @@ export default async function RepairOrderDetailPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
         {preInvoice && canManagePayments(user.role) && (
           <div className="border-t border-zinc-200 bg-zinc-50 p-3 text-sm">
@@ -1017,9 +1021,9 @@ export default async function RepairOrderDetailPage({
         {canManagePayments(user.role) && balance > 0 && (
           <form
             action={recordPay}
-            className="p-3 border-t border-zinc-200 grid grid-cols-12 gap-2 items-end bg-zinc-50"
+            className="p-3 border-t border-zinc-200 grid grid-cols-2 sm:grid-cols-12 gap-2 items-end bg-zinc-50"
           >
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <Field label="Amount">
                 <Input
                   key={`${preInvoice}-${balance.toFixed(2)}`}
@@ -1031,7 +1035,7 @@ export default async function RepairOrderDetailPage({
                 />
               </Field>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <Field label="Method">
                 <Select name="method" defaultValue="CASH">
                   <option value="CASH">Cash</option>
@@ -1043,7 +1047,7 @@ export default async function RepairOrderDetailPage({
               </Field>
             </div>
             {preInvoice && (
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <Field label="Apply as">
                   <Select name="kind" defaultValue="deposit">
                     <option value="deposit">
@@ -1054,7 +1058,7 @@ export default async function RepairOrderDetailPage({
                 </Field>
               </div>
             )}
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <Field label="Date">
                 <Input
                   name="paidAt"
@@ -1063,17 +1067,17 @@ export default async function RepairOrderDetailPage({
                 />
               </Field>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <Field label="Reference">
                 <Input name="reference" placeholder="check # / last 4" />
               </Field>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <Field label="Note">
                 <Input name="note" placeholder="optional" />
               </Field>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 sm:col-span-2">
               <Button type="submit" className="w-full">
                 Record payment
               </Button>

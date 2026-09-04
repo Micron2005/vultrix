@@ -11,6 +11,7 @@ import {
   type DashboardBlockId,
   type DashboardLayout,
 } from "@/lib/dashboard";
+import { resolveNavLayout } from "@/lib/navLayout";
 import { DashboardGrid } from "./DashboardGrid";
 import { GoalsBlock } from "./dashboard-blocks/GoalsBlock";
 import { LowStockBlock } from "./dashboard-blocks/LowStockBlock";
@@ -26,6 +27,8 @@ import { VehiclesDueBlock } from "./dashboard-blocks/VehiclesDueBlock";
 import { TechHoursBlock } from "./dashboard-blocks/TechHoursBlock";
 import { OutstandingBlock } from "./dashboard-blocks/OutstandingBlock";
 import { RecentRecordsBlock } from "./dashboard-blocks/RecentRecordsBlock";
+import { GetStartedCard } from "./dashboard-blocks/GetStartedCard";
+import { loadOnboarding } from "@/lib/onboarding";
 
 type SearchParams = Promise<{
   customize?: string | string[];
@@ -239,16 +242,17 @@ export async function Dashboard({
   searchParams: SearchParams;
 }) {
   const orgId = user.orgId as string;
-  const [timezone, layoutRecord, orgRecord] = await Promise.all([
+  const [timezone, layoutRecord, orgRecord, onboarding] = await Promise.all([
     orgTimeZone(orgId),
     db.user.findUnique({
       where: { id: user.id },
-      select: { dashLayout: true },
+      select: { dashLayout: true, navLayout: true },
     }),
     db.organization.findUnique({
       where: { id: orgId },
-      select: { dashDefault: true },
+      select: { dashDefault: true, navDefault: true },
     }),
+    loadOnboarding(user),
   ]);
   const features = enabledFeatureSet(user);
   const context: DashboardContext = {
@@ -270,6 +274,21 @@ export async function Dashboard({
     orgRecord?.dashDefault,
     user.accountType,
   );
+  const navLayout = resolveNavLayout(
+    layoutRecord?.navLayout,
+    orgRecord?.navDefault,
+    {
+      accountType: user.accountType,
+      enabledFeatures: features,
+    },
+  );
+  const renderedLayout =
+    navLayout.mode === "top"
+      ? {
+          ...layout,
+          blocks: layout.blocks.map((block) => ({ ...block, visible: true })),
+        }
+      : layout;
   const accountDefaultLayout = resolveDashboardLayout(
     null,
     orgRecord?.dashDefault,
@@ -283,7 +302,7 @@ export async function Dashboard({
     hasRequiredFeatures(block.id, block.requires, context),
   );
   const availableIds = new Set(available.map((block) => block.id));
-  const renderableBlocks = layout.blocks.filter(
+  const renderableBlocks = renderedLayout.blocks.filter(
     (block) => availableIds.has(block.id) && (editing || block.visible),
   );
   const nodes = await Promise.all(
@@ -346,12 +365,14 @@ export async function Dashboard({
           </>
         }
       />
+      {!editing && onboarding && <GetStartedCard {...onboarding} />}
       <DashboardGrid
-        layout={layout}
+        layout={renderedLayout}
         resetLayout={accountDefaultLayout}
         blocks={blockDescriptors}
         editing={editing}
         defaultGreeting={defaultGreeting}
+        allowHide={navLayout.mode !== "top"}
       />
     </>
   );

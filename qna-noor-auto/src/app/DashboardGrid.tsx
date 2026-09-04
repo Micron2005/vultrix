@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Button, LinkButton } from "@/components/ui";
+import { Button, LinkButton, SegmentedControl } from "@/components/ui";
 import {
   type DashboardBlockId,
   type DashboardBlockDefinition,
@@ -21,53 +21,20 @@ type DashboardBlock = {
   collapsed: boolean;
 };
 
-function SegmentedControl({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-      <span className="text-xs font-medium text-zinc-600">{label}</span>
-      <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={
-              value === option.value
-                ? "min-h-9 bg-[var(--vx-accent-600)] px-3 py-2 text-xs font-medium text-[var(--vx-accent-fg)]"
-                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
-            }
-            onClick={() => onChange(option.value)}
-            aria-pressed={value === option.value}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function DashboardGrid({
   layout,
   resetLayout,
   blocks,
   editing,
   defaultGreeting,
+  allowHide = true,
 }: {
   layout: DashboardLayout;
   resetLayout: DashboardLayout;
   blocks: DashboardBlock[];
   editing: boolean;
   defaultGreeting: string;
+  allowHide?: boolean;
 }) {
   const [current, setCurrent] = useState(layout);
   const blockById = new Map(blocks.map((block) => [block.id, block]));
@@ -149,6 +116,12 @@ export function DashboardGrid({
               <p className="mt-1 text-xs text-zinc-500">
                 Choose which cards you see and arrange them in the order you prefer.
               </p>
+              {!allowHide && (
+                <p className="mt-1 text-xs text-zinc-500">
+                  All cards are shown in the top-bar layout. Switch back to the
+                  sidebar in Settings → Navigation to hide cards.
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <SegmentedControl
@@ -315,15 +288,17 @@ export function DashboardGrid({
                   >
                     ↓
                   </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="min-h-9"
-                    onClick={() => toggle(entry.id)}
-                  >
-                    {entry.visible ? "Hide" : "Show"}
-                  </Button>
+                  {allowHide && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="min-h-9"
+                      onClick={() => toggle(entry.id)}
+                    >
+                      {entry.visible ? "Hide" : "Show"}
+                    </Button>
+                  )}
                   {current.columns > 1 && (
                     <>
                       <Button

@@ -475,7 +475,8 @@ export default async function ExpensesListPage({
             />
           ) : (
             <Card className="mb-4">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
                   <tr>
                     <th className="px-4 py-2 font-medium">Date</th>
@@ -511,7 +512,8 @@ export default async function ExpensesListPage({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </Card>
           )}
         </>
@@ -604,7 +606,8 @@ export default async function ExpensesListPage({
         />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">Date</th>
@@ -662,7 +665,8 @@ export default async function ExpensesListPage({
                 </td>
               </tr>
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
     </>

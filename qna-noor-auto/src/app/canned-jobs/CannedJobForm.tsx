@@ -215,9 +215,9 @@ export function CannedJobForm({
             {labor.map((row) => (
               <div
                 key={row.key}
-                className="grid grid-cols-12 gap-2 items-end"
+                className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end"
               >
-                <div className="col-span-7">
+                <div className="col-span-2 sm:col-span-7">
                   <Input
                     name="laborDescription[]"
                     placeholder="Replace front brake pads"
@@ -227,7 +227,7 @@ export function CannedJobForm({
                     }
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <Input
                     name="laborHours[]"
                     type="number"
@@ -239,7 +239,7 @@ export function CannedJobForm({
                     }
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <Input
                     name="laborRate[]"
                     type="number"
@@ -251,7 +251,7 @@ export function CannedJobForm({
                     }
                   />
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-2 sm:col-span-1">
                   <Button
                     type="button"
                     variant="ghost"
@@ -308,8 +308,8 @@ export function CannedJobForm({
                     }
                   />
                 </Field>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-5">
+                <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                  <div className="col-span-2 sm:col-span-5">
                     <Field label="Catalog (optional)">
                       <Select
                         name="partId[]"
@@ -328,7 +328,7 @@ export function CannedJobForm({
                       </Select>
                     </Field>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-1 sm:col-span-3">
                     <Field label="Part #">
                       <Input
                         name="partNumber[]"
@@ -340,7 +340,7 @@ export function CannedJobForm({
                       />
                     </Field>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1 sm:col-span-2">
                     <Field label="Qty">
                       <Input
                         name="partQty[]"
@@ -354,7 +354,7 @@ export function CannedJobForm({
                       />
                     </Field>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1 sm:col-span-2">
                     <Field label="Price">
                       <Input
                         name="partUnitPrice[]"
@@ -389,9 +389,9 @@ export function CannedJobForm({
             {fees.map((row) => (
               <div
                 key={row.key}
-                className="grid grid-cols-12 gap-2 items-end"
+                className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end"
               >
-                <div className="col-span-9">
+                <div className="col-span-2 sm:col-span-9">
                   <Input
                     name="feeDescription[]"
                     placeholder="Shop supplies, disposal fee, diagnostic fee"
@@ -401,7 +401,7 @@ export function CannedJobForm({
                     }
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <Input
                     name="feeAmount[]"
                     type="number"
@@ -413,7 +413,7 @@ export function CannedJobForm({
                     }
                   />
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-2 sm:col-span-1">
                   <Button
                     type="button"
                     variant="ghost"

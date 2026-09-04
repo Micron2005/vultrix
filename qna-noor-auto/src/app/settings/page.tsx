@@ -55,6 +55,7 @@ import {
   publishDashboardDefault,
   publishNavDefault,
 } from "./default-actions";
+import { resetOnboarding } from "@/app/onboarding-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -317,8 +318,27 @@ export default async function SettingsPage({
           resetPrefs={accountDefaultAppearance}
         />
       </Card>
+      {canManageOrgSettings && (
+        <Card className="mb-6 max-w-2xl">
+          <CardHeader title="Get started checklist" />
+          <div className="flex items-center justify-between gap-4 p-6">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {org.onboardingDismissedAt
+                ? "The checklist is hidden from your dashboard."
+                : "Showing on the dashboard until every step is done."}
+            </p>
+            {org.onboardingDismissedAt && (
+              <form action={resetOnboarding}>
+                <Button type="submit" variant="secondary">
+                  Show again
+                </Button>
+              </form>
+            )}
+          </div>
+        </Card>
+      )}
       <Card className="mb-6 max-w-2xl">
-        <CardHeader title="Sidebar" />
+        <CardHeader title="Navigation" />
         <NavLayoutEditor
           initialLayout={navLayout}
           resetLayout={accountDefaultNavLayout}
@@ -335,7 +355,7 @@ export default async function SettingsPage({
               </div>
             )}
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Publish your current appearance, sidebar, or dashboard as the
+              Publish your current appearance, navigation, or dashboard as the
               default for everyone in this account.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -347,7 +367,7 @@ export default async function SettingsPage({
               </form>
               <form action={publishNavDefault} className="space-y-1">
                 <Button type="submit" className="w-full">
-                  Publish sidebar
+                  Publish navigation
                 </Button>
                 <DefaultStatus set={Boolean(org.navDefault)} />
               </form>
@@ -366,7 +386,7 @@ export default async function SettingsPage({
               </form>
               <form action={clearNavDefault}>
                 <Button type="submit" variant="ghost" className="w-full">
-                  Clear sidebar
+                  Clear navigation
                 </Button>
               </form>
               <form action={clearDashboardDefault}>
