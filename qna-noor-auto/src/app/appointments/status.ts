@@ -1,5 +1,7 @@
 export function statusBadgeClass(status: string): string {
   switch (status) {
+    case "REQUESTED":
+      return "bg-purple-100 text-purple-800";
     case "SCHEDULED":
       return "bg-zinc-200 text-zinc-800";
     case "CONFIRMED":

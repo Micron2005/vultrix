@@ -8,6 +8,8 @@ import { requireOrgId, requireUser } from "@/lib/session";
 import { getNextRoNumber, getSetting } from "@/lib/shop";
 import { APPOINTMENT_STATUSES } from "./constants";
 import { assertCanDelete } from "@/lib/permissions";
+import { dateTimeInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 const AppointmentSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
@@ -20,11 +22,9 @@ const AppointmentSchema = z.object({
   status: z.string().optional().nullable(),
 });
 
-function toData(fd: FormData) {
+function toData(fd: FormData, timezone: string) {
   const raw = AppointmentSchema.parse(Object.fromEntries(fd.entries()));
-  // Combine date + time (local) into a Date instance. SQLite stores as UTC.
-  // We pass the wall-clock into new Date() as a local-time string.
-  const dt = new Date(`${raw.date}T${raw.time}`);
+  const dt = dateTimeInputInTimeZone(raw.date, raw.time, timezone);
   if (Number.isNaN(dt.getTime())) {
     throw new Error("Invalid date/time");
   }
@@ -49,7 +49,7 @@ function toData(fd: FormData) {
 
 export async function createAppointment(fd: FormData) {
   const orgId = await requireOrgId();
-  const data = toData(fd);
+  const data = toData(fd, await orgTimeZone(orgId));
   // Guard: customer (and vehicle, if any) must belong to this org.
   const customer = await db.customer.findFirst({
     where: { id: data.customerId, orgId },
@@ -71,7 +71,7 @@ export async function createAppointment(fd: FormData) {
 
 export async function updateAppointment(id: string, fd: FormData) {
   const orgId = await requireOrgId();
-  const data = toData(fd);
+  const data = toData(fd, await orgTimeZone(orgId));
   await db.appointment.updateMany({ where: { id, orgId }, data });
   revalidatePath("/appointments");
   revalidatePath(`/appointments/${id}`);

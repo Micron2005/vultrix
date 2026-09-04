@@ -58,7 +58,7 @@ export function AppointmentForm({
             )}
           </Select>
           <p className="mt-1 text-xs text-zinc-500">
-            Leave blank if the vehicle isn't on file yet — you can assign it
+            Leave blank if the vehicle isn&apos;t on file yet — you can assign it
             later.
           </p>
         </Field>
@@ -120,6 +120,8 @@ export function AppointmentForm({
 
 export function prettyStatus(s: string): string {
   switch (s) {
+    case "REQUESTED":
+      return "Requested";
     case "SCHEDULED":
       return "Scheduled";
     case "CONFIRMED":

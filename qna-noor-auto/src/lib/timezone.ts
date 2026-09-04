@@ -118,3 +118,49 @@ export function dateInputInTimeZone(
   );
   return new Date(naiveUtc - (renderedUtc - naiveUtc));
 }
+
+/**
+ * Interpret an HTML date and time pair as a wall-clock value in the given
+ * timezone. This keeps appointment requests consistent across server hosts.
+ */
+export function dateTimeInputInTimeZone(
+  dateValue: string | null | undefined,
+  timeValue: string | null | undefined,
+  timeZone: string,
+  fallback = new Date(Number.NaN),
+): Date {
+  if (!isDateInput(dateValue ?? "")) return fallback;
+  const timeMatch = String(timeValue ?? "")
+    .trim()
+    .match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!timeMatch) return fallback;
+  const [year, month, day] = dateValue!.split("-").map(Number);
+  const hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  const naiveUtc = Date.UTC(year, month - 1, day, hour, minute);
+  if (!Number.isFinite(naiveUtc)) return fallback;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: safeTimeZone(timeZone),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(new Date(naiveUtc))
+    .reduce<Record<string, string>>((result, part) => {
+      if (part.type !== "literal") result[part.type] = part.value;
+      return result;
+    }, {});
+  const renderedUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return new Date(naiveUtc - (renderedUtc - naiveUtc));
+}

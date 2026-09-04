@@ -104,8 +104,8 @@ export default async function CustomerPortalROPage({
         </div>
 
         <div className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <header className="px-8 py-6 border-b border-zinc-200">
-            <div className="flex items-start justify-between gap-4">
+          <header className="px-4 py-6 sm:px-8 border-b border-zinc-200">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="text-lg font-semibold text-zinc-900">
                   {shop.shopName}
@@ -123,7 +123,7 @@ export default async function CustomerPortalROPage({
                   </div>
                 )}
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <div className="text-xs uppercase tracking-wider text-zinc-500">
                   {ro.status === "PAID"
                     ? "Receipt"
@@ -141,7 +141,7 @@ export default async function CustomerPortalROPage({
             </div>
           </header>
 
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-8 py-6 border-b border-zinc-200 text-sm">
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-4 py-6 sm:px-8 border-b border-zinc-200 text-sm">
             <div>
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                 Prepared for
@@ -192,7 +192,7 @@ export default async function CustomerPortalROPage({
           </section>
 
           {ro.complaint && (
-            <section className="px-8 py-6 border-b border-zinc-200 text-sm">
+            <section className="px-4 py-6 sm:px-8 border-b border-zinc-200 text-sm">
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                 Concern
               </div>
@@ -203,7 +203,7 @@ export default async function CustomerPortalROPage({
           )}
 
           {ro.correction && (
-            <section className="px-8 py-6 border-b border-zinc-200 text-sm">
+            <section className="px-4 py-6 sm:px-8 border-b border-zinc-200 text-sm">
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                 Work performed
               </div>
@@ -214,7 +214,7 @@ export default async function CustomerPortalROPage({
           )}
 
           {ro.jobs.map((job) => (
-            <section key={job.id} className="px-8 py-4 border-b border-zinc-200">
+            <section key={job.id} className="px-4 py-4 sm:px-8 border-b border-zinc-200">
               <div className="text-sm font-semibold text-zinc-900 mb-3">{job.name}</div>
               {job.notes && (
                 <p className="mb-3 whitespace-pre-wrap text-sm text-zinc-600">
@@ -224,7 +224,8 @@ export default async function CustomerPortalROPage({
               {job.laborLines.length > 0 && (
                 <div className="mb-3">
                   <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Labor</div>
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-zinc-500">
                         <th className="py-1">Description</th>
@@ -243,13 +244,15 @@ export default async function CustomerPortalROPage({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               )}
               {job.partLines.length > 0 && (
                 <div className="mb-3">
                   <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Parts</div>
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-zinc-500">
                         <th className="py-1">Description</th>
@@ -268,13 +271,15 @@ export default async function CustomerPortalROPage({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               )}
               {job.feeLines.length > 0 && (
                 <div>
                   <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fees</div>
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-zinc-500">
                         <th className="py-1">Description</th>
@@ -289,7 +294,8 @@ export default async function CustomerPortalROPage({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>
@@ -302,14 +308,15 @@ export default async function CustomerPortalROPage({
             const uF = ro.feeLines.filter((f) => !f.jobId);
             if (!uL.length && !uP.length && !uF.length) return null;
             return (
-              <section className="px-8 py-4 border-b border-zinc-200">
+              <section className="px-4 py-4 sm:px-8 border-b border-zinc-200">
                 {ro.jobs.length > 0 && (
                   <div className="text-sm font-semibold text-zinc-900 mb-3">Other Items</div>
                 )}
                 {uL.length > 0 && (
                   <div className="mb-3">
                     <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Labor</div>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
                       <thead>
                         <tr className="text-left text-xs text-zinc-500">
                           <th className="py-1">Description</th>
@@ -328,13 +335,15 @@ export default async function CustomerPortalROPage({
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                      </table>
+                    </div>
                   </div>
                 )}
                 {uP.length > 0 && (
                   <div className="mb-3">
                     <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Parts</div>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
                       <thead>
                         <tr className="text-left text-xs text-zinc-500">
                           <th className="py-1">Description</th>
@@ -353,13 +362,15 @@ export default async function CustomerPortalROPage({
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                      </table>
+                    </div>
                   </div>
                 )}
                 {uF.length > 0 && (
                   <div>
                     <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fees</div>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
                       <thead>
                         <tr className="text-left text-xs text-zinc-500">
                           <th className="py-1">Description</th>
@@ -374,14 +385,15 @@ export default async function CustomerPortalROPage({
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                      </table>
+                    </div>
                   </div>
                 )}
               </section>
             );
           })()}
 
-          <section className="px-8 py-4 border-b border-zinc-200">
+          <section className="px-4 py-4 sm:px-8 border-b border-zinc-200">
             <div className="flex justify-end">
               <dl className="w-72 text-sm space-y-1">
                 <div className="flex justify-between text-zinc-600">
@@ -439,11 +451,12 @@ export default async function CustomerPortalROPage({
           </section>
 
           {ro.payments.length > 0 && (
-            <section className="px-8 py-4 border-b border-zinc-200">
+            <section className="px-4 py-4 sm:px-8 border-b border-zinc-200">
               <div className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
                 Payments received
               </div>
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="text-left text-xs text-zinc-500">
                     <th className="py-1">Date</th>
@@ -470,7 +483,8 @@ export default async function CustomerPortalROPage({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </section>
           )}
 
@@ -479,7 +493,7 @@ export default async function CustomerPortalROPage({
             depositInfo.due > 0 ||
             sp.paid ||
             sp.payerror) && (
-            <section className="px-8 py-4">
+            <section className="px-4 py-4 sm:px-8">
               {sp.paid && (
                 <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
                   ✓ Thank you — your payment was received. It may take a moment
@@ -525,7 +539,7 @@ export default async function CustomerPortalROPage({
                 </dl>
               </div>
               {!isInvoiced && depositInfo.due > 0 && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm font-medium text-zinc-800">
                     Deposit requested: {formatMoney(depositInfo.due)}
                   </div>
@@ -534,7 +548,7 @@ export default async function CustomerPortalROPage({
                       <input type="hidden" name="kind" value="deposit" />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
                       >
                         Pay {formatMoney(depositInfo.due)} deposit
                       </button>
@@ -547,7 +561,7 @@ export default async function CustomerPortalROPage({
                   <form method="post" action={`/api/pay/${token}/${roId}`}>
                     <button
                       type="submit"
-                      className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
                     >
                       Pay {formatMoney(balance)} online
                     </button>

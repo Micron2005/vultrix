@@ -85,6 +85,12 @@ export default async function AppointmentDetailPage({
         }
       />
 
+      {appt.status === "REQUESTED" && (
+        <div className="mb-4 rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-800">
+          Requested by the customer through their portal — confirm or reschedule below.
+        </div>
+      )}
+
       <Card className="p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div>
@@ -155,7 +161,7 @@ export default async function AppointmentDetailPage({
           Actions
         </div>
         <div className="flex flex-wrap gap-2">
-          {appt.status === "SCHEDULED" && (
+          {(appt.status === "SCHEDULED" || appt.status === "REQUESTED") && (
             <form action={confirm}>
               <button
                 type="submit"

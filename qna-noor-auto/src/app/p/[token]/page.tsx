@@ -4,6 +4,7 @@ import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
+import { depositDue } from "@/lib/roTotal";
 import {
   formatDate,
   formatMoney,
@@ -11,11 +12,22 @@ import {
   vehicleLabel,
 } from "@/lib/utils";
 import { computeVehicleReminders } from "@/lib/serviceReminders";
+import { formatInTimeZone, localCalendarDay } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import { Field, Input, Select, Textarea } from "@/components/ui";
+import { requestAppointment } from "./actions";
+import { prettyStatus } from "@/app/appointments/AppointmentForm";
+import { statusBadgeClass } from "@/app/appointments/status";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ token: string }>;
-type Search = Promise<{ paid?: string; payerror?: string }>;
+type Search = Promise<{
+  paid?: string;
+  payerror?: string;
+  requested?: string;
+  requesterror?: string;
+}>;
 
 export default async function CustomerPortalPage({
   params,
@@ -50,6 +62,7 @@ export default async function CustomerPortalPage({
   if (!customer) notFound();
 
   const shop = await getAllSettings(customer.orgId);
+  const timezone = await orgTimeZone(customer.orgId);
   const org = await db.organization.findUnique({
     where: { id: customer.orgId },
     select: { stripeConnectChargesEnabled: true },
@@ -90,6 +103,27 @@ export default async function CustomerPortalPage({
       !ro.estimateDeclinedAt,
   );
 
+  const inShop = rosWithDerived.filter(
+    (ro) => ro.status === "IN_PROGRESS" || (ro.status === "ESTIMATE" && ro.approvedAt),
+  );
+  const inShopWithDeposits = await Promise.all(
+    inShop.map(async (ro) => ({ ro, depositInfo: await depositDue(ro.id) })),
+  );
+  const depositTotal = inShopWithDeposits.reduce(
+    (sum, item) => sum + item.depositInfo.due,
+    0,
+  );
+
+  const upcomingVisits = await db.appointment.findMany({
+    where: {
+      customerId: customer.id,
+      startsAt: { gte: new Date() },
+      status: { in: ["REQUESTED", "SCHEDULED", "CONFIRMED"] },
+    },
+    orderBy: { startsAt: "asc" },
+    include: { vehicle: true },
+  });
+
   const serviceHistory = rosWithDerived.filter(
     (ro) => ro.status === "PAID" || ro.status === "COMPLETED" || ro.status === "INVOICED",
   );
@@ -111,7 +145,7 @@ export default async function CustomerPortalPage({
     <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
       <div className="mx-auto max-w-4xl px-4 space-y-6">
         <header className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <div className="px-8 py-6 border-b border-zinc-200 flex items-start justify-between gap-4">
+          <div className="px-4 py-6 sm:px-8 border-b border-zinc-200 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="text-lg font-semibold text-zinc-900">
                 {shop.shopName}
@@ -127,7 +161,7 @@ export default async function CustomerPortalPage({
                 </div>
               )}
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <div className="text-xs uppercase tracking-wider text-zinc-500">
                 Welcome
               </div>
@@ -142,21 +176,66 @@ export default async function CustomerPortalPage({
         </header>
 
         {sp.paid && (
-          <section className="rounded-lg bg-green-50 border border-green-200 px-6 py-3 text-sm text-green-800">
+          <section className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 sm:px-6">
             ✓ Thank you — your payment was received. It may take a moment
             to update.
           </section>
         )}
         {sp.payerror && (
-          <section className="rounded-lg bg-red-50 border border-red-200 px-6 py-3 text-sm text-red-700">
+          <section className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 sm:px-6">
             Sorry, we couldn&apos;t start the payment. Please try again or
             contact the shop.
           </section>
         )}
 
+        {depositTotal > 0 && (
+          <section className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-amber-900 font-semibold">
+                  Deposit requested
+                </div>
+                <div className="mt-1 text-2xl font-semibold text-amber-900 tabular-nums">
+                  {formatMoney(depositTotal)}
+                </div>
+                {!canPayOnline && (
+                  <div className="mt-1 text-xs text-amber-800">
+                    Contact the shop to pay your deposit.
+                  </div>
+                )}
+              </div>
+              <div className="w-full space-y-2 sm:w-auto">
+                {inShopWithDeposits
+                  .filter(({ depositInfo }) => depositInfo.due > 0)
+                  .map(({ ro, depositInfo }) => (
+                    <div
+                      key={ro.id}
+                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                      <span className="text-sm text-amber-900">
+                        {ro.vehicle ? vehicleLabel(ro.vehicle) : `RO #${ro.roNumber}`}
+                      </span>
+                      {canPayOnline && (
+                        <form method="post" action={`/api/pay/${token}/${ro.id}`}>
+                          <input type="hidden" name="kind" value="deposit" />
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                          >
+                            Pay {formatMoney(depositInfo.due)} deposit
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {totalOutstanding > 0 && (
-          <section className="rounded-lg bg-amber-50 border border-amber-300 px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
+          <section className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wider text-amber-900 font-semibold">
                   Balance due
@@ -173,7 +252,7 @@ export default async function CustomerPortalPage({
                 <form method="post" action={`/api/pay/${token}/all`}>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
                   >
                     Pay all {formatMoney(totalOutstanding)}
                   </button>
@@ -186,7 +265,7 @@ export default async function CustomerPortalPage({
                 >
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
                   >
                     Pay {formatMoney(totalOutstanding)} online
                   </button>
@@ -198,14 +277,14 @@ export default async function CustomerPortalPage({
 
         {pendingEstimates.length > 0 && (
           <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
               Pending estimates ({pendingEstimates.length})
             </div>
             <ul className="divide-y divide-zinc-200">
               {pendingEstimates.map((ro) => (
                 <li
                   key={ro.id}
-                  className="px-6 py-4 flex items-center justify-between gap-4"
+                  className="px-4 py-4 sm:px-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <div className="text-sm font-medium text-zinc-900">
@@ -232,14 +311,161 @@ export default async function CustomerPortalPage({
           </section>
         )}
 
+        {inShop.length > 0 && (
+          <section className="rounded-lg bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+              In the shop now ({inShop.length})
+            </div>
+            <ul className="divide-y divide-zinc-200">
+              {inShop.map((ro) => {
+                const depositInfo = inShopWithDeposits.find((item) => item.ro.id === ro.id)?.depositInfo;
+                return (
+                  <li
+                    key={ro.id}
+                    className="px-4 py-4 sm:px-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-zinc-900">
+                        {ro.vehicle ? vehicleLabel(ro.vehicle) : `RO #${ro.roNumber}`}
+                      </div>
+                      {ro.complaint && (
+                        <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
+                          {ro.complaint}
+                        </div>
+                      )}
+                      <div className="mt-0.5 text-xs text-zinc-500">
+                        Opened {formatDate(ro.openedAt)} · {formatMoney(ro.total)}
+                        {depositInfo && depositInfo.paid > 0 && ` · Deposit paid ${formatMoney(depositInfo.paid)}`}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/p/${token}/ro/${ro.id}`}
+                      className="inline-flex min-h-9 items-center self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50 sm:self-auto"
+                    >
+                      View →
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {upcomingVisits.length > 0 && (
+          <section className="rounded-lg bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+              Upcoming visits
+            </div>
+            <ul className="divide-y divide-zinc-200">
+              {upcomingVisits.map((appointment) => (
+                <li key={appointment.id} className="px-4 py-4 sm:px-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-sm font-medium text-zinc-900">
+                      {formatInTimeZone(appointment.startsAt, timezone, {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                    <span
+                      className={
+                        "rounded-full px-2 py-0.5 text-xs font-semibold " +
+                        statusBadgeClass(appointment.status)
+                      }
+                    >
+                      {appointment.status === "REQUESTED"
+                        ? "Requested — we'll confirm"
+                        : prettyStatus(appointment.status)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-700">{appointment.reason}</div>
+                  {appointment.vehicle && (
+                    <div className="mt-0.5 text-xs text-zinc-500">
+                      {vehicleLabel(appointment.vehicle)}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {sp.requested && (
+          <section className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 sm:px-6">
+            Thanks — we got your request and will confirm shortly.
+          </section>
+        )}
+        {sp.requesterror && (
+          <section className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:px-6">
+            We couldn&apos;t submit your request. Please check the form and try again.
+          </section>
+        )}
+
+        <section className="rounded-lg bg-white shadow-sm overflow-hidden">
+          <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            Request an appointment
+          </div>
+          <form action={requestAppointment} className="space-y-4 px-4 py-4 sm:px-6">
+            <input type="hidden" name="token" value={token} />
+            <Field label="Vehicle (optional)">
+              <Select name="vehicleId" defaultValue="">
+                <option value="">Not sure / new vehicle</option>
+                {customer.vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicleLabel(vehicle)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Date *">
+                <Input
+                  type="date"
+                  name="date"
+                  required
+                  min={localCalendarDay(new Date(), timezone)}
+                  defaultValue={localCalendarDay(new Date(), timezone)}
+                />
+              </Field>
+              <Field label="Time *">
+                <Select name="time" required defaultValue="09:00">
+                  <option value="09:00">Morning (9:00 AM)</option>
+                  <option value="12:00">Midday (12:00 PM)</option>
+                  <option value="15:00">Afternoon (3:00 PM)</option>
+                </Select>
+              </Field>
+            </div>
+            <Field label="What do you need? *">
+              <Input
+                name="reason"
+                required
+                maxLength={120}
+                placeholder="What do you need? e.g. Oil change, brake noise"
+              />
+            </Field>
+            <Field label="Notes (optional)">
+              <Textarea name="notes" maxLength={1000} rows={3} />
+            </Field>
+            <button
+              type="submit"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+            >
+              Request appointment
+            </button>
+          </form>
+        </section>
+
         {dueVehicles.length > 0 && (
           <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
               Recommended next service
             </div>
             <ul className="divide-y divide-zinc-200">
               {dueVehicles.map((r) => (
-                <li key={r.vehicle.id} className="px-6 py-4">
+                <li key={r.vehicle.id} className="px-4 py-4 sm:px-6">
                   <div className="text-sm font-medium text-zinc-900">
                     {vehicleLabel(r.vehicle)}
                     {r.vehicle.licensePlate && (
@@ -279,7 +505,7 @@ export default async function CustomerPortalPage({
                 </li>
               ))}
             </ul>
-            <div className="px-6 py-2 text-[11px] text-zinc-500 border-t border-zinc-200">
+            <div className="px-4 py-2 sm:px-6 text-[11px] text-zinc-500 border-t border-zinc-200">
               Based on your vehicle&apos;s mileage and last known service.
               Contact us to schedule.
             </div>
@@ -288,13 +514,14 @@ export default async function CustomerPortalPage({
 
         {outstanding.length > 0 && (
           <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
               Outstanding invoices ({outstanding.length})
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-zinc-50 text-left text-xs font-medium text-zinc-600">
                 <tr>
-                  <th className="px-6 py-2">Invoice</th>
+                  <th className="px-4 py-2 sm:px-6">Invoice</th>
                   <th className="px-4 py-2">Vehicle</th>
                   <th className="px-4 py-2 text-right">Total</th>
                   <th className="px-4 py-2 text-right">Paid</th>
@@ -304,7 +531,7 @@ export default async function CustomerPortalPage({
               <tbody className="divide-y divide-zinc-200">
                 {outstanding.map((ro) => (
                   <tr key={ro.id}>
-                    <td className="px-6 py-2">
+                      <td className="px-4 py-2 sm:px-6">
                       <Link
                         href={`/p/${token}/ro/${ro.id}`}
                         className="font-medium text-zinc-900 hover:underline"
@@ -331,12 +558,13 @@ export default async function CustomerPortalPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </section>
         )}
 
         <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+          <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
             Service history ({serviceHistory.length})
           </div>
           {serviceHistory.length === 0 ? (
@@ -344,10 +572,11 @@ export default async function CustomerPortalPage({
               No service history yet.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-zinc-50 text-left text-xs font-medium text-zinc-600">
                 <tr>
-                  <th className="px-6 py-2">Date</th>
+                  <th className="px-4 py-2 sm:px-6">Date</th>
                   <th className="px-4 py-2">RO</th>
                   <th className="px-4 py-2">Vehicle</th>
                   <th className="px-4 py-2">Service</th>
@@ -358,7 +587,7 @@ export default async function CustomerPortalPage({
               <tbody className="divide-y divide-zinc-200">
                 {serviceHistory.map((ro) => (
                   <tr key={ro.id}>
-                    <td className="px-6 py-2 text-zinc-600">
+                    <td className="px-4 py-2 sm:px-6 text-zinc-600">
                       {formatDate(ro.closedAt ?? ro.invoicedAt ?? ro.openedAt)}
                     </td>
                     <td className="px-4 py-2">
@@ -388,12 +617,13 @@ export default async function CustomerPortalPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </section>
 
         <section className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-3 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+          <div className="px-4 py-3 sm:px-6 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
             My vehicles ({customer.vehicles.length})
           </div>
           {customer.vehicles.length === 0 ? (
@@ -403,7 +633,7 @@ export default async function CustomerPortalPage({
           ) : (
             <ul className="divide-y divide-zinc-200">
               {customer.vehicles.map((v) => (
-                <li key={v.id} className="px-6 py-3">
+                <li key={v.id} className="px-4 py-3 sm:px-6">
                   <div className="text-sm font-medium text-zinc-900">
                     {vehicleLabel(v)}
                   </div>

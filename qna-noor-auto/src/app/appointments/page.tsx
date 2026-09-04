@@ -128,6 +128,15 @@ async function ShopSchedulePage({
       repairOrder: { select: { id: true, roNumber: true } },
     },
   });
+  const requestedAppointments = await db.appointment.findMany({
+    where: {
+      orgId,
+      startsAt: { gte: new Date() },
+      status: "REQUESTED",
+    },
+    orderBy: { startsAt: "asc" },
+    select: { id: true },
+  });
 
   // Group by day (YYYY-MM-DD local)
   const days: { date: Date; key: string; items: typeof appointments }[] = [];
@@ -200,6 +209,16 @@ async function ShopSchedulePage({
           }
         />
       ) : null}
+
+      {requestedAppointments.length > 0 && (
+        <Link
+          href={`/appointments/${requestedAppointments[0].id}`}
+          className="mb-4 block rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-800 hover:bg-purple-100"
+        >
+          {requestedAppointments.length} appointment request
+          {requestedAppointments.length === 1 ? "" : "s"} waiting for confirmation
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
         {days.map((d) => {
