@@ -96,6 +96,9 @@ export function navItemLabel(
   if (item.href === "/appointments") {
     return accountType === "PERSONAL" ? "Calendar" : "Schedule";
   }
+  if (item.href === "/settings/users") {
+    return accountType === "PERSONAL" ? "Shared access" : item.label;
+  }
   if (item.href !== "/repair-orders") return item.label;
   const features = new Set(enabledFeatures);
   const hasRepairOrders = features.has("repair_orders");
