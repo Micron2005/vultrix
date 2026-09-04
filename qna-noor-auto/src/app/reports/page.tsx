@@ -555,7 +555,7 @@ async function AutoReportsPage({
               No payments recorded in the last 12 months.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end h-40">
+            <div className="grid grid-cols-12 gap-1 sm:gap-2 items-end h-40">
               {months.map((m) => {
                 const pct = (m.revenue / maxMonthRevenue) * 100;
                 return (
