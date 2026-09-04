@@ -133,7 +133,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
   if (done || completed) {
     return (
       <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-        All sets done
+        {item.sets !== null ? "All sets done" : "Done"}
       </p>
     );
   }
