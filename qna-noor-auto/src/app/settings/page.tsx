@@ -307,7 +307,7 @@ export default async function SettingsPage({
       />
       <Card className="mb-6 max-w-2xl">
         <CardHeader title="Appearance" />
-        <div className="flex items-center justify-between gap-4 p-6">
+        <div className="flex flex-col items-stretch gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-zinc-600">
             Choose the color theme for your Vultrix workspace.
           </p>

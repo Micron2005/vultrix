@@ -136,7 +136,7 @@ export function SegmentedControl({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
       <span className="text-xs font-medium text-zinc-600">{label}</span>
       <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900">
         {options.map((option) => (
@@ -145,8 +145,8 @@ export function SegmentedControl({
             type="button"
             className={
               value === option.value
-                ? "bg-[var(--vx-accent-600)] px-3 py-1.5 text-xs font-medium text-[var(--vx-accent-fg)]"
-                : "px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                ? "min-h-9 bg-[var(--vx-accent-600)] px-3 py-2 text-xs font-medium text-[var(--vx-accent-fg)]"
+                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             }
             onClick={() => onChange(option.value)}
             aria-pressed={value === option.value}
