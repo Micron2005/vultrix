@@ -24,6 +24,8 @@ export type RoutineItemRecord = {
   label: string;
   target: number | null;
   unit: string | null;
+  sets: number | null;
+  restSeconds: number | null;
   dueTime: string | null;
   position: number;
   createdAt: Date;
@@ -230,7 +232,9 @@ export async function loadTodayRoutines(
         };
       }),
     }))
-    .filter(({ items }) => items.some((item) => item.status !== "done" && item.status !== "skipped"));
+    .filter(({ items }) =>
+      items.some((item) => item.status !== "done" && item.status !== "skipped"),
+    );
 }
 
 export async function loadTeamToday(

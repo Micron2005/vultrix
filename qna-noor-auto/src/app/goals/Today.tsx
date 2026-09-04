@@ -17,6 +17,7 @@ import {
 import { goalPaceText } from "@/lib/goalStatus";
 import { localCalendarDay } from "@/lib/timezone";
 import { toggleGoalMilestone } from "./actions";
+import { SetTimer } from "./SetTimer";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
 const buttonClass =
@@ -141,6 +142,21 @@ function RoutineSection({
                 {statusLabel(item.status)}
               </span>
             </div>
+            {(item.restSeconds != null || item.sets != null) && (
+              <div className="mt-3">
+                <SetTimer
+                  item={{
+                    id: item.id,
+                    label: item.label,
+                    sets: item.sets,
+                    restSeconds: item.restSeconds,
+                  }}
+                  day={actionDay}
+                  done={item.status === "done"}
+                  onComplete={toggleRoutineCheckOff.bind(null, item.id, actionDay)}
+                />
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <form action={toggleRoutineCheckOff.bind(null, item.id, actionDay)}>
                 <button type="submit" className={buttonClass}>
