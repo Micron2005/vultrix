@@ -51,6 +51,25 @@ function optionalNumber(fd: FormData, key: string): number | null {
   return parsed;
 }
 
+function optionalInt(fd: FormData, key: string, minimum: number): number | null {
+  const value = text(fd, key);
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const rounded = Math.round(parsed);
+  return rounded >= minimum ? rounded : null;
+}
+
+function parseRoutineItem(line: string) {
+  const match = line.match(/(?:\s*[x×](\d+))?(?:\s+rest\s+(\d+)\s*s?)?$/i);
+  const label = line.slice(0, match?.index ?? line.length).trim() || line;
+  return {
+    label,
+    sets: match?.[1] ? Number(match[1]) : null,
+    restSeconds: match?.[2] ? Number(match[2]) : null,
+  };
+}
+
 function timeValue(value: string): string | null {
   if (!value) return null;
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
@@ -75,7 +94,8 @@ function routineInput(fd: FormData) {
   const items = text(fd, "items")
     .split("\n")
     .map((item) => item.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(parseRoutineItem);
   if (!title) throw new Error("Routine name is required.");
   if (!ROUTINE_KINDS.includes(kind as (typeof ROUTINE_KINDS)[number])) {
     throw new Error("Routine type is invalid.");
@@ -100,7 +120,10 @@ function routineInput(fd: FormData) {
     showStreak,
     goalId,
     assigneeUserId,
-    items: kind === "REMINDER" || items.length === 0 ? [title] : items,
+    items:
+      kind === "REMINDER" || items.length === 0
+        ? [{ label: title, sets: null, restSeconds: null }]
+        : items,
   };
 }
 
@@ -169,9 +192,11 @@ export async function createRoutine(fd: FormData) {
       goalId: input.goalId,
       assigneeUserId: input.assigneeUserId,
       items: {
-        create: input.items.map((label, position) => ({
+        create: input.items.map((item, position) => ({
           orgId,
-          label,
+          label: item.label,
+          sets: item.sets,
+          restSeconds: item.restSeconds,
           position,
         })),
       },
@@ -357,6 +382,8 @@ function itemInput(fd: FormData) {
     label,
     target: optionalNumber(fd, "target"),
     unit: text(fd, "unit") || null,
+    sets: optionalInt(fd, "sets", 1),
+    restSeconds: optionalInt(fd, "restSeconds", 5),
     dueTime: timeValue(text(fd, "dueTime")),
   };
 }

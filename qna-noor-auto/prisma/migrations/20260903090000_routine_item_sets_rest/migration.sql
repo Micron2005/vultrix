@@ -1,0 +1,3 @@
+ALTER TABLE "RoutineItem"
+ADD COLUMN "sets" INTEGER,
+ADD COLUMN "restSeconds" INTEGER;

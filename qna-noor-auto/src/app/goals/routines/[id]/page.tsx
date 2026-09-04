@@ -81,10 +81,12 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
         <div className="mt-4 space-y-4">
           {routine.items.map((item, index) => (
             <div key={item.id} className="rounded-md border border-zinc-200 p-4 dark:border-zinc-700">
-              <form action={updateRoutineItem.bind(null, item.id)} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_auto] sm:items-end">
+              <form action={updateRoutineItem.bind(null, item.id)} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_7rem_7rem_auto] sm:items-end">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Item<Input name="label" required defaultValue={item.label} className="mt-1" /></label>
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Target<Input name="target" type="number" step="any" defaultValue={item.target ?? ""} className="mt-1" /></label>
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Unit<Input name="unit" defaultValue={item.unit ?? ""} className="mt-1" /></label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Sets<Input name="sets" type="number" min="1" placeholder="4" defaultValue={item.sets ?? ""} className="mt-1" /></label>
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Rest (sec)<Input name="restSeconds" type="number" min="5" placeholder="90" defaultValue={item.restSeconds ?? ""} className="mt-1" /></label>
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Due time<Input name="dueTime" type="time" defaultValue={item.dueTime ?? ""} className="mt-1" /></label>
                 <button className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600">Save</button>
               </form>
@@ -97,10 +99,12 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           ))}
           <form action={addRoutineItem.bind(null, routine.id)} className="rounded-md border border-dashed border-zinc-300 p-4 dark:border-zinc-600">
             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Add item</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_auto] sm:items-end">
+            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_7rem_7rem_auto] sm:items-end">
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Name<Input name="label" required placeholder="Read" className="mt-1" /></label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Target<Input name="target" type="number" step="any" className="mt-1" /></label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Unit<Input name="unit" placeholder="pages" className="mt-1" /></label>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Sets<Input name="sets" type="number" min="1" placeholder="4" className="mt-1" /></label>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Rest (sec)<Input name="restSeconds" type="number" min="5" placeholder="90" className="mt-1" /></label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Due time<Input name="dueTime" type="time" className="mt-1" /></label>
               <button className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Add item</button>
             </div>
