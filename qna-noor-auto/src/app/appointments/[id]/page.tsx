@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { canDelete } from "@/lib/permissions";
+import { formatInTimeZone } from "@/lib/timezone";
 import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ export default async function AppointmentDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const timezone = await orgTimeZone(orgId);
   const user = await requireUser();
   const appt = await db.appointment.findFirst({
     where: { id, orgId },
@@ -68,10 +70,17 @@ export default async function AppointmentDetailPage({
               {prettyStatus(appt.status)}
             </span>
             <span className="text-zinc-700">
-              <LocalDateTime value={appt.startsAt} />
+              {formatInTimeZone(appt.startsAt, timezone, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
             </span>
             <span className="text-xs text-zinc-500">
-              · {appt.durationMinutes} min · until {timeLabel(endsAt)}
+              · {appt.durationMinutes} min · until{" "}
+              {timeLabel(endsAt, timezone)}
             </span>
           </div>
         }
@@ -267,9 +276,9 @@ export default async function AppointmentDetailPage({
   );
 }
 
-function timeLabel(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+function timeLabel(d: Date, timezone: string): string {
+  return formatInTimeZone(d, timezone, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(d);
+  });
 }

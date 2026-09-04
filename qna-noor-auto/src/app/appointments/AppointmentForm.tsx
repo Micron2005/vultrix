@@ -4,6 +4,7 @@ import { fullName, vehicleLabel } from "@/lib/utils";
 import type { Appointment, Customer, Vehicle } from "@prisma/client";
 import { APPOINTMENT_STATUSES } from "./constants";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { formatInTimeZone, localCalendarDay } from "@/lib/timezone";
 
 type CustomerWithVehicles = Customer & { vehicles: Vehicle[] };
 
@@ -14,6 +15,7 @@ export function AppointmentForm({
   submitLabel = "Save",
   defaultCustomerId,
   defaultVehicleId,
+  timezone,
 }: {
   action: (fd: FormData) => void | Promise<void>;
   appointment?: Partial<Appointment>;
@@ -21,12 +23,13 @@ export function AppointmentForm({
   submitLabel?: string;
   defaultCustomerId?: string;
   defaultVehicleId?: string;
+  timezone: string;
 }) {
   const date = appointment?.startsAt
-    ? toDateInputValue(appointment.startsAt)
-    : todayInputValue();
+    ? toDateInputValue(appointment.startsAt, timezone)
+    : todayInputValue(timezone);
   const time = appointment?.startsAt
-    ? toTimeInputValue(appointment.startsAt)
+    ? toTimeInputValue(appointment.startsAt, timezone)
     : "09:00";
 
   const selectedCustomerId =
@@ -139,21 +142,20 @@ export function prettyStatus(s: string): string {
   }
 }
 
-function toDateInputValue(d: Date | string): string {
+function toDateInputValue(d: Date | string, timezone: string): string {
   const date = typeof d === "string" ? new Date(d) : d;
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return localCalendarDay(date, timezone);
 }
 
-function toTimeInputValue(d: Date | string): string {
+function toTimeInputValue(d: Date | string, timezone: string): string {
   const date = typeof d === "string" ? new Date(d) : d;
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return formatInTimeZone(date, timezone, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
 }
 
-function todayInputValue(): string {
-  return toDateInputValue(new Date());
+function todayInputValue(timezone: string): string {
+  return localCalendarDay(new Date(), timezone);
 }

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
 import { getAllSettings } from "@/lib/shop";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import { formatInTimeZone } from "@/lib/timezone";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import { PrintButton } from "./PrintButton";
 
@@ -26,21 +28,11 @@ export default async function PublicReminderPage({
   if (!appt) notFound();
 
   const shop = await getAllSettings(appt.orgId);
+  const timezone = await orgTimeZone(appt.orgId);
 
   const startsAt = new Date(appt.startsAt);
   const endsAt = new Date(startsAt);
   endsAt.setMinutes(endsAt.getMinutes() + appt.durationMinutes);
-
-  const timeFmt = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const dateFmt = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
 
   return (
     <div className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0" data-force-light>
@@ -70,10 +62,23 @@ export default async function PublicReminderPage({
               {fullName(appt.customer)}, we&apos;ll see you:
             </div>
             <div className="mt-3 text-2xl font-semibold text-zinc-900">
-              {dateFmt.format(startsAt)}
+              {formatInTimeZone(startsAt, timezone, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
             </div>
             <div className="mt-1 text-lg text-zinc-700">
-              {timeFmt.format(startsAt)} – {timeFmt.format(endsAt)}
+              {formatInTimeZone(startsAt, timezone, {
+                hour: "numeric",
+                minute: "2-digit",
+              })}{" "}
+              –{" "}
+              {formatInTimeZone(endsAt, timezone, {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
             </div>
           </div>
 
