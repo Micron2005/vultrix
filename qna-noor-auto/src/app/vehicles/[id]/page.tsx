@@ -204,7 +204,8 @@ export default async function VehicleDetailPage({
             No repair history yet.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">RO #</th>
@@ -248,7 +249,8 @@ export default async function VehicleDetailPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </Card>
 

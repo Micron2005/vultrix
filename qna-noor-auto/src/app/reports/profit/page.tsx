@@ -598,7 +598,8 @@ async function GeneralProfitReport({
             />
           ) : (
             <div className="p-4">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
                     <th className="py-2">Source</th>
@@ -625,7 +626,8 @@ async function GeneralProfitReport({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           )}
         </Card>

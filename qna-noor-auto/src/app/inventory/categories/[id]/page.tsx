@@ -56,7 +56,7 @@ export default async function CategoryDetailPage({
         title={category.name}
         description={`${parts.length} ${parts.length === 1 ? "active part" : "active parts"} in this category`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <LinkButton href="/inventory/categories" variant="secondary">
               ← Categories
             </LinkButton>

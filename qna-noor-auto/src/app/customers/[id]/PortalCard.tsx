@@ -63,12 +63,12 @@ export function PortalCard({
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap gap-2">
               <input
                 readOnly
                 value={url ?? ""}
                 onFocus={(e) => e.currentTarget.select()}
-                className="flex-1 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs text-zinc-700"
+                className="min-w-0 flex-1 basis-full sm:basis-auto rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs text-zinc-700"
               />
               <Button
                 type="button"

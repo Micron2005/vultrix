@@ -98,7 +98,7 @@ export default async function PartDetailPage({
           ) : undefined
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <LinkButton href="/inventory" variant="secondary">
               ← Inventory
             </LinkButton>
@@ -266,7 +266,8 @@ export default async function PartDetailPage({
           {part.stockMoves.length === 0 ? (
             <div className="p-4 text-sm text-zinc-500">No moves yet.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-2 font-medium">When</th>
@@ -304,7 +305,8 @@ export default async function PartDetailPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
 
@@ -315,7 +317,8 @@ export default async function PartDetailPage({
               Not used on any RO yet.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-2 font-medium">RO</th>
@@ -349,7 +352,8 @@ export default async function PartDetailPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
       </div>

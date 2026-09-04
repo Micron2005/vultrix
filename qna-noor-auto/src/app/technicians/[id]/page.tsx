@@ -103,7 +103,7 @@ export default async function TechnicianDetailPage({
           }`
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <LinkButton href={`/technicians/${id}/edit`} variant="secondary">
               Edit
             </LinkButton>
@@ -160,7 +160,8 @@ export default async function TechnicianDetailPage({
             description="Assign this tech to a labor line on a repair order to start tracking hours."
           />
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium w-24">Date</th>
@@ -218,7 +219,8 @@ export default async function TechnicianDetailPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </Card>
 
