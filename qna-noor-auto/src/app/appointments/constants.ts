@@ -1,4 +1,5 @@
 export const APPOINTMENT_STATUSES = [
+  "REQUESTED",
   "SCHEDULED",
   "CONFIRMED",
   "ARRIVED",

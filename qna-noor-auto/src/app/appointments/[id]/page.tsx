@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { canDelete } from "@/lib/permissions";
+import { formatInTimeZone } from "@/lib/timezone";
 import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ export default async function AppointmentDetailPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const timezone = await orgTimeZone(orgId);
   const user = await requireUser();
   const appt = await db.appointment.findFirst({
     where: { id, orgId },
@@ -68,10 +70,17 @@ export default async function AppointmentDetailPage({
               {prettyStatus(appt.status)}
             </span>
             <span className="text-zinc-700">
-              <LocalDateTime value={appt.startsAt} />
+              {formatInTimeZone(appt.startsAt, timezone, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
             </span>
             <span className="text-xs text-zinc-500">
-              · {appt.durationMinutes} min · until {timeLabel(endsAt)}
+              · {appt.durationMinutes} min · until{" "}
+              {timeLabel(endsAt, timezone)}
             </span>
           </div>
         }
@@ -84,6 +93,12 @@ export default async function AppointmentDetailPage({
           </>
         }
       />
+
+      {appt.status === "REQUESTED" && (
+        <div className="mb-4 rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-800">
+          Requested by the customer through their portal — confirm or reschedule below.
+        </div>
+      )}
 
       <Card className="p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -155,7 +170,7 @@ export default async function AppointmentDetailPage({
           Actions
         </div>
         <div className="flex flex-wrap gap-2">
-          {appt.status === "SCHEDULED" && (
+          {(appt.status === "SCHEDULED" || appt.status === "REQUESTED") && (
             <form action={confirm}>
               <button
                 type="submit"
@@ -261,9 +276,9 @@ export default async function AppointmentDetailPage({
   );
 }
 
-function timeLabel(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+function timeLabel(d: Date, timezone: string): string {
+  return formatInTimeZone(d, timezone, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(d);
+  });
 }

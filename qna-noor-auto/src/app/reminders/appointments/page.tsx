@@ -13,6 +13,13 @@ import { fullName, vehicleLabel } from "@/lib/utils";
 import { getSetting } from "@/lib/shop";
 import { prettyStatus } from "@/app/appointments/AppointmentForm";
 import { statusBadgeClass } from "@/app/appointments/status";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import {
+  dateInputInTimeZone,
+  formatInTimeZone,
+  localCalendarDay,
+  shiftCalendarDay,
+} from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -28,32 +35,25 @@ type SearchParams = Promise<{ day?: string }>;
 // Send in their phone/mail app. See /reminders for the dormant-customer
 // version.
 
-function parseDayParam(day?: string): Date {
-  const d = new Date();
-  if (day === "today") {
-    // fall through
-  } else if (day === "week") {
-    // Special key handled separately below — caller looks at range directly.
-    // Return today; the page uses the raw param for range expansion.
-  } else {
-    // default: tomorrow
-    d.setDate(d.getDate() + 1);
-  }
-  d.setHours(0, 0, 0, 0);
-  return d;
+function formatDayLabel(
+  dateValue: string,
+  label: string,
+  timezone: string,
+): string {
+  const date = dateInputInTimeZone(dateValue, timezone, new Date(Number.NaN));
+  const formatted = formatInTimeZone(date, timezone, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+  return `${label} · ${formatted}`;
 }
 
-function formatDayLabel(d: Date, label: string): string {
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
-  const mon = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(d);
-  return `${label} · ${weekday}, ${mon}`;
-}
-
-function formatTime(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+function formatTime(d: Date, timezone: string): string {
+  return formatInTimeZone(d, timezone, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(d);
+  });
 }
 
 export default async function AppointmentRemindersPage({
@@ -64,12 +64,25 @@ export default async function AppointmentRemindersPage({
   const orgId = await requireOrgId();
   const sp = await searchParams;
   const mode = sp.day === "today" ? "today" : sp.day === "week" ? "week" : "tomorrow";
+  const timezone = await orgTimeZone(orgId);
 
-  const rangeStart = new Date();
-  rangeStart.setHours(0, 0, 0, 0);
-  if (mode === "tomorrow") rangeStart.setDate(rangeStart.getDate() + 1);
-  const rangeEnd = new Date(rangeStart);
-  rangeEnd.setDate(rangeEnd.getDate() + (mode === "week" ? 7 : 1));
+  const todayKey = localCalendarDay(new Date(), timezone);
+  const rangeStartKey =
+    mode === "tomorrow" ? shiftCalendarDay(todayKey, 1) : todayKey;
+  const rangeEndKey = shiftCalendarDay(
+    rangeStartKey,
+    mode === "week" ? 7 : 1,
+  );
+  const rangeStart = dateInputInTimeZone(
+    rangeStartKey,
+    timezone,
+    new Date(Number.NaN),
+  );
+  const rangeEnd = dateInputInTimeZone(
+    rangeEndKey,
+    timezone,
+    new Date(Number.NaN),
+  );
 
   // Resolve the origin so the customer-facing /a/<token> links embedded in
   // the SMS / email bodies are full URLs (e.g. https://host/a/abc) rather
@@ -103,10 +116,10 @@ export default async function AppointmentRemindersPage({
 
   const titleLabel =
     mode === "today"
-      ? formatDayLabel(rangeStart, "Today")
+      ? formatDayLabel(rangeStartKey, "Today", timezone)
       : mode === "tomorrow"
-        ? formatDayLabel(rangeStart, "Tomorrow")
-        : `Next 7 days (${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(rangeStart)}–${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(rangeEnd.getTime() - 1))})`;
+        ? formatDayLabel(rangeStartKey, "Tomorrow", timezone)
+        : `Next 7 days (${formatInTimeZone(rangeStart, timezone, { month: "short", day: "numeric" })}–${formatInTimeZone(dateInputInTimeZone(shiftCalendarDay(rangeEndKey, -1), timezone, new Date(Number.NaN)), timezone, { month: "short", day: "numeric" })})`;
 
   return (
     <>
@@ -151,7 +164,7 @@ export default async function AppointmentRemindersPage({
             {appointments.map((a) => {
               const name = fullName(a.customer);
               const firstName = (a.customer.firstName || name).split(" ")[0];
-              const when = `${new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(a.startsAt)} at ${formatTime(a.startsAt)}`;
+              const when = `${formatInTimeZone(a.startsAt, timezone, { weekday: "short", month: "short", day: "numeric" })} at ${formatTime(a.startsAt, timezone)}`;
               const vehiclePart = a.vehicle ? ` for your ${vehicleLabel(a.vehicle)}` : "";
               // Only build a shareable link if we resolved a full origin —
               // a bare "/a/<token>" path is useless inside an SMS or email
@@ -189,7 +202,7 @@ export default async function AppointmentRemindersPage({
                 <li key={a.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="w-20 shrink-0 text-sm font-semibold text-zinc-900">
-                      {formatTime(a.startsAt)}
+                      {formatTime(a.startsAt, timezone)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">

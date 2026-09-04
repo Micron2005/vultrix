@@ -3,6 +3,7 @@ import { Card, CardHeader, LinkButton } from "@/components/ui";
 import { db } from "@/lib/db";
 import {
   dateInputInTimeZone,
+  formatInTimeZone,
   localCalendarDay,
   shiftCalendarDay,
 } from "@/lib/timezone";
@@ -167,10 +168,10 @@ export async function ScheduleBlock({
                 className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-50"
               >
                 <div className="w-20 shrink-0 text-sm font-semibold text-zinc-900">
-                  {new Intl.DateTimeFormat("en-US", {
+                  {formatInTimeZone(appointment.startsAt, timezone, {
                     hour: "numeric",
                     minute: "2-digit",
-                  }).format(appointment.startsAt)}
+                  })}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-zinc-900">

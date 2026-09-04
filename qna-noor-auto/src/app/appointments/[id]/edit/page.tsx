@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { AppointmentForm } from "../../AppointmentForm";
 import { updateAppointment } from "../../actions";
 
@@ -14,6 +15,7 @@ export default async function EditAppointmentPage({
 }) {
   const { id } = await params;
   const orgId = await requireOrgId();
+  const timezone = await orgTimeZone(orgId);
   const appt = await db.appointment.findFirst({ where: { id, orgId } });
   if (!appt) notFound();
 
@@ -41,6 +43,7 @@ export default async function EditAppointmentPage({
           appointment={appt}
           customers={customers}
           submitLabel="Save changes"
+          timezone={timezone}
         />
       </div>
     </>

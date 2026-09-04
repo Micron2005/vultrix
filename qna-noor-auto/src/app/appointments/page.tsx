@@ -7,6 +7,14 @@ import { prettyStatus } from "./AppointmentForm";
 import { statusBadgeClass } from "./status";
 import { PersonalCalendar } from "./PersonalCalendar";
 import { canDelete } from "@/lib/permissions";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import {
+  dateInputInTimeZone,
+  formatInTimeZone,
+  isDateInput,
+  localCalendarDay,
+  shiftCalendarDay,
+} from "@/lib/timezone";
 import {
   addDays,
   endOfWeek,
@@ -103,18 +111,27 @@ async function ShopSchedulePage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const orgId = await requireOrgId();
+  const timezone = await orgTimeZone(orgId);
   const { week } = await searchParams;
 
-  // Determine week start (Monday) either from ?week=YYYY-MM-DD or from today.
-  const anchor = week ? new Date(`${week}T00:00:00`) : new Date();
-  const weekStart = startOfWeek(anchor);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-
-  const prevWeek = new Date(weekStart);
-  prevWeek.setDate(prevWeek.getDate() - 7);
-  const nextWeek = new Date(weekStart);
-  nextWeek.setDate(nextWeek.getDate() + 7);
+  // Determine week start (Monday) in the organization's timezone either from
+  // ?week=YYYY-MM-DD or from the organization's current local day.
+  const todayKey = localCalendarDay(new Date(), timezone);
+  const anchorKey = week && isDateInput(week) ? week : todayKey;
+  const weekStartKey = startOfWeekKey(anchorKey);
+  const weekEndKey = shiftCalendarDay(weekStartKey, 7);
+  const weekStart = dateInputInTimeZone(
+    weekStartKey,
+    timezone,
+    new Date(Number.NaN),
+  );
+  const weekEnd = dateInputInTimeZone(
+    weekEndKey,
+    timezone,
+    new Date(Number.NaN),
+  );
+  const prevWeekKey = shiftCalendarDay(weekStartKey, -7);
+  const nextWeekKey = shiftCalendarDay(weekStartKey, 7);
 
   const appointments = await db.appointment.findMany({
     where: {
@@ -128,22 +145,29 @@ async function ShopSchedulePage({
       repairOrder: { select: { id: true, roNumber: true } },
     },
   });
+  const requestedAppointments = await db.appointment.findMany({
+    where: {
+      orgId,
+      startsAt: { gte: new Date() },
+      status: "REQUESTED",
+    },
+    orderBy: { startsAt: "asc" },
+    select: { id: true },
+  });
 
   // Group by day (YYYY-MM-DD local)
   const days: { date: Date; key: string; items: typeof appointments }[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    days.push({ date: d, key: ymd(d), items: [] });
+    const key = shiftCalendarDay(weekStartKey, i);
+    days.push({ date: calendarDate(key, timezone), key, items: [] });
   }
   for (const a of appointments) {
-    const k = ymd(a.startsAt);
+    const k = localCalendarDay(a.startsAt, timezone);
     const bucket = days.find((x) => x.key === k);
     if (bucket) bucket.items.push(a);
   }
 
-  const today = ymd(new Date());
-  const rangeLabel = `${formatWeekRange(weekStart)} ${weekStart.getFullYear()}`;
+  const rangeLabel = formatWeekRange(weekStartKey, timezone);
 
   return (
     <>
@@ -153,7 +177,7 @@ async function ShopSchedulePage({
         actions={
           <>
             <LinkButton
-              href={`/appointments?week=${ymd(new Date())}`}
+              href={`/appointments?week=${todayKey}`}
               variant="ghost"
               size="sm"
             >
@@ -175,14 +199,14 @@ async function ShopSchedulePage({
         <div className="text-sm font-medium text-zinc-700">{rangeLabel}</div>
         <div className="flex gap-1">
           <LinkButton
-            href={`/appointments?week=${ymd(prevWeek)}`}
+            href={`/appointments?week=${prevWeekKey}`}
             variant="secondary"
             size="sm"
           >
             ← Prev
           </LinkButton>
           <LinkButton
-            href={`/appointments?week=${ymd(nextWeek)}`}
+            href={`/appointments?week=${nextWeekKey}`}
             variant="secondary"
             size="sm"
           >
@@ -201,9 +225,19 @@ async function ShopSchedulePage({
         />
       ) : null}
 
+      {requestedAppointments.length > 0 && (
+        <Link
+          href={`/appointments/${requestedAppointments[0].id}`}
+          className="mb-4 block rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-800 hover:bg-purple-100"
+        >
+          {requestedAppointments.length} appointment request
+          {requestedAppointments.length === 1 ? "" : "s"} waiting for confirmation
+        </Link>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
         {days.map((d) => {
-          const isToday = d.key === today;
+          const isToday = d.key === todayKey;
           return (
             <div
               key={d.key}
@@ -222,7 +256,7 @@ async function ShopSchedulePage({
                     : "bg-zinc-50 text-zinc-600 border-zinc-200")
                 }
               >
-                {dayLabel(d.date)}
+                {dayLabel(d.date, timezone)}
               </div>
               <div className="p-2 space-y-1">
                 {d.items.length === 0 && (
@@ -236,7 +270,7 @@ async function ShopSchedulePage({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-zinc-900">
-                        {timeLabel(a.startsAt)}
+                        {timeLabel(a.startsAt, timezone)}
                       </span>
                       <span
                         className={
@@ -274,49 +308,47 @@ async function ShopSchedulePage({
   );
 }
 
-function startOfWeek(d: Date): Date {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
+function startOfWeekKey(value: string): string {
+  const out = new Date(`${value}T12:00:00.000Z`);
   // Monday as the first day of the week
-  const dow = out.getDay(); // 0 Sun - 6 Sat
+  const dow = out.getUTCDay(); // 0 Sun - 6 Sat
   const diff = (dow + 6) % 7;
-  out.setDate(out.getDate() - diff);
-  return out;
+  out.setUTCDate(out.getUTCDate() - diff);
+  return out.toISOString().slice(0, 10);
 }
 
-function ymd(d: Date | string): string {
-  const date = typeof d === "string" ? new Date(d) : d;
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function calendarDate(value: string, timezone: string): Date {
+  return dateInputInTimeZone(value, timezone, new Date(Number.NaN));
 }
 
-function dayLabel(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+function dayLabel(d: Date, timezone: string): string {
+  return formatInTimeZone(d, timezone, {
     weekday: "short",
     month: "short",
     day: "numeric",
-  }).format(d);
+  });
 }
 
-function timeLabel(d: Date | string): string {
+function timeLabel(d: Date | string, timezone: string): string {
   const date = typeof d === "string" ? new Date(d) : d;
-  return new Intl.DateTimeFormat("en-US", {
+  return formatInTimeZone(date, timezone, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
-function formatWeekRange(start: Date): string {
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  const sameMonth = start.getMonth() === end.getMonth();
+function formatWeekRange(startKey: string, timezone: string): string {
+  const endKey = shiftCalendarDay(startKey, 6);
+  const start = calendarDate(startKey, timezone);
+  const end = calendarDate(endKey, timezone);
+  const sameMonth =
+    formatInTimeZone(start, timezone, { month: "numeric" }) ===
+    formatInTimeZone(end, timezone, { month: "numeric" });
   const fmt = (d: Date, withMonth: boolean) =>
-    new Intl.DateTimeFormat("en-US", {
+    formatInTimeZone(d, timezone, {
       month: withMonth ? "short" : undefined,
       day: "numeric",
-    }).format(d);
+    });
   if (sameMonth) {
     return `${fmt(start, true)} – ${fmt(end, false)}`;
   }

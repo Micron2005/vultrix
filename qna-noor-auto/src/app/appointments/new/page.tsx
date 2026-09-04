@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import { AppointmentForm } from "../AppointmentForm";
 import { createAppointment } from "../actions";
 
@@ -14,6 +15,7 @@ export default async function NewAppointmentPage({
 }) {
   const orgId = await requireOrgId();
   const { customerId, vehicleId } = await searchParams;
+  const timezone = await orgTimeZone(orgId);
 
   const customers = await db.customer.findMany({
     where: { orgId },
@@ -42,6 +44,7 @@ export default async function NewAppointmentPage({
           submitLabel="Schedule"
           defaultCustomerId={customerId}
           defaultVehicleId={vehicleId}
+          timezone={timezone}
         />
       </div>
     </>
