@@ -121,7 +121,7 @@ export default async function InventoryPage({
         title="Inventory"
         description="Parts you stock. Link these to RO part lines and the stock auto-deducts when used."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <LinkButton href="/inventory/import" variant="secondary">
               Import parts
             </LinkButton>

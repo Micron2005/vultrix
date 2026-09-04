@@ -62,7 +62,8 @@ export default async function CannedJobsListPage({
         />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2 font-medium">Preset</th>
@@ -106,7 +107,8 @@ export default async function CannedJobsListPage({
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </Card>
       )}
     </>

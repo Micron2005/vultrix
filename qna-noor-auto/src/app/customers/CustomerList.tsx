@@ -106,7 +106,8 @@ export function CustomerList({
                 >
                   {L}
                 </div>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                   <thead className="bg-white text-left text-xs text-zinc-500 uppercase tracking-wider">
                     <tr>
                       <th className="px-4 py-2 font-medium">
@@ -161,7 +162,8 @@ export function CustomerList({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </Card>
             ))}
           </div>

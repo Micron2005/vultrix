@@ -287,7 +287,8 @@ export function JobCard({
                 Labor
               </div>
               {isLocked ? (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-zinc-500">
                       <th className="py-1 font-medium">Description</th>
@@ -321,7 +322,8 @@ export function JobCard({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {job.laborLines.map((l) => {
@@ -430,7 +432,8 @@ export function JobCard({
                 Parts
               </div>
               {isLocked ? (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-zinc-500">
                       <th className="py-1 font-medium">Description</th>
@@ -465,7 +468,8 @@ export function JobCard({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {job.partLines.map((p) => {
@@ -578,7 +582,8 @@ export function JobCard({
                 Fees
               </div>
               {isLocked ? (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-zinc-500">
                       <th className="py-1 font-medium">Description</th>
@@ -595,7 +600,8 @@ export function JobCard({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {job.feeLines.map((f) => {
@@ -693,8 +699,8 @@ export function JobCard({
                   <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                     Add Labor
                   </div>
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2 sm:col-span-5">
                       <Field label="Description">
                         <AutoGrowTextarea
                           name="description"
@@ -704,12 +710,12 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <Field label="Tech">
                         <LaborTechPicker techs={activeTechs} />
                       </Field>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 sm:col-span-1">
                       <Field label="Hours">
                         <Input
                           name="hours"
@@ -718,7 +724,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <Field label="Rate">
                         <Input
                           name="rate"
@@ -727,7 +733,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2 flex gap-1">
+                    <div className="col-span-2 sm:col-span-2 flex gap-1">
                       <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"
@@ -768,8 +774,8 @@ export function JobCard({
                       </Select>
                     </Field>
                   )}
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2 sm:col-span-3">
                       <Field label="Description">
                         <AutoGrowTextarea
                           name="description"
@@ -778,17 +784,17 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <Field label="Part #">
                         <Input name="partNumber" />
                       </Field>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <Field label="Source">
                         <Input name="source" placeholder="NAPA, etc." />
                       </Field>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 sm:col-span-1">
                       <Field label="Qty">
                         <Input
                           name="quantity"
@@ -797,7 +803,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 sm:col-span-1">
                       <Field label="Cost">
                         <Input
                           name="costPrice"
@@ -806,7 +812,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 sm:col-span-1">
                       <Field label="List Price">
                         <Input
                           name="unitPrice"
@@ -815,7 +821,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2 flex gap-1">
+                    <div className="col-span-2 sm:col-span-2 flex gap-1">
                       <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"
@@ -839,8 +845,8 @@ export function JobCard({
                   <div className="text-xs uppercase tracking-wider text-zinc-500 mb-1">
                     Add Fee
                   </div>
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-7">
+                  <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2 sm:col-span-7">
                       <Field label="Description">
                         <AutoGrowTextarea
                           name="description"
@@ -850,7 +856,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <Field label="Amount ($)">
                         <Input
                           name="amount"
@@ -860,7 +866,7 @@ export function JobCard({
                         />
                       </Field>
                     </div>
-                    <div className="col-span-3 flex gap-1">
+                    <div className="col-span-2 sm:col-span-3 flex gap-1">
                       <SaveButton size="sm" savedLabel="Added">Add</SaveButton>
                       <button
                         type="button"

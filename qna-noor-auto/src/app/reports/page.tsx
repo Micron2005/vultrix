@@ -517,7 +517,8 @@ async function AutoReportsPage({
                 No expenses recorded in this range.
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <tbody className="divide-y divide-zinc-200">
                   {expenseCategoryRows.map((row) => {
                     const pct =
@@ -539,7 +540,8 @@ async function AutoReportsPage({
                     );
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </div>
@@ -553,7 +555,7 @@ async function AutoReportsPage({
               No payments recorded in the last 12 months.
             </div>
           ) : (
-            <div className="grid grid-cols-12 gap-2 items-end h-40">
+            <div className="grid grid-cols-12 gap-1 sm:gap-2 items-end h-40">
               {months.map((m) => {
                 const pct = (m.revenue / maxMonthRevenue) * 100;
                 return (
@@ -588,7 +590,8 @@ async function AutoReportsPage({
               No payments received in this range.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-600">
                 <tr>
                   <th className="px-4 py-2">Customer</th>
@@ -616,7 +619,8 @@ async function AutoReportsPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
 
@@ -627,7 +631,8 @@ async function AutoReportsPage({
               No labor logged on any vehicle in this range.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-600">
                 <tr>
                   <th className="px-4 py-2">Vehicle</th>
@@ -657,7 +662,8 @@ async function AutoReportsPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
       </div>
@@ -669,7 +675,8 @@ async function AutoReportsPage({
             No technicians set up yet. Add one from the Technicians tab.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-600">
               <tr>
                 <th className="px-4 py-2">Technician</th>
@@ -706,7 +713,8 @@ async function AutoReportsPage({
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -1013,7 +1021,8 @@ async function GeneralReportsPage({
             {expenseCategoryRows.length === 0 ? (
               <div className="text-zinc-500">No expenses recorded in this range.</div>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <tbody className="divide-y divide-zinc-200">
                   {expenseCategoryRows.map((row) => (
                     <tr key={row.category}>
@@ -1032,7 +1041,8 @@ async function GeneralReportsPage({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </div>
@@ -1045,7 +1055,8 @@ async function GeneralReportsPage({
             No money in recorded in the last 12 months.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <tbody className="divide-y divide-zinc-200">
               {months.map((month) => (
                 <tr key={month.key}>
@@ -1056,7 +1067,8 @@ async function GeneralReportsPage({
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -1068,7 +1080,8 @@ async function GeneralReportsPage({
               No payments received in this range.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-600">
                 <tr>
                   <th className="px-4 py-2">Customer</th>
@@ -1096,7 +1109,8 @@ async function GeneralReportsPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
       ) : (
@@ -1107,7 +1121,8 @@ async function GeneralReportsPage({
               No income recorded in this range.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-200">
                 {incomeSourceRows.map(([source, amount]) => (
                   <tr key={source}>
@@ -1118,7 +1133,8 @@ async function GeneralReportsPage({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </Card>
       )}
