@@ -1096,6 +1096,7 @@ model Organization {
   uiDefaults                  String?
   navDefault                  String?
   dashDefault                 String?
+  onboardingDismissedAt       DateTime?
 
   // --- Billing (Stripe subscription) ---------------------------------------
   // Contact email used for the Stripe customer / receipts.
