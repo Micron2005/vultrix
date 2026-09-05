@@ -1030,6 +1030,7 @@ const ShopRecommendation = () => {
 const Roadmap = () => {
   const cfg = useLandingConfig();
   const section = cfg.roadmap;
+  const req = section.request;
   return (
   <section id="roadmap" className="scroll-anchor bg-white border-t border-zinc-200">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -1038,7 +1039,21 @@ const Roadmap = () => {
         <h2 className="mt-3 font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 max-w-2xl">{text(section.title, cfg)}</h2>
         <p className="mt-4 text-zinc-600 max-w-2xl">{text(section.body, cfg)}</p>
       </Reveal>
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <Reveal delay={0.05}>
+        <div className="mt-10 rounded-[18px] bg-[var(--vx-dark)] text-white p-7 sm:p-10 grid gap-8 lg:grid-cols-[1.2fr_1fr] items-center relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[var(--vx-accent)] opacity-30 blur-3xl" aria-hidden="true" />
+          <div className="relative">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--vx-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--vx-accent)_15%,transparent)] px-3 py-1 text-xs font-semibold text-[var(--vx-accent-soft)]"><Sparkles className="h-3.5 w-3.5" />{req.badge}</span>
+            <h3 className="mt-4 font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{text(req.title, cfg)}</h3>
+            <p className="mt-3 text-zinc-300 leading-relaxed">{text(req.body, cfg)}</p>
+            <a href={req.ctaHref} className={`${btnBase} mt-6 h-12 px-6 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{req.ctaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
+          </div>
+          <ul className="relative space-y-3">
+            {req.points.map((p) => <li key={p} className="flex gap-3 text-sm text-zinc-200"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--vx-accent-soft)]" />{p}</li>)}
+          </ul>
+        </div>
+      </Reveal>
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {section.items.map((r, i) => {
           const RIcon = icon(r.icon);
           const soon = r.status === "Coming soon";
