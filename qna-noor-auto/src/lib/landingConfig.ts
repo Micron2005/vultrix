@@ -163,7 +163,22 @@ export type LandingConfig = {
   stats: { items: { label: string; value: number; prefix?: string; suffix?: string }[] };
   importSection: { kicker: string; title: string; body: string; points: LandingListItem[] };
   shopRecommendation: { kicker: string; title: string; body: string; ctaLabel: string; fallbackCtaLabel: string };
-  roadmap: { kicker: string; title: string; body: string; items: { icon: LandingIcon; status: string; title: string; note: string }[]; requestText: string; requestLinkLabel: string };
+  roadmap: {
+    kicker: string;
+    title: string;
+    body: string;
+    items: { icon: LandingIcon; status: string; title: string; note: string }[];
+    requestText: string;
+    requestLinkLabel: string;
+    request: {
+      badge: string;
+      title: string;
+      body: string;
+      points: string[];
+      ctaLabel: string;
+      ctaHref: string;
+    };
+  };
   pricing: {
     kicker: string;
     title: string;
@@ -405,7 +420,7 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   roadmap: {
     kicker: "The road ahead",
     title: "What's coming to {brand}",
-    body: "{brand} keeps getting better. Here's what's on the roadmap — these are planned features in active thinking, not promises on specific dates.",
+    body: "Here's what's planned next. But the list isn't the limit — if something would help you, it goes on the list.",
     items: [
       { icon: "Bot", status: "Live for Personal", title: "AI assistant for every account", note: "The built-in AI assistant is live on Personal accounts today — connect your own OpenAI or Anthropic key at no extra cost. Rolling out to business and shop accounts next." },
       { icon: "Globe", status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
@@ -413,8 +428,20 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
       { icon: "Boxes", status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
       { icon: "MessageSquare", status: "Planned", title: "Two-way customer texting", note: "Message customers and collect approvals right inside Vultrix." },
     ],
-    requestText: "Roadmap items are subject to change. Have a request?",
-    requestLinkLabel: "Tell us what you'd build.",
+    requestText: "Roadmap items are subject to change.",
+    requestLinkLabel: "Have a request? Tell us.",
+    request: {
+      badge: "Built around you",
+      title: "Don't see what you need? Ask — and it gets built.",
+      body: "{brand} isn't a fixed product. It grows from what the people using it actually ask for — a report you're missing, a workflow your shop runs differently, a tool that would make your day easier. If it would help your business or your life, tell us and we'll build it in.",
+      points: [
+        "Request any feature, big or small — no roadmap vote needed",
+        "Built with you: we check the details, then ship it",
+        "Every account gets it, at no extra cost",
+      ],
+      ctaLabel: "Request a feature",
+      ctaHref: "#contact",
+    },
   },
   pricing: {
     kicker: "Simple, honest pricing",
@@ -558,6 +585,19 @@ export function normalizeLandingConfig(raw: unknown): LandingConfig {
       pattern: ["dots", "grid", "none"].includes(merged.theme.pattern)
         ? merged.theme.pattern
         : DEFAULT_LANDING_CONFIG.theme.pattern,
+    };
+    merged.roadmap.request = {
+      ...DEFAULT_LANDING_CONFIG.roadmap.request,
+      ...merged.roadmap.request,
+      points: Array.isArray(merged.roadmap.request.points)
+        ? merged.roadmap.request.points.filter(
+            (point): point is string => typeof point === "string",
+          )
+        : DEFAULT_LANDING_CONFIG.roadmap.request.points,
+      ctaHref:
+        /^(#|\/|mailto:|https:\/\/)/.test(merged.roadmap.request.ctaHref)
+          ? merged.roadmap.request.ctaHref
+          : DEFAULT_LANDING_CONFIG.roadmap.request.ctaHref,
     };
 
     const custom = Array.isArray(merged.customSections)
