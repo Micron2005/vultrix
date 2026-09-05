@@ -120,12 +120,6 @@ export function ShopBranding({
           />
         </label>
         {accent ? (
-          <span
-            className="h-6 w-6 rounded-full border border-zinc-200"
-            style={{ backgroundColor: accent }}
-            aria-label={`Accent preview ${accent}`}
-          />
-        ) : (
           <button
             type="button"
             onClick={() => setAccent("")}
@@ -133,6 +127,8 @@ export function ShopBranding({
           >
             Clear accent
           </button>
+        ) : (
+          <span className="text-xs text-zinc-500">None</span>
         )}
         <span className="text-xs text-zinc-500">Used on customer portal actions only.</span>
       </div>
