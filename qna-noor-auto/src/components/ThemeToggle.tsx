@@ -12,7 +12,7 @@ const choices: Array<{ value: ThemeMode; label: string }> = [
 ];
 
 export function ThemeToggle({
-  initialTheme = "system",
+  initialTheme = "dark",
 }: {
   initialTheme?: ThemeMode;
 }) {
@@ -71,7 +71,7 @@ export function ThemeToggle({
           aria-pressed={theme === choice.value}
           className={`min-h-9 flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
             theme === choice.value
-              ? "bg-zinc-900 text-white"
+              ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
               : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
           }`}
         >

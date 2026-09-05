@@ -33,7 +33,7 @@ export function CustomerPickerOrCreate({ action, customers }: Props) {
             data-testid="mode-existing-customer"
             className={`rounded px-3 py-1 border ${
               mode === "existing"
-                ? "bg-zinc-900 text-white border-zinc-900"
+                ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] border-zinc-900"
                 : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400"
             }`}
             onClick={() => setMode("existing")}
@@ -45,7 +45,7 @@ export function CustomerPickerOrCreate({ action, customers }: Props) {
             data-testid="mode-new-customer"
             className={`rounded px-3 py-1 border ${
               mode === "new"
-                ? "bg-zinc-900 text-white border-zinc-900"
+                ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] border-zinc-900"
                 : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400"
             }`}
             onClick={() => setMode("new")}

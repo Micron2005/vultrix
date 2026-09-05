@@ -67,7 +67,7 @@ export function RangeForm({
             className={
               "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors " +
               (current === p.value
-                ? "border-zinc-900 bg-zinc-900 text-white"
+                ? "border-[var(--vx-accent-600)] bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
                 : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50")
             }
           >
@@ -94,7 +94,7 @@ export function RangeForm({
           />
           <button
             type="submit"
-            className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-800"
+            className="rounded-md bg-[var(--vx-accent-600)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--vx-accent-700)]"
           >
             Apply
           </button>

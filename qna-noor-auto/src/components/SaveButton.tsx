@@ -70,9 +70,11 @@ export function SaveButton({
       disabled={pending}
       data-state={state}
       className={cn(
-        "save-btn inline-flex items-center justify-center gap-1.5 rounded-md font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90",
+        "save-btn inline-flex items-center justify-center gap-1.5 rounded-md font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)] focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90",
         size === "sm" ? "h-8 px-3 text-sm" : "h-9 px-4 text-sm",
-        saved ? "bg-emerald-600" : "bg-zinc-900 hover:bg-zinc-800",
+        saved
+          ? "bg-emerald-600"
+          : "bg-[var(--vx-accent-600)] hover:bg-[var(--vx-accent-700)]",
         fullWidth && "w-full",
         className,
       )}

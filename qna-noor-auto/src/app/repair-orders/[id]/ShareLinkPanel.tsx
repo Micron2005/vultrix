@@ -49,7 +49,7 @@ export function ShareLinkPanel({
       <button
         type="button"
         onClick={copy}
-        className="shrink-0 rounded-md bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-2 text-sm font-medium"
+        className="shrink-0 rounded-md bg-[var(--vx-accent-600)] hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)] px-3 py-2 text-sm font-medium"
       >
         {copied ? "Copied!" : "Copy link"}
       </button>

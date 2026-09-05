@@ -4,16 +4,30 @@ const RIGHT_PATH = 'M 733.8 61.6 C 733.3 61.8, 732.3 62.4, 731.6 62.9 C 730.9 63
 export function VultrixMark({
   className,
   variant = "dark",
+  tile = false,
 }: {
   className?: string;
   variant?: "dark" | "light" | "mono";
+  tile?: boolean;
 }) {
   const gradientId = "vx-grad";
-  const leftFill = variant === "mono" ? "currentColor" : `url(#${gradientId})`;
-  const rightFill = variant === "dark" ? "#ffffff" : variant === "light" ? "#0a0a0a" : "currentColor";
-  return (
-    <svg viewBox="0 0 1000 1000" className={className} aria-hidden="true" focusable="false">
-      {variant !== "mono" && (
+  const effectiveVariant = tile ? "dark" : variant;
+  const leftFill =
+    effectiveVariant === "mono" ? "currentColor" : `url(#${gradientId})`;
+  const rightFill =
+    effectiveVariant === "dark"
+      ? "#ffffff"
+      : effectiveVariant === "light"
+        ? "#0a0a0a"
+        : "currentColor";
+  const mark = (
+    <svg
+      viewBox="0 0 1000 1000"
+      className={tile ? "h-[68%] w-[68%]" : className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {effectiveVariant !== "mono" && (
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#7c3aed" />
@@ -24,5 +38,14 @@ export function VultrixMark({
       <path d={LEFT_PATH} fill={leftFill} />
       <path d={RIGHT_PATH} fill={rightFill} />
     </svg>
+  );
+  return tile ? (
+    <span
+      className={`inline-flex items-center justify-center rounded-[22%] bg-[#09090b] ${className ?? ""}`}
+    >
+      {mark}
+    </span>
+  ) : (
+    mark
   );
 }

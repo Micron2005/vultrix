@@ -104,7 +104,7 @@ export default async function RecurringInvoicesPage({
                     <form action={issueRecurringInvoiceOccurrence}>
                       <input type="hidden" name="recurringId" value={item.recurringId} />
                       <input type="hidden" name="occurrence" value={item.occurrence.toISOString()} />
-                      <button className="h-8 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white" type="submit">Issue</button>
+                      <button className="h-8 rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-white" type="submit">Issue</button>
                     </form>
                     <form action={skipRecurringInvoiceOccurrence}>
                       <input type="hidden" name="recurringId" value={item.recurringId} />

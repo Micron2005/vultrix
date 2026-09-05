@@ -669,7 +669,7 @@ const Navbar = () => {
     <header className={`fixed top-0 inset-x-0 z-50 transition-colors duration-300 ${scrolled ? "bg-white/85 backdrop-blur-md border-b border-zinc-200" : "bg-transparent border-b border-transparent"}`}>
       <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="#top" className="flex items-center gap-2">
-          <VultrixMark variant="dark" className="h-9 w-9" />
+          <VultrixMark tile className="h-9 w-9" />
           <span className={`font-display text-lg font-extrabold tracking-tight ${scrolled ? "text-zinc-900" : "text-white"}`}>{cfg.site.brand}</span>
         </a>
         <div className="hidden md:flex items-center gap-1">
@@ -679,7 +679,7 @@ const Navbar = () => {
         </div>
         <div className="hidden md:flex items-center gap-2">
           <a href={URLS.login} className={`${btnBase} h-10 px-4 text-sm ${scrolled ? "text-zinc-700 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`}>{cfg.site.loginLabel}</a>
-          <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800`}>{cfg.site.signupLabel} <ArrowRight className="ml-1.5 h-4 w-4" /></a>
+          <a href={URLS.signup} className={`${btnBase} h-10 px-4 text-sm bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{cfg.site.signupLabel} <ArrowRight className="ml-1.5 h-4 w-4" /></a>
         </div>
         <button className={`md:hidden p-2 rounded-lg ${scrolled ? "text-zinc-900 hover:bg-zinc-100" : "text-white hover:bg-white/10"}`} aria-label="Open menu" onClick={() => setOpen((o) => !o)}>
           <Menu className="h-6 w-6" />
@@ -693,7 +693,7 @@ const Navbar = () => {
             ))}
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-zinc-900 text-white hover:bg-zinc-800`}>{cfg.site.signupLabel}</a>
+            <a href={URLS.signup} className={`${btnBase} w-full h-11 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{cfg.site.signupLabel}</a>
             <a href={URLS.login} className={`${btnBase} w-full h-11 border border-zinc-300 text-zinc-800 hover:bg-zinc-50`}>{cfg.site.loginLabel}</a>
           </div>
         </div>
@@ -828,7 +828,7 @@ const Audiences = () => {
       </div>
       <Reveal delay={0.1}>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-sm`}>{section.ctaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
+          <a href={URLS.signup} className={`${btnBase} h-11 px-5 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)] text-sm`}>{section.ctaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
         </div>
       </Reveal>
     </div>
@@ -1152,7 +1152,7 @@ const Pricing = ({ trialDays }) => {
                   <a
                     href={URLS.signup}
                     data-testid={`pricing-cta-${p.id}`}
-                    className={`${btnBase} mt-6 w-full h-12 ${p.highlight ? "bg-amber-500 text-zinc-950 hover:bg-amber-400" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
+                    className={`${btnBase} mt-6 w-full h-12 ${p.highlight ? "bg-amber-500 text-zinc-950 hover:bg-amber-400" : "bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]"}`}
                   >
                     {p.cta}<ArrowRight className="ml-2 h-4 w-4" />
                   </a>
@@ -1280,7 +1280,7 @@ const ContactForm = ({ copy }) => {
       </div>
       <div className="mt-4"><label className="text-sm text-zinc-700">{copy.messageLabel}</label><textarea value={form.message} onChange={upd("message")} placeholder={copy.messagePlaceholder} className="mt-1.5 w-full min-h-[120px] rounded-lg border border-zinc-300 p-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-400" /></div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy} className={`${btnBase} mt-5 w-full h-12 bg-zinc-900 text-white hover:bg-zinc-800 text-base`}>{busy ? copy.sendingLabel : (<>{copy.submitLabel} <Send className="ml-2 h-4 w-4" /></>)}</button>
+      <button type="submit" disabled={busy} className={`${btnBase} mt-5 w-full h-12 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)] text-base`}>{busy ? copy.sendingLabel : (<>{copy.submitLabel} <Send className="ml-2 h-4 w-4" /></>)}</button>
       <p className="mt-3 text-xs text-zinc-500 text-center">{copy.privacyNote}</p>
     </form>
   );
@@ -1309,7 +1309,7 @@ const Contact = ({ trialDays }) => {
           <div className="mt-8 rounded-[14px] bg-[var(--vx-light)] border border-zinc-200 p-5">
             <div className="text-sm font-semibold text-zinc-900">{section.quickCtaTitle}</div>
             <p className="mt-1 text-sm text-zinc-600">{text(section.quickCtaBody, cfg, trialDays)}</p>
-            <a href={URLS.signup} className={`${btnBase} mt-3 h-11 px-4 bg-zinc-900 text-white hover:bg-zinc-800`}>{section.quickCtaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
+            <a href={URLS.signup} className={`${btnBase} mt-3 h-11 px-4 bg-[var(--vx-accent)] text-[var(--vx-accent-fg)] hover:bg-[color-mix(in_srgb,var(--vx-accent)_85%,black)]`}>{section.quickCtaLabel} <ArrowRight className="ml-2 h-4 w-4" /></a>
           </div>
         </Reveal>
         <Reveal className="lg:col-span-7" delay={0.1}><ContactForm copy={section.form} /></Reveal>
@@ -1348,7 +1348,7 @@ const Footer = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
-            <div className="flex items-center gap-2"><VultrixMark variant="dark" className="h-9 w-9" /><span className="font-display text-xl font-extrabold tracking-tight text-white">{cfg.site.brand}</span></div>
+            <div className="flex items-center gap-2"><VultrixMark tile className="h-9 w-9" /><span className="font-display text-xl font-extrabold tracking-tight text-white">{cfg.site.brand}</span></div>
             <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{text(cfg.footer.blurb, cfg)}</p>
           </div>
           <div className="md:col-span-3">

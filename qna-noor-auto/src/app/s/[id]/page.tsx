@@ -121,7 +121,7 @@ export default async function ScanPartPage({
         <button
           type="submit"
           disabled={outOfStock}
-          className="w-full h-16 rounded-xl bg-zinc-900 text-white text-lg font-semibold shadow-sm hover:bg-zinc-800 active:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full h-16 rounded-xl bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-lg font-semibold shadow-sm hover:bg-[var(--vx-accent-700)] active:bg-[var(--vx-accent-700)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Used 1{unit} &nbsp;→&nbsp; {Math.max(0, part.qtyOnHand - 1)} left
         </button>
@@ -164,7 +164,7 @@ export default async function ScanPartPage({
           />
           <button
             type="submit"
-            className="flex-1 h-12 rounded-lg bg-zinc-900 text-white text-base font-semibold hover:bg-zinc-800 active:bg-zinc-700"
+            className="flex-1 h-12 rounded-lg bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-base font-semibold hover:bg-[var(--vx-accent-700)] active:bg-[var(--vx-accent-700)]"
           >
             Subtract{unit ? ` ${part.unit}` : ""}
           </button>

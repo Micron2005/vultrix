@@ -138,7 +138,7 @@ export function LoginForm({
       )}
       <button
         type="submit"
-        className="w-full rounded-md bg-zinc-900 text-white text-sm font-medium py-2 hover:bg-zinc-800"
+        className="w-full rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-sm font-medium py-2 hover:bg-[var(--vx-accent-700)]"
         data-testid="login-submit"
       >
         Sign in

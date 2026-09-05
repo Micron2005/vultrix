@@ -11,7 +11,7 @@ export function PrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 active:bg-zinc-950"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--vx-accent-600)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--vx-accent-700)] active:bg-[var(--vx-accent-700)]"
       data-testid="flyer-print-button"
     >
       <Printer className="h-4 w-4" /> Print flyer

@@ -230,7 +230,7 @@ export default async function CustomerPortalPage({
                           <input type="hidden" name="kind" value="deposit" />
                           <button
                             type="submit"
-                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
                             style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                           >
                             Pay {formatMoney(depositInfo.due)} deposit
@@ -263,7 +263,7 @@ export default async function CustomerPortalPage({
                 <form method="post" action={`/api/pay/${token}/all`}>
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
                     style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Pay all {formatMoney(totalOutstanding)}
@@ -277,7 +277,7 @@ export default async function CustomerPortalPage({
                 >
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
                     style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Pay {formatMoney(totalOutstanding)} online
@@ -314,7 +314,7 @@ export default async function CustomerPortalPage({
                   </div>
                   <Link
                     href={`/e/${ro.shareToken}`}
-                    className="inline-flex h-8 items-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800"
+                    className="inline-flex h-8 items-center rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
                     style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Review estimate →
@@ -465,7 +465,7 @@ export default async function CustomerPortalPage({
             </Field>
             <button
               type="submit"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
               style={branding.accent ? { backgroundColor: branding.accent } : undefined}
             >
               Request appointment

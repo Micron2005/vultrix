@@ -237,7 +237,20 @@ const accent = (
 });
 
 export const UI_ACCENTS: Accent[] = [
-  accent("default", "Zinc", "#18181b"),
+  accent("default", "Vultrix purple", "#7c3aed", [
+    "#7c3aed",
+    "#6d28d9",
+    "#f5f3ff",
+    "#ede9fe",
+    "#ffffff",
+  ]),
+  accent("zinc", "Neutral", "#18181b", [
+    "var(--color-zinc-900)",
+    "var(--color-zinc-800)",
+    "var(--color-zinc-50)",
+    "var(--color-zinc-100)",
+    "var(--color-white)",
+  ]),
   accent("blue", "Blue", "#2563eb", [
     "#2563eb",
     "#1d4ed8",
@@ -257,13 +270,6 @@ export const UI_ACCENTS: Accent[] = [
     "#047857",
     "#ecfdf5",
     "#d1fae5",
-    "#ffffff",
-  ]),
-  accent("violet", "Violet", "#7c3aed", [
-    "#7c3aed",
-    "#6d28d9",
-    "#f5f3ff",
-    "#ede9fe",
     "#ffffff",
   ]),
   accent("amber", "Amber", "#d97706", [

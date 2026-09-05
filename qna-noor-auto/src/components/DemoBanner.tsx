@@ -36,7 +36,7 @@ export function DemoBanner() {
           <Link
             href="/signup"
             data-testid="demo-banner-start-trial-button"
-            className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-white transition-colors hover:bg-[var(--vx-accent-700)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50"
           >
             Start free trial
           </Link>

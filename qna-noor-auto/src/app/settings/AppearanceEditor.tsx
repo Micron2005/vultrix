@@ -45,7 +45,7 @@ function PresetButton({
       onClick={onSelect}
       className={`flex min-w-24 flex-1 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition ${
         selected
-          ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-zinc-900 dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-100"
+          ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-[var(--vx-accent-600)] dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-100"
           : "border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
       }`}
     >
@@ -78,7 +78,7 @@ function SegmentButton({
       onClick={onSelect}
       className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${
         selected
-          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+          ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
           : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       }`}
     >
@@ -98,7 +98,7 @@ export function AppearanceEditor({
   const [customHex, setCustomHex] = useState(
     /^#[0-9a-f]{6}$/i.test(initialPrefs.accent)
       ? initialPrefs.accent
-      : "#18181b",
+      : "#7c3aed",
   );
 
   useEffect(() => {
@@ -184,7 +184,7 @@ export function AppearanceEditor({
               <input
                 type="color"
                 value={
-                  /^#[0-9a-f]{6}$/i.test(customHex) ? customHex : "#18181b"
+                  /^#[0-9a-f]{6}$/i.test(customHex) ? customHex : "#7c3aed"
                 }
                 onChange={(event) => setCustomAccent(event.target.value)}
                 aria-label="Choose custom accent color"
@@ -270,7 +270,7 @@ export function AppearanceEditor({
               setCustomHex(
                 /^#[0-9a-f]{6}$/i.test(resetPrefs.accent)
                   ? resetPrefs.accent
-                  : "#18181b",
+                  : "#7c3aed",
               );
             }}
             className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"

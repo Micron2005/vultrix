@@ -39,7 +39,7 @@ const SIGNUP_STORAGE_KEY = "vultrix_signup_wizard_v1";
 const inputClass =
   "mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
 const primaryButtonClass =
-  "w-full rounded-md bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-md bg-[var(--vx-accent-600)] py-2 text-sm font-medium text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] disabled:cursor-not-allowed disabled:opacity-50";
 const secondaryButtonClass =
   "rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50";
 
@@ -236,10 +236,10 @@ export function SignupWizard({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
-          <VultrixMark variant="light" className="mx-auto h-12 w-12" />
+          <VultrixMark tile className="mx-auto h-12 w-12" />
           <div className="text-2xl font-bold tracking-tight text-zinc-900">
             {brand}
           </div>

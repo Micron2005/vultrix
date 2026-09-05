@@ -108,7 +108,7 @@ export default async function QuickScanDonePage({
 
       <Link
         href={`/s/${id}`}
-        className="block w-full h-14 rounded-xl bg-zinc-900 text-white text-base font-semibold hover:bg-zinc-800 active:scale-[0.99] transition flex items-center justify-center"
+        className="block w-full h-14 rounded-xl bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-base font-semibold hover:bg-[var(--vx-accent-700)] active:scale-[0.99] transition flex items-center justify-center"
       >
         More adjustments →
       </Link>

@@ -284,7 +284,7 @@ function SendPopover({
       <button
         type="button"
         onClick={toggleOpen}
-        className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+        className="inline-flex items-center h-9 px-3 rounded-md text-sm font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
       >
         {label}
       </button>
@@ -330,7 +330,7 @@ function SendPopover({
                   type="button"
                   onClick={nextStep}
                   disabled={selectedContacts.length === 0}
-                  className="mt-2 inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-2 inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -376,7 +376,7 @@ function SendPopover({
                     <Fragment key={`${contact.value}-${index}`}>
                       <a
                         href={phoneHref(contact, "sms")}
-                        className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                        className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                       >
                         {multipleContacts
                           ? `Open SMS: ${contact.label || contact.value}`
@@ -398,7 +398,7 @@ function SendPopover({
                   <>
                     <a
                       href={mailtoHref}
-                      className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                      className="inline-flex items-center h-8 px-3 rounded-md text-xs font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                     >
                       Open mail app
                     </a>

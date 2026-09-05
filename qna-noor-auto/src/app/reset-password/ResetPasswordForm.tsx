@@ -138,7 +138,7 @@ export function ResetPasswordForm({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-md bg-zinc-900 text-white text-sm font-medium py-2 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-sm font-medium py-2 transition-colors hover:bg-[var(--vx-accent-700)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
         data-testid="reset-submit"
       >
         Set new password

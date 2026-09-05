@@ -180,7 +180,7 @@ export default async function ExportPage() {
             </label>
             <button
               type="submit"
-              className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="inline-flex h-10 items-center rounded-md bg-[var(--vx-accent-600)] px-4 text-sm font-medium text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
             >
               Download tax export (.zip)
             </button>
@@ -211,7 +211,7 @@ export default async function ExportPage() {
           <div>
             <a
               href="/export/download"
-              className="inline-flex items-center rounded-md bg-zinc-900 text-white px-4 h-10 text-sm font-medium hover:bg-zinc-800"
+              className="inline-flex items-center rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] px-4 h-10 text-sm font-medium hover:bg-[var(--vx-accent-700)]"
             >
               Download all data (.zip)
             </a>

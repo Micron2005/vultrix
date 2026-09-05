@@ -40,7 +40,7 @@ export function ChartSwitcher({
               onClick={() => setKind(option)}
               className={`rounded px-3 py-1.5 text-xs font-medium capitalize ${
                 kind === option
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
                   : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               }`}
             >

@@ -118,7 +118,11 @@ export default async function SettingsPage({
   await requireSettingsAccess();
   const themeCookie = (await cookies()).get("vx-theme")?.value;
   const theme: ThemeMode =
-    themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
+    themeCookie === "light" ||
+    themeCookie === "dark" ||
+    themeCookie === "system"
+      ? themeCookie
+      : "dark";
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
@@ -648,7 +652,7 @@ export default async function SettingsPage({
             </p>
             <Link
               href="/settings/activity"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
             >
               Open activity log →
             </Link>
@@ -939,7 +943,7 @@ export default async function SettingsPage({
                 </div>
                 <Link
                   href="/settings/intake-qr"
-                  className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
                   data-testid="open-intake-qr"
                 >
                   Open printable QR →

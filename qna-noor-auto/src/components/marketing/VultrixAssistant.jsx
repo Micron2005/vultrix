@@ -190,7 +190,7 @@ export default function VultrixAssistant(props) {
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close assistant" : "Open Vultrix assistant"}
         data-testid="assistant-toggle"
-        className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 h-12 px-4 rounded-full bg-zinc-900 text-white shadow-lg hover:bg-zinc-800 transition-transform duration-200 hover:-translate-y-0.5"
+        className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 h-12 px-4 rounded-full bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] shadow-lg hover:bg-[var(--vx-accent-700)] transition-transform duration-200 hover:-translate-y-0.5"
       >
         {open ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
         <span className="hidden sm:inline text-sm font-semibold">
@@ -207,7 +207,7 @@ export default function VultrixAssistant(props) {
           className="fixed bottom-20 right-3 left-3 sm:left-auto sm:right-5 z-50 sm:w-[380px] max-h-[72vh] flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-2xl overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between gap-2 px-4 py-3 bg-zinc-900 text-white">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 bg-[var(--vx-accent-600)] text-white">
             <div className="flex items-center gap-2">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500 text-zinc-900 font-bold">
                 {cfg.brand.charAt(0)}
@@ -285,7 +285,7 @@ export default function VultrixAssistant(props) {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] disabled:opacity-60 transition-colors"
                     data-testid="assistant-capture-submit"
                   >
                     {submitting ? "Sending\u2026" : "Request a callback"}

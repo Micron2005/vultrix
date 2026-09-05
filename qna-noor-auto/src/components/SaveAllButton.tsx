@@ -92,8 +92,8 @@ export function SaveAllButton({
   }
 
   const base =
-    "save-btn inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90";
-  const solidIdle = "bg-zinc-900 text-white hover:bg-zinc-800";
+    "save-btn inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)] focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90";
+  const solidIdle = "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]";
   const outlineIdle =
     "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50";
   const savedStyle = "bg-emerald-600 text-white border-transparent";
