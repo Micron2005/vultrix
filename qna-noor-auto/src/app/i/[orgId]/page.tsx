@@ -12,10 +12,10 @@ import { shopBranding } from "@/lib/shop";
 export const dynamic = "force-dynamic";
 
 const fieldCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10";
+  "w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-[var(--vx-accent-600)]/10";
 const labelCls = "mb-1 block text-sm font-medium text-zinc-700";
 const primaryBtn =
-  "inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-zinc-800 active:bg-zinc-950";
+  "inline-flex w-full items-center justify-center rounded-lg bg-[var(--vx-accent-600)] px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-[var(--vx-accent-700)] active:bg-[var(--vx-accent-700)]";
 
 type SP = {
   k?: string;
@@ -412,7 +412,7 @@ export default async function IntakePage({
             data-testid="intake-search-input"
             autoFocus
           />
-          <button type="submit" className="shrink-0 rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800" data-testid="intake-search-btn">
+          <button type="submit" className="shrink-0 rounded-lg bg-[var(--vx-accent-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)]" data-testid="intake-search-btn">
             Search
           </button>
         </form>

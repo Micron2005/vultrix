@@ -46,7 +46,7 @@ export function PaidActions({
         type="button"
         onClick={() => startTransition(() => clearRepairOrder(id))}
         disabled={isPending}
-        className="inline-flex items-center justify-center rounded-md font-medium h-9 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50"
+        className="inline-flex items-center justify-center rounded-md font-medium h-9 px-4 text-sm bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] disabled:opacity-50"
       >
         Clear Ticket
       </button>

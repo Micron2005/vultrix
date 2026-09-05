@@ -179,7 +179,7 @@ function DayCell({ day, compact = false, selected = false, currentMonth, events,
           className={
             "flex min-h-9 min-w-9 items-center justify-center text-xs font-semibold " +
             (isToday(day)
-              ? "rounded-full bg-zinc-900 px-1.5 py-0.5 text-white"
+              ? "rounded-full bg-[var(--vx-accent-600)] px-1.5 py-0.5 text-white"
               : "text-zinc-700")
           }
         >
@@ -199,7 +199,7 @@ function DayCell({ day, compact = false, selected = false, currentMonth, events,
       </div>
     );
   }
-  return <div className={"min-h-28 border-b border-r border-zinc-200 p-2 " + (!currentMonth ? "bg-zinc-50 text-zinc-400" : "")}><button type="button" onClick={() => onDay(day)} className={"mb-1 text-xs font-semibold " + (isToday(day) ? "rounded-full bg-zinc-900 px-1.5 py-0.5 text-white" : "text-zinc-700")}>{format(day, "d")}</button><div className="space-y-1">{events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}{events.length > 3 && <div className="text-[11px] text-zinc-500">+{events.length - 3} more</div>}</div></div>;
+  return <div className={"min-h-28 border-b border-r border-zinc-200 p-2 " + (!currentMonth ? "bg-zinc-50 text-zinc-400" : "")}><button type="button" onClick={() => onDay(day)} className={"mb-1 text-xs font-semibold " + (isToday(day) ? "rounded-full bg-[var(--vx-accent-600)] px-1.5 py-0.5 text-white" : "text-zinc-700")}>{format(day, "d")}</button><div className="space-y-1">{events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}{events.length > 3 && <div className="text-[11px] text-zinc-500">+{events.length - 3} more</div>}</div></div>;
 }
 
 function WeekView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor: (day: Date) => CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {

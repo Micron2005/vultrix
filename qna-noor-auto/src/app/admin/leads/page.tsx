@@ -104,7 +104,7 @@ export default async function LeadsPage({
               className={
                 "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors " +
                 (active
-                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  ? "border-[var(--vx-accent-600)] bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
                   : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50")
               }
             >

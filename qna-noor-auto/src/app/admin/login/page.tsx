@@ -15,10 +15,10 @@ export default async function AdminLoginPage({
 
   const sp = (await searchParams) ?? {};
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
       <div className="w-full max-w-sm">
         <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-          <VultrixMark variant="light" className="mx-auto mb-3 h-12 w-12" />
+          <VultrixMark tile className="mx-auto mb-3 h-12 w-12" />
           <h1 className="text-xl font-semibold text-zinc-900">
             Vultrix platform admin
           </h1>
@@ -70,7 +70,7 @@ export default async function AdminLoginPage({
             )}
             <button
               type="submit"
-              className="w-full rounded-md bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="w-full rounded-md bg-[var(--vx-accent-600)] py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
             >
               Sign in
             </button>

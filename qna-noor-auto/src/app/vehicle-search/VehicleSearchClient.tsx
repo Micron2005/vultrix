@@ -226,7 +226,7 @@ export function VehicleSearchClient() {
               type="button"
               className={`rounded px-3 py-1 border ${
                 mode === "vin"
-                  ? "bg-zinc-900 text-white border-zinc-900"
+                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] border-zinc-900"
                   : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400"
               }`}
               onClick={() => setMode("vin")}
@@ -237,7 +237,7 @@ export function VehicleSearchClient() {
               type="button"
               className={`rounded px-3 py-1 border ${
                 mode === "plate"
-                  ? "bg-zinc-900 text-white border-zinc-900"
+                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] border-zinc-900"
                   : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400"
               }`}
               onClick={() => setMode("plate")}

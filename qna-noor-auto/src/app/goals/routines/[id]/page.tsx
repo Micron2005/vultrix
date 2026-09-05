@@ -49,7 +49,7 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
         {routine.goal && <><span>·</span><Link href={`/goals/${routine.goal.id}`} className="underline">Goal: {routine.goal.title}</Link></>}
         {routine.archived && <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">Archived</span>}
       </div>
-      <Card className="p-5 dark:border-zinc-700 dark:bg-zinc-900">
+      <Card className="p-5 dark:border-zinc-700 dark:bg-[var(--vx-accent-600)]">
         <CardHeader title="Routine settings" />
         {error && (
           <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
@@ -76,7 +76,7 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           />
         </div>
       </Card>
-      <Card className="mt-6 p-5 dark:border-zinc-700 dark:bg-zinc-900">
+      <Card className="mt-6 p-5 dark:border-zinc-700 dark:bg-[var(--vx-accent-600)]">
         <CardHeader title={`Items (${routine.items.length})`} />
         <div className="mt-4 space-y-4">
           {routine.items.map((item, index) => (
@@ -106,12 +106,12 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Sets<Input name="sets" type="number" min="1" placeholder="4" className="mt-1" /></label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Rest (sec)<Input name="restSeconds" type="number" min="5" placeholder="90" className="mt-1" /></label>
               <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Due time<Input name="dueTime" type="time" className="mt-1" /></label>
-              <button className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Add item</button>
+              <button className="rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white text-[var(--vx-accent-fg)]">Add item</button>
             </div>
           </form>
         </div>
       </Card>
-      <Card className="mt-6 overflow-hidden dark:border-zinc-700 dark:bg-zinc-900">
+      <Card className="mt-6 overflow-hidden dark:border-zinc-700 dark:bg-[var(--vx-accent-600)]">
         <CardHeader title="14-day history" />
         <div className="overflow-x-auto p-4">
           <table className="min-w-[42rem] w-full text-left text-xs">

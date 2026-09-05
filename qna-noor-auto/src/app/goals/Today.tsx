@@ -21,7 +21,7 @@ import { SetTimer } from "./SetTimer";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white";
+  "rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)] dark:hover:bg-white";
 
 function GoalQuickAction({
   goal,

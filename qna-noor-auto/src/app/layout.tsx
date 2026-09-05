@@ -40,8 +40,11 @@ export default async function RootLayout({
     pathname === "/status" ||
     pathname === "/admin/landing/preview"
   ) {
+    const darkLoggedOutPath = ["/login", "/signup", "/admin/login", "/status"].includes(
+      pathname,
+    );
     return (
-      <html lang="en" className="h-full">
+      <html lang="en" className={darkLoggedOutPath ? "dark h-full" : "h-full"}>
         <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
           {children}
         </body>
@@ -51,7 +54,11 @@ export default async function RootLayout({
 
   const themeCookie = (await cookies()).get("vx-theme")?.value;
   const theme: ThemeMode =
-    themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
+    themeCookie === "light" ||
+    themeCookie === "dark" ||
+    themeCookie === "system"
+      ? themeCookie
+      : "dark";
   const orgLabel = user.orgName ?? APP_NAME;
   const enabledFeatures = Array.from(enabledFeatureSet(user));
   const [appearanceRecord, organization] = await Promise.all([

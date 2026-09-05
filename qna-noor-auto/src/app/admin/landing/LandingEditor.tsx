@@ -39,6 +39,7 @@ const sectionLabels: Record<string, string> = {
 };
 
 const palette = {
+  Vultrix: { accent: "#7c3aed", accentSoft: "#a78bfa", dark: "#09090b" },
   Amber: { accent: "#f59e0b", accentSoft: "#fbbf24" },
   Blue: { accent: "#2563eb", accentSoft: "#60a5fa" },
   Green: { accent: "#16a34a", accentSoft: "#4ade80" },

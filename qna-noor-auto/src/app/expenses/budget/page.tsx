@@ -103,7 +103,7 @@ function AddBudgetForm() {
       </label>
       <button
         type="submit"
-        className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+        className="h-10 rounded-md bg-[var(--vx-accent-600)] px-4 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
       >
         Add budget
       </button>

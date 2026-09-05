@@ -27,10 +27,10 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
       <div className="w-full max-w-sm space-y-4">
         <div className="text-center">
-          <VultrixMark variant="light" className="mx-auto h-14 w-14" />
+          <VultrixMark tile className="mx-auto h-14 w-14" />
           <div className="text-2xl font-bold tracking-tight text-zinc-900">
             {APP_NAME}
           </div>

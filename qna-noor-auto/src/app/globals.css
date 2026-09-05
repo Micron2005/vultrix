@@ -11,11 +11,11 @@
 :root {
   --background: #fafafa;
   --foreground: #18181b;
-  --vx-accent-600: var(--color-zinc-900);
-  --vx-accent-700: var(--color-zinc-800);
-  --vx-accent-50: var(--color-zinc-50);
-  --vx-accent-100: var(--color-zinc-100);
-  --vx-accent-fg: var(--color-white);
+  --vx-accent-600: #7c3aed;
+  --vx-accent-700: #6d28d9;
+  --vx-accent-50: #f5f3ff;
+  --vx-accent-100: #ede9fe;
+  --vx-accent-fg: #ffffff;
 }
 
 html {
@@ -252,7 +252,7 @@ html {
     color-scheme: dark;
     --color-white: #1b1b1f;
     --color-black: #ffffff;
-    --color-zinc-50: #101013;
+    --color-zinc-50: #09090b;
     --color-zinc-100: #26262b;
     --color-zinc-200: #33333a;
     --color-zinc-300: #45454d;
@@ -263,7 +263,9 @@ html {
     --color-zinc-800: #eeeef2;
     --color-zinc-900: #f7f7f9;
     --color-zinc-950: #ffffff;
-    --background: #101013;
+    --background: #09090b;
+    --vx-accent-50: #1d1533;
+    --vx-accent-100: #2a1d4d;
     --foreground: #f7f7f9;
     --color-amber-50: #2a2010;
     --color-amber-100: #3a2c14;

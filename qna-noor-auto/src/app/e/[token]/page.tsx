@@ -583,7 +583,7 @@ export default async function PublicEstimatePage({
                       <input type="hidden" name="kind" value="deposit" />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                        className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)]"
                       >
                         Pay {formatMoney(depositInfo.due)} deposit
                       </button>
@@ -599,7 +599,7 @@ export default async function PublicEstimatePage({
                 >
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)]"
                   >
                     Pay {formatMoney(balance)} online
                   </button>

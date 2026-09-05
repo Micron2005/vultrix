@@ -234,7 +234,7 @@ export default async function AppointmentRemindersPage({
                       {smsHref ? (
                         <a
                           href={smsHref}
-                          className="inline-flex items-center h-8 px-3 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                          className="inline-flex items-center h-8 px-3 rounded-md text-sm font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                         >
                           Text
                         </a>
@@ -282,7 +282,7 @@ function TabLink({
       className={
         "px-3 py-1.5 text-sm " +
         (active
-          ? "bg-zinc-900 text-white"
+          ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
           : "text-zinc-700 hover:bg-zinc-50")
       }
     >

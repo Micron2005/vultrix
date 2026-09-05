@@ -245,7 +245,7 @@ export function Nav({
     <>
       <div className="p-5 border-b border-zinc-200 flex items-center justify-between gap-2">
         <Link href="/" className="flex min-w-0 items-center gap-2" onClick={closeMobile}>
-          <VultrixMark variant="mono" className="h-6 w-6 shrink-0 text-zinc-900 dark:text-white" />
+          <VultrixMark tile className="h-7 w-7 shrink-0" />
           <div className="min-w-0">
             <div className="text-sm font-semibold tracking-tight text-zinc-900 truncate">
               {orgLabel}
@@ -336,7 +336,7 @@ export function Nav({
         <header className="no-print hidden border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950 lg:sticky lg:top-0 lg:z-40 lg:block">
           <div className="flex items-center gap-4 px-5 py-3">
             <Link href="/" className="flex max-w-56 shrink-0 items-center gap-2 truncate text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-              <VultrixMark variant="mono" className="h-6 w-6 shrink-0 text-zinc-900 dark:text-white" />
+              <VultrixMark tile className="h-7 w-7 shrink-0" />
               <span className="truncate">{orgLabel}</span>
             </Link>
             {!isSuperadmin && (

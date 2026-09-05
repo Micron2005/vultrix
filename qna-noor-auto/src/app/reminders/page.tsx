@@ -190,7 +190,7 @@ export default async function RemindersPage({
           </label>
           <button
             type="submit"
-            className="inline-flex items-center rounded-md bg-zinc-900 text-white h-9 px-3 text-sm font-medium hover:bg-zinc-800"
+            className="inline-flex items-center rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] h-9 px-3 text-sm font-medium hover:bg-[var(--vx-accent-700)]"
           >
             Apply
           </button>
@@ -277,7 +277,7 @@ export default async function RemindersPage({
                       {smsHref ? (
                         <a
                           href={smsHref}
-                          className="inline-flex items-center h-8 px-3 rounded-md text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800"
+                          className="inline-flex items-center h-8 px-3 rounded-md text-sm font-medium bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                         >
                           Text
                         </a>

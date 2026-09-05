@@ -252,7 +252,7 @@ async function ShopSchedulePage({
                 className={
                   "px-3 py-2 border-b text-xs font-semibold uppercase tracking-wider " +
                   (isToday
-                    ? "bg-zinc-900 text-white border-zinc-900"
+                    ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] border-zinc-900"
                     : "bg-zinc-50 text-zinc-600 border-zinc-200")
                 }
               >

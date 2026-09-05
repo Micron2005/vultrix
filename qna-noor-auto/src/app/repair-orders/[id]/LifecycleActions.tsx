@@ -138,7 +138,7 @@ export function LifecycleActions({
 
       {current === "CANCELLED" && (
         <form action={go("ESTIMATE")}>
-          <button className="inline-flex items-center justify-center rounded-md font-medium h-9 px-4 text-sm bg-zinc-900 text-white hover:bg-zinc-800">
+          <button className="inline-flex items-center justify-center rounded-md font-medium h-9 px-4 text-sm bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]">
             Reopen as Estimate
           </button>
         </form>

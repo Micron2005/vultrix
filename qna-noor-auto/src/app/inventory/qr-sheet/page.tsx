@@ -137,7 +137,7 @@ export default async function QrSheetPage({
           href={{ pathname: "/inventory/qr-sheet", query: { ...sp, size: "small" } }}
           className={`px-2 py-1 rounded ${
             size === "small"
-              ? "bg-zinc-900 text-white"
+              ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
               : "border border-zinc-300 hover:bg-zinc-50"
           }`}
         >
@@ -147,7 +147,7 @@ export default async function QrSheetPage({
           href={{ pathname: "/inventory/qr-sheet", query: { ...sp, size: "large" } }}
           className={`px-2 py-1 rounded ${
             size === "large"
-              ? "bg-zinc-900 text-white"
+              ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
               : "border border-zinc-300 hover:bg-zinc-50"
           }`}
         >
@@ -168,7 +168,7 @@ export default async function QrSheetPage({
             }}
             className={`px-2 py-1 rounded ${
               filter === f.key
-                ? "bg-zinc-900 text-white"
+                ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
                 : "border border-zinc-300 hover:bg-zinc-50"
             }`}
           >

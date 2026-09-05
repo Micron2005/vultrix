@@ -349,7 +349,7 @@ export default async function ExpensesListPage({
                   </label>
                   <button
                     type="submit"
-                    className="h-9 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white"
+                    className="h-9 rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-white"
                   >
                     Post
                   </button>
@@ -584,7 +584,7 @@ export default async function ExpensesListPage({
           <div className="flex gap-2">
             <button
               type="submit"
-              className="inline-flex items-center rounded-md bg-zinc-900 text-white h-9 px-3 text-sm font-medium hover:bg-zinc-800"
+              className="inline-flex items-center rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] h-9 px-3 text-sm font-medium hover:bg-[var(--vx-accent-700)]"
             >
               Apply
             </button>

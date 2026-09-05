@@ -153,7 +153,7 @@ export default async function ScanCategoryPage({
                     <button
                       type="submit"
                       disabled={outOfStock}
-                      className="w-full h-11 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 active:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full h-11 rounded-lg bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-sm font-semibold hover:bg-[var(--vx-accent-700)] active:bg-[var(--vx-accent-700)] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Used 1{unit}
                     </button>

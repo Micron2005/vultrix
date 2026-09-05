@@ -150,7 +150,7 @@ export function RoutineSettingsForm({
           ))}
         </div>
       </fieldset>
-      <button className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
+      <button className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-white text-[var(--vx-accent-fg)]">
         Save settings
       </button>
     </form>

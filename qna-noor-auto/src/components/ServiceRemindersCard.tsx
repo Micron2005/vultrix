@@ -110,7 +110,7 @@ export function ServiceRemindersCard({
                 />
                 <button
                   type="submit"
-                  className="rounded-md bg-zinc-900 text-white text-xs font-medium px-2 py-1 hover:bg-zinc-800"
+                  className="rounded-md bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] text-xs font-medium px-2 py-1 hover:bg-[var(--vx-accent-700)]"
                 >
                   Mark done
                 </button>

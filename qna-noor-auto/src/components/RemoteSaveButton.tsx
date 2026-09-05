@@ -74,10 +74,10 @@ export function RemoteSaveButton({
   const state = pending ? "saving" : saved ? "saved" : "idle";
 
   const base =
-    "save-btn inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90";
+    "save-btn inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)] focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-90";
   const sizing = size === "sm" ? "h-8 px-3 text-sm" : "h-9 px-4 text-sm";
 
-  const solidIdle = "bg-zinc-900 text-white hover:bg-zinc-800";
+  const solidIdle = "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]";
   const subtleIdle =
     "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50";
   const savedStyle = "bg-emerald-600 text-white border-transparent";
