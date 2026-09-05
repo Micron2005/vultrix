@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardHeader } from "@/components/ui";
 import { APP_NAME, SUPPORT_EMAIL } from "@/lib/branding";
+import { VultrixMark } from "@/components/VultrixMark";
 import { db } from "@/lib/db";
 import {
   getStatusChecks,
@@ -170,10 +171,8 @@ export default async function StatusPage() {
     <div className="min-h-screen bg-zinc-100 px-4 py-10">
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <header className="text-center">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-zinc-900"
-          >
+          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold tracking-tight text-zinc-900">
+            <VultrixMark variant="mono" className="h-8 w-8 text-zinc-900" />
             {APP_NAME}
           </Link>
           <h1 className="mt-1 text-lg font-semibold text-zinc-800">Status</h1>

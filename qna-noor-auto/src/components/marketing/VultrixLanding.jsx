@@ -20,6 +20,7 @@ import {
   Star, Heart, Zap, Target, Sparkles,
 } from "lucide-react";
 import VultrixAssistant from "./VultrixAssistant";
+import { VultrixMark } from "../VultrixMark";
 
 const LandingConfigContext = createContext(DEFAULT_LANDING_CONFIG);
 const ICONS = {
@@ -358,14 +359,6 @@ function Counter({ value, prefix = "", suffix = "" }) {
    SMALL UI HELPERS (plain elements, no shadcn)
 ---------------------------------------------------------------------------- */
 const btnBase = "inline-flex items-center justify-center font-semibold rounded-xl transition-colors";
-const VultrixLogo = () => (
-  <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--vx-accent)]">
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="var(--vx-accent-fg)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4l8 16 8-16" />
-    </svg>
-  </span>
-);
-
 /* ----------------------------------------------------------------------------
    MOCKS (custom CSS UI — no screenshots / logos)
 ---------------------------------------------------------------------------- */
@@ -676,7 +669,7 @@ const Navbar = () => {
     <header className={`fixed top-0 inset-x-0 z-50 transition-colors duration-300 ${scrolled ? "bg-white/85 backdrop-blur-md border-b border-zinc-200" : "bg-transparent border-b border-transparent"}`}>
       <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="#top" className="flex items-center gap-2">
-          <VultrixLogo />
+          <VultrixMark variant="dark" className="h-9 w-9" />
           <span className={`font-display text-lg font-extrabold tracking-tight ${scrolled ? "text-zinc-900" : "text-white"}`}>{cfg.site.brand}</span>
         </a>
         <div className="hidden md:flex items-center gap-1">
@@ -1355,7 +1348,7 @@ const Footer = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
-            <div className="flex items-center gap-2"><VultrixLogo /><span className="font-display text-xl font-extrabold tracking-tight text-white">{cfg.site.brand}</span></div>
+            <div className="flex items-center gap-2"><VultrixMark variant="dark" className="h-9 w-9" /><span className="font-display text-xl font-extrabold tracking-tight text-white">{cfg.site.brand}</span></div>
             <p className="mt-4 text-sm text-zinc-400 max-w-sm leading-relaxed">{text(cfg.footer.blurb, cfg)}</p>
           </div>
           <div className="md:col-span-3">

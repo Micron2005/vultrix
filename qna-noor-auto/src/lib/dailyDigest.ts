@@ -14,7 +14,7 @@ import {
 } from "@/lib/routines";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { localCalendarDay } from "@/lib/timezone";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import type { Role } from "@/lib/session";
 
 export type DigestSendResult = {
@@ -115,6 +115,7 @@ export async function buildDailyDigest(
   return {
     hasContent,
     html: `
+      ${emailBrandHeader()}
       <h2 style="margin:0 0 6px;color:#18181b">Good morning, ${escapeHtml(user.username)}</h2>
       <p style="color:#71717a;margin:0 0 16px">For ${escapeHtml(today)}</p>
       ${

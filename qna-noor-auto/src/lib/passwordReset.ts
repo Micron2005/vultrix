@@ -20,7 +20,7 @@
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME, SUPPORT_EMAIL } from "@/lib/branding";
 
 const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -226,6 +226,7 @@ export async function completePasswordReset(
 function resetHtml(p: { username: string; code: string }): string {
   return `
   <div style="max-width:560px;margin:0 auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+    ${emailBrandHeader()}
     <h2 style="margin:0 0 6px;color:#18181b">Your ${escapeHtml(APP_NAME)} password reset code</h2>
     <p style="margin:0 0 16px;color:#52525b;font-size:15px;line-height:1.5">
       We got a request to reset the password for <strong>${escapeHtml(p.username)}</strong>.

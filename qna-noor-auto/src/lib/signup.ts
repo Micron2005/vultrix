@@ -22,7 +22,7 @@ import {
   TRIAL_DAYS,
 } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME, SALES_EMAIL, SUPPORT_EMAIL } from "@/lib/branding";
 import { isValidTimeZone } from "@/lib/timezone";
 
@@ -367,6 +367,7 @@ function welcomeHtml(p: {
     : `Your subscription is active.`;
   return `
   <div style="max-width:560px;margin:0 auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+    ${emailBrandHeader()}
     <h2 style="margin:0 0 6px;color:#18181b">Welcome to ${escapeHtml(APP_NAME)}, ${escapeHtml(p.name)} 🔧</h2>
     <p style="margin:0 0 16px;color:#52525b;font-size:15px;line-height:1.5">
       Your shop is all set up. ${escapeHtml(trialLine)}
@@ -402,6 +403,7 @@ function ownerNotifyHtml(p: {
       : "";
   return `
   <div style="max-width:560px;margin:0 auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+    ${emailBrandHeader()}
     <h2 style="margin:0 0 4px;color:#18181b">New ${escapeHtml(APP_NAME)} shop signed up 🎉</h2>
     <p style="margin:0 0 16px;color:#71717a;font-size:14px">A new business just completed checkout and activated their account.</p>
     <table style="border-collapse:collapse">

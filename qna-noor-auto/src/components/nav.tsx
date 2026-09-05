@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui";
+import { VultrixMark } from "@/components/VultrixMark";
 import {
   getEligibleNavItems,
   navItemLabel,
@@ -243,13 +244,16 @@ export function Nav({
   const sidebarBody = (
     <>
       <div className="p-5 border-b border-zinc-200 flex items-center justify-between gap-2">
-        <Link href="/" className="block min-w-0" onClick={closeMobile}>
-          <div className="text-sm font-semibold tracking-tight text-zinc-900 truncate">
-            {orgLabel}
+        <Link href="/" className="flex min-w-0 items-center gap-2" onClick={closeMobile}>
+          <VultrixMark variant="mono" className="h-6 w-6 shrink-0 text-zinc-900 dark:text-white" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold tracking-tight text-zinc-900 truncate">
+              {orgLabel}
+            </div>
+            {username && (
+              <div className="text-xs text-zinc-500 truncate">{username}</div>
+            )}
           </div>
-          {username && (
-            <div className="text-xs text-zinc-500 truncate">{username}</div>
-          )}
         </Link>
         <button
           type="button"
@@ -331,11 +335,9 @@ export function Nav({
       {navMode === "top" && (
         <header className="no-print hidden border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950 lg:sticky lg:top-0 lg:z-40 lg:block">
           <div className="flex items-center gap-4 px-5 py-3">
-            <Link
-              href="/"
-              className="max-w-56 shrink-0 truncate text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
-            >
-              {orgLabel}
+            <Link href="/" className="flex max-w-56 shrink-0 items-center gap-2 truncate text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <VultrixMark variant="mono" className="h-6 w-6 shrink-0 text-zinc-900 dark:text-white" />
+              <span className="truncate">{orgLabel}</span>
             </Link>
             {!isSuperadmin && (
               <form onSubmit={onSubmit} className="min-w-0 flex-1">

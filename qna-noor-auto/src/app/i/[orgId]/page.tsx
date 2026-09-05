@@ -7,6 +7,7 @@ import {
   createIntakeRO,
 } from "../actions";
 import { IntakePhotos } from "./IntakePhotos";
+import { shopBranding } from "@/lib/shop";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,14 @@ function hrefFor(
 
 function Shell({
   shopName,
+  logo,
   title,
   subtitle,
   backHref,
   children,
 }: {
   shopName: string;
+  logo?: string | null;
   title: string;
   subtitle?: string;
   backHref?: string;
@@ -55,8 +58,12 @@ function Shell({
     <div className="min-h-screen bg-zinc-50 px-4 py-8">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-            {shopName}
+          <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-zinc-400">
+            {logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt="" className="h-10 w-10 rounded object-contain" />
+            )}
+            <span>{shopName}</span>
           </div>
           <h1 className="mt-1 text-2xl font-bold text-zinc-900">{title}</h1>
           {subtitle ? (
@@ -114,11 +121,12 @@ export default async function IntakePage({
     return <InvalidShell />;
   }
   const shopName = org.name;
+  const branding = await shopBranding(orgId);
 
   // ---- Step: done -------------------------------------------------------
   if (sp.done) {
     return (
-      <Shell shopName={shopName} title="Ticket created">
+      <Shell logo={branding.logo} shopName={shopName} title="Ticket created">
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-600">
             ✓
@@ -152,7 +160,7 @@ export default async function IntakePage({
     });
     if (!customer || !vehicle) {
       return (
-        <Shell shopName={shopName} title="Let's start over">
+        <Shell logo={branding.logo} shopName={shopName} title="Let's start over">
           <a href={hrefFor(orgId, k, {})} className={primaryBtn}>
             Start over
           </a>
@@ -160,8 +168,9 @@ export default async function IntakePage({
       );
     }
     return (
-      <Shell
-        shopName={shopName}
+        <Shell
+          logo={branding.logo}
+          shopName={shopName}
         title="What's the work?"
         subtitle="Describe what needs to be done or what's wrong."
         backHref={hrefFor(orgId, k, { customerId: sp.customerId })}
@@ -224,7 +233,7 @@ export default async function IntakePage({
     });
     if (!customer) {
       return (
-        <Shell shopName={shopName} title="Let's start over">
+        <Shell logo={branding.logo} shopName={shopName} title="Let's start over">
           <a href={hrefFor(orgId, k, {})} className={primaryBtn}>
             Start over
           </a>
@@ -245,8 +254,9 @@ export default async function IntakePage({
       },
     });
     return (
-      <Shell
-        shopName={shopName}
+        <Shell
+          logo={branding.logo}
+          shopName={shopName}
         title="Vehicle"
         subtitle={`for ${fullName(customer)}`}
         backHref={hrefFor(orgId, k, { mode: "existing" })}
@@ -385,6 +395,7 @@ export default async function IntakePage({
       : [];
     return (
       <Shell
+        logo={branding.logo}
         shopName={shopName}
         title="Find customer"
         subtitle="Search by name or phone."
@@ -443,6 +454,7 @@ export default async function IntakePage({
   if (sp.mode === "new") {
     return (
       <Shell
+        logo={branding.logo}
         shopName={shopName}
         title="New customer"
         subtitle="Tell us a bit about you."
@@ -503,6 +515,7 @@ export default async function IntakePage({
   // ---- Step: start (new vs existing) ------------------------------------
   return (
     <Shell
+      logo={branding.logo}
       shopName={shopName}
       title="New service ticket"
       subtitle="Let's get your vehicle checked in."

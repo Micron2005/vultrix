@@ -8,7 +8,7 @@ import {
 import { loadOpenAR } from "@/lib/ar";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { formatDate, formatMoney, fullName } from "@/lib/utils";
 import { PrintButton } from "./PrintButton";
 
@@ -40,8 +40,9 @@ export default async function CustomerStatementPage({
   });
   if (!customer) notFound();
 
-  const [settings, ar] = await Promise.all([
+  const [settings, branding, ar] = await Promise.all([
     getAllSettings(orgId),
+    shopBranding(orgId),
     loadOpenAR(orgId, customer.id),
   ]);
   const asOf = new Date();
@@ -60,7 +61,12 @@ export default async function CustomerStatementPage({
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white print:rounded-none print:border-0">
           <header className="border-b border-zinc-200 px-8 py-6">
             <div className="flex items-start justify-between gap-8">
-              <div>
+              <div className="flex items-start gap-3">
+                {branding.logo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={branding.logo} alt="" className="h-12 w-12 rounded object-contain" />
+                )}
+                <div>
                 <div className="text-xl font-semibold text-zinc-900">
                   {settings.shopName || "QNA / Noor Auto Repair"}
                 </div>
@@ -76,6 +82,7 @@ export default async function CustomerStatementPage({
                       .join(" · ")}
                   </div>
                 )}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-semibold uppercase tracking-wider text-zinc-900">

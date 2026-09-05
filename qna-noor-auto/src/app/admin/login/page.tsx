@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { VultrixMark } from "@/components/VultrixMark";
 import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function AdminLoginPage({
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
       <div className="w-full max-w-sm">
         <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+          <VultrixMark variant="light" className="mx-auto mb-3 h-12 w-12" />
           <h1 className="text-xl font-semibold text-zinc-900">
             Vultrix platform admin
           </h1>

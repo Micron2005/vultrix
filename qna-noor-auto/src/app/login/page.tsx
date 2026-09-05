@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { APP_NAME, APP_OWNER_LINE } from "@/lib/branding";
+import { VultrixMark } from "@/components/VultrixMark";
 import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
       <div className="w-full max-w-sm space-y-4">
         <div className="text-center">
+          <VultrixMark variant="light" className="mx-auto h-14 w-14" />
           <div className="text-2xl font-bold tracking-tight text-zinc-900">
             {APP_NAME}
           </div>
@@ -48,9 +51,9 @@ export default async function LoginPage({
             Create your account
           </a>
           <span className="mx-2 text-zinc-300">·</span>
-          <a href="/" className="font-medium text-zinc-700 underline" data-testid="login-back-home">
+          <Link href="/" className="font-medium text-zinc-700 underline" data-testid="login-back-home">
             Back to home
-          </a>
+          </Link>
         </div>
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">
           <a href="/terms" className="underline hover:text-zinc-600">
