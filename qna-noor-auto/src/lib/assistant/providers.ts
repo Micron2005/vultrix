@@ -85,14 +85,25 @@ function toolDefinitions(tools: AssistantToolDefinition[]) {
   }));
 }
 
-async function readProviderResponse(response: Response): Promise<UnknownRecord> {
-  const body = (await response.json()) as unknown;
+async function readProviderResponse(
+  response: Response,
+  providerName: "OpenAI" | "Anthropic",
+): Promise<UnknownRecord> {
+  let body: unknown;
+  try {
+    body = (await response.json()) as unknown;
+  } catch {
+    throw new Error(`Provider returned HTTP ${response.status}.`);
+  }
   if (!response.ok) {
+    const error = isRecord(body) ? body.error : undefined;
     const message =
-      isRecord(body) && typeof body.error === "string"
-        ? body.error
-        : `Provider returned HTTP ${response.status}.`;
-    throw new Error(message);
+      typeof error === "string"
+        ? error
+        : isRecord(error) && typeof error.message === "string"
+          ? error.message
+          : "Unknown provider error.";
+    throw new Error(`${providerName} error (HTTP ${response.status}): ${message}`);
   }
   if (!isRecord(body)) throw new Error("Provider returned an invalid response.");
   return body;
@@ -103,18 +114,21 @@ async function callOpenAi(request: ProviderRequest): Promise<ProviderResponse> {
     { role: "system", content: request.systemPrompt },
     ...request.messages.map((message) => {
       if (message.role === "assistant") {
-        return {
-          role: "assistant",
-          content: message.content || null,
-          tool_calls: (message.toolCalls ?? []).map((call) => ({
-            id: call.id,
-            type: "function",
-            function: {
-              name: call.name,
-              arguments: JSON.stringify(call.arguments),
-            },
-          })),
+        const assistantMessage = {
+          role: "assistant" as const,
+          content: message.content || "",
         };
+        const toolCalls = (message.toolCalls ?? []).map((call) => ({
+          id: call.id,
+          type: "function",
+          function: {
+            name: call.name,
+            arguments: JSON.stringify(call.arguments),
+          },
+        }));
+        return toolCalls.length > 0
+          ? { ...assistantMessage, tool_calls: toolCalls }
+          : assistantMessage;
       }
       if (message.role === "tool") {
         return {
@@ -139,7 +153,7 @@ async function callOpenAi(request: ProviderRequest): Promise<ProviderResponse> {
       tool_choice: "auto",
     }),
   });
-  const body = await readProviderResponse(response);
+  const body = await readProviderResponse(response, "OpenAI");
   const choices = Array.isArray(body.choices) ? body.choices : [];
   const message = choices[0] && isRecord(choices[0]) ? choices[0].message : null;
   if (!isRecord(message)) throw new Error("OpenAI returned no assistant message.");
@@ -175,7 +189,9 @@ async function callAnthropic(request: ProviderRequest): Promise<ProviderResponse
           input: call.arguments,
         });
       }
-      messages.push({ role: "assistant", content });
+      if (content.length > 0) {
+        messages.push({ role: "assistant", content });
+      }
       continue;
     }
     if (message.role === "tool") {
@@ -213,7 +229,7 @@ async function callAnthropic(request: ProviderRequest): Promise<ProviderResponse
       })),
     }),
   });
-  const body = await readProviderResponse(response);
+  const body = await readProviderResponse(response, "Anthropic");
   const content = Array.isArray(body.content) ? body.content : [];
   return {
     content: content
