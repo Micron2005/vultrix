@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { depositDue } from "@/lib/roTotal";
@@ -62,6 +62,7 @@ export default async function CustomerPortalPage({
   if (!customer) notFound();
 
   const shop = await getAllSettings(customer.orgId);
+  const branding = await shopBranding(customer.orgId);
   const timezone = await orgTimeZone(customer.orgId);
   const org = await db.organization.findUnique({
     where: { id: customer.orgId },
@@ -144,9 +145,17 @@ export default async function CustomerPortalPage({
   return (
     <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
       <div className="mx-auto max-w-4xl px-4 space-y-6">
-        <header className="rounded-lg bg-white shadow-sm overflow-hidden">
+        <header
+          className="rounded-lg border-t-4 bg-white shadow-sm overflow-hidden"
+          style={branding.accent ? { borderTopColor: branding.accent } : undefined}
+        >
           <div className="px-4 py-6 sm:px-8 border-b border-zinc-200 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+            <div className="flex items-center gap-3">
+              {branding.logo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logo} alt="" className="h-12 w-12 rounded object-contain" />
+              )}
+              <div>
               <div className="text-lg font-semibold text-zinc-900">
                 {shop.shopName}
               </div>
@@ -160,6 +169,7 @@ export default async function CustomerPortalPage({
                   {[shop.shopPhone, shop.shopEmail].filter(Boolean).join(" · ")}
                 </div>
               )}
+              </div>
             </div>
             <div className="text-left sm:text-right">
               <div className="text-xs uppercase tracking-wider text-zinc-500">
@@ -221,6 +231,7 @@ export default async function CustomerPortalPage({
                           <button
                             type="submit"
                             className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                            style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                           >
                             Pay {formatMoney(depositInfo.due)} deposit
                           </button>
@@ -253,6 +264,7 @@ export default async function CustomerPortalPage({
                   <button
                     type="submit"
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Pay all {formatMoney(totalOutstanding)}
                   </button>
@@ -266,6 +278,7 @@ export default async function CustomerPortalPage({
                   <button
                     type="submit"
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Pay {formatMoney(totalOutstanding)} online
                   </button>
@@ -302,6 +315,7 @@ export default async function CustomerPortalPage({
                   <Link
                     href={`/e/${ro.shareToken}`}
                     className="inline-flex h-8 items-center rounded-md bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800"
+                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
                   >
                     Review estimate →
                   </Link>
@@ -452,6 +466,7 @@ export default async function CustomerPortalPage({
             <button
               type="submit"
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 sm:w-auto"
+              style={branding.accent ? { backgroundColor: branding.accent } : undefined}
             >
               Request appointment
             </button>

@@ -13,7 +13,7 @@ import {
 import { SaveButton } from "@/components/SaveButton";
 import { isAiKeyEncryptionConfigured } from "@/lib/ai-key-crypto";
 import { logActivity } from "@/lib/activity";
-import { getAllSettings, setSetting } from "@/lib/shop";
+import { getAllSettings, setSetting, shopBranding } from "@/lib/shop";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { db } from "@/lib/db";
@@ -56,6 +56,7 @@ import {
   publishNavDefault,
 } from "./default-actions";
 import { resetOnboarding } from "@/app/onboarding-actions";
+import { ShopBranding } from "./ShopBranding";
 
 export const dynamic = "force-dynamic";
 
@@ -182,6 +183,7 @@ export default async function SettingsPage({
   const sp = (await searchParams) ?? {};
   const defaultsNotice = describeDefaultsOutcome(sp.defaults);
   const settings = await getAllSettings(orgId);
+  const branding = await shopBranding(orgId);
   const owner = await db.user.findFirst({
     where: { orgId, role: "OWNER", isActive: true },
     select: { email: true },
@@ -201,6 +203,18 @@ export default async function SettingsPage({
     const saveUser = await requireSettingsAccess();
     assertCanManageSettings(saveUser.role);
     const saveOrgId = await requireOrgId();
+    const submittedAccent = String(fd.get("shopAccent") ?? "");
+    const submittedLogo = String(fd.get("shopLogo") ?? "");
+    if (submittedAccent && !/^#[0-9a-f]{6}$/i.test(submittedAccent)) {
+      throw new Error("Invalid shop accent.");
+    }
+    if (
+      submittedLogo &&
+      (!/^data:image\/(?:png|jpeg|webp);base64,/.test(submittedLogo) ||
+        submittedLogo.length > 400_000)
+    ) {
+      throw new Error("Invalid shop logo.");
+    }
     const submittedTimezone = String(fd.get("timezone") ?? "");
     const currentOrg = await db.organization.findUnique({
       where: { id: saveOrgId },
@@ -243,6 +257,8 @@ export default async function SettingsPage({
       "shopEmail",
       "defaultLaborRate",
       "defaultTaxRate",
+      "shopLogo",
+      "shopAccent",
     ];
     for (const k of keys) {
       const v = fd.get(k);
@@ -444,6 +460,12 @@ export default async function SettingsPage({
             <p className="mt-1 text-xs text-zinc-500">
               Appointment dates and scheduled reminder hours use this timezone.
             </p>
+          </Field>
+          <Field label="Logo & color">
+            <ShopBranding
+              initialLogo={branding.logo}
+              initialAccent={branding.accent}
+            />
           </Field>
           {(showAutoSettings || showTaxRate) && (
             <div

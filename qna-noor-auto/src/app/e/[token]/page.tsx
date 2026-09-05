@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import { depositDue } from "@/lib/roTotal";
@@ -52,6 +52,7 @@ export default async function PublicEstimatePage({
   if (!ro) notFound();
 
   const shop = await getAllSettings(ro.orgId);
+  const branding = await shopBranding(ro.orgId);
   const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals({
     laborLines: filtered.laborLines,
@@ -104,7 +105,12 @@ export default async function PublicEstimatePage({
         <div className="rounded-lg bg-white shadow-sm overflow-hidden">
           <header className="px-8 py-6 border-b border-zinc-200">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="flex items-center gap-3">
+                {branding.logo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={branding.logo} alt="" className="h-12 w-12 rounded object-contain" />
+                )}
+                <div>
                 <div className="text-lg font-semibold text-zinc-900">
                   {shop.shopName}
                 </div>
@@ -118,6 +124,7 @@ export default async function PublicEstimatePage({
                     {[shop.shopPhone, shop.shopEmail].filter(Boolean).join(" · ")}
                   </div>
                 )}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-xs uppercase tracking-wider text-zinc-500">

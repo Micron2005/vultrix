@@ -10,6 +10,12 @@
 
 import { DEFAULT_MAIL_FROM } from "@/lib/branding";
 
+export function emailBrandHeader(): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://vultrix.net";
+  return `<div style="padding:8px 0 16px"><img src="${base}/brand/vultrix-mark-email.png" width="40" height="40" alt="Vultrix" style="display:block;border-radius:8px"></div>`;
+}
+
 type SendArgs = {
   to: string;
   subject: string;

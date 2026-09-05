@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatInTimeZone } from "@/lib/timezone";
 import { fullName, vehicleLabel } from "@/lib/utils";
@@ -28,6 +28,7 @@ export default async function PublicReminderPage({
   if (!appt) notFound();
 
   const shop = await getAllSettings(appt.orgId);
+  const branding = await shopBranding(appt.orgId);
   const timezone = await orgTimeZone(appt.orgId);
 
   const startsAt = new Date(appt.startsAt);
@@ -42,8 +43,12 @@ export default async function PublicReminderPage({
             <div className="text-xs uppercase tracking-wider text-zinc-500">
               Appointment reminder
             </div>
-            <div className="mt-2 text-xl font-semibold text-zinc-900">
-              {shop.shopName}
+            <div className="mt-2 flex items-center justify-center gap-3 text-xl font-semibold text-zinc-900">
+              {branding.logo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logo} alt="" className="h-12 w-12 rounded object-contain" />
+              )}
+              <span>{shop.shopName}</span>
             </div>
             {shop.shopAddress && (
               <div className="mt-1 text-xs text-zinc-600 whitespace-pre-line">

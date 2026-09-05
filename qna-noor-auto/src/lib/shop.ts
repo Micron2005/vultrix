@@ -5,6 +5,8 @@ const DEFAULTS: Record<string, string> = {
   shopAddress: "",
   shopPhone: "",
   shopEmail: "",
+  shopLogo: "",
+  shopAccent: "",
   defaultLaborRate: "150",
   defaultTaxRate: "8.25",
   remindAppointmentsEnabled: "false",
@@ -58,6 +60,21 @@ export async function setSetting(orgId: string, key: string, value: string) {
     create: { orgId, key, value },
     update: { value },
   });
+}
+
+export async function shopBranding(
+  orgId: string,
+): Promise<{ logo: string | null; accent: string | null }> {
+  const settings = await getAllSettings(orgId);
+  const logo =
+    /^data:image\/(?:png|jpeg|webp);base64,/.test(settings.shopLogo) &&
+    settings.shopLogo.length <= 400_000
+      ? settings.shopLogo
+      : null;
+  const accent = /^#[0-9a-f]{6}$/i.test(settings.shopAccent)
+    ? settings.shopAccent
+    : null;
+  return { logo, accent };
 }
 
 export async function getNextRoNumber(orgId: string): Promise<number> {

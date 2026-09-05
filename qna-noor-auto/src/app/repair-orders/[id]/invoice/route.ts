@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,7 @@ export async function GET(
   if (!ro) notFound();
 
   const settings = await getAllSettings(orgId);
+  const branding = await shopBranding(orgId);
   const filtered = excludeDeclinedJobLines(ro);
   const preliminary = computeTotals(filtered);
   const appliedShopFees = await loadAppliedShopFees(orgId, ro.id, {
@@ -87,8 +88,22 @@ export async function GET(
   const lightGray = rgb(0.85, 0.85, 0.85);
 
   // Shop header
+  let shopHeaderX = margin;
+  if (branding.logo && !branding.logo.startsWith("data:image/webp")) {
+    const encodedLogo = branding.logo.split(",", 2)[1];
+    const logoImage = branding.logo.startsWith("data:image/png")
+      ? await pdf.embedPng(Buffer.from(encodedLogo, "base64"))
+      : await pdf.embedJpg(Buffer.from(encodedLogo, "base64"));
+    page.drawImage(logoImage, {
+      x: margin,
+      y: y - 4,
+      width: 32,
+      height: 32,
+    });
+    shopHeaderX += 42;
+  }
   page.drawText(settings.shopName || "QNA / Noor Auto Repair", {
-    x: margin,
+    x: shopHeaderX,
     y,
     size: 20,
     font: bold,

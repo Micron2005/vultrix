@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { startSignup } from "./actions";
 import { sanitizeFeatureKeys } from "@/lib/features";
+import { VultrixMark } from "@/components/VultrixMark";
 
 type SignupWizardProps = {
   brand: string;
@@ -238,6 +239,7 @@ export function SignupWizard({
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
+          <VultrixMark variant="light" className="mx-auto h-12 w-12" />
           <div className="text-2xl font-bold tracking-tight text-zinc-900">
             {brand}
           </div>

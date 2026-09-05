@@ -18,7 +18,7 @@ import {
 } from "@/lib/timezone";
 import { formatMoney, fullName } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { parsePositiveSetting, siteOrigin } from "@/lib/reminders";
 
@@ -302,6 +302,7 @@ function weeklyReviewEmailHtml(
     ? `${origin}/reports/review?week=${review.weekStartDay}`
     : null;
   return `
+    ${emailBrandHeader()}
     <h2 style="margin:0 0 6px;color:#18181b">Weekly review for ${escapeHtml(shopName)}</h2>
     <p style="color:#52525b;margin:0 0 16px">${escapeHtml(week)}</p>
     <table style="border-collapse:collapse;color:#18181b;font:14px sans-serif">

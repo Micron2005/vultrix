@@ -242,8 +242,8 @@ const builtInOrder: LandingSectionId[] = [
 export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   version: 1,
   theme: {
-    accent: "#f59e0b",
-    accentSoft: "#fbbf24",
+    accent: "#7c3aed",
+    accentSoft: "#a78bfa",
     dark: "#09090b",
     light: "#fafafa",
     pattern: "dots",
