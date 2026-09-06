@@ -5,7 +5,8 @@ import { requireOrgId } from "@/lib/session";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
+import { embedShopLogo, pdfAccentColor } from "@/lib/pdfBranding";
 import { computeVehicleReminders } from "@/lib/serviceReminders";
 
 const PAGE_WIDTH = 612;
@@ -78,7 +79,10 @@ export async function GET(
     }),
   );
 
-  const settings = await getAllSettings(orgId);
+  const [settings, branding] = await Promise.all([
+    getAllSettings(orgId),
+    shopBranding(orgId),
+  ]);
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -87,6 +91,7 @@ export async function GET(
   const black = rgb(0, 0, 0);
   const gray = rgb(0.4, 0.4, 0.4);
   const lightGray = rgb(0.85, 0.85, 0.85);
+  const accent = pdfAccentColor(branding.accent, black);
 
   let page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
@@ -111,14 +116,25 @@ export async function GET(
       start: { x: MARGIN, y: PAGE_HEIGHT - MARGIN - 4 },
       end: { x: PAGE_WIDTH - MARGIN, y: PAGE_HEIGHT - MARGIN - 4 },
       thickness: 0.5,
-      color: lightGray,
+      color: branding.accent ? accent : lightGray,
     });
     y = PAGE_HEIGHT - MARGIN - 18;
   }
 
   // First page header
+  let shopHeaderX = MARGIN;
+  const logoImage = await embedShopLogo(pdf, branding.logo);
+  if (logoImage) {
+    page.drawImage(logoImage, {
+      x: MARGIN,
+      y: y - 4,
+      width: 32,
+      height: 32,
+    });
+    shopHeaderX += 42;
+  }
   page.drawText(settings.shopName || "QNA / Noor Auto Repair", {
-    x: MARGIN,
+    x: shopHeaderX,
     y,
     size: 20,
     font: bold,
@@ -141,7 +157,7 @@ export async function GET(
     y: PAGE_HEIGHT - MARGIN,
     size: titleSize,
     font: bold,
-    color: black,
+    color: accent,
   });
   const dateLabel = `Printed: ${formatDate(new Date())}`;
   const dateWidth = font.widthOfTextAtSize(dateLabel, 9);
@@ -158,7 +174,7 @@ export async function GET(
     start: { x: MARGIN, y },
     end: { x: PAGE_WIDTH - MARGIN, y },
     thickness: 1,
-    color: lightGray,
+    color: branding.accent ? accent : lightGray,
   });
   y -= 16;
 

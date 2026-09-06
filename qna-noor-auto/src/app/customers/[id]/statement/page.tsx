@@ -58,7 +58,10 @@ export default async function CustomerStatementPage({
   return (
     <div data-force-light className="rounded-lg bg-zinc-50 p-4 text-zinc-900">
       <div className="mx-auto max-w-5xl print:max-w-full">
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white print:rounded-none print:border-0">
+        <div
+          className="overflow-hidden rounded-lg border border-zinc-200 border-t-4 bg-white print:rounded-none print:border-x-0 print:border-b-0"
+          style={branding.accent ? { borderTopColor: branding.accent } : undefined}
+        >
           <header className="border-b border-zinc-200 px-8 py-6">
             <div className="flex items-start justify-between gap-8">
               <div className="flex items-start gap-3">
@@ -85,7 +88,10 @@ export default async function CustomerStatementPage({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-semibold uppercase tracking-wider text-zinc-900">
+                <div
+                  className="text-lg font-semibold uppercase tracking-wider"
+                  style={{ color: branding.accent ?? undefined }}
+                >
                   Customer statement
                 </div>
                 <div className="mt-1 text-sm text-zinc-600">

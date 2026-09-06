@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 import { getCustomerContactLists } from "@/lib/customerContacts";
 import { loadOpenAR } from "@/lib/ar";
-import { getAllSettings } from "@/lib/shop";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
-import { sendEmail, escapeHtml } from "@/lib/email";
+import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
 import { enabledFeatureSet } from "@/lib/features";
 import {
   formatInTimeZone,
@@ -186,13 +186,16 @@ function appointmentHtml(args: {
   shopName: string;
   shopPhone: string;
   shareLink: string | null;
+  accent: string | null;
+  header: string;
 }): string {
   return `
+    ${args.header}
     <p>Hi ${escapeHtml(args.customerName)},</p>
     <p>This is a reminder that you have an appointment with ${escapeHtml(args.shopName)} on <strong>${escapeHtml(args.when)}</strong>.</p>
     ${args.reason ? `<p>Reason: ${escapeHtml(args.reason)}</p>` : ""}
     ${args.vehicle ? `<p>Vehicle: ${escapeHtml(args.vehicle)}</p>` : ""}
-    ${args.shareLink ? `<p><a href="${escapeHtml(args.shareLink)}">View appointment details</a></p>` : ""}
+    ${args.shareLink ? `<p><a href="${escapeHtml(args.shareLink)}" style="display:inline-block;padding:10px 14px;border-radius:6px;background:${escapeHtml(args.accent ?? "#18181b")};color:#fff;text-decoration:none">View appointment details</a></p>` : ""}
     <p>${args.shopPhone ? `Please call ${escapeHtml(args.shopPhone)} if you need to reschedule.` : "Please reply to this email if you need to reschedule."}</p>
     <p>Thanks,<br>${escapeHtml(args.shopName)}</p>
   `;
@@ -203,6 +206,7 @@ async function sendAppointmentReminders(
   timezone: string,
   settings: Record<string, string>,
   organizationName: string | null,
+  branding: { logo: string | null; accent: string | null },
   now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
@@ -250,6 +254,11 @@ async function sendAppointmentReminders(
       ? link(`/a/${appointment.shareToken}`)
       : null;
     const shopName = displayShopName(settings, organizationName);
+    const header = shopEmailHeader({
+      shopName,
+      logo: branding.logo,
+      accent: branding.accent,
+    });
     mergeCounts(
       counts,
       await writeReminder(
@@ -266,6 +275,8 @@ async function sendAppointmentReminders(
           shopName,
           shopPhone: settings.shopPhone,
           shareLink,
+          accent: branding.accent,
+          header,
         }),
         settings.shopEmail || undefined,
       ),
@@ -278,6 +289,7 @@ async function sendPastDueReminders(
   orgId: string,
   settings: Record<string, string>,
   organizationName: string | null,
+  branding: { logo: string | null; accent: string | null },
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
   if (settings.remindPastDueEnabled !== "true") return counts;
@@ -313,6 +325,11 @@ async function sendPastDueReminders(
     invoicesByCustomer.set(invoice.customerId, customerInvoices);
   }
   const shopName = displayShopName(settings, organizationName);
+  const header = shopEmailHeader({
+    shopName,
+    logo: branding.logo,
+    accent: branding.accent,
+  });
   for (const [customerId, invoices] of invoicesByCustomer) {
     const customer = customerById.get(customerId);
     if (!customer) continue;
@@ -335,7 +352,7 @@ async function sendPastDueReminders(
       ? link(`/p/${customer.portalToken}`)
       : null;
     const portalText = portalLink
-      ? `<p><a href="${escapeHtml(portalLink)}">View your invoice details</a></p>`
+      ? `<p><a href="${escapeHtml(portalLink)}" style="display:inline-block;padding:10px 14px;border-radius:6px;background:${escapeHtml(branding.accent ?? "#18181b")};color:#fff;text-decoration:none">View your invoice details</a></p>`
       : "";
     mergeCounts(
       counts,
@@ -346,6 +363,7 @@ async function sendPastDueReminders(
         email,
         `${shopName} — past-due invoices`,
         `
+          ${header}
           <p>Hi ${escapeHtml(displayName(customer))},</p>
           <p>You have ${sortedInvoices.length} past-due invoice${sortedInvoices.length === 1 ? "" : "s"} with a combined outstanding balance of <strong>$${totalOwed.toFixed(2)}</strong>.</p>
           <ul>${invoiceList}</ul>
@@ -365,6 +383,7 @@ async function sendServiceDueReminders(
   timezone: string,
   settings: Record<string, string>,
   organizationName: string | null,
+  branding: { logo: string | null; accent: string | null },
   now: Date,
 ): Promise<ReminderCounts> {
   const counts = emptyCounts();
@@ -413,6 +432,11 @@ async function sendServiceDueReminders(
   });
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const shopName = displayShopName(settings, organizationName);
+  const header = shopEmailHeader({
+    shopName,
+    logo: branding.logo,
+    accent: branding.accent,
+  });
   for (const [vehicleId, dueItems] of dueItemsByVehicle) {
     const vehicle = vehicleById.get(vehicleId);
     if (!vehicle) continue;
@@ -445,6 +469,7 @@ async function sendServiceDueReminders(
         email,
         `${shopName} — service due`,
         `
+          ${header}
           <p>Hi ${escapeHtml(displayName(vehicle.customer))},</p>
           <p>Our records show that the following service is due for your${vehicleName ? ` ${escapeHtml(vehicleName)}` : " vehicle"}:</p>
           <ul>${intervalList}</ul>
@@ -462,12 +487,13 @@ export async function sendDueRemindersForOrg(
   orgId: string,
   now: Date = new Date(),
 ): Promise<ReminderCounts> {
-  const [organization, settings] = await Promise.all([
+  const [organization, settings, branding] = await Promise.all([
     db.organization.findUnique({
       where: { id: orgId },
       select: { timezone: true, accountType: true, features: true, name: true },
     }),
     getAllSettings(orgId),
+    shopBranding(orgId),
   ]);
   const timezone =
     organization && isValidTimeZone(organization.timezone)
@@ -483,6 +509,7 @@ export async function sendDueRemindersForOrg(
         timezone,
         settings,
         organization?.name ?? null,
+        branding,
         now,
       ),
     );
@@ -494,6 +521,7 @@ export async function sendDueRemindersForOrg(
         orgId,
         settings,
         organization?.name ?? null,
+        branding,
       ),
     );
   }
@@ -505,6 +533,7 @@ export async function sendDueRemindersForOrg(
         timezone,
         settings,
         organization?.name ?? null,
+        branding,
         now,
       ),
     );

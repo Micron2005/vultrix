@@ -5,6 +5,7 @@ import { requireOrgId } from "@/lib/session";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { getAllSettings, shopBranding } from "@/lib/shop";
+import { embedShopLogo, pdfAccentColor } from "@/lib/pdfBranding";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 
 export const dynamic = "force-dynamic";
@@ -86,14 +87,12 @@ export async function GET(
   const black = rgb(0, 0, 0);
   const gray = rgb(0.4, 0.4, 0.4);
   const lightGray = rgb(0.85, 0.85, 0.85);
+  const accent = pdfAccentColor(branding.accent, black);
 
   // Shop header
   let shopHeaderX = margin;
-  if (branding.logo && !branding.logo.startsWith("data:image/webp")) {
-    const encodedLogo = branding.logo.split(",", 2)[1];
-    const logoImage = branding.logo.startsWith("data:image/png")
-      ? await pdf.embedPng(Buffer.from(encodedLogo, "base64"))
-      : await pdf.embedJpg(Buffer.from(encodedLogo, "base64"));
+  const logoImage = await embedShopLogo(pdf, branding.logo);
+  if (logoImage) {
     page.drawImage(logoImage, {
       x: margin,
       y: y - 4,
@@ -135,7 +134,7 @@ export async function GET(
     y: 792 - margin,
     size: invTitleSize,
     font: bold,
-    color: black,
+    color: accent,
   });
   const roLabel = `RO #${ro.roNumber}`;
   const roLabelSize = 11;
@@ -162,7 +161,7 @@ export async function GET(
     start: { x: margin, y },
     end: { x: 612 - margin, y },
     thickness: 1,
-    color: lightGray,
+    color: branding.accent ? accent : lightGray,
   });
   y -= 18;
 
