@@ -32,17 +32,13 @@ export function ChartSwitcher({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-md border border-zinc-200 p-0.5 dark:border-zinc-700">
+        <div className="inline-flex rounded-md border border-zinc-200 p-0.5">
           {(["line", "bar", "pie"] as const).map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => setKind(option)}
-              className={`rounded px-3 py-1.5 text-xs font-medium capitalize ${
-                kind === option
-                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-                  : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              }`}
+              className={`rounded px-3 py-1.5 text-xs font-medium capitalize ${ kind === option ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "text-zinc-600 hover:bg-zinc-100 " }`}
             >
               {option}
             </button>

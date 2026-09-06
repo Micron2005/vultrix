@@ -36,19 +36,19 @@ export async function GoalsBlock({
       {activeGoals.length === 0 ? (
         <EmptyState title="No active goals yet." />
       ) : (
-        <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
+        <div className="divide-y divide-zinc-200">
           {activeGoals.map(({ goal, progress }) => (
             <Link
               key={goal.id}
               href={`/goals/${goal.id}`}
-              className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+              className="block px-4 py-3 hover:bg-zinc-50"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <p className="truncate text-sm font-medium text-zinc-900">
                     {goal.title}
                   </p>
-                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-0.5 text-xs text-zinc-500">
                     {goalMetricLabel(goal.metric, accountType, hasInvoices)} ·{" "}
                     {goal.metric === "LOGGED_LATEST" &&
                     progress.baseline !== null
@@ -56,21 +56,13 @@ export async function GoalsBlock({
                       : `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(goal.metric, progress.target, goal.unit)}`}
                   </p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                <span className="shrink-0 text-sm font-semibold text-zinc-700">
                   {Math.round(progress.pct)}%
                 </span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
                 <div
-                  className={`h-full rounded-full ${
-                    progress.status === "behind"
-                      ? new Date() >= progress.windowEnd
-                        ? "bg-red-500"
-                        : "bg-amber-500"
-                      : progress.status === "on_pace"
-                        ? "bg-blue-500"
-                        : "bg-emerald-500"
-                  }`}
+                  className={`h-full rounded-full ${ progress.status === "behind" ? new Date() >= progress.windowEnd ? "bg-red-500" : "bg-amber-500" : progress.status === "on_pace" ? "bg-blue-500" : "bg-emerald-500" }`}
                   style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
                 />
               </div>

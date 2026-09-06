@@ -73,7 +73,7 @@ export function GoalForm({
   return (
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-xs font-medium text-zinc-700">
           Goal name
           <Input
             name="title"
@@ -83,7 +83,7 @@ export function GoalForm({
             className="mt-1"
           />
         </label>
-        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-xs font-medium text-zinc-700">
           How should we measure it?
           <Select
             name="metric"
@@ -102,11 +102,11 @@ export function GoalForm({
               </option>
             ))}
           </Select>
-          <p className="mt-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs font-normal text-zinc-500">
             Name it anything you want above — this just tells Vultrix how to score it.
           </p>
         </label>
-        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-xs font-medium text-zinc-700">
           Target
           <Input
             name="target"
@@ -118,7 +118,7 @@ export function GoalForm({
           />
         </label>
         {directionChoice && (
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Direction
             <Select
               name="direction"
@@ -131,7 +131,7 @@ export function GoalForm({
             </Select>
           </label>
         )}
-        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-xs font-medium text-zinc-700">
           Timeframe
           <Select
             name="period"
@@ -150,7 +150,7 @@ export function GoalForm({
           )}
         </label>
         {unitChoice && (
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Unit (optional)
             <Input
               name="unit"
@@ -161,7 +161,7 @@ export function GoalForm({
           </label>
         )}
         {metric === "SPENDING" && (
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Category (optional)
             <Input
               name="category"
@@ -171,7 +171,7 @@ export function GoalForm({
             />
           </label>
         )}
-        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="block text-xs font-medium text-zinc-700">
           Starts
           <Input
             name="startDate"
@@ -182,7 +182,7 @@ export function GoalForm({
           />
         </label>
         {period === "BY_DATE" && (
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Due date
             <Input
               name="dueDate"
@@ -194,7 +194,7 @@ export function GoalForm({
           </label>
         )}
         {metric === "MANUAL" && (
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Current progress (optional)
             <Input
               name="manualProgress"
@@ -206,7 +206,7 @@ export function GoalForm({
           </label>
         )}
       </div>
-      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+      <label className="block text-xs font-medium text-zinc-700">
         Details (optional)
         <Textarea
           name="notes"
@@ -216,7 +216,7 @@ export function GoalForm({
           className="mt-1"
         />
       </label>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs text-zinc-500">
         Goals use the records already in your account automatically. Use the
         manual option for something you want to update yourself.
       </p>

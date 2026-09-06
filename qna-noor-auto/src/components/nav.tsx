@@ -214,7 +214,7 @@ export function Nav({
           href={item.href}
           variant="secondary"
           size="sm"
-          className="whitespace-nowrap dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          className="whitespace-nowrap"
         >
           {item.label}
         </LinkButton>
@@ -225,7 +225,7 @@ export function Nav({
         rel="noopener noreferrer"
         variant="secondary"
         size="sm"
-        className="whitespace-nowrap dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        className="whitespace-nowrap"
       >
         <ExternalLink className="mr-1.5 h-4 w-4" />
         View landing page
@@ -233,7 +233,7 @@ export function Nav({
       <form action="/logout" method="post">
         <button
           type="submit"
-          className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
         >
           Sign out
         </button>
@@ -281,7 +281,7 @@ export function Nav({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Search"
           />
         </form>
@@ -333,9 +333,9 @@ export function Nav({
   return (
     <>
       {navMode === "top" && (
-        <header className="no-print hidden border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950 lg:sticky lg:top-0 lg:z-40 lg:block">
+        <header className="no-print hidden border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:z-40 lg:block">
           <div className="flex items-center gap-4 px-5 py-3">
-            <Link href="/" className="flex max-w-56 shrink-0 items-center gap-2 truncate text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <Link href="/" className="flex max-w-56 shrink-0 items-center gap-2 truncate text-sm font-semibold tracking-tight text-zinc-900">
               <VultrixMark tile className="h-7 w-7 shrink-0" />
               <span className="truncate">{orgLabel}</span>
             </Link>
@@ -346,13 +346,13 @@ export function Nav({
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
                   aria-label="Search"
                 />
               </form>
             )}
             {username && (
-              <span className="max-w-40 shrink-0 truncate text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="max-w-40 shrink-0 truncate text-xs text-zinc-500">
                 {username}
               </span>
             )}
@@ -370,7 +370,7 @@ export function Nav({
                       "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors " +
                       (active
                         ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-                        : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100")
+                        : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 ")
                     }
                   >
                     {item.label}
@@ -379,7 +379,7 @@ export function Nav({
               })}
             </nav>
             {navUtilities === "top" && (
-              <div className="flex shrink-0 items-center gap-1 border-l border-zinc-200 pl-2 dark:border-zinc-700">
+              <div className="flex shrink-0 items-center gap-1 border-l border-zinc-200 pl-2">
                 {utilityLinks}
               </div>
             )}
@@ -442,7 +442,7 @@ export function Nav({
         </button>
       )}
       {navMode === "top" && navUtilities === "bottom" && (
-        <footer className="no-print order-last hidden items-center justify-end gap-2 border-t border-zinc-200 bg-white px-5 py-3 dark:border-zinc-700 dark:bg-zinc-950 lg:flex">
+        <footer className="no-print order-last hidden items-center justify-end gap-2 border-t border-zinc-200 bg-white px-5 py-3 lg:flex">
           {utilityLinks}
         </footer>
       )}

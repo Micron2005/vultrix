@@ -21,7 +21,7 @@ import { SetTimer } from "./SetTimer";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
 const buttonClass =
-  "rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)] dark:hover:bg-white";
+  "rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)] ";
 
 function GoalQuickAction({
   goal,
@@ -32,17 +32,17 @@ function GoalQuickAction({
 }) {
   const summary = `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(goal.metric, progress.target, goal.unit)} · ${progress.periodLabel}`;
   return (
-    <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+    <div className="rounded-md border border-zinc-200 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+        <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline">
           {goal.title}
         </Link>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{summary}</span>
+        <span className="text-xs text-zinc-500">{summary}</span>
       </div>
       {goal.metric === "MANUAL" ? (
         <form action={setGoalManualProgress} className="mt-3 flex flex-wrap items-end gap-2">
           <input type="hidden" name="goalId" value={goal.id} />
-          <label className="w-32 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="w-32 text-xs text-zinc-500">
             Progress
             <Input name="value" required inputMode="decimal" defaultValue={goal.manualProgress ?? ""} className="mt-1" />
           </label>
@@ -51,7 +51,7 @@ function GoalQuickAction({
       ) : (
         <form action={logGoalEntry} className="mt-3 flex flex-wrap items-end gap-2">
           <input type="hidden" name="goalId" value={goal.id} />
-          <label className="w-32 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="w-32 text-xs text-zinc-500">
             {goal.unit ? `Today's ${goal.unit}` : "Today's number"}
             <Input name="value" required inputMode="decimal" aria-label="Value" className="mt-1" />
           </label>
@@ -68,10 +68,10 @@ function statusClass(status: string): string {
     : status === "missed"
       ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
       : status === "skipped"
-        ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+        ? "bg-zinc-200 text-zinc-700 "
         : status === "done"
           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
+          : "bg-zinc-100 text-zinc-600 ";
 }
 
 function statusLabel(status: string): string {
@@ -109,31 +109,31 @@ function RoutineSection({
     <section className="px-4 py-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         {canManage ? (
-          <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+          <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-900 hover:underline">
             {routine.title}
           </Link>
         ) : (
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">{routine.title}</span>
+          <span className="font-medium text-zinc-900">{routine.title}</span>
         )}
         {routine.assignee && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs text-zinc-500">
             · Assigned to {routine.assignee.username}
           </span>
         )}
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{routineLabel(routine)}</span>
+        <span className="text-xs text-zinc-500">{routineLabel(routine)}</span>
       </div>
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+          <div key={item.id} className="rounded-md border border-zinc-200 p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                <p className="text-sm font-medium text-zinc-800">
                   {item.label}
                   {item.target != null && (
-                    <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">{item.target} {item.unit ?? ""}</span>
+                    <span className="ml-2 text-xs font-normal text-zinc-500">{item.target} {item.unit ?? ""}</span>
                   )}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 text-xs text-zinc-500">
                   {item.dueTime ?? routine.dueTime ? `Due ${item.dueTime ?? routine.dueTime}` : "No deadline"}
                   {item.checkOff?.user && ` · Done by ${item.checkOff.user.username}`}
                 </p>
@@ -165,7 +165,7 @@ function RoutineSection({
               </form>
               {!reminder && routine.kind !== "ONE_OFF" && (
                 <form action={skipRoutineDay.bind(null, item.id, actionDay)}>
-                  <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+                  <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700">
                     {item.status === "skipped" ? "Undo skip" : "Skip today"}
                   </button>
                 </form>
@@ -173,7 +173,7 @@ function RoutineSection({
               {(routine.kind === "ONE_OFF" || reminder) && (
                 <form action={snoozeRoutine}>
                   <input type="hidden" name="id" value={routine.id} />
-                  <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+                  <button type="submit" className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700">
                     Tomorrow
                   </button>
                 </form>
@@ -188,12 +188,12 @@ function RoutineSection({
 
 function BehindGoal({ goal, progress }: { goal: GoalRecord; progress: GoalProgress }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3">
       <div>
-        <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100">{goal.title}</Link>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{goalPaceText(goal, progress)}</p>
+        <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-900 hover:underline">{goal.title}</Link>
+        <p className="mt-1 text-xs text-zinc-500">{goalPaceText(goal, progress)}</p>
       </div>
-      <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">View goal</Link>
+      <Link href={`/goals/${goal.id}`} className="text-sm font-medium text-zinc-700 underline">View goal</Link>
     </div>
   );
 }
@@ -254,37 +254,37 @@ export async function Today({
   return (
     <Card className="mb-6 overflow-hidden">
       <CardHeader title={title ?? "Today"} />
-      <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
+      <div className="divide-y divide-zinc-200">
         {reminders.length > 0 && (
           <section>
-            <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Reminders</div>
+            <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500">Reminders</div>
             {reminders.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder canManage={!forUserId} />)}
           </section>
         )}
         {todo.length > 0 && (
           <section>
-            <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">To do today</div>
+            <div className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500">To do today</div>
             {todo.map(({ routine, items }) => <RoutineSection key={routine.id} routine={routine} items={items} today={today} reminder={false} canManage={!forUserId} />)}
           </section>
         )}
         {milestones.length > 0 && (
           <section className="px-4 py-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Steps due today
             </p>
             <div className="space-y-3">
               {milestones.map((milestone) => (
                 <div
                   key={milestone.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3"
                 >
                   <div>
-                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    <p className="text-sm font-medium text-zinc-800">
                       {milestone.title}
                     </p>
                     <Link
                       href={`/goals/${milestone.goal.id}`}
-                      className="text-xs text-zinc-500 underline dark:text-zinc-400"
+                      className="text-xs text-zinc-500 underline"
                     >
                       {milestone.goal.title}
                     </Link>
@@ -306,7 +306,7 @@ export async function Today({
         )}
         {(quickGoals.length > 0 || behindGoals.length > 0) && (
           <section className="px-4 py-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Numbers to update</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Numbers to update</p>
             <div className="space-y-3">
               {quickGoals.map(({ goal, progress }) => <GoalQuickAction key={goal.id} goal={goal} progress={progress} />)}
               {behindGoals.map(({ goal, progress }) => <BehindGoal key={goal.id} goal={goal} progress={progress} />)}

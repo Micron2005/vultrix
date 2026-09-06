@@ -82,12 +82,12 @@ function GoalTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-medium text-zinc-900">
         {typeof label === "string" ? shortDay(label) : label}
       </p>
       {payload.map((entry) => (
-        <p key={entry.name} className="mt-1 text-zinc-600 dark:text-zinc-300">
+        <p key={entry.name} className="mt-1 text-zinc-600">
           <span style={{ color: entry.color }}>{entry.name}: </span>
           {formatValue(Number(entry.value ?? 0), descriptor)}
         </p>
@@ -128,7 +128,7 @@ export function GoalChart({
       : data.some((point) => point.value !== 0);
   if (!hasChartData) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="flex h-[300px] items-center justify-center text-sm text-zinc-500">
         {emptyMessage}
       </div>
     );

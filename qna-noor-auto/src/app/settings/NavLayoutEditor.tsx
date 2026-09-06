@@ -68,7 +68,7 @@ export function NavLayoutEditor({
 
   return (
     <div className="space-y-4 p-6">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-zinc-600">
         Choose which navigation items you see and arrange them in the order you
         prefer.
       </p>
@@ -104,7 +104,7 @@ export function NavLayoutEditor({
           />
         )}
       </div>
-      <div className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+      <div className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
         {orderedItems.map(({ entry, item }, index) => (
           <div
             key={entry.href}
@@ -137,7 +137,7 @@ export function NavLayoutEditor({
                       ),
                     });
                   }}
-                  className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400"
                 />
                 <span className="text-xs text-zinc-500">
                   Default: {item.label}
@@ -148,7 +148,6 @@ export function NavLayoutEditor({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="dark:text-zinc-300 dark:hover:bg-zinc-800"
                   onClick={() =>
                     setCurrent({
                       ...current,
@@ -164,7 +163,7 @@ export function NavLayoutEditor({
                 </Button>
               )}
               {!entry.visible && (
-                <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
                   Hidden
                 </span>
               )}
@@ -174,7 +173,6 @@ export function NavLayoutEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="dark:text-zinc-300 dark:hover:bg-zinc-800"
                 onClick={() => move(entry.href, -1)}
                 disabled={index === 0}
                 aria-label={`Move ${item.label} up`}
@@ -185,7 +183,6 @@ export function NavLayoutEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="dark:text-zinc-300 dark:hover:bg-zinc-800"
                 onClick={() => move(entry.href, 1)}
                 disabled={index === orderedItems.length - 1}
                 aria-label={`Move ${item.label} down`}
@@ -197,7 +194,6 @@ export function NavLayoutEditor({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   onClick={() => toggle(item)}
                 >
                   {entry.visible ? "Hide" : "Show"}
@@ -224,7 +220,6 @@ export function NavLayoutEditor({
             type="submit"
             variant="ghost"
             size="sm"
-            className="dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             Reset to account default
           </Button>

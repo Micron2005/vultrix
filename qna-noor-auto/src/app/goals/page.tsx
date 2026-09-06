@@ -93,7 +93,7 @@ function GoalCard({
   return (
     <Card className="flex flex-col p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+        <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
           {goalMetricLabel(goal.metric, accountType, hasInvoices)}
         </span>
         <span
@@ -102,36 +102,36 @@ function GoalCard({
           {statusLabel(progress.status)}
         </span>
       </div>
-      <h2 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+      <h2 className="mt-3 text-lg font-semibold text-zinc-900">
         <Link href={`/goals/${goal.id}`} className="hover:underline">
           {goal.title}
         </Link>
       </h2>
-      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="mt-1 text-xs text-zinc-500">
         {progress.periodLabel}
         {(goal.metric === "LOGGED_TOTAL" || goal.metric === "LOGGED_LATEST") &&
           ` · ${atMost ? "Stay under" : "Reach at least"}`}
       </p>
 
       <div className="mt-4 flex items-end justify-between gap-3">
-        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+        <span className="text-sm font-medium text-zinc-900">
           {valueText}
         </span>
         {!emptyLatest && (
-          <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="text-xl font-semibold text-zinc-900">
             {Math.round(progress.pct)}%
           </span>
         )}
       </div>
       {!emptyLatest && (
-        <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+        <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
           <div
             className={`h-full rounded-full ${barClass}`}
             style={{ width: `${Math.min(100, Math.max(0, progress.pct))}%` }}
           />
           <div
             title={`Where you should be by now: ${Math.round(progress.expectedPct)}%`}
-            className="absolute top-0 h-full w-0.5 bg-zinc-500 dark:bg-zinc-300"
+            className="absolute top-0 h-full w-0.5 bg-zinc-500"
             style={{
               left: `${Math.min(100, Math.max(0, progress.expectedPct))}%`,
             }}
@@ -139,35 +139,35 @@ function GoalCard({
         </div>
       )}
       {supportText && (
-        <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-3 text-sm text-zinc-600">
           {supportText}
           {showPace && <> · {paceText}</>}
         </p>
       )}
       {milestoneCount > 0 && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-xs text-zinc-500">
           Steps: {milestoneDoneCount} of {milestoneCount}
         </p>
       )}
 
-      <div className="mt-5 flex flex-wrap gap-3 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-700">
+      <div className="mt-5 flex flex-wrap gap-3 border-t border-zinc-200 pt-4 text-sm">
         <Link
           href={`/goals/${goal.id}`}
-          className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+          className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
         >
           View analytics
         </Link>
         {(goal.metric === "LOGGED_TOTAL" || goal.metric === "LOGGED_LATEST") && (
           <Link
             href={`/goals/${goal.id}`}
-            className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+            className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
           >
             Log a number
           </Link>
         )}
         <Link
           href={`/goals/${goal.id}/edit`}
-          className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+          className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
         >
           Edit
         </Link>
@@ -175,7 +175,7 @@ function GoalCard({
           <input type="hidden" name="id" value={goal.id} />
           <button
             type="submit"
-            className="font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100"
+            className="font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
           >
             Archive
           </button>
@@ -203,10 +203,10 @@ function ArchivedGoal({
   hasInvoices: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0 dark:border-zinc-700">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0">
       <div>
-        <p className="font-medium text-zinc-800 dark:text-zinc-200">{goal.title}</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="font-medium text-zinc-800">{goal.title}</p>
+        <p className="text-xs text-zinc-500">
           {goalMetricLabel(goal.metric, accountType, hasInvoices)} ·{" "}
           {goalValueLabel(goal.metric, progress.actual, goal.unit)} of{" "}
           {goalValueLabel(goal.metric, progress.target, goal.unit)} ·{" "}
@@ -218,7 +218,7 @@ function ArchivedGoal({
           <input type="hidden" name="id" value={goal.id} />
           <button
             type="submit"
-            className="text-sm font-medium text-zinc-700 underline underline-offset-2 dark:text-zinc-300"
+            className="text-sm font-medium text-zinc-700 underline underline-offset-2"
           >
             Restore
           </button>
@@ -344,19 +344,19 @@ export default async function GoalsPage({
           <CardHeader title="Team today" />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              <thead className="border-b border-zinc-200 text-xs text-zinc-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Username</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Done/total today</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+              <tbody className="divide-y divide-zinc-200">
                 {teamToday.map((member) => (
                   <tr key={member.userId}>
-                    <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">{member.username}</td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{roleLabel(member.role)}</td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                    <td className="px-4 py-3 text-zinc-800">{member.username}</td>
+                    <td className="px-4 py-3 text-zinc-600">{roleLabel(member.role)}</td>
+                    <td className="px-4 py-3 text-zinc-600">
                       {member.total ? `${member.done} / ${member.total}` : "—"}
                     </td>
                   </tr>
@@ -415,7 +415,7 @@ export default async function GoalsPage({
 
       {activeRoutines.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900">
             Things to do
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
@@ -433,35 +433,35 @@ export default async function GoalsPage({
                 <Card key={routine.id} className="p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      <h3 className="font-semibold text-zinc-900">
                         {routine.title}
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 text-xs text-zinc-500">
                         {routineLabel(routine)} · {routine.items.length} item
                         {routine.items.length === 1 ? "" : "s"}
                       </p>
                       {routine.showStreak && (
-                        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+                        <p className="mt-2 text-sm text-zinc-600">
                           🔥 {streak} days
                         </p>
                       )}
                       {routine.assignee && (
-                        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-2 text-xs text-zinc-500">
                           Assigned to {routine.assignee.username}
                         </p>
                       )}
                     </div>
                     <Link
                       href={`/goals/routines/${routine.id}`}
-                      className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300"
+                      className="text-sm font-medium text-zinc-700 underline"
                     >
                       Manage
                     </Link>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700">
+                  <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-200 pt-3 text-sm">
                     <form action={archiveRoutine}>
                       <input type="hidden" name="id" value={routine.id} />
-                      <button className="font-medium text-zinc-500 underline dark:text-zinc-400">Archive</button>
+                      <button className="font-medium text-zinc-500 underline">Archive</button>
                     </form>
                     <DeleteRoutineButton
                       action={deleteRoutine}
@@ -479,7 +479,7 @@ export default async function GoalsPage({
       {archivedGoals.length + archivedRoutines.length > 0 && (
         <Card className="mt-6 p-5">
           <details>
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
               Archived &amp; completed ({archivedGoals.length + archivedRoutines.length})
             </summary>
             <div className="mt-2">
@@ -501,12 +501,12 @@ export default async function GoalsPage({
                 )),
               )}
               {archivedRoutines.map((routine) => (
-                <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0 dark:border-zinc-700">
+                <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 py-3 last:border-0">
                   <div>
-                    <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-800 underline dark:text-zinc-200">
+                    <Link href={`/goals/routines/${routine.id}`} className="font-medium text-zinc-800 underline">
                       {routine.title}
                     </Link>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="text-xs text-zinc-500">
                       {routine.completedDay
                         ? `Completed ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${routine.completedDay}T12:00:00Z`))}`
                         : "Archived"}
@@ -515,7 +515,7 @@ export default async function GoalsPage({
                   <div className="flex items-center gap-3">
                     <form action={restoreRoutine}>
                       <input type="hidden" name="id" value={routine.id} />
-                      <button className="text-sm font-medium text-zinc-700 underline dark:text-zinc-300">Restore</button>
+                      <button className="text-sm font-medium text-zinc-700 underline">Restore</button>
                     </form>
                     <DeleteRoutineButton
                       action={deleteRoutine}

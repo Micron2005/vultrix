@@ -50,7 +50,7 @@ export function RoutineForm({
   return (
     <form action={action} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Title
           <Input
             name="title"
@@ -61,7 +61,7 @@ export function RoutineForm({
           />
         </label>
         {!reminderOnly && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             Type
             <Select
               name="kind"
@@ -78,7 +78,7 @@ export function RoutineForm({
           </label>
         )}
         {users.length > 1 && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             Assign to
             <Select
               name="assigneeUserId"
@@ -95,7 +95,7 @@ export function RoutineForm({
           </label>
         )}
         {reminderOnly && <input type="hidden" name="kind" value="REMINDER" />}
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Due time (optional)
           <Input
             name="dueTime"
@@ -105,7 +105,7 @@ export function RoutineForm({
           />
         </label>
         {oneOff && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             Date
             <Input
               name="day"
@@ -117,7 +117,7 @@ export function RoutineForm({
           </label>
         )}
         {repeating && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             End date (optional)
             <Input
               name="endDay"
@@ -128,7 +128,7 @@ export function RoutineForm({
           </label>
         )}
         {!reminderOnly && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             Linked number goal (optional)
             <Select
               name="goalId"
@@ -147,14 +147,14 @@ export function RoutineForm({
       </div>
       {kind === "WEEKDAYS" && (
         <fieldset>
-          <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <legend className="text-xs font-medium text-zinc-700">
             Weekdays
           </legend>
           <div className="mt-2 flex flex-wrap gap-3">
             {weekdays.map(([value, label]) => (
               <label
                 key={value}
-                className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+                className="flex items-center gap-2 text-sm text-zinc-700"
               >
                 <input
                   type="checkbox"
@@ -173,7 +173,7 @@ export function RoutineForm({
       )}
       {!reminderOnly && (
         <>
-          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-xs font-medium text-zinc-700">
             Things to do (one per line)
             <Textarea
               name="items"
@@ -182,11 +182,11 @@ export function RoutineForm({
               className="mt-1"
               rows={4}
             />
-            <p className="mt-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs font-normal text-zinc-500">
               Tip: &quot;Squats x4 rest 90&quot; makes 4 sets with a 90-second rest timer.
             </p>
           </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
             <input
               type="checkbox"
               name="showStreak"

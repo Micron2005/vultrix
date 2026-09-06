@@ -342,7 +342,7 @@ export default async function SettingsPage({
         <Card className="mb-6 max-w-2xl">
           <CardHeader title="Get started checklist" />
           <div className="flex items-center justify-between gap-4 p-6">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-zinc-600">
               {org.onboardingDismissedAt
                 ? "The checklist is hidden from your dashboard."
                 : "Showing on the dashboard until every step is done."}
@@ -374,7 +374,7 @@ export default async function SettingsPage({
                 {defaultsNotice}
               </div>
             )}
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-zinc-600">
               Publish your current appearance, navigation, or dashboard as the
               default for everyone in this account.
             </p>

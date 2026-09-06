@@ -98,7 +98,7 @@ export default async function SearchPage({
       <>
         <PageHeader title="Search" />
         <Card>
-          <div className="p-6 text-sm text-zinc-600 dark:text-zinc-400">
+          <div className="p-6 text-sm text-zinc-600">
             Search {enabledSearchText} by name or matching details using the
             search bar in the sidebar.
           </div>
@@ -367,7 +367,7 @@ export default async function SearchPage({
 
       {totalCount === 0 && (
         <Card>
-          <div className="p-6 text-sm text-zinc-600 dark:text-zinc-400">
+          <div className="p-6 text-sm text-zinc-600">
             Nothing matched <span className="font-mono">{q}</span>. Try a
             different search term.
           </div>
@@ -377,17 +377,17 @@ export default async function SearchPage({
       {hasCustomers && customers.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Customers (${customers.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {customers.map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/customers/${c.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(fullName(c), tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {[
                       ...c.contacts.map((contact) => contact.value),
                       c.phone,
@@ -414,17 +414,17 @@ export default async function SearchPage({
       {hasVehicles && vehicles.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Vehicles (${vehicles.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {vehicles.map((v) => (
               <li key={v.id}>
                 <Link
                   href={`/vehicles/${v.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(vehicleLabel(v), tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {v.licensePlate && (
                       <span className="mr-3">
                         Plate {highlight(v.licensePlate, tokens)}
@@ -451,20 +451,20 @@ export default async function SearchPage({
       {hasRepairOrders && repairOrders.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`${nouns.plural} (${repairOrders.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {repairOrders.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/repair-orders/${r.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-medium text-zinc-900">
                       {accountType === "AUTO_SHOP" ? "RO " : ""}#{r.roNumber} ·{" "}
                       {fullName(r.customer)} ·{" "}
                       {vehicleLabel(r.vehicle)}
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500">
                       {r.status.replace("_", " ")} ·{" "}
                       {formatInTimeZone(r.openedAt, timezone, {
                         year: "numeric",
@@ -474,7 +474,7 @@ export default async function SearchPage({
                     </div>
                   </div>
                   {r.complaint && (
-                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1 dark:text-zinc-400">
+                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
                       {highlight(r.complaint, tokens)}
                     </div>
                   )}
@@ -488,22 +488,22 @@ export default async function SearchPage({
       {hasNotes && notes.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Knowledge notes (${notes.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {notes.map((n) => (
               <li key={n.id}>
                 <Link
                   href={`/notes/${n.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(n.title, tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {[n.make, n.model, n.engine].filter(Boolean).join(" ")}
                     {n.tags && <span className="ml-2">· {n.tags}</span>}
                   </div>
                   {n.symptom && (
-                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1 dark:text-zinc-400">
+                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
                       {highlight(n.symptom, tokens)}
                     </div>
                   )}
@@ -517,17 +517,17 @@ export default async function SearchPage({
       {hasParts && parts.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Parts (${parts.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {parts.map((part) => (
               <li key={part.id}>
                 <Link
                   href={`/inventory/${part.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(part.name, tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {[
                       part.partNumber,
                       part.category,
@@ -547,17 +547,17 @@ export default async function SearchPage({
       {hasAppointments && appointments.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Appointments (${appointments.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {appointments.map((appointment) => (
               <li key={appointment.id}>
                 <Link
                   href={`/appointments/${appointment.id}`}
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(appointment.reason, tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {fullName(appointment.customer)} ·{" "}
                     {formatInTimeZone(appointment.startsAt, timezone, {
                       year: "numeric",
@@ -568,7 +568,7 @@ export default async function SearchPage({
                     })}
                   </div>
                   {appointment.notes && (
-                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1 dark:text-zinc-400">
+                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
                       {highlight(appointment.notes, tokens)}
                     </div>
                   )}
@@ -582,17 +582,17 @@ export default async function SearchPage({
       {hasSales && sales.length > 0 && (
         <Card className="mb-4">
           <CardHeader title={`Sales (${sales.length})`} />
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          <ul className="divide-y divide-zinc-200">
             {sales.map((sale) => (
               <li key={sale.id}>
                 <Link
                   href="/sales"
-                  className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="block px-4 py-3 hover:bg-zinc-50"
                 >
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-sm font-medium text-zinc-900">
                     {highlight(sale.itemName, tokens)}
                   </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-xs text-zinc-500">
                     {sale.quantity} × {formatMoney(sale.unitPrice)} ·{" "}
                     {formatInTimeZone(sale.soldAt, timezone, {
                       year: "numeric",
@@ -601,7 +601,7 @@ export default async function SearchPage({
                     })}
                   </div>
                   {(sale.channel || sale.note) && (
-                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1 dark:text-zinc-400">
+                    <div className="mt-0.5 text-xs text-zinc-600 line-clamp-1">
                       {[sale.channel, sale.note].filter(Boolean).join(" · ")}
                     </div>
                   )}
