@@ -46,7 +46,7 @@ function highlight(s: string, tokens: string[]) {
     out.push(
       <mark
         key={idx}
-        className="rounded bg-amber-200 px-0.5 text-amber-950 dark:bg-amber-500/30 dark:text-amber-100"
+        className="rounded bg-amber-200 px-0.5 text-amber-900"
       >
         {s.slice(a, b)}
       </mark>,

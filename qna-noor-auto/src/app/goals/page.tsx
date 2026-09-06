@@ -184,7 +184,7 @@ function GoalCard({
           action={deleteGoal}
           goalId={goal.id}
           title={goal.title}
-          className="font-medium text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+          className="font-medium text-red-700 underline underline-offset-2 hover:text-red-800"
         />
       </div>
     </Card>
@@ -329,7 +329,7 @@ export default async function GoalsPage({
         }
       />
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </div>
       )}

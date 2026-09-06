@@ -7,6 +7,7 @@
    network is unavailable. */
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #fafafa;
@@ -311,6 +312,20 @@ html {
     --color-indigo-800: #c7d2fe;
     --color-indigo-900: #e0e7ff;
     --color-yellow-200: #5a4510;
+    --color-purple-50: #1e1233;
+    --color-purple-100: #2a1a47;
+    --color-purple-200: #3a2463;
+    --color-purple-300: #4f3387;
+    --color-purple-700: #c4b5fd;
+    --color-purple-800: #ddd6fe;
+    --color-purple-900: #ede9fe;
+    --color-rose-50: #2b1119;
+    --color-rose-100: #3b1722;
+    --color-rose-200: #4f1e2d;
+    --color-rose-300: #6d2a3e;
+    --color-rose-700: #fda4af;
+    --color-rose-800: #fecdd3;
+    --color-rose-900: #ffe4e6;
   }
 }
 
@@ -376,6 +391,20 @@ html.dark [data-force-light] {
   --color-indigo-800: #372aac;
   --color-indigo-900: #312c85;
   --color-yellow-200: #fff085;
+  --color-purple-50: #faf5ff;
+  --color-purple-100: #f3e8ff;
+  --color-purple-200: #e9d5ff;
+  --color-purple-300: #d8b4fe;
+  --color-purple-700: #7e22ce;
+  --color-purple-800: #6b21a8;
+  --color-purple-900: #581c87;
+  --color-rose-50: #fff1f2;
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-300: #fda4af;
+  --color-rose-700: #be123c;
+  --color-rose-800: #9f1239;
+  --color-rose-900: #881337;
 }
 
 [data-density="compact"] .dash-block {

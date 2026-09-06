@@ -64,13 +64,13 @@ function GoalQuickAction({
 
 function statusClass(status: string): string {
   return status === "late"
-    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+    ? "bg-amber-100 text-amber-800"
     : status === "missed"
-      ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+      ? "bg-red-100 text-red-800"
       : status === "skipped"
         ? "bg-zinc-200 text-zinc-700"
         : status === "done"
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+          ? "bg-emerald-100 text-emerald-800"
           : "bg-zinc-100 text-zinc-600";
 }
 
@@ -289,7 +289,7 @@ export async function Today({
                       {milestone.goal.title}
                     </Link>
                     {milestone.dueDay && milestone.dueDay < today && (
-                      <p className="text-xs text-red-600 dark:text-red-400">
+                      <p className="text-xs text-red-600">
                         Overdue
                       </p>
                     )}

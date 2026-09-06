@@ -144,7 +144,7 @@ export default async function GoalDetailPage({
               action={deleteGoal}
               goalId={record.id}
               title={record.title}
-              className="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+              className="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800"
             />
           </>
         }
@@ -160,7 +160,7 @@ export default async function GoalDetailPage({
           {progress.periodLabel}
         </span>
       </div>
-      <Card className="mb-6 overflow-hidden dark:bg-[var(--vx-accent-600)]">
+      <Card className="mb-6 overflow-hidden">
         <CardHeader title="Steps" />
         <div className="px-4 pt-2">
           {milestones.length ? (
@@ -190,7 +190,7 @@ export default async function GoalDetailPage({
                       </p>
                       {milestone.dueDay && !milestone.doneDay && (
                         <p
-                          className={`text-xs ${ milestone.dueDay < today ? "text-red-600 dark:text-red-400" : "text-zinc-500" }`}
+                          className={`text-xs ${ milestone.dueDay < today ? "text-red-600" : "text-zinc-500" }`}
                         >
                           by {milestone.dueDay}
                         </p>
@@ -300,7 +300,7 @@ export default async function GoalDetailPage({
           </form>
         </div>
       </Card>
-      <Card className="mb-6 overflow-hidden dark:bg-[var(--vx-accent-600)]">
+      <Card className="mb-6 overflow-hidden">
         <CardHeader title="Routines & checklists" />
         <div className="px-4 pt-4">
           {linkedRoutines.length ? (
