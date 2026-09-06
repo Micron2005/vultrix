@@ -178,7 +178,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
       {phase === "resting" ? (
         <>
           <span
-            className={`font-mono text-lg font-semibold ${ over ? "text-red-600 dark:text-red-400" : "text-zinc-800 " }`}
+            className={`font-mono text-lg font-semibold ${ over ? "text-red-600 dark:text-red-400" : "text-zinc-800" }`}
           >
             {over
               ? `Rest over · +${formatDuration(overtime)}`

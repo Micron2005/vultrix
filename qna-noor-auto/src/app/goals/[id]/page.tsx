@@ -177,20 +177,20 @@ export default async function GoalDetailPage({
                       <button
                         type="submit"
                         aria-label={milestone.doneDay ? "Undo" : "Check off"}
-                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs ${ milestone.doneDay ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-400 " }`}
+                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs ${ milestone.doneDay ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-400" }`}
                       >
                         {milestone.doneDay ? "✓" : ""}
                       </button>
                     </form>
                     <div className="min-w-0">
                       <p
-                        className={`text-sm ${ milestone.doneDay ? "text-zinc-500 line-through " : "text-zinc-800 " }`}
+                        className={`text-sm ${ milestone.doneDay ? "text-zinc-500 line-through" : "text-zinc-800" }`}
                       >
                         {milestone.title}
                       </p>
                       {milestone.dueDay && !milestone.doneDay && (
                         <p
-                          className={`text-xs ${ milestone.dueDay < today ? "text-red-600 dark:text-red-400" : "text-zinc-500 " }`}
+                          className={`text-xs ${ milestone.dueDay < today ? "text-red-600 dark:text-red-400" : "text-zinc-500" }`}
                         >
                           by {milestone.dueDay}
                         </p>

@@ -146,7 +146,7 @@ export function SegmentedControl({
             className={
               value === option.value
                 ? "min-h-9 bg-[var(--vx-accent-600)] px-3 py-2 text-xs font-medium text-[var(--vx-accent-fg)]"
-                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 "
+                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
             }
             onClick={() => onChange(option.value)}
             aria-pressed={value === option.value}

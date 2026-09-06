@@ -44,7 +44,7 @@ function statusClass(status: string): string {
     on_pace: "bg-blue-100 text-blue-800 dark:bg-blue-100 dark:text-blue-800",
     behind: "bg-amber-100 text-amber-800 dark:bg-amber-100 dark:text-amber-800",
     met: "bg-emerald-100 text-emerald-800 dark:bg-emerald-100 dark:text-emerald-800",
-  }[status] ?? "bg-zinc-100 text-zinc-700 ";
+  }[status] ?? "bg-zinc-100 text-zinc-700";
 }
 
 export default async function WeeklyReviewPage({

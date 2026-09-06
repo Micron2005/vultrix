@@ -21,7 +21,7 @@ import { SetTimer } from "./SetTimer";
 
 const CHECKABLE_METRICS = ["LOGGED_TOTAL", "LOGGED_LATEST", "MANUAL"];
 const buttonClass =
-  "rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)] ";
+  "rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)] text-[var(--vx-accent-fg)]";
 
 function GoalQuickAction({
   goal,
@@ -68,10 +68,10 @@ function statusClass(status: string): string {
     : status === "missed"
       ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
       : status === "skipped"
-        ? "bg-zinc-200 text-zinc-700 "
+        ? "bg-zinc-200 text-zinc-700"
         : status === "done"
           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-          : "bg-zinc-100 text-zinc-600 ";
+          : "bg-zinc-100 text-zinc-600";
 }
 
 function statusLabel(status: string): string {

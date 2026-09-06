@@ -36,7 +36,7 @@ export function NewGoalPicker({
             key={value}
             type="button"
             onClick={() => setMode(value as typeof mode)}
-            className={`rounded-md border px-3 py-2 text-sm font-medium ${ mode === value ? "border-[var(--vx-accent-600)] bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 " }`}
+            className={`rounded-md border px-3 py-2 text-sm font-medium ${ mode === value ? "border-[var(--vx-accent-600)] bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "border-zinc-300 text-zinc-700 hover:bg-zinc-100" }`}
           >
             {label}
           </button>

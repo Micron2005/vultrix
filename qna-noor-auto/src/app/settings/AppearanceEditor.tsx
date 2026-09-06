@@ -43,7 +43,11 @@ function PresetButton({
       value={value}
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex min-w-24 flex-1 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition ${ selected ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-[var(--vx-accent-600)] " : "border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 " }`}
+      className={`flex min-w-24 flex-1 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition ${
+        selected
+          ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-[var(--vx-accent-600)]"
+          : "border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
+      }`}
     >
       <span
         className="h-5 w-5 shrink-0 rounded-full border border-black/10"
@@ -72,7 +76,11 @@ function SegmentButton({
       value={value}
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${ selected ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "text-zinc-600 hover:bg-zinc-100 " }`}
+      className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${
+        selected
+          ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
+          : "text-zinc-600 hover:bg-zinc-100"
+      }`}
     >
       {label}
     </button>

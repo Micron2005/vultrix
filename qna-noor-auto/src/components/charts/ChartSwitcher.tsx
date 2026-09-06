@@ -38,7 +38,7 @@ export function ChartSwitcher({
               key={option}
               type="button"
               onClick={() => setKind(option)}
-              className={`rounded px-3 py-1.5 text-xs font-medium capitalize ${ kind === option ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "text-zinc-600 hover:bg-zinc-100 " }`}
+              className={`rounded px-3 py-1.5 text-xs font-medium capitalize ${ kind === option ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "text-zinc-600 hover:bg-zinc-100" }`}
             >
               {option}
             </button>
