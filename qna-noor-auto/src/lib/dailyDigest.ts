@@ -124,21 +124,18 @@ async function collectDigestItems(
   timezone: string,
   user: DigestUser,
   now: Date,
-  options: { includeGoals?: boolean } = {},
 ): Promise<DigestCollection> {
   const organization = await db.organization.findUnique({
     where: { id: orgId },
     select: { accountType: true, features: true },
   });
   const hasInvoices = enabledFeatureSet(organization ?? {}).has("invoices");
-  const includeGoals =
-    options.includeGoals ?? canViewFinancials(user.role as Role);
   const [routineGroups, goals] = await Promise.all([
     loadTodayRoutines(orgId, timezone, {
       forUserId: user.role === "STAFF" ? user.id : undefined,
       now,
     }),
-    includeGoals
+    canViewFinancials(user.role as Role)
       ? loadActiveGoals(orgId, timezone, hasInvoices, undefined, now)
       : Promise.resolve([]),
   ]);
@@ -190,13 +187,7 @@ export async function createGoalsTodayNotifications(
   });
   let created = 0;
   for (const recipient of recipients) {
-    const digest = await collectDigestItems(
-      orgId,
-      timezone,
-      recipient,
-      now,
-      { includeGoals: true },
-    );
+    const digest = await collectDigestItems(orgId, timezone, recipient, now);
     if (!digest.hasContent) continue;
     const count = digest.itemTitles.length;
     const noun = count === 1 ? "thing" : "things";
