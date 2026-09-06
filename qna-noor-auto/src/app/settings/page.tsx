@@ -57,6 +57,7 @@ import {
 } from "./default-actions";
 import { resetOnboarding } from "@/app/onboarding-actions";
 import { ShopBranding } from "./ShopBranding";
+import { TestAiKeyButton } from "./TestAiKeyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -745,7 +746,10 @@ export default async function SettingsPage({
                 </label>
               )}
             </Field>
-            <SaveButton>Save assistant settings</SaveButton>
+            <div className="flex flex-wrap items-center gap-3">
+              <SaveButton>Save assistant settings</SaveButton>
+              <TestAiKeyButton aiKeyConfigured={aiKeyConfigured} />
+            </div>
           </form>
         </Card>
       )}

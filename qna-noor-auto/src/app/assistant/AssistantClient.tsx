@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, Input } from "@/components/ui";
 
 type TranscriptEntry = {
   role: "user" | "assistant";
   content: string;
-  steps?: Array<{ tool: string; confirmation: string }>;
+  steps?: Array<{
+    tool: string;
+    confirmation: string;
+    link?: { href: string; label: string };
+  }>;
 };
 
 type VoiceState = "ASLEEP" | "ACTIVE" | "THINKING" | "FOLLOW_UP";
@@ -400,7 +405,11 @@ export function AssistantClient({
         });
         const body = (await response.json()) as {
           reply?: string;
-          steps?: Array<{ tool: string; confirmation: string }>;
+          steps?: Array<{
+            tool: string;
+            confirmation: string;
+            link?: { href: string; label: string };
+          }>;
           error?: string;
         };
         if (!response.ok) {
@@ -732,6 +741,14 @@ export function AssistantClient({
                   {entry.steps.map((step, stepIndex) => (
                     <li key={`${step.tool}-${stepIndex}`}>
                       {step.confirmation}
+                      {step.link && (
+                        <Link
+                          href={step.link.href}
+                          className="ml-2 font-medium text-[var(--vx-accent-600)] underline-offset-2 hover:underline"
+                        >
+                          {step.link.label} →
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

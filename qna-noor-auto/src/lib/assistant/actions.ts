@@ -2,6 +2,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   parseDateTime,
+  dateParamInTimeZone,
+  formatWhen,
   type DateContext,
   DEFAULT_DATE_CONTEXT,
 } from "./datetime";
@@ -20,6 +22,7 @@ import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 export type AssistantResult<T> = {
   data: T;
   confirmation: string;
+  link?: { href: string; label: string };
 };
 
 const orgIdSchema = z.string().trim().min(1, "Organization is required.");
@@ -122,6 +125,7 @@ export async function createAssistantInventoryPart(
       confirmation: input.openingQuantity
         ? `Added ${input.openingQuantity} ${updated.name} — now ${updated.qtyOnHand} in stock.`
         : `${updated.name} is already in inventory with ${updated.qtyOnHand} in stock.`,
+      link: { href: `/inventory/${updated.id}`, label: "Open part" },
     };
   }
   const part = await createInventoryPart(
@@ -143,6 +147,7 @@ export async function createAssistantInventoryPart(
   return {
     data: { id: part.id, name: part.name, quantity: part.qtyOnHand },
     confirmation: `Created ${part.name} with ${part.qtyOnHand} in stock.`,
+    link: { href: `/inventory/${part.id}`, label: "Open part" },
   };
 }
 
@@ -206,6 +211,7 @@ export async function adjustAssistantInventory(
       quantity: updated.qtyOnHand,
     },
     confirmation: `${direction} ${Math.abs(input.delta)} ${updated.name} — now ${updated.qtyOnHand} in stock.`,
+    link: { href: `/inventory/${updated.id}`, label: "Open part" },
   };
 }
 
@@ -235,16 +241,20 @@ export async function addAssistantIncome(
   if (!features.has("financials") || features.has("invoices")) {
     throw new Error("Income logging is not available for this account.");
   }
+  const receivedAt = input.receivedAt
+    ? resolveDate(input.receivedAt, "received date", ctx)
+    : new Date();
   const income = await createIncomeForOrg(id, {
     amount: input.amount,
-    receivedAt: input.receivedAt ? resolveDate(input.receivedAt, "received date", ctx) : new Date(),
+    receivedAt,
     source: input.source,
     frequency: input.frequency,
     note: input.note,
   });
   return {
     data: { id: income.id, amount: income.amount, source: income.source },
-    confirmation: `Logged $${income.amount.toFixed(2)} income from ${income.source}.`,
+    confirmation: `Logged $${income.amount.toFixed(2)} income from ${income.source} on ${formatWhen(receivedAt, ctx, true)}.`,
+    link: { href: "/expenses", label: "Open Financials" },
   };
 }
 
@@ -267,9 +277,12 @@ export async function addAssistantExpense(
 ): Promise<AssistantResult<{ id: string; amount: number; category: string }>> {
   const id = requireOrgId(orgId);
   const input = expenseSchema.parse(args);
+  const paidAt = input.paidAt
+    ? resolveDate(input.paidAt, "paid date", ctx)
+    : new Date();
   const expense = await createExpenseForOrg(id, {
     amount: input.amount,
-    paidAt: input.paidAt ? resolveDate(input.paidAt, "paid date", ctx) : new Date(),
+    paidAt,
     category: input.category.toUpperCase(),
     vendor: input.vendor,
     reference: input.reference,
@@ -278,7 +291,8 @@ export async function addAssistantExpense(
   });
   return {
     data: { id: expense.id, amount: expense.amount, category: expense.category },
-    confirmation: `Logged $${expense.amount.toFixed(2)} expense${expense.vendor ? ` for ${expense.vendor}` : ""}.`,
+    confirmation: `Logged $${expense.amount.toFixed(2)} expense${expense.vendor ? ` for ${expense.vendor}` : ""} on ${formatWhen(paidAt, ctx, true)}.`,
+    link: { href: "/expenses", label: "Open Financials" },
   };
 }
 
@@ -312,6 +326,7 @@ export async function addAssistantNote(
     confirmation: needsTitle
       ? "Saved the note (no title yet)."
       : `Added note “${note.title}”.`,
+    link: { href: `/notes/${note.id}`, label: "Open note" },
   };
 }
 
@@ -359,6 +374,7 @@ export async function updateAssistantNote(
     confirmation: input.title
       ? `Renamed the note to “${updated.title}”.`
       : `Updated the note “${updated.title}”.`,
+    link: { href: `/notes/${updated.id}`, label: "Open note" },
   };
 }
 
@@ -440,7 +456,11 @@ export async function addAssistantCalendarEvent(
   });
   return {
     data: { id: event.id, title: event.title, startsAt: event.startsAt },
-    confirmation: `Added ${event.allDay ? "all-day " : ""}event “${event.title}”.`,
+    confirmation: `Added ${event.isReminder ? "reminder" : "event"} “${event.title}” — ${formatWhen(event.startsAt, ctx, event.allDay)}.`,
+    link: {
+      href: `/appointments?view=day&date=${dateParamInTimeZone(event.startsAt, ctx.timezone)}`,
+      label: "Open in Calendar",
+    },
   };
 }
 
@@ -474,11 +494,9 @@ export async function removeAssistantCalendarEvent(
   let matches = titleMatches;
   if (input.date) {
     const date = resolveDate(input.date, "event date", ctx);
-    const nextDate = new Date(date);
-    nextDate.setDate(nextDate.getDate() + 1);
+    const targetDate = dateParamInTimeZone(date, ctx.timezone);
     matches = titleMatches.filter(
-      (event) => event.startsAt >= new Date(date.getFullYear(), date.getMonth(), date.getDate()) &&
-        event.startsAt < new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate()),
+      (event) => dateParamInTimeZone(event.startsAt, ctx.timezone) === targetDate,
     );
   }
   const event = matches[0];
@@ -493,7 +511,8 @@ export async function removeAssistantCalendarEvent(
   await deleteCalendarEventForOrg(id, event.id);
   return {
     data: { id: event.id, title: event.title, startsAt: event.startsAt },
-    confirmation: `Removed “${event.title}” on ${event.startsAt.toLocaleDateString()}.`,
+    confirmation: `Removed “${event.title}” on ${formatWhen(event.startsAt, ctx, event.allDay)}.`,
+    link: { href: "/appointments", label: "Open in Calendar" },
   };
 }
 

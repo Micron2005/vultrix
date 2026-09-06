@@ -72,6 +72,51 @@ export function describeNow(timezone: string, now: Date = new Date()): string {
   }
 }
 
+function safeTimeZone(timezone: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+    return timezone;
+  } catch {
+    return "UTC";
+  }
+}
+
+export function formatWhen(
+  date: Date,
+  ctx: DateContext,
+  allDay: boolean,
+): string {
+  const timeZone = safeTimeZone(ctx.timezone);
+  const datePart = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+  if (allDay) return datePart;
+  const timePart = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+  return `${datePart} at ${timePart}`;
+}
+
+export function dateParamInTimeZone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: safeTimeZone(timezone),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => ["year", "month", "day"].includes(part.type))
+      .map((part) => [part.type, part.value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 /**
  * Resolve a date/time expression to a concrete instant. Accepts ISO strings and
  * natural language ("tomorrow at 9am", "next Friday", "in 2 hours", "July 4").
@@ -82,13 +127,44 @@ export function parseDateTime(input: string, ctx: DateContext): Date | null {
   const text = input.trim();
   if (!text) return null;
 
+  const naiveIso = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (naiveIso) {
+    const [, year, month, day, hour = "00", minute = "00", second = "00"] =
+      naiveIso;
+    const naiveUtc = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+    const calendarCheck = new Date(naiveUtc);
+    if (
+      calendarCheck.getUTCFullYear() !== Number(year) ||
+      calendarCheck.getUTCMonth() !== Number(month) - 1 ||
+      calendarCheck.getUTCDate() !== Number(day) ||
+      calendarCheck.getUTCHours() !== Number(hour) ||
+      calendarCheck.getUTCMinutes() !== Number(minute) ||
+      calendarCheck.getUTCSeconds() !== Number(second)
+    ) {
+      return null;
+    }
+    const firstOffset = timezoneOffsetMinutes(ctx.timezone, new Date(naiveUtc));
+    const firstInstant = new Date(naiveUtc - firstOffset * 60_000);
+    const secondOffset = timezoneOffsetMinutes(ctx.timezone, firstInstant);
+    return new Date(naiveUtc - secondOffset * 60_000);
+  }
+
   const reference: chrono.ParsingReference = {
     instant: ctx.now,
     timezone: timezoneOffsetMinutes(ctx.timezone, ctx.now),
   };
 
   try {
-    const results = chrono.parse(text, reference, { forwardDate: true });
+    const results = chrono.casual.parse(text, reference, { forwardDate: true });
     if (results.length > 0) {
       const date = results[0].start.date();
       if (!Number.isNaN(date.getTime())) return date;

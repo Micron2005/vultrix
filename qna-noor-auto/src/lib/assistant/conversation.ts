@@ -7,14 +7,22 @@ import type { AssistantMessage, ProviderResponse } from "./providers";
 export type ToolExecutor = (
   name: string,
   args: unknown,
-) => Promise<{ confirmation: string; result: unknown }>;
+) => Promise<{
+  confirmation: string;
+  result: unknown;
+  link?: { href: string; label: string };
+}>;
 
 /** Calls the underlying LLM provider with the running message list. */
 export type ProviderCaller = (
   messages: AssistantMessage[],
 ) => Promise<ProviderResponse>;
 
-export type ConversationStep = { tool: string; confirmation: string };
+export type ConversationStep = {
+  tool: string;
+  confirmation: string;
+  link?: { href: string; label: string };
+};
 
 export type ConversationResult = {
   reply: string;
@@ -59,7 +67,11 @@ export async function runAssistantConversation(options: {
 
     for (const call of response.toolCalls) {
       const outcome = await executeTool(call.name, call.arguments);
-      steps.push({ tool: call.name, confirmation: outcome.confirmation });
+      steps.push({
+        tool: call.name,
+        confirmation: outcome.confirmation,
+        ...(outcome.link ? { link: outcome.link } : {}),
+      });
       messages.push({
         role: "tool",
         toolCallId: call.id,
