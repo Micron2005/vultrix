@@ -285,6 +285,14 @@ function friendlyError(error: unknown): string {
   ) {
     return "I couldn't reach the assistant service right now. Please try again shortly.";
   }
+  const rejectedKey = message.match(/\b(OpenAI|Anthropic) error \(HTTP (401|403)\b/);
+  if (rejectedKey) {
+    return `Your ${rejectedKey[1]} key was rejected — check it in Settings → AI assistant.`;
+  }
+  if (message.includes("error (HTTP 429")) {
+    return "The assistant provider is rate-limiting or out of credits right now. Please try again shortly.";
+  }
+  if (message.includes("error (HTTP")) return message;
   return message || "I couldn't complete that request.";
 }
 
@@ -355,6 +363,7 @@ async function executeTool(
         ));
     }
   } catch (error) {
+    console.error("[assistant] provider error", error);
     const message = friendlyError(error);
     return { confirmation: message, result: { error: message } };
   }
@@ -477,6 +486,7 @@ export async function POST(request: Request) {
     });
     return Response.json({ reply, steps });
   } catch (error) {
+    console.error("[assistant] provider error", error);
     return Response.json({ reply: friendlyError(error), steps: [] });
   }
 }
