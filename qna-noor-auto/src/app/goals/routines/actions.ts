@@ -16,6 +16,7 @@ import {
   ROUTINE_KINDS,
   dueOn,
 } from "@/lib/routines";
+import { notify } from "@/lib/notifications";
 
 async function requireRoutinesViewer() {
   const user = await requireUser();
@@ -212,6 +213,15 @@ export async function createRoutine(fd: FormData) {
     entityId: routine.id,
     summary: `Routine created: ${routine.title}`,
   });
+  if (input.assigneeUserId && input.assigneeUserId !== user.id) {
+    await notify({
+      orgId,
+      userId: input.assigneeUserId,
+      kind: "task_assigned",
+      title: `You were assigned “${routine.title}”`,
+      href: `/goals/routines/${routine.id}`,
+    });
+  }
   revalidateRoutine(routine.id, input.goalId);
   redirect(`/goals/routines/${routine.id}`);
 }
@@ -230,6 +240,11 @@ export async function updateRoutine(id: string, fd: FormData) {
   } catch (error) {
     redirectRoutineError(`/goals/routines/${id}`, error);
   }
+  const existing = await db.routine.findFirst({
+    where: { id, orgId },
+    select: { assigneeUserId: true },
+  });
+  if (!existing) throw new Error("Routine not found.");
   const result = await db.routine.updateMany({
     where: { id, orgId },
     data: {
@@ -253,6 +268,19 @@ export async function updateRoutine(id: string, fd: FormData) {
     entityId: id,
     summary: `Routine updated: ${input.title}`,
   });
+  if (
+    input.assigneeUserId &&
+    input.assigneeUserId !== existing.assigneeUserId &&
+    input.assigneeUserId !== user.id
+  ) {
+    await notify({
+      orgId,
+      userId: input.assigneeUserId,
+      kind: "task_assigned",
+      title: `You were assigned “${input.title}”`,
+      href: `/goals/routines/${id}`,
+    });
+  }
   revalidateRoutine(id, input.goalId);
   redirect(`/goals/routines/${id}`);
 }

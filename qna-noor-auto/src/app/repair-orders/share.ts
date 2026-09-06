@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
+import { notify } from "@/lib/notifications";
+import { fullName } from "@/lib/utils";
 
 async function newToken(): Promise<string> {
   // ~22 chars, URL-safe, non-guessable. Retry if the (astronomically unlikely)
@@ -66,9 +68,14 @@ async function findByToken(token: string) {
     where: { shareToken: token },
     select: {
       id: true,
+      orgId: true,
+      roNumber: true,
       status: true,
       approvedAt: true,
       estimateDeclinedAt: true,
+      customer: {
+        select: { firstName: true, lastName: true, companyName: true },
+      },
     },
   });
 }
@@ -104,6 +111,12 @@ export async function approveEstimate(token: string, fd: FormData) {
     data.startedAt = now;
   }
   await db.repairOrder.update({ where: { id: ro.id }, data });
+  await notify({
+    orgId: ro.orgId,
+    kind: "estimate",
+    title: `${fullName(ro.customer)} approved the estimate for RO #${ro.roNumber}`,
+    href: `/repair-orders/${ro.id}`,
+  });
 
   revalidatePath(`/e/${token}`);
   revalidatePath(`/repair-orders/${ro.id}`);
@@ -127,6 +140,12 @@ export async function declineEstimate(token: string, fd: FormData) {
       customerResponseNote: note,
     },
   });
+  await notify({
+    orgId: ro.orgId,
+    kind: "estimate",
+    title: `${fullName(ro.customer)} declined the estimate for RO #${ro.roNumber}`,
+    href: `/repair-orders/${ro.id}`,
+  });
 
   revalidatePath(`/e/${token}`);
   revalidatePath(`/repair-orders/${ro.id}`);
@@ -145,7 +164,12 @@ export async function approveJob(
 
   const job = await db.job.findUnique({
     where: { id: jobId },
-    select: { id: true, repairOrderId: true, approvalStatus: true },
+    select: {
+      id: true,
+      name: true,
+      repairOrderId: true,
+      approvalStatus: true,
+    },
   });
   if (!job || job.repairOrderId !== ro.id) return;
   if (job.approvalStatus !== "PENDING") return;
@@ -160,6 +184,12 @@ export async function approveJob(
       approvedAt: new Date(),
       customerNote: note,
     },
+  });
+  await notify({
+    orgId: ro.orgId,
+    kind: "estimate",
+    title: `${fullName(ro.customer)} approved job “${job.name}”`,
+    href: `/repair-orders/${ro.id}`,
   });
 
   revalidatePath(`/e/${token}`);
@@ -177,7 +207,12 @@ export async function declineJob(
 
   const job = await db.job.findUnique({
     where: { id: jobId },
-    select: { id: true, repairOrderId: true, approvalStatus: true },
+    select: {
+      id: true,
+      name: true,
+      repairOrderId: true,
+      approvalStatus: true,
+    },
   });
   if (!job || job.repairOrderId !== ro.id) return;
   if (job.approvalStatus !== "PENDING") return;
@@ -192,6 +227,12 @@ export async function declineJob(
       declinedAt: new Date(),
       customerNote: note,
     },
+  });
+  await notify({
+    orgId: ro.orgId,
+    kind: "estimate",
+    title: `${fullName(ro.customer)} declined job “${job.name}”`,
+    href: `/repair-orders/${ro.id}`,
   });
 
   revalidatePath(`/e/${token}`);

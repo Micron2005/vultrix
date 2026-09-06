@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { adjustInventoryStock, createInventoryPart } from "@/lib/inventory";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 import { logActivity } from "@/lib/activity";
 import { assertCanDelete } from "@/lib/permissions";
 
@@ -189,11 +190,14 @@ export async function adjustStock(id: string, fd: FormData) {
 
   const owned = await db.part.findFirst({
     where: { id, orgId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, qtyOnHand: true },
   });
   if (!owned) return;
 
   await adjustInventoryStock(orgId, id, delta, reason, note);
+  if (delta < 0) {
+    await notifyLowStockIfCrossed(id, owned.qtyOnHand);
+  }
   await logActivity({
     orgId,
     user,
@@ -239,7 +243,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
 
   const owned = await db.part.findFirst({
     where: { id, orgId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, qtyOnHand: true },
   });
   if (!owned) redirect("/inventory");
 
@@ -252,6 +256,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
       : "ADJUST";
 
   let appliedDelta = 0;
+  let qtyBefore: number | null = null;
   if (setToRaw !== "") {
     const target = parseFloat(setToRaw);
     if (!Number.isFinite(target)) return;
@@ -268,6 +273,7 @@ export async function scanAdjustStock(id: string, fd: FormData) {
         select: { qtyOnHand: true },
       });
       if (!part) return 0;
+      qtyBefore = part.qtyOnHand;
       const d = target - part.qtyOnHand;
       if (d === 0) return 0;
       await tx.part.update({
@@ -283,11 +289,15 @@ export async function scanAdjustStock(id: string, fd: FormData) {
     if (appliedDelta === 0) {
       redirect(`/s/${id}`);
     }
+    if (appliedDelta < 0 && qtyBefore !== null) {
+      await notifyLowStockIfCrossed(id, qtyBefore);
+    }
   } else if (deltaRaw !== "") {
     const d = parseFloat(deltaRaw);
     if (!Number.isFinite(d) || d === 0) {
       redirect(`/s/${id}`);
     }
+    const qtyBefore = owned.qtyOnHand;
     await db.part.update({
       where: { id },
       data: { qtyOnHand: { increment: d } },
@@ -296,6 +306,9 @@ export async function scanAdjustStock(id: string, fd: FormData) {
       data: { partId: id, delta: d, reason: safeReason, note },
     });
     appliedDelta = d;
+    if (d < 0) {
+      await notifyLowStockIfCrossed(id, qtyBefore);
+    }
   } else {
     redirect(`/s/${id}`);
   }
@@ -337,7 +350,7 @@ export async function undoScanMove(fd: FormData) {
       partId: true,
       delta: true,
       undone: true,
-      part: { select: { orgId: true, name: true } },
+      part: { select: { orgId: true, name: true, qtyOnHand: true } },
     },
   });
   if (!move || move.partId !== partId) {
@@ -374,6 +387,9 @@ export async function undoScanMove(fd: FormData) {
   });
 
   if (appliedInverse !== 0) {
+    if (appliedInverse < 0) {
+      await notifyLowStockIfCrossed(partId, move.part.qtyOnHand);
+    }
     await logActivity({
       orgId: move.part.orgId,
       user: null,

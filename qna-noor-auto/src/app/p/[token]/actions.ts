@@ -15,6 +15,7 @@ import { getAllSettings } from "@/lib/shop";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { fullName, vehicleLabel } from "@/lib/utils";
 import { siteOrigin } from "@/lib/reminders";
+import { notify } from "@/lib/notifications";
 
 const RequestAppointmentSchema = z.object({
   token: z.string().min(1),
@@ -84,17 +85,25 @@ export async function requestAppointment(fd: FormData) {
     },
   });
 
+  const when = formatInTimeZone(startsAt, timezone, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const vehicleText = vehicle ? vehicleLabel(vehicle) : "Not specified";
+  await notify({
+    orgId: customer.orgId,
+    kind: "appointment_request",
+    title: `${fullName(customer)} requested an appointment`,
+    body: `${when} · ${vehicleText}`,
+    href: `/appointments/${appointment.id}`,
+  });
+
   const shop = await getAllSettings(customer.orgId);
   if (shop.shopEmail) {
-    const when = formatInTimeZone(startsAt, timezone, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    const vehicleText = vehicle ? vehicleLabel(vehicle) : "Not specified";
     const appUrl = `${siteOrigin() ?? "https://vultrix.net"}/appointments/${appointment.id}`;
     await sendEmail({
       to: shop.shopEmail,

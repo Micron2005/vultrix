@@ -10,6 +10,7 @@ import { formatMoney, fullName, parseDecimal, parseMileage, vehicleLabel } from 
 import { autoLogServicesForRO } from "@/lib/serviceReminders";
 import { computeRoTotal } from "@/lib/roTotal";
 import { logActivity } from "@/lib/activity";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 import {
   assertCanDelete,
   assertCanManagePayments,
@@ -771,10 +772,12 @@ export async function addPartLine(repairOrderId: string, fd: FormData) {
 
   // Auto-deduct inventory if the line was created from the catalog.
   if (catalog) {
+    const qtyBefore = catalog.qtyOnHand;
     await db.part.update({
       where: { id: catalog.id },
       data: { qtyOnHand: { decrement: quantity } },
     });
+    await notifyLowStockIfCrossed(catalog.id, qtyBefore);
     await db.stockMove.create({
       data: {
         partId: catalog.id,

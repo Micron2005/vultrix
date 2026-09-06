@@ -16,6 +16,7 @@ import { orgTimeZone } from "@/lib/orgTimezone";
 import { localCalendarDay } from "@/lib/timezone";
 import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import type { Role } from "@/lib/session";
+import { notify } from "@/lib/notifications";
 
 export type DigestSendResult = {
   attempted: number;
@@ -37,6 +38,12 @@ type DigestGoal = {
 };
 
 type DigestRoutine = Awaited<ReturnType<typeof loadTodayRoutines>>[number];
+type DigestCollection = {
+  dueRoutines: DigestRoutine[];
+  behindGoals: DigestGoal[];
+  hasContent: boolean;
+  itemTitles: string[];
+};
 
 function isDuplicateError(error: unknown): boolean {
   return (
@@ -80,36 +87,13 @@ export async function buildDailyDigest(
   user: DigestUser,
   today: string,
 ): Promise<{ html: string; hasContent: boolean }> {
-  const organization = await db.organization.findUnique({
-    where: { id: orgId },
-    select: { accountType: true, features: true },
-  });
-  const hasInvoices = enabledFeatureSet(organization ?? {}).has("invoices");
-  const [routineGroups, goals] = await Promise.all([
-    loadTodayRoutines(orgId, timezone, {
-      forUserId: user.role === "STAFF" ? user.id : undefined,
-    }),
-    canViewFinancials(user.role as Role)
-      ? loadActiveGoals(orgId, timezone, hasInvoices)
-      : Promise.resolve([]),
-  ]);
-  const dueRoutines = routineGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter(
-        (item) => item.status !== "done" && item.status !== "skipped",
-      ),
-    }))
-    .filter((group) => group.items.length > 0)
-    .sort(
-      (left, right) =>
-        Number(right.routine.kind === "REMINDER") -
-        Number(left.routine.kind === "REMINDER"),
-    );
-  const behindGoals = goals.filter(
-    ({ progress }) => progress.status === "behind",
+  const collection = await collectDigestItems(
+    orgId,
+    timezone,
+    user,
+    new Date(),
   );
-  const hasContent = dueRoutines.length > 0 || behindGoals.length > 0;
+  const { dueRoutines, behindGoals, hasContent } = collection;
   const dueHtml = dueRoutines.map(routineHtml).join("");
   const goalsHtml = behindGoals.map(goalHtml).join("");
   return {
@@ -133,6 +117,138 @@ export async function buildDailyDigest(
       </p>
     `,
   };
+}
+
+async function collectDigestItems(
+  orgId: string,
+  timezone: string,
+  user: DigestUser,
+  now: Date,
+): Promise<DigestCollection> {
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { accountType: true, features: true },
+  });
+  const hasInvoices = enabledFeatureSet(organization ?? {}).has("invoices");
+  const [routineGroups, goals] = await Promise.all([
+    loadTodayRoutines(orgId, timezone, {
+      forUserId: user.role === "STAFF" ? user.id : undefined,
+      now,
+    }),
+    canViewFinancials(user.role as Role)
+      ? loadActiveGoals(orgId, timezone, hasInvoices, undefined, now)
+      : Promise.resolve([]),
+  ]);
+  const dueRoutines = routineGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => item.status !== "done" && item.status !== "skipped",
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
+    .sort(
+      (left, right) =>
+        Number(right.routine.kind === "REMINDER") -
+        Number(left.routine.kind === "REMINDER"),
+    );
+  const behindGoals = goals.filter(
+    ({ progress }) => progress.status === "behind",
+  );
+  const hasContent = dueRoutines.length > 0 || behindGoals.length > 0;
+  return {
+    hasContent,
+    dueRoutines,
+    behindGoals,
+    itemTitles: [
+      ...dueRoutines.flatMap((group) =>
+        group.items
+          .filter((item) => item.status !== "done" && item.status !== "skipped")
+          .map((item) => item.label),
+      ),
+      ...behindGoals.map(({ goal }) => goal.title),
+    ],
+  };
+}
+
+export async function createGoalsTodayNotifications(
+  orgId: string,
+  now = new Date(),
+): Promise<number> {
+  const timezone = await orgTimeZone(orgId);
+  const today = localCalendarDay(now, timezone);
+  const recipients = await db.user.findMany({
+    where: {
+      orgId,
+      isActive: true,
+      role: { not: "SUPERADMIN" },
+    },
+    select: { id: true, username: true, role: true },
+  });
+  let created = 0;
+  for (const recipient of recipients) {
+    const digest = await collectDigestItems(orgId, timezone, recipient, now);
+    const titles = digest.dueRoutines.flatMap((group) =>
+      group.items
+        .filter((item) => item.status !== "done" && item.status !== "skipped")
+        .map((item) => item.label),
+    );
+    if (!titles.length) continue;
+    const count = titles.length;
+    const noun = count === 1 ? "thing" : "things";
+    await notify({
+      orgId,
+      userId: recipient.id,
+      kind: "goals_today",
+      title: `${count} ${noun} due today`,
+      body: `${titles.slice(0, 3).join(", ")}${
+        count > 3 ? "…" : ""
+      }`,
+      href: "/goals",
+      dedupeKey: `${today}:${recipient.id}`,
+    });
+    created += 1;
+  }
+  return created;
+}
+
+export async function createBehindPaceNotifications(
+  orgId: string,
+  now = new Date(),
+): Promise<number> {
+  const timezone = await orgTimeZone(orgId);
+  const today = localCalendarDay(now, timezone);
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { accountType: true, features: true },
+  });
+  const hasInvoices = enabledFeatureSet(organization ?? {}).has("invoices");
+  const goals = await loadActiveGoals(
+    orgId,
+    timezone,
+    hasInvoices,
+    undefined,
+    now,
+  );
+  const behindGoals = goals.filter(
+    ({ progress }) => progress.status === "behind",
+  );
+  for (const { goal, progress } of behindGoals) {
+    await notify({
+      orgId,
+      userId: null,
+      kind: "goal_behind",
+      title: `Falling behind: ${goal.title}`,
+      body: `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(
+        goal.metric,
+        progress.target,
+        goal.unit,
+      )} — ${goalPaceText(goal, progress)}`,
+      href: `/goals/${goal.id}`,
+      dedupeKey: `${today}:${goal.id}`,
+    });
+  }
+  return behindGoals.length;
 }
 
 export async function sendDailyDigestForOrg(
