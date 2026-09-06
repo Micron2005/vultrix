@@ -7,6 +7,8 @@ export type NotificationKind =
   | "deposit"
   | "estimate"
   | "goals_today"
+  | "goal_behind"
+  | "low_stock"
   | "task_assigned";
 
 type NotificationUser = Pick<CurrentUser, "id" | "orgId" | "role">;

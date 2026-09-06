@@ -188,15 +188,20 @@ export async function createGoalsTodayNotifications(
   let created = 0;
   for (const recipient of recipients) {
     const digest = await collectDigestItems(orgId, timezone, recipient, now);
-    if (!digest.hasContent) continue;
-    const count = digest.itemTitles.length;
+    const titles = digest.dueRoutines.flatMap((group) =>
+      group.items
+        .filter((item) => item.status !== "done" && item.status !== "skipped")
+        .map((item) => item.label),
+    );
+    if (!titles.length) continue;
+    const count = titles.length;
     const noun = count === 1 ? "thing" : "things";
     await notify({
       orgId,
       userId: recipient.id,
       kind: "goals_today",
       title: `${count} ${noun} due today`,
-      body: `${digest.itemTitles.slice(0, 3).join(", ")}${
+      body: `${titles.slice(0, 3).join(", ")}${
         count > 3 ? "…" : ""
       }`,
       href: "/goals",
@@ -205,6 +210,45 @@ export async function createGoalsTodayNotifications(
     created += 1;
   }
   return created;
+}
+
+export async function createBehindPaceNotifications(
+  orgId: string,
+  now = new Date(),
+): Promise<number> {
+  const timezone = await orgTimeZone(orgId);
+  const today = localCalendarDay(now, timezone);
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { accountType: true, features: true },
+  });
+  const hasInvoices = enabledFeatureSet(organization ?? {}).has("invoices");
+  const goals = await loadActiveGoals(
+    orgId,
+    timezone,
+    hasInvoices,
+    undefined,
+    now,
+  );
+  const behindGoals = goals.filter(
+    ({ progress }) => progress.status === "behind",
+  );
+  for (const { goal, progress } of behindGoals) {
+    await notify({
+      orgId,
+      userId: null,
+      kind: "goal_behind",
+      title: `Falling behind: ${goal.title}`,
+      body: `${goalValueLabel(goal.metric, progress.actual, goal.unit)} of ${goalValueLabel(
+        goal.metric,
+        progress.target,
+        goal.unit,
+      )} — ${goalPaceText(goal, progress)}`,
+      href: `/goals/${goal.id}`,
+      dedupeKey: `${today}:${goal.id}`,
+    });
+  }
+  return behindGoals.length;
 }
 
 export async function sendDailyDigestForOrg(

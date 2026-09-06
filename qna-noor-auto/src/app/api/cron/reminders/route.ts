@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
+  createBehindPaceNotifications,
   createGoalsTodayNotifications,
   sendDailyDigestForOrg,
 } from "@/lib/dailyDigest";
+import { createLowStockNotifications } from "@/lib/lowStock";
 import { sendDueRemindersForOrg } from "@/lib/reminders";
 import { sendWeeklyReviewForOrg } from "@/lib/weeklyReview";
 
@@ -22,13 +24,16 @@ export async function GET(req: Request) {
   });
   const results = await Promise.all(
     organizations.map(async (organization) => {
-      const [reminders, weeklyReview, dailyDigest, goalsToday] = await Promise.all([
+      const [reminders, weeklyReview, dailyDigest, goalsToday, goalsBehind, lowStock] =
+        await Promise.all([
         sendDueRemindersForOrg(organization.id),
         sendWeeklyReviewForOrg(organization.id),
         sendDailyDigestForOrg(organization.id),
         createGoalsTodayNotifications(organization.id),
+        createBehindPaceNotifications(organization.id),
+        createLowStockNotifications(organization.id),
       ]);
-      return { reminders, weeklyReview, dailyDigest, goalsToday };
+      return { reminders, weeklyReview, dailyDigest, goalsToday, goalsBehind, lowStock };
     }),
   );
   return NextResponse.json({

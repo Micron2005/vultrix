@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { assertCanDelete } from "@/lib/permissions";
 import { getSetting } from "@/lib/shop";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 
 function cleanStr(s: FormDataEntryValue | null): string | null {
   if (s == null) return null;
@@ -245,6 +246,7 @@ export async function applyCannedJobToRepairOrder(
   const nextFeeSort =
     ro.feeLines.reduce((max, f) => Math.max(max, f.sortOrder), -1) + 1;
 
+  const stockAlerts: { partId: string; qtyBefore: number }[] = [];
   await db.$transaction(async (tx) => {
     const roJob = await tx.job.create({
       data: {
@@ -285,6 +287,10 @@ export async function applyCannedJobToRepairOrder(
         },
       });
       if (catalogPart && p.quantity > 0) {
+        stockAlerts.push({
+          partId: catalogPart.id,
+          qtyBefore: catalogPart.qtyOnHand,
+        });
         await tx.part.update({
           where: { id: catalogPart.id },
           data: { qtyOnHand: { decrement: p.quantity } },
@@ -313,6 +319,9 @@ export async function applyCannedJobToRepairOrder(
       });
     }
   });
+  for (const alert of stockAlerts) {
+    await notifyLowStockIfCrossed(alert.partId, alert.qtyBefore);
+  }
 
   revalidatePath(`/repair-orders/${roId}`);
 }

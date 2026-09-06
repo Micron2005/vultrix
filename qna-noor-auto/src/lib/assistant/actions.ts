@@ -12,6 +12,7 @@ import {
 import { createExpenseForOrg } from "@/lib/expenses";
 import { createIncomeForOrg } from "@/lib/income";
 import { createInventoryPart, adjustInventoryStock } from "@/lib/inventory";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 import { createNoteForOrg } from "@/lib/notes";
 import { enabledFeatureSet } from "@/lib/features";
 import { computeTotals } from "@/lib/totals";
@@ -197,6 +198,9 @@ export async function adjustAssistantInventory(
     input.reason,
     input.note,
   );
+  if (input.delta < 0) {
+    await notifyLowStockIfCrossed(part.id, part.qtyOnHand);
+  }
   const direction = input.delta > 0 ? "Added" : "Removed";
   return {
     data: {

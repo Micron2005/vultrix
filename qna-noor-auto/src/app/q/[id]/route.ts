@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { verifyPartToken } from "@/lib/scanTokens";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export async function GET(
     });
     newQty = result.qty;
     moveId = result.moveId;
+    await notifyLowStockIfCrossed(id, part.qtyOnHand);
 
     revalidatePath(`/inventory/${id}`);
     revalidatePath("/inventory");
