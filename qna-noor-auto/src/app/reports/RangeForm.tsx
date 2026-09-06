@@ -57,7 +57,7 @@ export function RangeForm({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="no-print flex flex-wrap items-center gap-2">
       <div className="flex flex-wrap gap-1">
         {presets.map((p) => (
           <button

@@ -19,6 +19,8 @@ import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { prettyCategory } from "@/app/expenses/categories";
 import { RangeForm } from "../RangeForm";
+import { ReportActions } from "../ReportActions";
+import { getAllSettings } from "@/lib/shop";
 
 export const dynamic = "force-dynamic";
 
@@ -143,20 +145,24 @@ export default async function ProfitReportPage({
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
+  const settings = await getAllSettings(orgId);
+  const orgName = settings.shopName || "Vultrix";
   const range = resolveRange(await searchParams);
 
   return hasInvoices ? (
-    <InvoiceProfitReport orgId={orgId} range={range} />
+    <InvoiceProfitReport orgId={orgId} orgName={orgName} range={range} />
   ) : (
-    <GeneralProfitReport orgId={orgId} range={range} />
+    <GeneralProfitReport orgId={orgId} orgName={orgName} range={range} />
   );
 }
 
 async function InvoiceProfitReport({
   orgId,
+  orgName,
   range,
 }: {
   orgId: string;
+  orgName: string;
   range: ReturnType<typeof resolveRange>;
 }) {
   const repairOrders = await db.repairOrder.findMany({
@@ -318,17 +324,23 @@ async function InvoiceProfitReport({
   const displayedJobs = jobs.slice(0, 100);
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="Profit by job"
         description={`Gross profit before shop expenses · ${range.label}`}
         actions={
-          <LinkButton href="/reports" variant="secondary">
-            Back to reports
-          </LinkButton>
+          <>
+            <LinkButton href="/reports" variant="secondary">
+              Back to reports
+            </LinkButton>
+            <ReportActions fileName="profit-by-job" />
+          </>
         }
       />
-      <Card className="mb-6">
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · Profit by job · {range.label} · Printed {formatDate(new Date())}
+      </div>
+      <Card className="no-print mb-6">
         <div className="p-4">
           <RangeForm
             preset={range.preset}
@@ -340,15 +352,16 @@ async function InvoiceProfitReport({
       </Card>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
-        <StatCard label="Revenue (ex tax)" value={formatMoney(revenue)} />
-        <StatCard label="Parts cost" value={formatMoney(partsCost)} />
-        <StatCard label="Labor cost" value={formatMoney(laborCost)} />
+        <StatCard reportStat label="Revenue (ex tax)" value={formatMoney(revenue)} />
+        <StatCard reportStat label="Parts cost" value={formatMoney(partsCost)} />
+        <StatCard reportStat label="Labor cost" value={formatMoney(laborCost)} />
         <StatCard
+          reportStat
           label="Gross profit"
           value={formatMoney(grossProfit)}
           highlight={grossProfit < 0}
         />
-        <StatCard label="Margin" value={formatPercent(marginPct(revenue, grossProfit))} />
+        <StatCard reportStat label="Margin" value={formatPercent(marginPct(revenue, grossProfit))} />
       </div>
       <p className="mb-6 text-sm text-zinc-600">
         Shop expenses are not allocated to individual jobs, so these figures
@@ -509,15 +522,17 @@ async function InvoiceProfitReport({
           </div>
         )}
       </Card>
-    </>
+    </div>
   );
 }
 
 async function GeneralProfitReport({
   orgId,
+  orgName,
   range,
 }: {
   orgId: string;
+  orgName: string;
   range: ReturnType<typeof resolveRange>;
 }) {
   const [income, expenses] = await Promise.all([
@@ -559,17 +574,23 @@ async function GeneralProfitReport({
   const net = totalIncome - totalExpenses;
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="Income by source"
         description={`Financial summary · ${range.label}`}
         actions={
-          <LinkButton href="/reports" variant="secondary">
-            Back to reports
-          </LinkButton>
+          <>
+            <LinkButton href="/reports" variant="secondary">
+              Back to reports
+            </LinkButton>
+            <ReportActions fileName="profit-by-job" />
+          </>
         }
       />
-      <Card className="mb-6">
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · Income by source · {range.label} · Printed {formatDate(new Date())}
+      </div>
+      <Card className="no-print mb-6">
         <div className="p-4">
           <RangeForm
             preset={range.preset}
@@ -580,9 +601,9 @@ async function GeneralProfitReport({
         </div>
       </Card>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Income" value={formatMoney(totalIncome)} />
-        <StatCard label="Expenses" value={formatMoney(totalExpenses)} />
-        <StatCard label="Net" value={formatMoney(net)} highlight={net < 0} />
+        <StatCard reportStat label="Income" value={formatMoney(totalIncome)} />
+        <StatCard reportStat label="Expenses" value={formatMoney(totalExpenses)} />
+        <StatCard reportStat label="Net" value={formatMoney(net)} highlight={net < 0} />
       </div>
       <p className="mb-6 text-sm text-zinc-600">
         This is income analysis, not profit by source: the app does not have
@@ -655,6 +676,6 @@ async function GeneralProfitReport({
           )}
         </Card>
       </div>
-    </>
+    </div>
   );
 }

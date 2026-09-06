@@ -141,7 +141,7 @@ export default async function RootLayout({
             mode={navLayout.mode}
             utilities={navLayout.utilities}
           />
-          <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
+          <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0 print:pl-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}
             <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
           </main>

@@ -9,7 +9,9 @@ import { StatCard } from "@/components/StatCard";
 import { loadOpenAR } from "@/lib/ar";
 import { enabledFeatureSet } from "@/lib/features";
 import { getCurrentUser, requireOrgId } from "@/lib/session";
+import { getAllSettings } from "@/lib/shop";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { ReportActions } from "../ReportActions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,24 +26,32 @@ export default async function AccountsReceivablePage() {
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
+  const settings = await getAllSettings(orgId);
+  const orgName = settings.shopName || "Vultrix";
 
   if (!hasInvoices) {
     return (
-      <>
+      <div data-report>
         <PageHeader
           title="A/R aging"
           description="Accounts receivable"
           actions={
-            <LinkButton href="/reports" variant="secondary">
-              Back to reports
-            </LinkButton>
+            <>
+              <LinkButton href="/reports" variant="secondary">
+                Back to reports
+              </LinkButton>
+              <ReportActions fileName="ar-aging" />
+            </>
           }
         />
+        <div className="hidden print:block mb-4 text-sm text-zinc-600">
+          {orgName} · A/R aging · Printed {formatDate(new Date())}
+        </div>
         <EmptyState
           title="A/R needs invoicing"
           description="Turn on invoicing to track open invoices and customer balances."
         />
-      </>
+      </div>
     );
   }
 
@@ -49,16 +59,22 @@ export default async function AccountsReceivablePage() {
   const asOf = new Date();
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="A/R aging"
         description={`Open invoice balances as of ${formatDate(asOf)}`}
         actions={
-          <LinkButton href="/reports" variant="secondary">
-            Back to reports
-          </LinkButton>
+          <>
+            <LinkButton href="/reports" variant="secondary">
+              Back to reports
+            </LinkButton>
+            <ReportActions fileName="ar-aging" />
+          </>
         }
       />
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · A/R aging · As of {formatDate(asOf)} · Printed {formatDate(new Date())}
+      </div>
       <p className="mb-6 text-sm text-zinc-600">
         Aging counts whole days since the invoice date because no payment terms
         are configured.
@@ -66,12 +82,14 @@ export default async function AccountsReceivablePage() {
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard
+          reportStat
           label="Total owed"
           value={formatMoney(ar.total)}
           highlight={ar.total > 0}
         />
         {bucketColumns.map((bucket) => (
           <StatCard
+            reportStat
             key={bucket.key}
             label={`${bucket.label} days`}
             value={formatMoney(ar.buckets[bucket.key])}
@@ -88,7 +106,10 @@ export default async function AccountsReceivablePage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table
+              data-export-title="A/R aging by customer"
+              className="w-full min-w-[900px] text-sm"
+            >
               <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Customer</th>
@@ -171,6 +192,6 @@ export default async function AccountsReceivablePage() {
           </div>
         )}
       </Card>
-    </>
+    </div>
   );
 }

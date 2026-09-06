@@ -14,7 +14,9 @@ import {
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatDate, formatMoney, fullName, vehicleLabel } from "@/lib/utils";
 import { RangeForm } from "./RangeForm";
+import { ReportActions } from "./ReportActions";
 import { prettyCategory } from "../expenses/categories";
+import { getAllSettings } from "@/lib/shop";
 
 export const dynamic = "force-dynamic";
 
@@ -101,12 +103,15 @@ export default async function ReportsPage({
   const orgId = await requireOrgId();
   const user = await getCurrentUser();
   const timezone = await orgTimeZone(orgId);
+  const settings = await getAllSettings(orgId);
+  const orgName = settings.shopName || "Vultrix";
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
   const autoShop = (user?.accountType ?? "AUTO_SHOP") === "AUTO_SHOP";
   if (!autoShop) {
     return (
       <GeneralReportsPage
         orgId={orgId}
+        orgName={orgName}
         hasInvoices={hasInvoices}
         timezone={timezone}
         searchParams={searchParams}
@@ -117,6 +122,7 @@ export default async function ReportsPage({
   return (
     <AutoReportsPage
       orgId={orgId}
+      orgName={orgName}
       timezone={timezone}
       searchParams={searchParams}
     />
@@ -125,10 +131,12 @@ export default async function ReportsPage({
 
 async function AutoReportsPage({
   orgId,
+  orgName,
   timezone,
   searchParams,
 }: {
   orgId: string;
+  orgName: string;
   timezone: string;
   searchParams: SearchParams;
 }) {
@@ -409,7 +417,7 @@ async function AutoReportsPage({
   const netProfit = revenueInRange - partsCost - expensesTotal;
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="Reports"
         description={`Business metrics · ${label}`}
@@ -424,11 +432,15 @@ async function AutoReportsPage({
             <LinkButton href="/reports/profit" variant="secondary">
               Profit by job
             </LinkButton>
+            <ReportActions fileName="reports" />
           </>
         }
       />
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · Reports · {label} · Printed {formatDate(new Date())}
+      </div>
 
-      <Card className="mb-6">
+      <Card className="no-print mb-6">
         <div className="p-4">
           <RangeForm preset={preset} from={from} to={to} />
         </div>
@@ -778,17 +790,19 @@ async function AutoReportsPage({
           )}
         </div>
       </Card>
-    </>
+    </div>
   );
 }
 
 async function GeneralReportsPage({
   orgId,
+  orgName,
   hasInvoices,
   timezone,
   searchParams,
 }: {
   orgId: string;
+  orgName: string;
   hasInvoices: boolean;
   timezone: string;
   searchParams: SearchParams;
@@ -929,7 +943,7 @@ async function GeneralReportsPage({
   );
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="Reports"
         description={`Financial metrics · ${label}`}
@@ -946,11 +960,15 @@ async function GeneralReportsPage({
             <LinkButton href="/reports/profit" variant="secondary">
               Income by source
             </LinkButton>
+            <ReportActions fileName="reports" />
           </>
         }
       />
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · Reports · {label} · Printed {formatDate(new Date())}
+      </div>
 
-      <Card className="mb-6">
+      <Card className="no-print mb-6">
         <div className="p-4">
           <RangeForm preset={preset} from={from} to={to} />
         </div>
@@ -1138,7 +1156,7 @@ async function GeneralReportsPage({
           )}
         </Card>
       )}
-    </>
+    </div>
   );
 }
 
@@ -1170,6 +1188,7 @@ function Stat({
 }) {
   return (
     <div
+      data-report-stat
       className={
         "rounded-lg border p-3 " +
         (highlight
@@ -1177,12 +1196,12 @@ function Stat({
           : "border-zinc-200 bg-white")
       }
     >
-      <div className="text-xs text-zinc-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-zinc-900">{value}</div>
+      <div data-report-stat-label className="text-xs text-zinc-500">{label}</div>
+      <div data-report-stat-value className="mt-1 text-lg font-semibold text-zinc-900">{value}</div>
       {sublines && sublines.length > 0 && (
         <div className="mt-1 space-y-0.5 text-[11px] text-zinc-500">
           {sublines.map((s, i) => (
-            <div key={i}>{s}</div>
+            <div key={i} data-report-stat-subline>{s}</div>
           ))}
         </div>
       )}

@@ -11,7 +11,7 @@ export function DemoBanner() {
       role="region"
       aria-label="Demo mode notice"
       data-testid="demo-banner"
-      className="z-30 border-b border-amber-200 bg-amber-50 lg:sticky lg:top-0"
+      className="no-print z-30 border-b border-amber-200 bg-amber-50 lg:sticky lg:top-0"
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
