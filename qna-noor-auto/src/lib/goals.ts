@@ -426,6 +426,7 @@ export async function loadActiveGoals(
   timezone: string,
   hasInvoices: boolean,
   limit?: number,
+  now = new Date(),
 ): Promise<
   Array<{
     goal: GoalRecord;
@@ -440,7 +441,6 @@ export async function loadActiveGoals(
     ...(limit ? { take: limit } : {}),
     include: { milestones: { select: { doneDay: true } } },
   });
-  const now = new Date();
   const scored = await Promise.all(
     goals.map(async (goal) => ({
       goal: goal as GoalRecord,

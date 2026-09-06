@@ -157,7 +157,7 @@ export function statusFor(
 export async function loadTodayRoutines(
   orgId: string,
   timezone: string,
-  opts: { goalId?: string; forUserId?: string } = {},
+  opts: { goalId?: string; forUserId?: string; now?: Date } = {},
 ): Promise<
   Array<{
     routine: RoutineRecord;
@@ -169,7 +169,7 @@ export async function loadTodayRoutines(
     >;
   }>
 > {
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const today = localCalendarDay(now, timezone);
   const routines = await db.routine.findMany({
     where: {

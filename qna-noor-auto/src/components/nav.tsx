@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { LinkButton } from "@/components/ui";
 import { VultrixMark } from "@/components/VultrixMark";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   getEligibleNavItems,
   navItemLabel,
@@ -242,7 +243,7 @@ export function Nav({
   );
 
   const sidebarBody = (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <div className="p-5 border-b border-zinc-200 flex items-center justify-between gap-2">
         <Link href="/" className="flex min-w-0 items-center gap-2" onClick={closeMobile}>
           <VultrixMark tile className="h-7 w-7 shrink-0" />
@@ -264,6 +265,7 @@ export function Nav({
         >
           <X className="h-5 w-5" />
         </button>
+        {!isSuperadmin && <NotificationBell />}
         <button
           type="button"
           onClick={toggleDesktopCollapsed}
@@ -274,60 +276,62 @@ export function Nav({
           <PanelLeftClose className="h-5 w-5" />
         </button>
       </div>
-      {!isSuperadmin && (
-        <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Search"
-          />
-        </form>
-      )}
-      <nav className="p-2 flex flex-col gap-1">
-        {navItems.map((item) => {
-          const active = isActive(pathname, item.href, renderedHrefs);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={closeMobile}
-              aria-current={active ? "page" : undefined}
-              className={
-                "rounded-md px-3 py-2 text-sm transition-colors " +
-                (active
-                  ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-                  : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
-              }
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-        <a
-          href="/home"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={closeMobile}
-          className="mt-2 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
-          data-testid="nav-view-landing"
-        >
-          <ExternalLink className="h-4 w-4" />
-          View landing page
-        </a>
-        <form action="/logout" method="post" className="mt-1 border-t border-zinc-200 pt-2">
-          <button
-            type="submit"
-            className="w-full text-left rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-            data-testid="nav-sign-out"
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {!isSuperadmin && (
+          <form onSubmit={onSubmit} className="p-3 border-b border-zinc-200">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              aria-label="Search"
+            />
+          </form>
+        )}
+        <nav className="p-2 flex flex-col gap-1">
+          {navItems.map((item) => {
+            const active = isActive(pathname, item.href, renderedHrefs);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={closeMobile}
+                aria-current={active ? "page" : undefined}
+                className={
+                  "rounded-md px-3 py-2 text-sm transition-colors " +
+                  (active
+                    ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
+                    : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+          <a
+            href="/home"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeMobile}
+            className="mt-2 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+            data-testid="nav-view-landing"
           >
-            Sign out
-          </button>
-        </form>
-      </nav>
-    </>
+            <ExternalLink className="h-4 w-4" />
+            View landing page
+          </a>
+          <form action="/logout" method="post" className="mt-1 border-t border-zinc-200 pt-2">
+            <button
+              type="submit"
+              className="w-full text-left rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+              data-testid="nav-sign-out"
+            >
+              Sign out
+            </button>
+          </form>
+        </nav>
+      </div>
+    </div>
   );
 
   return (
@@ -351,6 +355,7 @@ export function Nav({
                 />
               </form>
             )}
+            {!isSuperadmin && <NotificationBell />}
             {username && (
               <span className="max-w-40 shrink-0 truncate text-xs text-zinc-500">
                 {username}
@@ -398,6 +403,7 @@ export function Nav({
         >
           <Menu className="h-5 w-5" />
         </button>
+        {!isSuperadmin && <NotificationBell />}
         <Link
           href="/"
           className="min-w-0 truncate text-sm font-semibold tracking-tight text-zinc-900"
@@ -419,7 +425,7 @@ export function Nav({
       {/* Sidebar: static column on desktop, slide-in drawer on mobile. */}
       <aside
         className={
-          "no-print bg-white border-r border-zinc-200 overflow-y-auto " +
+          "no-print bg-white border-r border-zinc-200 overflow-visible " +
           "fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-out " +
           "lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 " +
           (navMode === "top" ? "lg:hidden " : "") +

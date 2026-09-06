@@ -2,6 +2,8 @@ import type Stripe from "stripe";
 import { db } from "./db";
 import { getStripe } from "./stripe";
 import { computeRoTotal, computeRoPaid } from "./roTotal";
+import { notify } from "./notifications";
+import { formatMoney, fullName } from "./utils";
 
 // ---------------------------------------------------------------------------
 // Stripe Connect: lets each business (an Organization) accept card payments
@@ -114,7 +116,15 @@ async function applyOnlinePayment(
   // Make sure the RO actually belongs to this org before touching it.
   const ro = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
-    select: { id: true, status: true, invoicedAt: true },
+    select: {
+      id: true,
+      roNumber: true,
+      status: true,
+      invoicedAt: true,
+      customer: {
+        select: { firstName: true, lastName: true, companyName: true },
+      },
+    },
   });
   if (!ro) return;
 
@@ -128,6 +138,13 @@ async function applyOnlinePayment(
       note: opts.note,
       isDeposit: opts.deposit,
     },
+  });
+  await notify({
+    orgId,
+    kind: opts.deposit ? "deposit" : "payment",
+    title: `${formatMoney(amount)} paid online by ${fullName(ro.customer)}`,
+    body: `RO #${ro.roNumber}`,
+    href: `/repair-orders/${ro.id}`,
   });
 
   if (!opts.deposit) {
