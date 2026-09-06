@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
-import { getAllSettings, shopBranding } from "@/lib/shop";
+import { getAllSettings, shopBranding, shopBrandStyle } from "@/lib/shop";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatInTimeZone } from "@/lib/timezone";
 import { fullName, vehicleLabel } from "@/lib/utils";
@@ -36,10 +36,14 @@ export default async function PublicReminderPage({
   endsAt.setMinutes(endsAt.getMinutes() + appt.durationMinutes);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0" data-force-light>
+    <div
+      className="min-h-screen bg-zinc-100 py-10 print:bg-white print:py-0"
+      data-force-light
+      style={shopBrandStyle(branding.accent)}
+    >
       <div className="mx-auto max-w-xl px-4 print:px-0 print:max-w-full">
         <div className="rounded-lg bg-white shadow-sm overflow-hidden print:shadow-none print:rounded-none">
-          <header className="px-8 py-6 border-b border-zinc-200 text-center">
+          <header className="border-t-4 border-[var(--vx-accent-600)] px-8 py-6 border-b border-zinc-200 text-center">
             <div className="text-xs uppercase tracking-wider text-zinc-500">
               Appointment reminder
             </div>

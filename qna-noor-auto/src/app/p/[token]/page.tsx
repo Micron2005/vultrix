@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
-import { getAllSettings, shopBranding } from "@/lib/shop";
+import { getAllSettings, shopBranding, shopBrandStyle } from "@/lib/shop";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { depositDue } from "@/lib/roTotal";
@@ -143,11 +143,14 @@ export default async function CustomerPortalPage({
     .filter((r) => r.dueItems.length > 0);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
+    <div
+      className="min-h-screen bg-zinc-100 py-10"
+      data-force-light
+      style={shopBrandStyle(branding.accent)}
+    >
       <div className="mx-auto max-w-4xl px-4 space-y-6">
         <header
-          className="rounded-lg border-t-4 bg-white shadow-sm overflow-hidden"
-          style={branding.accent ? { borderTopColor: branding.accent } : undefined}
+          className="rounded-lg border-t-4 border-[var(--vx-accent-600)] bg-white shadow-sm overflow-hidden"
         >
           <div className="px-4 py-6 sm:px-8 border-b border-zinc-200 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
@@ -230,8 +233,7 @@ export default async function CustomerPortalPage({
                           <input type="hidden" name="kind" value="deposit" />
                           <button
                             type="submit"
-                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
-                            style={branding.accent ? { backgroundColor: branding.accent } : undefined}
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
                           >
                             Pay {formatMoney(depositInfo.due)} deposit
                           </button>
@@ -263,8 +265,7 @@ export default async function CustomerPortalPage({
                 <form method="post" action={`/api/pay/${token}/all`}>
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
-                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
                   >
                     Pay all {formatMoney(totalOutstanding)}
                   </button>
@@ -277,8 +278,7 @@ export default async function CustomerPortalPage({
                 >
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
-                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
                   >
                     Pay {formatMoney(totalOutstanding)} online
                   </button>
@@ -314,8 +314,7 @@ export default async function CustomerPortalPage({
                   </div>
                   <Link
                     href={`/e/${ro.shareToken}`}
-                    className="inline-flex h-8 items-center rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]"
-                    style={branding.accent ? { backgroundColor: branding.accent } : undefined}
+                    className="inline-flex h-8 items-center rounded-md bg-[var(--vx-accent-600)] px-3 text-sm font-medium text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                   >
                     Review estimate →
                   </Link>
@@ -465,8 +464,7 @@ export default async function CustomerPortalPage({
             </Field>
             <button
               type="submit"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
-              style={branding.accent ? { backgroundColor: branding.accent } : undefined}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
             >
               Request appointment
             </button>

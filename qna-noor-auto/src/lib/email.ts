@@ -16,6 +16,18 @@ export function emailBrandHeader(): string {
   return `<div style="padding:8px 0 16px"><img src="${base}/brand/vultrix-mark-email.png" width="40" height="40" alt="Vultrix" style="display:block;border-radius:8px"></div>`;
 }
 
+export function shopEmailHeader(args: {
+  shopName: string;
+  logo: string | null;
+  accent: string | null;
+}): string {
+  const accent = args.accent ?? "#18181b";
+  const logo = args.logo
+    ? `<img src="${escapeHtml(args.logo)}" width="40" height="40" alt="" style="display:block;border-radius:8px;object-fit:contain">`
+    : "";
+  return `<div style="border-top:4px solid ${escapeHtml(accent)};padding:12px 0 16px;display:flex;align-items:center;gap:10px">${logo}<strong style="font-size:18px">${escapeHtml(args.shopName)}</strong></div>`;
+}
+
 type SendArgs = {
   to: string;
   subject: string;

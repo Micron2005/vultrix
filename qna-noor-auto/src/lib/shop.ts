@@ -1,4 +1,6 @@
 import { db, dbBase } from "./db";
+import type { CSSProperties } from "react";
+import { accentVarsFromHex } from "./appearance";
 
 const DEFAULTS: Record<string, string> = {
   shopName: "",
@@ -75,6 +77,13 @@ export async function shopBranding(
     ? settings.shopAccent
     : null;
   return { logo, accent };
+}
+
+export function shopBrandStyle(
+  accent: string | null,
+): CSSProperties | undefined {
+  if (!accent) return undefined;
+  return accentVarsFromHex(accent) as CSSProperties;
 }
 
 export async function getNextRoNumber(orgId: string): Promise<number> {

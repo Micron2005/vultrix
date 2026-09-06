@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { getAllSettings, shopBranding } from "@/lib/shop";
+import { getAllSettings, shopBranding, shopBrandStyle } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import { depositDue } from "@/lib/roTotal";
@@ -93,7 +93,11 @@ export default async function CustomerPortalROPage({
     Boolean(org?.stripeConnectChargesEnabled);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
+    <div
+      className="min-h-screen bg-zinc-100 py-10"
+      data-force-light
+      style={shopBrandStyle(branding.accent)}
+    >
       <div className="mx-auto max-w-3xl px-4">
         <div className="mb-4">
           <Link
@@ -106,8 +110,7 @@ export default async function CustomerPortalROPage({
 
         <div className="rounded-lg bg-white shadow-sm overflow-hidden">
           <header
-            className="border-t-4 px-4 py-6 sm:px-8 border-b border-zinc-200"
-            style={branding.accent ? { borderTopColor: branding.accent } : undefined}
+            className="border-t-4 border-[var(--vx-accent-600)] px-4 py-6 sm:px-8 border-b border-zinc-200"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-center gap-3">
@@ -558,7 +561,7 @@ export default async function CustomerPortalROPage({
                       <input type="hidden" name="kind" value="deposit" />
                       <button
                         type="submit"
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
                       >
                         Pay {formatMoney(depositInfo.due)} deposit
                       </button>
@@ -571,7 +574,7 @@ export default async function CustomerPortalROPage({
                   <form method="post" action={`/api/pay/${token}/${roId}`}>
                     <button
                       type="submit"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)] sm:w-auto"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)] sm:w-auto"
                     >
                       Pay {formatMoney(balance)} online
                     </button>

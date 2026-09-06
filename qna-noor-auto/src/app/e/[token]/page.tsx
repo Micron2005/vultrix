@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { db } from "@/lib/db";
-import { getAllSettings, shopBranding } from "@/lib/shop";
+import { getAllSettings, shopBranding, shopBrandStyle } from "@/lib/shop";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFees } from "@/lib/shopFees";
 import { depositDue } from "@/lib/roTotal";
@@ -100,10 +100,14 @@ export default async function PublicEstimatePage({
   const decline = declineEstimate.bind(null, token);
 
   return (
-    <div className="min-h-screen bg-zinc-100 py-10" data-force-light>
+    <div
+      className="min-h-screen bg-zinc-100 py-10"
+      data-force-light
+      style={shopBrandStyle(branding.accent)}
+    >
       <div className="mx-auto max-w-3xl px-4">
         <div className="rounded-lg bg-white shadow-sm overflow-hidden">
-          <header className="px-8 py-6 border-b border-zinc-200">
+          <header className="border-t-4 border-[var(--vx-accent-600)] px-8 py-6 border-b border-zinc-200">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 {branding.logo && (
@@ -583,7 +587,7 @@ export default async function PublicEstimatePage({
                       <input type="hidden" name="kind" value="deposit" />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)]"
+                        className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                       >
                         Pay {formatMoney(depositInfo.due)} deposit
                       </button>
@@ -599,7 +603,7 @@ export default async function PublicEstimatePage({
                 >
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--vx-accent-700)]"
+                    className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-5 py-2.5 text-sm font-semibold text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
                   >
                     Pay {formatMoney(balance)} online
                   </button>
