@@ -28,6 +28,7 @@ import {
   type RemoveCalendarEventArgs,
   type UpcomingEventsArgs,
   type UpdateNoteArgs,
+  type AssistantResult,
 } from "@/lib/assistant";
 import {
   runAssistantProvider,
@@ -41,6 +42,7 @@ import {
   type ProviderCaller,
 } from "@/lib/assistant/conversation";
 import { describeNow } from "@/lib/assistant/datetime";
+import { friendlyError } from "@/lib/assistant/errors";
 import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +73,7 @@ const property = (type: string, description?: string) => ({
 });
 
 const NL_DATE_HINT =
-  "Accepts natural language (e.g. 'tomorrow at 9am', 'next Friday', 'in 2 hours') or an ISO date/time — the current date/time is given in the system prompt.";
+  "Pass the user's words as-is (e.g. 'tomorrow at 9 in the morning'); do not convert to ISO yourself. Accepts natural language (e.g. 'tomorrow at 9am', 'next Friday', 'in 2 hours') or an ISO date/time — the current date/time is given in the system prompt.";
 
 const tools: AssistantToolDefinition[] = [
   {
@@ -269,44 +271,22 @@ const tools: AssistantToolDefinition[] = [
 const providerSchema = z.enum(["OPENAI", "ANTHROPIC"]);
 const MAX_TOOL_ITERATIONS = 6;
 
-function friendlyError(error: unknown): string {
-  if (error instanceof z.ZodError) {
-    const first = error.issues[0];
-    const field = first?.path?.join(".") ?? "";
-    return field
-      ? `I still need the "${field}" for that. Could you tell me?`
-      : "I still need a bit more information for that. Could you clarify?";
-  }
-  const message = error instanceof Error ? error.message : "";
-  if (
-    message.includes("ECONNREFUSED") ||
-    message.includes("fetch failed") ||
-    message.includes("Provider returned")
-  ) {
-    return "I couldn't reach the assistant service right now. Please try again shortly.";
-  }
-  const rejectedKey = message.match(/\b(OpenAI|Anthropic) error \(HTTP (401|403)\b/);
-  if (rejectedKey) {
-    return `Your ${rejectedKey[1]} key was rejected — check it in Settings → AI assistant.`;
-  }
-  if (message.includes("error (HTTP 429")) {
-    return "The assistant provider is rate-limiting or out of credits right now. Please try again shortly.";
-  }
-  if (message.includes("error (HTTP")) return message;
-  return message || "I couldn't complete that request.";
-}
-
 async function executeTool(
   orgId: string,
   ctx: AssistantContext,
   name: AssistantToolName,
   args: unknown,
   canViewFinancials: boolean,
-): Promise<{ confirmation: string; result: unknown }> {
+): Promise<{
+  confirmation: string;
+  result: unknown;
+  link?: { href: string; label: string };
+}> {
   try {
-    const finish = (output: { confirmation: string; data: unknown }) => ({
+    const finish = (output: AssistantResult<unknown>) => ({
       confirmation: output.confirmation,
       result: output.data,
+      ...(output.link ? { link: output.link } : {}),
     });
     switch (name) {
       case "create_inventory_part":
@@ -383,7 +363,7 @@ function buildSystemPrompt(assistantName: string, timezone: string, now: Date): 
     "- Never refuse or deflect a general question by saying you can only help with the app. If you don't know something, say so plainly rather than inventing details.",
     "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending.",
     "- Act on clear requests right away; you may pass natural-language dates/times to tools (they're resolved against the current time above).",
-    "- After a tool runs, confirm what happened briefly and naturally, in your own words. Never claim success if a tool returned an error.",
+    '- After a tool runs, confirm what happened in one short sentence and always repeat the exact resolved date and time the tool reported (e.g. "Added Doctor\'s appointment — Tue, Sep 8 at 9:00 AM"), so the user can catch a wrong day. Never claim success if a tool returned an error.',
     "- If a tool reports it's missing information, ask the user for exactly that one thing in a friendly way — never dead-end with a generic error.",
     "",
     "Notes flow:",
