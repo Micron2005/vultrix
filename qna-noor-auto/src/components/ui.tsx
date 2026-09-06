@@ -138,7 +138,7 @@ export function SegmentedControl({
   return (
     <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
       <span className="text-xs font-medium text-zinc-600">{label}</span>
-      <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900">
+      <div className="flex overflow-hidden rounded-md border border-zinc-300 bg-white">
         {options.map((option) => (
           <button
             key={option.value}
@@ -146,7 +146,7 @@ export function SegmentedControl({
             className={
               value === option.value
                 ? "min-h-9 bg-[var(--vx-accent-600)] px-3 py-2 text-xs font-medium text-[var(--vx-accent-fg)]"
-                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                : "min-h-9 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
             }
             onClick={() => onChange(option.value)}
             aria-pressed={value === option.value}
@@ -292,15 +292,15 @@ export function StatTile({
   hint?: string;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
-      <p className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+      <p className="mt-2 text-lg font-semibold text-zinc-900">
         {value}
       </p>
       {hint && (
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>
+        <p className="mt-1 text-xs text-zinc-500">{hint}</p>
       )}
     </div>
   );

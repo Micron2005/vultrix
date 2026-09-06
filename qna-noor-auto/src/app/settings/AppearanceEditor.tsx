@@ -45,8 +45,8 @@ function PresetButton({
       onClick={onSelect}
       className={`flex min-w-24 flex-1 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition ${
         selected
-          ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-[var(--vx-accent-600)] dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-100"
-          : "border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
+          ? "border-zinc-900 bg-zinc-50 font-medium text-zinc-900 ring-1 ring-[var(--vx-accent-600)]"
+          : "border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
       }`}
     >
       <span
@@ -79,7 +79,7 @@ function SegmentButton({
       className={`flex-1 rounded px-3 py-2 text-sm font-medium transition ${
         selected
           ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          : "text-zinc-600 hover:bg-zinc-100"
       }`}
     >
       {label}
@@ -134,7 +134,7 @@ export function AppearanceEditor({
 
   return (
     <div className="space-y-6 p-6">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-zinc-600">
         Personalize the workspace without changing your light or dark mode
         choice.
       </p>
@@ -146,7 +146,7 @@ export function AppearanceEditor({
         <input type="hidden" name="font" value={prefs.font} />
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <legend className="text-sm font-medium text-zinc-900">
             {labels.palette}
           </legend>
           <div className="flex flex-wrap gap-2">
@@ -165,7 +165,7 @@ export function AppearanceEditor({
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <legend className="text-sm font-medium text-zinc-900">
             {labels.accent}
           </legend>
           <div className="flex flex-wrap gap-2">
@@ -180,7 +180,7 @@ export function AppearanceEditor({
                 onSelect={() => setPreference("accent", accent.key)}
               />
             ))}
-            <label className="flex min-w-48 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+            <label className="flex min-w-48 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600">
               <input
                 type="color"
                 value={
@@ -198,17 +198,17 @@ export function AppearanceEditor({
                 aria-label="Custom accent hex"
                 placeholder="#rrggbb"
                 maxLength={7}
-                className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900"
               />
             </label>
           </div>
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <legend className="text-sm font-medium text-zinc-900">
             {labels.scale}
           </legend>
-          <div className="flex rounded-md border border-zinc-200 p-0.5 dark:border-zinc-700">
+          <div className="flex rounded-md border border-zinc-200 p-0.5">
             {UI_SCALES.map((scale) => (
               <SegmentButton
                 key={scale.key}
@@ -222,10 +222,10 @@ export function AppearanceEditor({
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <legend className="text-sm font-medium text-zinc-900">
             {labels.radius}
           </legend>
-          <div className="flex rounded-md border border-zinc-200 p-0.5 dark:border-zinc-700">
+          <div className="flex rounded-md border border-zinc-200 p-0.5">
             {UI_RADII.map((radius) => (
               <SegmentButton
                 key={radius.key}
@@ -239,10 +239,10 @@ export function AppearanceEditor({
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <legend className="text-sm font-medium text-zinc-900">
             {labels.font}
           </legend>
-          <div className="flex flex-wrap rounded-md border border-zinc-200 p-0.5 dark:border-zinc-700">
+          <div className="flex flex-wrap rounded-md border border-zinc-200 p-0.5">
             {UI_FONTS.map((font) => (
               <SegmentButton
                 key={font.key}
@@ -255,7 +255,7 @@ export function AppearanceEditor({
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+        <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4">
           <button
             type="submit"
             className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-[var(--vx-accent-fg)] hover:bg-[var(--vx-accent-700)]"
@@ -273,7 +273,7 @@ export function AppearanceEditor({
                   : "#7c3aed",
               );
             }}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
             Reset to account default
           </button>

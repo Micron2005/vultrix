@@ -178,11 +178,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
       {phase === "resting" ? (
         <>
           <span
-            className={`font-mono text-lg font-semibold ${
-              over
-                ? "text-red-600 dark:text-red-400"
-                : "text-zinc-800 dark:text-zinc-200"
-            }`}
+            className={`font-mono text-lg font-semibold ${ over ? "text-red-600 dark:text-red-400" : "text-zinc-800" }`}
           >
             {over
               ? `Rest over · +${formatDuration(overtime)}`
@@ -191,14 +187,14 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
           <button
             type="button"
             onClick={advanceSet}
-            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300"
+            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700"
           >
             Next set
           </button>
           <button
             type="button"
             onClick={skipRest}
-            className="text-zinc-500 underline dark:text-zinc-400"
+            className="text-zinc-500 underline"
           >
             Skip rest
           </button>
@@ -206,14 +202,14 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
       ) : (
         <>
           {item.sets !== null && (
-            <span className="text-zinc-600 dark:text-zinc-400">
+            <span className="text-zinc-600">
               Set {currentSet} of {item.sets}
             </span>
           )}
           <button
             type="button"
             onClick={doneSet}
-            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300"
+            className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700"
           >
             {item.sets === null && item.restSeconds !== null
               ? `Start rest ${formatDuration(item.restSeconds)}`
@@ -228,7 +224,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
                 setCurrentSet(1);
                 setRestStartedAt(null);
               }}
-              className="text-xs text-zinc-500 underline dark:text-zinc-400"
+              className="text-xs text-zinc-500 underline"
             >
               Reset
             </button>

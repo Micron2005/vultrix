@@ -33,7 +33,7 @@ export function RoutineSettingsForm({
   return (
     <form action={action} className="mt-4 space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Name
           <Input
             name="title"
@@ -43,7 +43,7 @@ export function RoutineSettingsForm({
           />
         </label>
         {users.length > 1 && (
-          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-xs font-medium text-zinc-700">
             Assign to
             <Select
               name="assigneeUserId"
@@ -59,7 +59,7 @@ export function RoutineSettingsForm({
             </Select>
           </label>
         )}
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Schedule
           <Select
             name="kind"
@@ -74,7 +74,7 @@ export function RoutineSettingsForm({
             <option value="REMINDER">Reminder</option>
           </Select>
         </label>
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Default due time
           <Input
             name="dueTime"
@@ -83,7 +83,7 @@ export function RoutineSettingsForm({
             className="mt-1"
           />
         </label>
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           One-off date
           <Input
             name="day"
@@ -93,7 +93,7 @@ export function RoutineSettingsForm({
             className="mt-1"
           />
         </label>
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           End date
           <Input
             name="endDay"
@@ -102,7 +102,7 @@ export function RoutineSettingsForm({
             className="mt-1"
           />
         </label>
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-xs font-medium text-zinc-700">
           Part of goal
           <Select
             name="goalId"
@@ -118,7 +118,7 @@ export function RoutineSettingsForm({
           </Select>
         </label>
       </div>
-      <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
         <input
           type="checkbox"
           name="showStreak"
@@ -128,14 +128,14 @@ export function RoutineSettingsForm({
         Show streak
       </label>
       <fieldset>
-        <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <legend className="text-xs font-medium text-zinc-700">
           Weekdays
         </legend>
         <div className="mt-2 flex flex-wrap gap-3">
           {ROUTINE_WEEKDAYS.map(([value, label]) => (
             <label
               key={value}
-              className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+              className="flex items-center gap-2 text-sm text-zinc-700"
             >
               <input
                 type="checkbox"

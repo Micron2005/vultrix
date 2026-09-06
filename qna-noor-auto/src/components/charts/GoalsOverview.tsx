@@ -47,7 +47,7 @@ export function GoalsOverview({
               value={selected}
               onChange={(event) => setSelected(event.target.value)}
               aria-label="Goal to chart"
-              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900"
             >
               {datasets.map((entry) => (
                 <option key={entry.id} value={entry.id}>
@@ -58,7 +58,7 @@ export function GoalsOverview({
             {dataset.href && (
               <Link
                 href={dataset.href}
-                className="text-sm font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+                className="text-sm font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
               >
                 Open goal
               </Link>
@@ -67,7 +67,7 @@ export function GoalsOverview({
         }
       />
       {combinedNote && dataset.id === "combined" && (
-        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-3 text-xs text-zinc-500">
           {combinedNote}
         </p>
       )}
