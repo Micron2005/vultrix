@@ -20,6 +20,8 @@ import {
 } from "@/lib/weeklyReview";
 import { formatInTimeZone, shiftCalendarDay } from "@/lib/timezone";
 import { formatMoney } from "@/lib/utils";
+import { getAllSettings } from "@/lib/shop";
+import { ReportActions } from "../ReportActions";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,8 @@ export default async function WeeklyReviewPage({
   if (!user) return null;
   assertCanViewFinancials(user.role);
   const orgId = await requireOrgId();
+  const settings = await getAllSettings(orgId);
+  const orgName = settings.shopName || "Vultrix";
   const features = enabledFeatureSet(user);
   if (!features.has("financials")) return null;
   const timezone = await orgTimeZone(orgId);
@@ -66,17 +70,35 @@ export default async function WeeklyReviewPage({
   const nouns = repairOrderNouns(user.accountType);
 
   return (
-    <>
+    <div data-report>
       <PageHeader
         title="Weekly review"
         description={
-          <Link href="/reports" className="text-zinc-600 underline">
+          <Link href="/reports" className="no-print text-zinc-600 underline">
             ← Back to reports
           </Link>
         }
-        actions={<LinkButton href="/expenses" variant="secondary">Financials</LinkButton>}
+        actions={
+          <>
+            <LinkButton href="/expenses" variant="secondary">Financials</LinkButton>
+            <ReportActions fileName="weekly-review" />
+          </>
+        }
       />
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="hidden print:block mb-4 text-sm text-zinc-600">
+        {orgName} · Weekly review ·{" "}
+        {formatInTimeZone(new Date(`${review.weekStartDay}T12:00:00.000Z`), timezone, {
+          month: "short",
+          day: "numeric",
+        })}{" "}
+        –{" "}
+        {formatInTimeZone(new Date(`${review.weekEndDay}T12:00:00.000Z`), timezone, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })} · Printed {formatInTimeZone(new Date(), timezone, { year: "numeric", month: "2-digit", day: "2-digit" })}
+      </div>
+      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-zinc-900">
             {formatInTimeZone(new Date(`${review.weekStartDay}T12:00:00.000Z`), timezone, {
@@ -117,20 +139,20 @@ export default async function WeeklyReviewPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Money in</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.moneyIn)}</p>
-          <p className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousMoneyIn)} · {changeLabel(review.moneyInChangePct)}</p>
+        <Card className="p-5" data-report-stat>
+          <p data-report-stat-label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Money in</p>
+          <p data-report-stat-value className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.moneyIn)}</p>
+          <p data-report-stat-subline className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousMoneyIn)} · {changeLabel(review.moneyInChangePct)}</p>
         </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Spending</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.spending)}</p>
-          <p className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousSpending)} · {changeLabel(review.spendingChangePct)}</p>
+        <Card className="p-5" data-report-stat>
+          <p data-report-stat-label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Spending</p>
+          <p data-report-stat-value className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.spending)}</p>
+          <p data-report-stat-subline className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousSpending)} · {changeLabel(review.spendingChangePct)}</p>
         </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Net</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.net)}</p>
-          <p className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousNet)} · {changeLabel(review.netChangePct)}</p>
+        <Card className="p-5" data-report-stat>
+          <p data-report-stat-label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Net</p>
+          <p data-report-stat-value className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(review.net)}</p>
+          <p data-report-stat-subline className="mt-1 text-xs text-zinc-500">Prior week: {formatMoney(review.previousNet)} · {changeLabel(review.netChangePct)}</p>
         </Card>
       </div>
 
@@ -176,14 +198,14 @@ export default async function WeeklyReviewPage({
         <Card className="mt-6">
           <CardHeader title="Money still owed" />
           <div className="grid gap-4 p-5 sm:grid-cols-2">
-            <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Open invoices</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-900">{formatMoney(review.receivables.total)}</p>
+            <div data-report-stat>
+            <p data-report-stat-label className="text-xs uppercase tracking-wide text-zinc-500">Open invoices</p>
+              <p data-report-stat-value className="mt-1 text-xl font-semibold text-zinc-900">{formatMoney(review.receivables.total)}</p>
               <p className="text-sm text-zinc-500">{review.receivables.count} invoice{review.receivables.count === 1 ? "" : "s"}</p>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Overdue (over {review.receivables.minimumOverdueDays} days)</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-900">{formatMoney(review.receivables.overdueAmount)}</p>
+            <div data-report-stat>
+              <p data-report-stat-label className="text-xs uppercase tracking-wide text-zinc-500">Overdue (over {review.receivables.minimumOverdueDays} days)</p>
+              <p data-report-stat-value className="mt-1 text-xl font-semibold text-zinc-900">{formatMoney(review.receivables.overdueAmount)}</p>
               <p className="text-sm text-zinc-500">{review.receivables.overdueCount} invoice{review.receivables.overdueCount === 1 ? "" : "s"}</p>
             </div>
           </div>
@@ -193,7 +215,10 @@ export default async function WeeklyReviewPage({
       {review.completedJobs !== null && (
         <Card className="mt-6">
           <CardHeader title={user.accountType === "AUTO_SHOP" ? "Jobs completed" : `${nouns.plural} completed`} />
-          <p className="p-5 text-2xl font-semibold text-zinc-900">{review.completedJobs}</p>
+          <div data-report-stat className="p-5">
+            <p data-report-stat-label className="text-xs uppercase tracking-wide text-zinc-500">Jobs completed</p>
+            <p data-report-stat-value className="mt-1 text-2xl font-semibold text-zinc-900">{review.completedJobs}</p>
+          </div>
         </Card>
       )}
 
@@ -201,7 +226,10 @@ export default async function WeeklyReviewPage({
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader title="Units sold" />
-            <p className="p-5 text-2xl font-semibold text-zinc-900">{review.unitsSold}</p>
+            <div data-report-stat className="p-5">
+              <p data-report-stat-label className="text-xs uppercase tracking-wide text-zinc-500">Units sold</p>
+              <p data-report-stat-value className="mt-1 text-2xl font-semibold text-zinc-900">{review.unitsSold}</p>
+            </div>
           </Card>
           <Card>
             <CardHeader title="Top products" />
@@ -250,6 +278,6 @@ export default async function WeeklyReviewPage({
           </div>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

@@ -7,15 +7,18 @@ export function StatCard({
   href,
   highlight,
   sublines,
+  reportStat = false,
 }: {
   label: ReactNode;
   value: string;
   href?: string;
   highlight?: boolean;
   sublines?: string[];
+  reportStat?: boolean;
 }) {
   const body = (
     <div
+      data-report-stat={reportStat ? true : undefined}
       className={
         "rounded-lg border p-4 shadow-sm " +
         (highlight
@@ -29,7 +32,7 @@ export function StatCard({
           (highlight ? "text-amber-800" : "text-zinc-500")
         }
       >
-        {label}
+        <span data-report-stat-label={reportStat ? true : undefined}>{label}</span>
       </div>
       <div
         className={
@@ -37,7 +40,7 @@ export function StatCard({
           (highlight ? "text-amber-900" : "text-zinc-900")
         }
       >
-        {value}
+        <span data-report-stat-value={reportStat ? true : undefined}>{value}</span>
       </div>
       {sublines && sublines.length > 0 && (
         <div
@@ -47,7 +50,9 @@ export function StatCard({
           }
         >
           {sublines.map((s, i) => (
-            <div key={i}>{s}</div>
+            <div key={i} data-report-stat-subline={reportStat ? true : undefined}>
+              {s}
+            </div>
           ))}
         </div>
       )}

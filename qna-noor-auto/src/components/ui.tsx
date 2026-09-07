@@ -20,7 +20,7 @@ export function PageHeader({
           <p className="mt-1 text-sm text-zinc-500">{description}</p>
         )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
+      {actions && <div className="no-print flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
     </div>
   );
 }
@@ -34,6 +34,7 @@ export function Card({
 }) {
   return (
     <div
+      data-card
       className={cn(
         "rounded-lg border border-zinc-200 bg-white shadow-sm",
         className,

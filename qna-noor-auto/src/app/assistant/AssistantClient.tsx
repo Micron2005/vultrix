@@ -653,7 +653,7 @@ export function AssistantClient({
       ref={floatingRef}
       className={
         floating
-          ? "fixed z-50"
+          ? "no-print fixed z-50"
           : "p-4 sm:p-6"
       }
       style={
