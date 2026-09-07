@@ -132,7 +132,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
 
   if (done || completed) {
     return (
-      <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+      <p className="mt-2 text-sm font-medium text-emerald-700">
         {item.sets !== null ? "All sets done" : "Done"}
       </p>
     );
@@ -178,7 +178,7 @@ export function SetTimer({ item, day, done, onComplete }: SetTimerProps) {
       {phase === "resting" ? (
         <>
           <span
-            className={`font-mono text-lg font-semibold ${ over ? "text-red-600 dark:text-red-400" : "text-zinc-800" }`}
+            className={`font-mono text-lg font-semibold ${ over ? "text-red-600" : "text-zinc-800" }`}
           >
             {over
               ? `Rest over · +${formatDuration(overtime)}`

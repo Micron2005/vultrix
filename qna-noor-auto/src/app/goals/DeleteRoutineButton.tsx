@@ -4,7 +4,7 @@ export function DeleteRoutineButton({
   action,
   routineId,
   title,
-  className = "text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300",
+  className = "text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800",
 }: {
   action: (formData: FormData) => void | Promise<void>;
   routineId: string;

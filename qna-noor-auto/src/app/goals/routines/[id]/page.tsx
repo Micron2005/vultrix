@@ -49,10 +49,10 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
         {routine.goal && <><span>·</span><Link href={`/goals/${routine.goal.id}`} className="underline">Goal: {routine.goal.title}</Link></>}
         {routine.archived && <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs">Archived</span>}
       </div>
-      <Card className="p-5 dark:bg-[var(--vx-accent-600)]">
+      <Card className="p-5">
         <CardHeader title="Routine settings" />
         {error && (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -76,7 +76,7 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           />
         </div>
       </Card>
-      <Card className="mt-6 p-5 dark:bg-[var(--vx-accent-600)]">
+      <Card className="mt-6 p-5">
         <CardHeader title={`Items (${routine.items.length})`} />
         <div className="mt-4 space-y-4">
           {routine.items.map((item, index) => (
@@ -111,13 +111,13 @@ export default async function RoutineDetailPage({ params, searchParams }: { para
           </form>
         </div>
       </Card>
-      <Card className="mt-6 overflow-hidden dark:bg-[var(--vx-accent-600)]">
+      <Card className="mt-6 overflow-hidden">
         <CardHeader title="14-day history" />
         <div className="overflow-x-auto p-4">
           <table className="min-w-[42rem] w-full text-left text-xs">
             <thead><tr><th className="pb-2 pr-3 font-medium text-zinc-500">Item</th>{days.map((day) => <th key={day} className="px-1 pb-2 text-center font-medium text-zinc-500">{day.slice(5)}</th>)}</tr></thead>
           <tbody className="divide-y divide-zinc-200">
-              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700">{item.label}</th>{days.map((day) => { const beforeCreation = day < createdDay; const status = beforeCreation ? "not_due" : statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center">{beforeCreation ? null : <span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : status === "skipped" ? "bg-zinc-300 text-zinc-700" : status === "late" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : status === "missed" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-zinc-100 text-zinc-400"}`}>{status === "done" ? "✓" : status === "skipped" ? "S" : status === "not_due" ? "–" : "!"}</span>}</td>; })}</tr>)}
+              {routine.items.map((item) => <tr key={item.id}><th className="max-w-32 truncate py-3 pr-3 font-medium text-zinc-700">{item.label}</th>{days.map((day) => { const beforeCreation = day < createdDay; const status = beforeCreation ? "not_due" : statusFor(routine, item, day, today, new Date(), timezone, item.checkOffs); return <td key={day} className="px-1 py-3 text-center">{beforeCreation ? null : <span title={status} className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${status === "done" ? "bg-emerald-100 text-emerald-700" : status === "skipped" ? "bg-zinc-300 text-zinc-700" : status === "late" ? "bg-amber-100 text-amber-700" : status === "missed" ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-400"}`}>{status === "done" ? "✓" : status === "skipped" ? "S" : status === "not_due" ? "–" : "!"}</span>}</td>; })}</tr>)}
             </tbody>
           </table>
           <p className="mt-3 text-xs text-zinc-500">✓ done · S skipped · amber late · red missed · – not due</p>
