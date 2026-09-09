@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 type NotificationItem = {
   id: string;
@@ -48,6 +55,28 @@ export function NotificationBell() {
     items: [],
   });
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
+
+  const updatePanelPosition = useCallback(() => {
+    const button = containerRef.current?.querySelector<HTMLButtonElement>(
+      '[data-testid="notification-bell"]',
+    );
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 16);
+    const top = rect.bottom + 8;
+    const left = Math.min(
+      Math.max(rect.left, 8),
+      window.innerWidth - width - 8,
+    );
+    setPanelStyle({
+      top,
+      left,
+      width,
+      maxHeight: Math.max(0, window.innerHeight - top - 8),
+    });
+  }, []);
 
   async function refresh() {
     try {
@@ -77,9 +106,10 @@ export function NotificationBell() {
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        !containerRef.current?.contains(target) &&
+        !panelRef.current?.contains(target)
       ) {
         setOpen(false);
       }
@@ -94,6 +124,17 @@ export function NotificationBell() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePanelPosition();
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
+  }, [open, updatePanelPosition]);
 
   async function openItem(item: NotificationItem) {
     if (!item.readAt) {
@@ -139,66 +180,71 @@ export function NotificationBell() {
           </span>
         )}
       </button>
-      {open && (
-        <div
-          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-md border border-zinc-200 bg-white shadow-lg"
-          role="dialog"
-          aria-label="Notifications"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-zinc-900">
-              Notifications
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void markAllRead()}
-                className="text-xs font-medium text-[var(--vx-accent-600)] hover:underline"
-              >
-                Mark all read
-              </button>
-              <Link
-                href="/notifications"
-                onClick={() => setOpen(false)}
-                className="text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline"
-              >
-                See all
-              </Link>
-            </div>
-          </div>
-          {data.items.length ? (
-            <div className="max-h-96 overflow-y-auto py-1">
-              {data.items.map((item) => (
+      {open &&
+        panelStyle &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className="fixed z-[60] flex w-80 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+            role="dialog"
+            aria-label="Notifications"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+              <h2 className="text-sm font-semibold text-zinc-900">
+                Notifications
+              </h2>
+              <div className="flex items-center gap-2">
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => void openItem(item)}
-                  className={
-                    "block w-full border-l-2 px-4 py-3 text-left hover:bg-zinc-50 " +
-                    (item.readAt
-                      ? "border-transparent"
-                      : "border-[var(--vx-accent-600)]")
-                  }
+                  onClick={() => void markAllRead()}
+                  className="text-xs font-medium text-[var(--vx-accent-600)] hover:underline"
                 >
-                  <p className="text-sm font-medium text-zinc-900">
-                    {item.title}
-                  </p>
-                  {item.body && (
-                    <p className="mt-1 text-xs text-zinc-500">{item.body}</p>
-                  )}
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {relativeTime(item.createdAt)}
-                  </p>
+                  Mark all read
                 </button>
-              ))}
+                <Link
+                  href="/notifications"
+                  onClick={() => setOpen(false)}
+                  className="text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline"
+                >
+                  See all
+                </Link>
+              </div>
             </div>
-          ) : (
-            <p className="px-4 py-8 text-center text-sm text-zinc-500">
-              You&apos;re all caught up.
-            </p>
-          )}
-        </div>
-      )}
+            {data.items.length ? (
+              <div className="min-h-0 max-h-96 flex-1 overflow-y-auto py-1">
+                {data.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void openItem(item)}
+                    className={
+                      "block w-full border-l-2 px-4 py-3 text-left hover:bg-zinc-50 " +
+                      (item.readAt
+                        ? "border-transparent"
+                        : "border-[var(--vx-accent-600)]")
+                    }
+                  >
+                    <p className="text-sm font-medium text-zinc-900">
+                      {item.title}
+                    </p>
+                    {item.body && (
+                      <p className="mt-1 text-xs text-zinc-500">{item.body}</p>
+                    )}
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {relativeTime(item.createdAt)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="px-4 py-8 text-center text-sm text-zinc-500">
+                You&apos;re all caught up.
+              </p>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
