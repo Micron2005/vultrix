@@ -27,12 +27,33 @@ export type DueOccurrence = {
   interval: RecurringInterval;
 };
 
-type RecurringLike = {
+export type RecurringLike = {
   startDate: Date;
   interval: string;
   nextRunAt: Date;
   endDate: Date | null;
   createdAt: Date;
+};
+
+export type ScheduledOccurrence = {
+  recurringId: string;
+  kind: RecurringKind;
+  amount: number;
+  day: string;
+  label: string;
+  autoPost: boolean;
+};
+
+type ScheduledSeries = RecurringLike & {
+  id: string;
+  kind: RecurringKind;
+  amount: number;
+  source: string | null;
+  note: string | null;
+  vendor: string | null;
+  category: string | null;
+  autoPost: boolean;
+  active: boolean;
 };
 
 function utcMidnight(date: Date): Date {
@@ -84,6 +105,74 @@ export function nthOccurrence(
       Math.min(start.getUTCDate(), daysInTargetMonth),
     ),
   );
+}
+
+export function scheduledOccurrences(
+  series: ScheduledSeries,
+  fromDay: string,
+  toDay: string,
+): ScheduledOccurrence[] {
+  if (!series.active || fromDay > toDay) return [];
+
+  const scheduled: ScheduledOccurrence[] = [];
+  let occurrenceNumber = 0;
+  while (true) {
+    const occurrence = nthOccurrence(
+      series.startDate,
+      series.interval as RecurringInterval,
+      occurrenceNumber,
+    );
+    const day = occurrence.toISOString().slice(0, 10);
+
+    if (day > toDay) break;
+    if (series.endDate && occurrence.getTime() > series.endDate.getTime()) {
+      break;
+    }
+    if (
+      occurrence.getTime() >= series.nextRunAt.getTime() &&
+      day >= fromDay
+    ) {
+      scheduled.push({
+        recurringId: series.id,
+        kind: series.kind,
+        amount: series.amount,
+        day,
+        label:
+          series.kind === "INCOME"
+            ? (series.source ?? series.note ?? "Income")
+            : (series.vendor ?? series.category ?? "Expense"),
+        autoPost: series.autoPost,
+      });
+    }
+
+    occurrenceNumber += 1;
+    if (occurrenceNumber > 100000) {
+      throw new Error("Could not find scheduled recurring occurrences");
+    }
+  }
+  return scheduled;
+}
+
+export async function loadScheduledForMonth(
+  orgId: string,
+  fromDay: string,
+  toDay: string,
+): Promise<ScheduledOccurrence[]> {
+  const series = await db.recurringEntry.findMany({
+    where: { orgId, active: true },
+  });
+  return series
+    .flatMap((entry) =>
+      scheduledOccurrences(
+        {
+          ...entry,
+          kind: entry.kind as RecurringKind,
+        },
+        fromDay,
+        toDay,
+      ),
+    )
+    .sort((a, b) => a.day.localeCompare(b.day));
 }
 
 function nextOccurrenceAfter(series: RecurringLike): Date {

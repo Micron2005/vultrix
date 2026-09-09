@@ -140,6 +140,7 @@ async function blockNode(
           orgId={props.orgId}
           timezone={props.timezone}
           hasInvoices={context.hasInvoices}
+          accountType={context.accountType}
           period={options.period}
         />
       );
