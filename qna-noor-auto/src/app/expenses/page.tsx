@@ -33,7 +33,11 @@ import {
   skipConfirmed,
   toggleRecurring,
 } from "./recurring-actions";
-import { postDueForOrg } from "@/lib/recurring";
+import {
+  loadScheduledForMonth,
+  postDueForOrg,
+  type ScheduledOccurrence,
+} from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +97,11 @@ export default async function ExpensesListPage({
     new Date(Number.NaN),
   );
   const mtdTo = new Date(mtdEndExclusive.getTime() - 1);
+  const monthEndDay = new Date(
+    Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
+  )
+    .toISOString()
+    .slice(0, 10);
 
   const [
     expenses,
@@ -102,6 +111,7 @@ export default async function ExpensesListPage({
     incomeEntries,
     mtdIncome,
     recurringEntries,
+    scheduledEntries,
     budgetEntries,
   ] = await Promise.all([
     db.expense.findMany({
@@ -154,6 +164,11 @@ export default async function ExpensesListPage({
       where: { orgId },
       orderBy: [{ active: "desc" }, { nextRunAt: "asc" }],
     }),
+    loadScheduledForMonth(
+      orgId,
+      shiftCalendarDay(today, 1),
+      monthEndDay,
+    ),
     db.budget.findMany({
       where: { orgId },
       orderBy: { category: "asc" },
@@ -166,6 +181,16 @@ export default async function ExpensesListPage({
     : mtdPayments.reduce((s, p) => s + p.amount, 0);
   const mtdExpensesTotal = mtdExpenses.reduce((s, e) => s + e.amount, 0);
   const mtdNet = mtdRevenue - mtdExpensesTotal;
+  const scheduled = scheduledEntries.filter(
+    (entry) => showIncome || entry.kind !== "INCOME",
+  );
+  const scheduledIncome = scheduled
+    .filter((entry) => entry.kind === "INCOME")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const scheduledExpenses = scheduled
+    .filter((entry) => entry.kind === "EXPENSE")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const hasScheduled = scheduled.length > 0;
   const mtdActualByCategory = new Map<string, number>();
   for (const expense of mtdExpenses) {
     const key = expense.category.toLowerCase();
@@ -233,6 +258,11 @@ export default async function ExpensesListPage({
         <SummaryCard
           label={showIncome ? "Money in this month" : "Revenue this month"}
           value={formatMoney(mtdRevenue)}
+          sub={
+            showIncome && scheduledIncome > 0
+              ? `Expected by month end: ${formatMoney(mtdRevenue + scheduledIncome)}`
+              : undefined
+          }
         />
         {!showIncome && (
           <SummaryCard
@@ -249,13 +279,74 @@ export default async function ExpensesListPage({
         <SummaryCard
           label="Expenses this month"
           value={formatMoney(mtdExpensesTotal)}
+          sub={
+            scheduledExpenses > 0
+              ? `Expected by month end: ${formatMoney(mtdExpensesTotal + scheduledExpenses)}`
+              : undefined
+          }
         />
         <SummaryCard
           label="Net this month"
           value={formatMoney(mtdNet)}
-          sub={showIncome ? "Money in − expenses" : "Revenue − expenses"}
+          sub={
+            hasScheduled
+              ? `Expected: ${formatMoney(
+                  (showIncome ? mtdRevenue + scheduledIncome : mtdRevenue) -
+                    mtdExpensesTotal -
+                    scheduledExpenses,
+                )}`
+              : showIncome
+                ? "Money in − expenses"
+                : "Revenue − expenses"
+          }
         />
       </div>
+
+      {hasScheduled && (
+        <Card className="mb-4">
+          <CardHeader title="Coming up this month" />
+          <p className="px-4 py-3 text-xs text-zinc-500">
+            Repeating income and expenses scheduled for the rest of the month —
+            they&apos;ll post on their day.
+          </p>
+          <div className="divide-y divide-zinc-200">
+            {scheduled.map((entry: ScheduledOccurrence) => (
+              <div
+                key={`${entry.recurringId}-${entry.day}-${entry.kind}`}
+                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+              >
+                <span className="shrink-0 text-sm text-zinc-500">
+                  {formatDate(entry.day)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800">
+                  {entry.label}
+                </span>
+                <span
+                  className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+                    entry.kind === "INCOME"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {entry.kind === "INCOME" ? "Income" : "Expense"}
+                </span>
+                {!entry.autoPost && (
+                  <span className="text-xs text-zinc-500">
+                    Needs confirmation
+                  </span>
+                )}
+                <span className="shrink-0 text-right text-sm tabular-nums text-zinc-500">
+                  {formatMoney(entry.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">
+            Scheduled: +{formatMoney(scheduledIncome)} in · −
+            {formatMoney(scheduledExpenses)} out
+          </p>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardHeader title="Budgets">
