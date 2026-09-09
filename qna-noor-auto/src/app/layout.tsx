@@ -16,6 +16,10 @@ import {
   appearanceCss,
   resolveAppearance,
 } from "@/lib/appearance";
+import {
+  APPEARANCE_COOKIE,
+  readAppearanceCookie,
+} from "@/lib/appearanceCookie";
 import { resolveNavLayout } from "@/lib/navLayout";
 
 export const metadata: Metadata = {
@@ -52,13 +56,17 @@ export default async function RootLayout({
     );
   }
 
-  const themeCookie = (await cookies()).get("vx-theme")?.value;
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get("vx-theme")?.value;
   const theme: ThemeMode =
     themeCookie === "light" ||
     themeCookie === "dark" ||
     themeCookie === "system"
       ? themeCookie
       : "dark";
+  const deviceAppearance = readAppearanceCookie(
+    cookieStore.get(APPEARANCE_COOKIE)?.value,
+  );
   const orgLabel = user.orgName ?? APP_NAME;
   const enabledFeatures = Array.from(enabledFeatureSet(user));
   const [appearanceRecord, organization] = await Promise.all([
@@ -81,7 +89,7 @@ export default async function RootLayout({
       : Promise.resolve(null),
   ]);
   const appearancePrefs = resolveAppearance(
-    appearanceRecord,
+    deviceAppearance ?? appearanceRecord,
     organization?.uiDefaults ?? DEFAULT_APPEARANCE,
   );
   const appearanceStyles = appearanceCss(appearancePrefs);

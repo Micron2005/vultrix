@@ -41,6 +41,10 @@ import { TimezonePicker } from "./TimezonePicker";
 import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
 import { AppearanceEditor } from "./AppearanceEditor";
 import { resolveAppearance } from "@/lib/appearance";
+import {
+  APPEARANCE_COOKIE,
+  readAppearanceCookie,
+} from "@/lib/appearanceCookie";
 import { NavLayoutEditor } from "./NavLayoutEditor";
 import {
   getEligibleNavItems,
@@ -124,6 +128,9 @@ export default async function SettingsPage({
     themeCookie === "system"
       ? themeCookie
       : "dark";
+  const deviceAppearance = readAppearanceCookie(
+    (await cookies()).get(APPEARANCE_COOKIE)?.value,
+  );
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
@@ -140,8 +147,10 @@ export default async function SettingsPage({
       dashLayout: true,
     },
   });
-  const appearancePrefs = resolveAppearance(appearanceRecord, org.uiDefaults);
-  const accountDefaultAppearance = resolveAppearance(null, org.uiDefaults);
+  const appearancePrefs = resolveAppearance(
+    deviceAppearance ?? appearanceRecord,
+    org.uiDefaults,
+  );
   const canManageOrgSettings = Boolean(
     user && (user.role === "OWNER" || user.role === "ADMIN"),
   );
@@ -336,7 +345,6 @@ export default async function SettingsPage({
         </div>
         <AppearanceEditor
           initialPrefs={appearancePrefs}
-          resetPrefs={accountDefaultAppearance}
         />
       </Card>
       {canManageOrgSettings && (
