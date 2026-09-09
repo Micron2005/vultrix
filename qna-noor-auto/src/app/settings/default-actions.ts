@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   canManageUsers,
@@ -11,6 +12,10 @@ import { canViewFinancials } from "@/lib/permissions";
 import { enabledFeatureSet } from "@/lib/features";
 import { db } from "@/lib/db";
 import { resolveAppearance } from "@/lib/appearance";
+import {
+  APPEARANCE_COOKIE,
+  readAppearanceCookie,
+} from "@/lib/appearanceCookie";
 import {
   resolveNavLayout,
   serializeNavLayout,
@@ -41,6 +46,9 @@ function finishDefaults(kind: DefaultKind, outcome: "published" | "cleared") {
 
 export async function publishAppearanceDefault() {
   const user = await requireOrgSettingsUser();
+  const deviceAppearance = readAppearanceCookie(
+    (await cookies()).get(APPEARANCE_COOKIE)?.value,
+  );
   const [record, organization] = await Promise.all([
     db.user.findUnique({
       where: { id: user.id },
@@ -57,7 +65,10 @@ export async function publishAppearanceDefault() {
       select: { uiDefaults: true },
     }),
   ]);
-  const appearance = resolveAppearance(record, organization?.uiDefaults);
+  const appearance = resolveAppearance(
+    deviceAppearance ?? record,
+    organization?.uiDefaults,
+  );
   await db.organization.update({
     where: { id: user.orgId },
     data: { uiDefaults: JSON.stringify(appearance) },

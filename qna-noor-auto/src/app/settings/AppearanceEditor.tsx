@@ -135,8 +135,8 @@ export function AppearanceEditor({
   return (
     <div className="space-y-6 p-6">
       <p className="text-sm text-zinc-600">
-        Personalize the workspace without changing your light or dark mode
-        choice.
+        Saved on this device — each computer or phone keeps its own look. Use
+        &quot;Publish as account default&quot; to give everyone a starting point.
       </p>
       <form action={saveAppearance} className="space-y-6">
         <input type="hidden" name="palette" value={prefs.palette} />
@@ -275,7 +275,7 @@ export function AppearanceEditor({
             }}
             className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
-            Reset to account default
+            Reset to built-in default
           </button>
           <span className="text-xs text-zinc-500">Preview updates instantly.</span>
         </div>
