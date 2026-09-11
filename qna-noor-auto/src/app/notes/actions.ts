@@ -22,6 +22,7 @@ const NoteSchema = z.object({
   laborHoursEstimate: z.string().optional().nullable(),
   tags: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  shared: z.string().optional().nullable(),
 });
 
 type NoteImageInput = { dataUrl: string; caption?: string | null };
@@ -108,6 +109,7 @@ function toData(fd: FormData) {
     laborHoursEstimate: parseFloatOrNull(raw.laborHoursEstimate),
     tags: normalizeTags(raw.tags),
     category: clean(raw.category),
+    shared: raw.shared === "on" || raw.shared === "true",
   };
 }
 

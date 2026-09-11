@@ -26,6 +26,7 @@ export const NAV_ITEMS: NavCatalogItem[] = [
   { href: "/customers", label: "Customers", feature: "customers" },
   { href: "/businesses", label: "Businesses", feature: "customers" },
   { href: "/vehicles", label: "Vehicles", feature: "vehicles" },
+  { href: "/intel", label: "Vehicle intel", feature: "vehicles" },
   { href: "/vehicle-search", label: "Lookup", feature: "lookup" },
   { href: "/repair-orders", label: "Repair Orders", feature: "repair_orders" },
   { href: "/appointments", label: "Schedule", feature: "schedule" },

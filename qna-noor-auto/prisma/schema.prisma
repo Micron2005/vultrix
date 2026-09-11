@@ -521,6 +521,7 @@ model RepairNote {
   id String @id @default(cuid())
 
   title   String
+  shared  Boolean @default(true)
   // Vehicle targeting — all optional so a note can be make-wide, model-wide, or a tight YMM match.
   yearMin Int?
   yearMax Int?
@@ -562,6 +563,18 @@ model NoteImage {
 
   @@index([noteId])
   @@index([orgId])
+}
+
+model VehicleIntelCache {
+  id        String   @id @default(cuid())
+  kind      String
+  year      Int
+  make      String
+  model     String
+  json      String
+  fetchedAt DateTime @default(now())
+
+  @@unique([kind, year, make, model])
 }
 
 // Reusable job presets the shop does often (e.g. "Front brake service",
@@ -1088,6 +1101,7 @@ model Organization {
   status    String   @default("ACTIVE")
   accountType String  @default("AUTO_SHOP")
   features   String[] @default([])
+  shareFixes Boolean  @default(false)
   timezone   String   @default("America/New_York")
 
   aiAssistantEnabled          Boolean @default(false)

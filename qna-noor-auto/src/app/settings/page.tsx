@@ -62,6 +62,7 @@ import {
 import { resetOnboarding } from "@/app/onboarding-actions";
 import { ShopBranding } from "./ShopBranding";
 import { TestAiKeyButton } from "./TestAiKeyButton";
+import { saveVehicleIntelSharing } from "./vehicle-intel-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -667,6 +668,36 @@ export default async function SettingsPage({
             </Link>
           </div>
         </Card>
+      )}
+
+      {accountType === "AUTO_SHOP" && user.role === "OWNER" && (
+        <div id="vehicle-intel">
+          <Card className="mt-6 max-w-2xl">
+            <CardHeader title="Vehicle intel" />
+            <form action={saveVehicleIntelSharing} className="space-y-4 p-6">
+              <label className="flex items-start gap-3 text-sm text-zinc-800">
+                <input
+                  type="checkbox"
+                  name="shareFixes"
+                  value="true"
+                  defaultChecked={org.shareFixes}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                />
+                <span>
+                  <span className="font-medium">
+                    Share anonymized fixes with other Vultrix shops
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-500">
+                    Shares complaint, cause, correction, vehicle year/make/model/
+                    engine, and mileage. Customer, pricing, shop name, and images
+                    are never shared.
+                  </span>
+                </span>
+              </label>
+              <SaveButton>Save vehicle intel settings</SaveButton>
+            </form>
+          </Card>
+        </div>
       )}
 
       {isPersonal && canManageOrgSettings && (

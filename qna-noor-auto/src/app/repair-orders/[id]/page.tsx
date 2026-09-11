@@ -272,6 +272,11 @@ export default async function RepairOrderDetailPage({
   const pastTickets = ro.vehicleId
     ? await pastROsForVehicle(orgId, ro.vehicleId, ro.id)
     : [];
+  const intelQuery = new URLSearchParams();
+  if (ro.vehicle?.year != null) intelQuery.set("year", String(ro.vehicle.year));
+  if (ro.vehicle?.make) intelQuery.set("make", ro.vehicle.make);
+  if (ro.vehicle?.model) intelQuery.set("model", ro.vehicle.model);
+  if (ro.vehicle?.engine) intelQuery.set("engine", ro.vehicle.engine);
 
   return (
     <>
@@ -290,6 +295,12 @@ export default async function RepairOrderDetailPage({
                 {" · "}
                 <Link href={`/vehicles/${ro.vehicleId}`} className="underline">
                   {vehicleLabel(ro.vehicle)}
+                </Link>
+                <Link
+                  href={`/intel?${intelQuery.toString()}`}
+                  className="ml-2 text-xs text-zinc-600 underline"
+                >
+                  Intel →
                 </Link>
               </>
             )}
