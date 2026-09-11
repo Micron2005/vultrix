@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Trash2, X, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImagePlus, Trash2, X, Loader2 } from "lucide-react";
 import { addRoPhotos, deleteRoPhoto } from "./photo-actions";
 import { MAX_PHOTOS_PER_RO } from "./photo-constants";
 
@@ -56,7 +56,8 @@ export function RoPhotos({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [lightbox, setLightbox] = useState<RoPhoto | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const remaining = MAX_PHOTOS_PER_RO - photos.length;
   const working = busy || pending;
@@ -105,6 +106,36 @@ export function RoPhotos({
       })
       .finally(() => setBusy(false));
   }
+
+  const showPrevious = useCallback(() => {
+    setLightboxIndex((current) =>
+      current === null || photos.length < 2
+        ? current
+        : (current - 1 + photos.length) % photos.length,
+    );
+  }, [photos.length]);
+
+  const showNext = useCallback(() => {
+    setLightboxIndex((current) =>
+      current === null || photos.length < 2
+        ? current
+        : (current + 1) % photos.length,
+    );
+  }, [photos.length]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxIndex(null);
+      if (event.key === "ArrowLeft") showPrevious();
+      if (event.key === "ArrowRight") showNext();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxIndex, showNext, showPrevious]);
+
+  const lightboxPhoto =
+    lightboxIndex === null ? null : photos[lightboxIndex] ?? null;
 
   return (
     <div className="p-4" data-testid="ro-photos">
@@ -164,18 +195,52 @@ export function RoPhotos({
         </button>
       ) : (
         <>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-xs text-zinc-500">
+              {photos.length} of {MAX_PHOTOS_PER_RO} photos
+            </span>
+            {remaining > 0 && (
+              <button
+                type="button"
+                disabled={working}
+                onClick={() => inputRef.current?.click()}
+                data-testid="ro-photos-add-more"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+              >
+                {working ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-3.5 w-3.5" />
+                )}
+                Add photos
+              </button>
+            )}
+          </div>
           <div
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              handleFiles(e.dataTransfer.files);
+            }}
+            className={
+              "grid grid-cols-3 gap-2 rounded-lg sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 " +
+              (dragOver ? "ring-2 ring-amber-400" : "")
+            }
             data-testid="ro-photos-grid"
           >
-            {photos.map((p) => (
+            {photos.map((p, i) => (
               <div
                 key={p.id}
                 className="group relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100"
               >
-                {canDelete && <button
+                <button
                   type="button"
-                  onClick={() => setLightbox(p)}
+                  onClick={() => setLightboxIndex(i)}
                   className="block h-full w-full"
                   data-testid="ro-photo-thumb"
                   aria-label="View photo"
@@ -186,95 +251,106 @@ export function RoPhotos({
                     alt={p.caption ?? "Repair order photo"}
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
-                </button>}
-                <button
-                  type="button"
-                  disabled={working}
-                  onClick={() => handleDelete(p.id)}
-                  data-testid="ro-photo-delete"
-                  aria-label="Delete photo"
-                  className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 text-red-600 opacity-0 shadow-sm transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 group-hover:opacity-100 disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4" />
                 </button>
+                <span className="absolute bottom-1 left-1 z-20 rounded bg-black/60 px-1.5 text-[10px] text-white">
+                  {i + 1}
+                </span>
+                {canDelete && (
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => handleDelete(p.id)}
+                    data-testid="ro-photo-delete"
+                    aria-label="Delete photo"
+                    className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-red-600 opacity-100 shadow-sm transition-opacity [@media(hover:hover)]:opacity-0 hover:bg-white group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {p.caption && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1 text-[11px] text-white">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1 text-[11px] text-white">
                     {p.caption}
                   </div>
                 )}
               </div>
             ))}
-
-            {remaining > 0 && (
-              <button
-                type="button"
-                disabled={working}
-                onClick={() => inputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  handleFiles(e.dataTransfer.files);
-                }}
-                data-testid="ro-photos-add-more"
-                className={
-                  "flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed text-center transition-colors disabled:opacity-60 " +
-                  (dragOver
-                    ? "border-amber-400 bg-amber-50"
-                    : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100")
-                }
-              >
-                {working ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-                ) : (
-                  <ImagePlus className="h-5 w-5 text-zinc-500" />
-                )}
-                <span className="text-xs font-medium text-zinc-600">
-                  {working ? "Uploading…" : "Add photo"}
-                </span>
-              </button>
-            )}
           </div>
-          <p className="mt-3 text-xs text-zinc-500">
-            {photos.length} of {MAX_PHOTOS_PER_RO} photos.
-          </p>
         </>
       )}
 
-      {lightbox && (
+      {lightboxPhoto && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setLightbox(null)}
+          onClick={() => setLightboxIndex(null)}
+          onTouchStart={(event) => {
+            touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(event) => {
+            const startX = touchStartX.current;
+            touchStartX.current = null;
+            if (startX === null) return;
+            const endX = event.changedTouches[0]?.clientX;
+            if (endX === undefined) return;
+            const deltaX = endX - startX;
+            if (Math.abs(deltaX) <= 40) return;
+            if (deltaX > 0) showPrevious();
+            else showNext();
+          }}
           data-testid="ro-photo-lightbox"
           role="dialog"
           aria-modal="true"
         >
+          <div className="absolute left-4 top-4 text-sm text-zinc-200">
+            {lightboxIndex! + 1} / {photos.length}
+          </div>
           <button
             type="button"
-            onClick={() => setLightbox(null)}
+            onClick={() => setLightboxIndex(null)}
             className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Close"
             data-testid="ro-photo-lightbox-close"
           >
             <X className="h-5 w-5" />
           </button>
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showPrevious();
+                }}
+                className="absolute left-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showNext();
+                }}
+                className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
           <figure
             className="max-h-full max-w-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={lightbox.dataUrl}
-              alt={lightbox.caption ?? "Repair order photo"}
+              src={lightboxPhoto.dataUrl}
+              alt={lightboxPhoto.caption ?? "Repair order photo"}
               className="max-h-[80vh] w-auto rounded-lg object-contain"
             />
-            {lightbox.caption && (
+            {lightboxPhoto.caption && (
               <figcaption className="mt-2 text-center text-sm text-zinc-200">
-                {lightbox.caption}
+                {lightboxPhoto.caption}
               </figcaption>
             )}
           </figure>
