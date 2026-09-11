@@ -174,6 +174,26 @@ export function NoteForm({
         </div>
       )}
 
+      {isAutoShop && (
+        <label className="flex items-start gap-3 text-sm text-zinc-800">
+          <input
+            type="checkbox"
+            name="shared"
+            value="true"
+            defaultChecked={note?.shared !== false}
+            className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+          />
+          <span>
+            <span className="font-medium">
+              Share with other shops (when sharing is on)
+            </span>
+            <span className="mt-1 block text-xs text-zinc-500">
+              Only the anonymized vehicle and repair details are shared.
+            </span>
+          </span>
+        </label>
+      )}
+
       <Field label="Images">
         <NoteImages initialImages={initialImages} />
       </Field>

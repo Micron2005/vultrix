@@ -59,6 +59,11 @@ export default async function VehicleDetailPage({
   const del = deleteVehicle.bind(null, vehicle.id);
   const relevantNotes = await findNotesForVehicle(orgId, vehicle);
   const reminders = await computeVehicleReminders(orgId, vehicle.id);
+  const intelQuery = new URLSearchParams();
+  if (vehicle.year != null) intelQuery.set("year", String(vehicle.year));
+  if (vehicle.make) intelQuery.set("make", vehicle.make);
+  if (vehicle.model) intelQuery.set("model", vehicle.model);
+  if (vehicle.engine) intelQuery.set("engine", vehicle.engine);
 
   return (
     <>
@@ -92,6 +97,9 @@ export default async function VehicleDetailPage({
             </LinkButton>
             <LinkButton href={`/repair-orders/new?vehicleId=${vehicle.id}`}>
               + Repair Order
+            </LinkButton>
+            <LinkButton href={`/intel?${intelQuery.toString()}`} variant="secondary">
+              Vehicle intel
             </LinkButton>
           </>
         }

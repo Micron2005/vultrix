@@ -8,12 +8,24 @@ import { db } from "@/lib/db";
 export default async function NewNotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{
+    category?: string;
+    year?: string;
+    make?: string;
+    model?: string;
+    engine?: string;
+  }>;
 }) {
   const user = await requireUser();
   if (!user.orgId) redirect("/admin");
   const isAutoShop = user.accountType === "AUTO_SHOP";
-  const { category: initialCategory } = await searchParams;
+  const {
+    category: initialCategory,
+    year,
+    make,
+    model,
+    engine,
+  } = await searchParams;
   const categories = await db.repairNote.findMany({
     where: { orgId: user.orgId, category: { not: null } },
     select: { category: true },
@@ -41,7 +53,13 @@ export default async function NewNotePage({
           accountType={user.accountType}
           submitLabel="Create note"
           categories={categories.flatMap((item) => item.category ? [item.category] : [])}
-          note={initialCategory ? { category: initialCategory } : undefined}
+          note={{
+            ...(initialCategory ? { category: initialCategory } : {}),
+            ...(year ? { yearMin: Number(year), yearMax: Number(year) } : {}),
+            ...(make ? { make } : {}),
+            ...(model ? { model } : {}),
+            ...(engine ? { engine } : {}),
+          }}
         />
       </div>
     </>
