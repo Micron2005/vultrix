@@ -113,7 +113,6 @@ export function RoPhotos({
         type="file"
         accept="image/*"
         multiple
-        capture="environment"
         className="hidden"
         data-testid="ro-photos-input"
         onChange={(e) => handleFiles(e.target.files)}

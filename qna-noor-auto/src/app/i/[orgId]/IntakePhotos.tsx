@@ -97,7 +97,6 @@ export function IntakePhotos() {
         type="file"
         accept="image/*"
         multiple
-        capture="environment"
         className="hidden"
         data-testid="intake-photos-input"
         onChange={(e) => handleFiles(e.target.files)}
