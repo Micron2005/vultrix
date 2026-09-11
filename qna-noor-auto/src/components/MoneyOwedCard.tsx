@@ -83,7 +83,7 @@ export function MoneyOwedCard({
         card
       )}
       {expanded && (
-        <div className="absolute right-0 top-full z-50 mt-2 max-h-64 min-w-[20rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-2 max-h-64 w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-lg sm:left-auto sm:right-0 sm:w-auto sm:min-w-[20rem] sm:max-w-[calc(100vw-2rem)]">
           {customers.map((customer) => (
             <Link
               key={customer.id}
