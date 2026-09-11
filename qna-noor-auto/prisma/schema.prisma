@@ -577,6 +577,29 @@ model VehicleIntelCache {
   @@unique([kind, year, make, model])
 }
 
+model VehicleLink {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdById  String?
+  url          String
+  platform     String
+  title        String
+  notes        String?
+  yearMin      Int?
+  yearMax      Int?
+  make         String?
+  model        String?
+  engine       String?
+  thumbnailUrl String?
+  shared       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([make, model])
+}
+
 // Reusable job presets the shop does often (e.g. "Front brake service",
 // "Oil change 5W-30"). Applying a preset to an RO copies its labor + parts
 // lines onto the RO. The preset itself is unchanged when later edited on the RO.
@@ -1151,6 +1174,7 @@ model Organization {
   appointments      Appointment[]
   calendarEvents    CalendarEvent[]
   repairNotes       RepairNote[]
+  vehicleLinks      VehicleLink[]
   cannedJobs        CannedJob[]
   expenses          Expense[]
   incomes           Income[]
