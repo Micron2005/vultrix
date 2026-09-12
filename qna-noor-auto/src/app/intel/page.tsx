@@ -24,6 +24,7 @@ import {
 import { formatMileage } from "@/lib/utils";
 import { loadVehicleLinks } from "@/lib/vehicleLinks";
 import { IntelTabs } from "./IntelTabs";
+import { VehiclePicker } from "./VehiclePicker";
 import { VehicleLinksCard } from "./VehicleLinks";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,12 @@ export default async function VehicleIntelPage({
       />
       <IntelTabs active="lookup" />
       <Card className="mb-6">
+        <div className="p-4 pb-0">
+          <VehiclePicker />
+        </div>
+        <div className="px-4 py-3 text-center text-xs text-zinc-500">
+          — or enter the vehicle manually —
+        </div>
         <form method="get" className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <label className="text-sm text-zinc-700">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Year</span>
