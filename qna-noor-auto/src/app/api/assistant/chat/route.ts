@@ -277,6 +277,7 @@ async function executeTool(
   name: AssistantToolName,
   args: unknown,
   canViewFinancials: boolean,
+  accountType: string | null,
 ): Promise<{
   confirmation: string;
   result: unknown;
@@ -300,7 +301,9 @@ async function executeTool(
           args as AdjustInventoryArgs,
         ));
       case "add_income":
-        if (!canViewFinancials) throw new Error("You don't have permission to do that");
+        if (!canViewFinancials || accountType === "AUTO_SHOP") {
+          throw new Error("Income logging is not available for auto-shop accounts");
+        }
         return finish(await addAssistantIncome(orgId, args as AddIncomeArgs, ctx));
       case "add_expense":
         if (!canViewFinancials) throw new Error("You don't have permission to do that");
@@ -349,9 +352,21 @@ async function executeTool(
   }
 }
 
-function buildSystemPrompt(assistantName: string, timezone: string, now: Date): string {
+function buildSystemPrompt(
+  assistantName: string,
+  timezone: string,
+  now: Date,
+  accountType: string | null,
+): string {
+  const accountContext =
+    accountType === "AUTO_SHOP"
+      ? "You are helping run an auto repair shop, including inventory and parts, expenses, repair knowledge notes, calendar and appointments, and shop reports."
+      : accountType === "BUSINESS"
+        ? "You are helping run a small business, including inventory, expenses, knowledge notes, calendar and appointments, and business reports."
+        : "You are helping organize a person's life, including income, expenses, knowledge notes, calendar and reminders.";
   return [
     `You are ${assistantName}, a friendly, knowledgeable AI assistant.`,
+    accountContext,
     `The current date and time is ${describeNow(timezone, now)}. Use it to resolve relative dates like "tomorrow" or "next week".`,
     "",
     "You do two things well:",
@@ -361,7 +376,7 @@ function buildSystemPrompt(assistantName: string, timezone: string, now: Date): 
     "Guidelines:",
     "- For a general question or chit-chat, answer directly and naturally without calling a tool; only call a tool when the user wants to read or change their own data in this app.",
     "- Never refuse or deflect a general question by saying you can only help with the app. If you don't know something, say so plainly rather than inventing details.",
-    "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending.",
+    "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending. For auto-shop accounts, do not offer income logging; use invoices and shop reports for revenue.",
     "- Act on clear requests right away; you may pass natural-language dates/times to tools (they're resolved against the current time above).",
     '- After a tool runs, confirm what happened in one short sentence and always repeat the exact resolved date and time the tool reported (e.g. "Added Doctor\'s appointment — Tue, Sep 8 at 9:00 AM"), so the user can catch a wrong day. Never claim success if a tool returned an error.',
     "- If a tool reports it's missing information, ask the user for exactly that one thing in a friendly way — never dead-end with a generic error.",
@@ -392,7 +407,7 @@ export async function POST(request: Request) {
       aiAssistantApiKeyEncrypted: true,
     },
   });
-  if (!org || org.accountType !== "PERSONAL" || !org.aiAssistantEnabled) {
+  if (!org || !org.aiAssistantEnabled) {
     return Response.json({ error: "Assistant is not enabled" }, { status: 403 });
   }
 
@@ -437,7 +452,16 @@ export async function POST(request: Request) {
     { role: "user", content: parsed.data.message },
   ];
 
-  const systemPrompt = buildSystemPrompt(org.aiAssistantName, timezone, now);
+  const assistantTools =
+    org.accountType === "AUTO_SHOP"
+      ? tools.filter((tool) => tool.name !== "add_income")
+      : tools;
+  const systemPrompt = buildSystemPrompt(
+    org.aiAssistantName,
+    timezone,
+    now,
+    org.accountType,
+  );
   const model = provider === "OPENAI" ? OPENAI_MODEL : ANTHROPIC_MODEL;
 
   const callProvider: ProviderCaller = (conversationMessages) =>
@@ -447,7 +471,7 @@ export async function POST(request: Request) {
       model,
       systemPrompt,
       messages: conversationMessages,
-      tools,
+      tools: assistantTools,
     });
 
   try {
@@ -460,6 +484,7 @@ export async function POST(request: Request) {
           name as AssistantToolName,
           args,
           user.role !== "STAFF",
+          org.accountType,
         ),
       messages,
       maxIterations: MAX_TOOL_ITERATIONS,

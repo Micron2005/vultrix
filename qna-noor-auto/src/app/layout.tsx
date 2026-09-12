@@ -141,9 +141,7 @@ export default async function RootLayout({
             isSuperadmin={user.role === "SUPERADMIN"}
             enabledFeatures={enabledFeatures}
             accountType={user.accountType}
-            aiAssistantEnabled={
-              user.accountType === "PERSONAL" && user.aiAssistantEnabled
-            }
+            aiAssistantEnabled={user.aiAssistantEnabled}
             navLayout={appearanceRecord?.navLayout}
             navDefault={organization?.navDefault}
             mode={navLayout.mode}
@@ -153,7 +151,7 @@ export default async function RootLayout({
             {isDemoOrg(user.orgId) && <DemoBanner />}
             <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
           </main>
-          {user.accountType === "PERSONAL" && user.aiAssistantEnabled && (
+          {user.aiAssistantEnabled && (
             <AssistantClient
               floating
               assistantName={user.aiAssistantName}

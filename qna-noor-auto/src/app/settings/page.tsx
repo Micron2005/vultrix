@@ -135,7 +135,6 @@ export default async function SettingsPage({
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
-  const isPersonal = accountType === "PERSONAL";
   const appearanceRecord = await db.user.findUnique({
     where: { id: user.id },
     select: {
@@ -162,7 +161,7 @@ export default async function SettingsPage({
     accountType,
     canViewFinancials: Boolean(user && canViewFinancials(user.role)),
     canManageUsers: Boolean(user && canManageUsers(user.role)),
-    aiAssistantEnabled: isPersonal && org.aiAssistantEnabled,
+    aiAssistantEnabled: org.aiAssistantEnabled,
   }).map((item) => ({
     ...item,
     label: navItemLabel(item, {
@@ -700,7 +699,7 @@ export default async function SettingsPage({
         </div>
       )}
 
-      {isPersonal && canManageOrgSettings && (
+      {canManageOrgSettings && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="AI assistant" />
           <form action={saveAiAssistantSettings} className="space-y-4 p-6">
@@ -1016,8 +1015,6 @@ function assistantErrorMessage(code: string): string {
       return "Own-key storage is unavailable until AI_KEY_SECRET is configured.";
     case "key_required":
       return "Add an API key before selecting an own-key backend.";
-    case "personal_only":
-      return "AI assistant settings are currently available for personal accounts only.";
     case "invalid":
       return "Check the assistant settings and try again.";
     default:

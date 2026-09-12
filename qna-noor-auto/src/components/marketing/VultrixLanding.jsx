@@ -187,7 +187,7 @@ const COMPARISON = {
 };
 
 const ROADMAP = [
-  { icon: Bot, status: "Live for Personal", title: "AI assistant for every account", note: "The built-in AI assistant is live on Personal accounts today — connect your own OpenAI or Anthropic key at no extra cost. Rolling out to business and shop accounts next." },
+  { icon: Bot, status: "Live", title: "AI assistant for every account", note: "Connect your own OpenAI or Anthropic key and use the built-in voice and chat assistant on any account at no extra cost." },
   { icon: Globe, status: "Planned", title: "Expanded worldwide vehicle data", note: "Broader vehicle coverage and deeper repair information beyond today's lookup sources." },
   { icon: Store, status: "Planned", title: "Customer-facing websites", note: "Give every account a clean public website tied right to their Vultrix data." },
   { icon: Boxes, status: "Planned", title: "More supplier integrations", note: "Broader parts catalogs and live availability from more suppliers." },
@@ -213,7 +213,7 @@ const PLANS = [
     badge: "Full shop toolkit",
     tagline: "The complete workflow Vultrix was born in — everything a busy bay runs on.",
     cta: "Start free trial",
-    aiNote: "AI assistant coming soon",
+    aiNote: "AI assistant (bring your own key)",
     intro: "Everything in Business, plus:",
     features: [
       "Repair orders — estimate → approved → paid",
@@ -233,7 +233,7 @@ const PLANS = [
     highlight: true,
     tagline: "Run any small business your way — turn off the auto-specific parts and keep what fits.",
     cta: "Start free trial",
-    aiNote: "AI assistant coming soon",
+    aiNote: "AI assistant (bring your own key)",
     intro: "Everything you need to run day to day:",
     features: [
       "Professional invoices & online payments",
@@ -266,9 +266,9 @@ const PLANS = [
 const FAQS = [
   { q: "Is there a contract?", a: "No. Vultrix is month-to-month and you can cancel anytime from your billing portal — no calls, no hoops." },
   { q: "How does the free trial work?", a: "You get 60 days free. You won't be charged until the trial ends, and you can cancel before then at no cost." },
-  { q: "What does it cost?", a: "It depends on your account: an Auto Repair Shop is $35/month, a Business is $25/month, and a Personal account is $15/month. Personal accounts can add invoices & customers for $10/month. The Vultrix AI assistant is included on Personal when you connect your own OpenAI/Anthropic key at no extra cost." },
+  { q: "What does it cost?", a: "It depends on your account: an Auto Repair Shop is $35/month, a Business is $25/month, and a Personal account is $15/month. Personal accounts can add invoices & customers for $10/month. The Vultrix AI assistant is included on every account when you connect your own OpenAI/Anthropic key at no extra cost." },
   { q: "Which account type should I pick?", a: "Pick Auto Repair Shop for the full shop workflow (repair orders, VIN/parts lookup, technicians). Pick Business to run any other small business with invoices, inventory, and reports. Pick Personal to organize your own money, calendar, and notes." },
-  { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions. It's included on Personal accounts when you connect your own OpenAI/Anthropic key at no extra cost. Support for business and shop accounts is coming next." },
+  { q: "How does the AI assistant work?", a: "It's a built-in voice & chat assistant that can add calendar events, take notes, and answer questions for any account. Connect your own OpenAI or Anthropic key at no extra cost." },
   { q: "Can I export my data?", a: "Yes. You can import and export by CSV whenever you like. Your data is yours — there's no lock-in." },
   { q: "Does it work on a phone or tablet?", a: "Yes. Vultrix runs in any modern browser, so it works on a computer, your phone, or a tablet." },
   { q: "Can my whole team use it?", a: "Absolutely. Add multiple users with roles for owners, managers, and staff." },

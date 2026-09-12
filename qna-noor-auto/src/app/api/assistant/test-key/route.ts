@@ -37,11 +37,10 @@ export async function POST(request: Request) {
   const org = await db.organization.findUnique({
     where: { id: user.orgId },
     select: {
-      accountType: true,
       aiAssistantApiKeyEncrypted: true,
     },
   });
-  if (!org || org.accountType !== "PERSONAL") {
+  if (!org) {
     return Response.json({ error: "Assistant is not enabled" }, { status: 403 });
   }
 
