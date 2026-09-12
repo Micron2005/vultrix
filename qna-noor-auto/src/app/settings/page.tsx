@@ -689,8 +689,8 @@ export default async function SettingsPage({
                   </span>
                   <span className="mt-1 block text-xs text-zinc-500">
                     Shares complaint, cause, correction, vehicle year/make/model/
-                    engine, and mileage. Customer, pricing, shop name, and images
-                    are never shared.
+                    engine, mileage, and video links. Customer, pricing, shop
+                    name, and images are never shared.
                   </span>
                 </span>
               </label>

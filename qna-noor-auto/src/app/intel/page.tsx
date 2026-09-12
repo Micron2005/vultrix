@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { canDelete } from "@/lib/permissions";
 import {
   Card,
   CardHeader,
@@ -21,6 +22,8 @@ import {
   type KnownFix,
 } from "@/lib/vehicleIntel";
 import { formatMileage } from "@/lib/utils";
+import { loadVehicleLinks } from "@/lib/vehicleLinks";
+import { VehicleLinksCard } from "./VehicleLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -49,14 +52,16 @@ export default async function VehicleIntelPage({
   });
   const shareFixes = org?.shareFixes === true;
 
-  const [ownFixes, communityFixes, recalls, complaints] = spec
+  const [ownFixes, communityFixes, recalls, complaints, ownLinks, communityLinks] = spec
     ? await Promise.all([
         loadOwnFixes(orgId, spec),
         loadCommunityFixes(orgId, spec),
         loadRecalls(spec),
         loadComplaints(spec),
+        loadVehicleLinks(orgId, spec, { community: false }),
+        loadVehicleLinks(orgId, spec, { community: true }),
       ])
-    : [[], [], null, null];
+    : [[], [], null, null, [], []];
 
   return (
     <>
@@ -147,6 +152,14 @@ export default async function VehicleIntelPage({
                 />
               )}
             </Card>
+
+            <VehicleLinksCard
+              ownLinks={ownLinks}
+              communityLinks={communityLinks}
+              spec={spec}
+              shareFixes={shareFixes}
+              canDelete={canDelete(user.role)}
+            />
 
             <RecallsCard spec={spec} recalls={recalls} />
             <ComplaintsCard complaints={complaints} />
