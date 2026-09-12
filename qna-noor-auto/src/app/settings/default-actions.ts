@@ -103,8 +103,7 @@ export async function publishNavDefault() {
     enabledFeatures,
     canViewFinancials: canViewFinancials(user.role),
     canManageUsers: canManageUsers(user.role),
-    aiAssistantEnabled:
-      user.accountType === "PERSONAL" && user.aiAssistantEnabled,
+    aiAssistantEnabled: user.aiAssistantEnabled,
   };
   const layout = resolveNavLayout(
     record?.navLayout,

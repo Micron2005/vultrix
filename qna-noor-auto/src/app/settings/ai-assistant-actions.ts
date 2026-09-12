@@ -31,14 +31,10 @@ export async function saveAiAssistantSettings(formData: FormData) {
   const org = await db.organization.findUnique({
     where: { id: user.orgId },
     select: {
-      accountType: true,
       aiAssistantApiKeyEncrypted: true,
     },
   });
   if (!org) redirect("/settings?assistant_error=no_org");
-  if (org.accountType !== "PERSONAL") {
-    redirect("/settings?assistant_error=personal_only");
-  }
 
   const parsed = AssistantSettingsSchema.safeParse({
     enabled: formData.get("enabled") === "on" ? "on" : undefined,
