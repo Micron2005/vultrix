@@ -11,6 +11,7 @@ import {
 import { LocalDateTime } from "@/components/LocalDateTime";
 import { deleteNote } from "../actions";
 import { NoteGallery } from "../NoteGallery";
+import { IntelTabs } from "../../intel/IntelTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,18 @@ export default async function NotePage({
   return (
     <>
       <PageHeader
-        title={note.title}
+        title={isAutoShop ? "Vehicle intel" : note.title}
         description={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-600">
-            {isAutoShop && <span>{formatVehicleSpec(note)}</span>}
+            {isAutoShop && <span>Knowledge note · {formatVehicleSpec(note)}</span>}
+            {isAutoShop && note.make && note.model && (
+              <Link
+                href={vehicleIntelHref(note)}
+                className="text-xs text-[var(--vx-accent-600)] hover:underline"
+              >
+                Vehicle intel for this vehicle →
+              </Link>
+            )}
             {isAutoShop && note.laborHoursEstimate != null && (
               <span className="text-xs text-zinc-500">
                 · ~{note.laborHoursEstimate.toFixed(1)} hr labor
@@ -59,6 +68,10 @@ export default async function NotePage({
           </>
         }
       />
+      {isAutoShop && <IntelTabs active="notes" />}
+      {isAutoShop && (
+        <h2 className="mb-4 text-lg font-semibold text-zinc-900">{note.title}</h2>
+      )}
 
       {note.tags && (
         <div className="mb-4 flex flex-wrap gap-1 text-xs">
@@ -144,4 +157,21 @@ function formatVehicleSpec(n: {
   if (parts.length === 0) return "Any vehicle";
   const base = parts.join(" ");
   return n.engine ? `${base} · ${n.engine}` : base;
+}
+
+function vehicleIntelHref(n: {
+  yearMin: number | null;
+  yearMax: number | null;
+  make: string | null;
+  model: string | null;
+  engine: string | null;
+}): string {
+  const params = new URLSearchParams({
+    make: n.make ?? "",
+    model: n.model ?? "",
+  });
+  const year = n.yearMin ?? n.yearMax;
+  if (year) params.set("year", String(year));
+  if (n.engine) params.set("engine", n.engine);
+  return `/intel?${params.toString()}`;
 }

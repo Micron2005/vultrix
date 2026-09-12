@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { EmptyState, Input, LinkButton, PageHeader } from "@/components/ui";
 import { NotesList, type NoteGroup } from "./NotesList";
+import { IntelTabs } from "../intel/IntelTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -87,10 +88,11 @@ export default async function NotesPage({
   return (
     <>
       <PageHeader
-        title="Knowledge base"
-        description={isAutoShop ? "Your own repair notes, searchable by year, make, model, and text" : "Your notes, searchable by title, details, and tags"}
+        title={isAutoShop ? "Vehicle intel" : "Knowledge base"}
+        description={isAutoShop ? "Knowledge notes — your shop's fixes, tagged by vehicle." : "Your notes, searchable by title, details, and tags"}
         actions={<LinkButton href="/notes/new">New note</LinkButton>}
       />
+      {isAutoShop && <IntelTabs active="notes" />}
       <form className="mb-4 max-w-md" method="GET">
         <Input name="q" defaultValue={query} placeholder={isAutoShop ? "Search title, vehicle, symptom, fix, parts…" : "Search title, details, tags…"} />
         {tagFilter && <input type="hidden" name="tag" value={tagFilter} />}

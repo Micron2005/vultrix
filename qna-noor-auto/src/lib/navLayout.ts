@@ -65,6 +65,7 @@ const STAFF_HIDDEN_HREFS = new Set([
 
 export function getEligibleNavItems({
   enabledFeatures,
+  accountType,
   canViewFinancials,
   canManageUsers,
   aiAssistantEnabled,
@@ -76,6 +77,7 @@ export function getEligibleNavItems({
       return canManageUsers;
     }
     if (item.href === "/assistant") return aiAssistantEnabled;
+    if (item.href === "/notes" && accountType === "AUTO_SHOP") return false;
     if (
       item.href === "/repair-orders" &&
       !features.has("repair_orders") &&

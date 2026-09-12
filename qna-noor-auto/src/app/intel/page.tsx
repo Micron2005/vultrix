@@ -23,6 +23,7 @@ import {
 } from "@/lib/vehicleIntel";
 import { formatMileage } from "@/lib/utils";
 import { loadVehicleLinks } from "@/lib/vehicleLinks";
+import { IntelTabs } from "./IntelTabs";
 import { VehicleLinksCard } from "./VehicleLinks";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export default async function VehicleIntelPage({
         title="Vehicle intel"
         description="Recalls, owner complaints and known fixes for any year/make/model."
       />
+      <IntelTabs active="lookup" />
       <Card className="mb-6">
         <form method="get" className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <label className="text-sm text-zinc-700">
@@ -111,23 +113,14 @@ export default async function VehicleIntelPage({
             <KnownFixesCard
               title="Known fixes at your shop"
               fixes={ownFixes}
+              addHref={`/notes/new?${new URLSearchParams({
+                year: String(spec.year),
+                make: spec.make,
+                model: spec.model,
+                ...(spec.engine ? { engine: spec.engine } : {}),
+              }).toString()}`}
               empty={
-                <>
-                  <p>No notes or closed repair orders for this vehicle yet.</p>
-                  <LinkButton
-                    href={`/notes/new?${new URLSearchParams({
-                      year: String(spec.year),
-                      make: spec.make,
-                      model: spec.model,
-                      ...(spec.engine ? { engine: spec.engine } : {}),
-                    }).toString()}`}
-                    variant="secondary"
-                    size="sm"
-                    className="mt-3"
-                  >
-                    Add a note
-                  </LinkButton>
-                </>
+                <p>No notes or closed repair orders for this vehicle yet.</p>
               }
             />
 
@@ -184,15 +177,23 @@ function vehicleHeading(spec: IntelSpec) {
 function KnownFixesCard({
   title,
   fixes,
+  addHref,
   empty,
 }: {
   title: string;
   fixes: KnownFix[];
+  addHref?: string;
   empty: React.ReactNode;
 }) {
   return (
     <Card>
-      <CardHeader title={title} />
+      <CardHeader title={title}>
+        {addHref && (
+          <LinkButton href={addHref} variant="secondary" size="sm">
+            Add a note
+          </LinkButton>
+        )}
+      </CardHeader>
       {fixes.length > 0 ? (
         <KnownFixList fixes={fixes} empty="" />
       ) : (

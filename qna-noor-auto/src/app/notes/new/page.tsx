@@ -4,6 +4,7 @@ import { createNote } from "../actions";
 import { requireUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { IntelTabs } from "../../intel/IntelTabs";
 
 export default async function NewNotePage({
   searchParams,
@@ -35,10 +36,10 @@ export default async function NewNotePage({
   return (
     <>
       <PageHeader
-        title="New note"
+        title={isAutoShop ? "Vehicle intel" : "New note"}
         description={
           isAutoShop
-            ? "Capture a repair so you (and your future techs) can find it again"
+            ? "Knowledge notes — capture a repair tagged by vehicle."
             : "Capture ideas, details, and useful information so you can find it again"
         }
         actions={
@@ -47,6 +48,7 @@ export default async function NewNotePage({
           </LinkButton>
         }
       />
+      {isAutoShop && <IntelTabs active="notes" />}
       <div className="max-w-3xl">
         <NoteForm
           action={createNote}
