@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select } from "@/components/ui";
 import { attachBeatToSong, deleteBeat, renameBeat, saveBeat } from "./actions";
+import { BpmInput } from "../BpmInput";
 import { BeatEngine, type BeatPlaybackMode } from "./engine";
 import {
   BEAT_TRACKS,
@@ -269,13 +270,12 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
             <label className="flex items-center gap-2 text-xs text-zinc-600">
               BPM
-              <Input
-                type="number"
+              <BpmInput
                 min={40}
                 max={200}
                 value={bpm}
-                onChange={(event) => {
-                  setBpm(Math.min(200, Math.max(40, Number(event.target.value))));
+                onCommit={(next) => {
+                  setBpm(next);
                   markDirty();
                 }}
                 className="w-20"
@@ -313,6 +313,9 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <span className="text-xs text-zinc-500">
             {saveError ? "Save failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
           </span>
+          {playing ? (
+            <span className="text-xs text-zinc-500">No sound? Turn up the volume and flip the ringer switch off silent.</span>
+          ) : null}
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <form action={attachBeatToSong.bind(null, beat.id)} className="flex items-center gap-2">
