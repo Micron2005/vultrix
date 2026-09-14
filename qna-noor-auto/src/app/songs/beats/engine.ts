@@ -48,6 +48,7 @@ export class BeatEngine {
   private sequenceIndex = 0;
   private step = 0;
   private mutedTracks = new Set<BeatTrack>();
+  private noiseBuffers = new WeakMap<AudioContextLike, AudioBuffer>();
   private playback: {
     beat: BeatDocument;
     mode: BeatPlaybackMode;
@@ -246,11 +247,14 @@ export class BeatEngine {
   }
 
   private noiseBuffer(context: AudioContextLike) {
+    const cached = this.noiseBuffers.get(context);
+    if (cached) return cached;
     const buffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
     const channel = buffer.getChannelData(0);
     for (let index = 0; index < channel.length; index += 1) {
       channel[index] = Math.random() * 2 - 1;
     }
+    this.noiseBuffers.set(context, buffer);
     return buffer;
   }
 
