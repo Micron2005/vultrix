@@ -1198,6 +1198,7 @@ model Organization {
   routineCheckOffs  RoutineCheckOff[]
   notifications    Notification[]
   songs             Song[]
+  ideas             SongIdea[]
 
   @@index([status])
 }
@@ -1218,6 +1219,7 @@ model Song {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   tasks         SongTask[]
+  ideas         SongIdea[]
 
   @@index([orgId, stage])
 }
@@ -1230,6 +1232,24 @@ model SongTask {
   label     String
   done      Boolean  @default(false)
   sortOrder Int      @default(0)
+}
+
+model SongIdea {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  songId        String?
+  song          Song?    @relation(fields: [songId], references: [id], onDelete: SetNull)
+  title         String?
+  body          String?
+  audioDataUrl  String?
+  audioMimeType String?
+  durationSec   Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([songId])
 }
 
 model ActivityLog {
