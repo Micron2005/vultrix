@@ -1216,6 +1216,8 @@ model Song {
   genre         String?
   collaborators String?
   notes         String?
+  lyrics        String?
+  lyricsMeta    String?
   releasedAt    DateTime?
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { logPractice } from "./actions";
 
@@ -9,20 +9,34 @@ type SongOption = {
   title: string;
 };
 
-const STORAGE_KEY = "vx_metronome_v1";
-
 function formatTimer(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function Metronome({ songs }: { songs: SongOption[] }) {
-  const [bpm, setBpm] = useState(100);
-  const [beatsPerBar, setBeatsPerBar] = useState(4);
+export function Metronome({
+  songs,
+  bpm,
+  beatsPerBar,
+  metronomeRunning,
+  currentBeat,
+  setBpm,
+  setBeatsPerBar,
+  setMetronomeRunning,
+  setCurrentBeat,
+}: {
+  songs: SongOption[];
+  bpm: number;
+  beatsPerBar: number;
+  metronomeRunning: boolean;
+  currentBeat: number;
+  setBpm: Dispatch<SetStateAction<number>>;
+  setBeatsPerBar: Dispatch<SetStateAction<number>>;
+  setMetronomeRunning: Dispatch<SetStateAction<boolean>>;
+  setCurrentBeat: Dispatch<SetStateAction<number>>;
+}) {
   const [volume, setVolume] = useState(0.6);
   const [muted, setMuted] = useState(false);
-  const [metronomeRunning, setMetronomeRunning] = useState(false);
-  const [currentBeat, setCurrentBeat] = useState(-1);
   const [timerStatus, setTimerStatus] = useState<"idle" | "running" | "paused">("idle");
   const [elapsedSec, setElapsedSec] = useState(0);
   const [showFinish, setShowFinish] = useState(false);
@@ -31,7 +45,6 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
   const beatsRef = useRef(beatsPerBar);
   const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
-  const preferencesLoadedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const schedulerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nextNoteTimeRef = useRef(0);
@@ -43,35 +56,7 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
     beatsRef.current = beatsPerBar;
     volumeRef.current = volume;
     mutedRef.current = muted;
-    if (preferencesLoadedRef.current) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ bpm, beats: beatsPerBar }),
-      );
-    }
   }, [bpm, beatsPerBar, volume, muted]);
-
-  useEffect(() => {
-    let saved: { bpm?: number; beats?: number } = {};
-    try {
-      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
-        bpm?: number;
-        beats?: number;
-      };
-    } catch {
-      // Ignore malformed local preferences.
-    }
-    const timer = window.setTimeout(() => {
-      if (saved.bpm && saved.bpm >= 40 && saved.bpm <= 240) setBpm(saved.bpm);
-      if (saved.beats && [2, 3, 4, 6].includes(saved.beats)) {
-        setBeatsPerBar(saved.beats);
-      }
-      preferencesLoadedRef.current = true;
-    }, 0);
-    return () => {
-      if (timer) window.clearTimeout(timer);
-    };
-  }, []);
 
   useEffect(() => {
     if (timerStatus !== "running") return;

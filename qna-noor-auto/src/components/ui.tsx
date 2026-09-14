@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({
@@ -225,16 +226,18 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function Textarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-) {
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function Textarea(props, ref) {
   return (
     <textarea
       {...props}
+      ref={ref}
       className={cn("py-2", controlClass, props.className)}
     />
   );
-}
+});
 
 export function Select(
   props: React.SelectHTMLAttributes<HTMLSelectElement>,

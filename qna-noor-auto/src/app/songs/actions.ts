@@ -22,6 +22,16 @@ const SongSchema = z.object({
   notes: z.string().optional(),
 });
 
+const LyricsMetaLineSchema = z.object({
+  bars: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8)]).optional(),
+  note: z.string().max(300).optional(),
+});
+
+const LyricsMetaSchema = z.object({
+  v: z.literal(1),
+  lines: z.record(z.string(), LyricsMetaLineSchema),
+});
+
 function songData(formData: FormData) {
   const parsed = SongSchema.parse(Object.fromEntries(formData.entries()));
   const bpm = parsed.bpm?.trim() ? Number.parseInt(parsed.bpm, 10) : null;
@@ -83,6 +93,45 @@ export async function updateSong(id: string, formData: FormData) {
   revalidatePath(`/songs/${id}`);
   revalidatePath("/");
   redirect(`/songs/${id}`);
+}
+
+export async function saveLyrics(
+  id: string,
+  payload: { lyrics: string; lyricsMeta: unknown },
+) {
+  const { orgId } = await requireMusicPack();
+  const lyrics = z.string().max(20_000).parse(payload.lyrics);
+  const lyricsMeta = LyricsMetaSchema.parse(payload.lyricsMeta);
+  const entries = Object.entries(lyricsMeta.lines);
+  if (entries.length > 200) {
+    throw new Error("Lyrics can have at most 200 line settings.");
+  }
+  const lines: Record<string, { bars: 1 | 2 | 4 | 8; note?: string }> = {};
+  for (const [rawText, value] of entries) {
+    const text = rawText.trim();
+    if (!text) throw new Error("Lyrics line settings need text.");
+    if (text !== rawText && lines[text]) throw new Error("Duplicate lyric line settings.");
+    lines[text] = {
+      bars: value.bars ?? 2,
+      ...(value.note?.trim() ? { note: value.note.trim() } : {}),
+    };
+  }
+  const existing = await db.song.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Song not found.");
+  await db.song.updateMany({
+    where: { id, orgId },
+    data: {
+      lyrics,
+      lyricsMeta: JSON.stringify({ v: 1, lines }),
+    },
+  });
+  revalidatePath(`/songs/${id}`);
+  revalidatePath("/songs/practice");
+  revalidatePath("/songs");
+  revalidatePath("/");
 }
 
 export async function moveSong(id: string, stage: string) {

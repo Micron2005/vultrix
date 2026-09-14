@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, Card, LinkButton } from "@/components/ui";
@@ -22,39 +21,34 @@ export function SongsBoard({
   songs: BoardSong[];
   moveSongAction: (id: string, stage: string) => Promise<void>;
 }) {
-  const [activeStage, setActiveStage] = useState(0);
   return (
     <div>
-      <div className="mb-3 flex gap-1 overflow-x-auto md:hidden">
-        {SONG_STAGES.map((stage, index) => (
-          <button
-            key={stage.id}
-            type="button"
-            onClick={() => setActiveStage(index)}
-            className={`shrink-0 rounded-md px-3 py-2 text-xs font-medium ${
-              activeStage === index ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600"
-            }`}
-          >
-            {stage.label}
-          </button>
-        ))}
-      </div>
       {!songs.length ? (
         <Card className="p-8 text-center">
           <p className="text-sm text-zinc-500">No songs yet — start with an idea.</p>
           <LinkButton href="/songs/new" className="mt-4">New song</LinkButton>
         </Card>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {SONG_STAGES.map((stage, index) => (
+        <div className="flex snap-x gap-3 overflow-x-auto pb-2">
+          {SONG_STAGES.map((stage) => (
             <section
               key={stage.id}
-              className={`${index === activeStage ? "block" : "hidden"} min-w-[15rem] flex-1 md:block`}
+              className="w-[15rem] shrink-0 snap-start md:min-w-0 md:flex-1"
             >
-              <h2 className="mb-2 text-sm font-semibold text-zinc-800">{stage.label}</h2>
-              <div className="space-y-2">
-                {songs.filter((song) => song.stage === stage.id).map((song) => {
+              {(() => {
+                const stageSongs = songs.filter((song) => song.stage === stage.id);
+                return (
+                  <>
+                    <h2 className="mb-2 text-sm font-semibold text-zinc-800">{stage.label} · {stageSongs.length}</h2>
+                    <div className="min-h-32 rounded-xl border border-zinc-200 bg-zinc-50 p-2">
+                      {stageSongs.length === 0 ? (
+                        <p className="px-2 py-4 text-xs text-zinc-400">Drop-in</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {stageSongs.map((song) => {
                   const songIndex = SONG_STAGES.findIndex((item) => item.id === song.stage);
+                  const complete = song.tasks.filter((task) => task.done).length;
+                  const progress = song.tasks.length ? (complete / song.tasks.length) * 100 : 0;
                   return (
                     <Card key={song.id} className="p-3">
                       <Link href={`/songs/${song.id}`} className="block">
@@ -64,14 +58,15 @@ export function SongsBoard({
                             {[song.musicalKey, song.bpm ? `${song.bpm} BPM` : null].filter(Boolean).join(" · ")}
                           </p>
                         )}
-                        <p className="mt-2 text-xs text-zinc-500">
-                          {song.tasks.filter((task) => task.done).length}/{song.tasks.length} tasks
-                        </p>
+                        <p className="mt-2 text-xs text-zinc-500">{complete}/{song.tasks.length} tasks</p>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200">
+                          <div className="h-full rounded-full bg-[var(--vx-accent-600)]" style={{ width: `${progress}%` }} />
+                        </div>
                       </Link>
                       <div className="mt-2 flex justify-between">
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant="ghost"
                           disabled={songIndex === 0}
                           onClick={() => void moveSongAction(song.id, SONG_STAGES[songIndex - 1].id)}
@@ -81,7 +76,7 @@ export function SongsBoard({
                         </Button>
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant="ghost"
                           disabled={songIndex === SONG_STAGES.length - 1}
                           onClick={() => void moveSongAction(song.id, SONG_STAGES[songIndex + 1].id)}
@@ -92,8 +87,13 @@ export function SongsBoard({
                       </div>
                     </Card>
                   );
-                })}
-              </div>
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </section>
           ))}
         </div>

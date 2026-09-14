@@ -2,20 +2,25 @@ import Link from "next/link";
 import {
   Button,
   Card,
-  CardBody,
   CardHeader,
   EmptyState,
   Input,
   Select,
   Textarea,
   PageHeader,
+  StatTile,
+  Table,
+  TBody,
+  TD,
+  THead,
+  TR,
 } from "@/components/ui";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { formatInTimeZone } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { loadPracticeWeekSummary, listPracticeSessions } from "@/lib/practice";
 import { SongsTabs } from "../SongsTabs";
-import { Metronome } from "./Metronome";
+import { PracticeWorkspace } from "./PracticeWorkspace";
 import { deletePractice, logManualPractice } from "./actions";
 
 function formatDuration(seconds: number) {
@@ -39,24 +44,23 @@ export default async function PracticePage() {
         description="Practice — metronome, timer and your practice log."
       />
       <SongsTabs active="practice" />
-      <Metronome songs={songs.map((song) => ({ id: song.id, title: song.title }))} />
+      <PracticeWorkspace
+        songs={songs.map((song) => ({
+          id: song.id,
+          title: song.title,
+          bpm: song.bpm,
+          lyrics: song.lyrics,
+          lyricsMeta: song.lyricsMeta,
+        }))}
+      />
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <StatTile label="Minutes this week" value={String(summary.totalMinutes)} />
+        <StatTile label="Sessions this week" value={String(summary.sessionCount)} />
+        <StatTile label="Current streak" value={`${summary.currentStreak} days`} />
+      </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="This week" />
-          <CardBody className="grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-xs text-zinc-500">Minutes</p>
-              <p className="mt-1 text-2xl font-semibold text-zinc-900">{summary.totalMinutes}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500">Sessions</p>
-              <p className="mt-1 text-2xl font-semibold text-zinc-900">{summary.sessionCount}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500">Streak</p>
-              <p className="mt-1 text-2xl font-semibold text-zinc-900">{summary.currentStreak}<span className="ml-1 text-xs font-normal text-zinc-500">days</span></p>
-            </div>
-          </CardBody>
           <div className="grid grid-cols-7 items-end gap-2 px-5 pb-5">
             {summary.days.map((day) => (
               <div key={day.day} className="text-center">
@@ -95,24 +99,38 @@ export default async function PracticePage() {
               className="m-5"
             />
           ) : (
-            <div className="divide-y divide-zinc-200">
-              {sessions.map((session) => (
-                <div key={session.id} className="space-y-2 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-800">
-                      <span>{formatInTimeZone(session.startedAt, timezone, { weekday: "short", month: "short", day: "numeric" })}</span>
-                      <span className="text-zinc-500">{formatDuration(session.durationSec)}</span>
-                      {session.bpm && <span className="text-xs text-zinc-500">{session.bpm} BPM</span>}
-                    </div>
-                    <form action={deletePractice.bind(null, session.id)}>
-                      <Button type="submit" size="sm" variant="ghost">Delete</Button>
-                    </form>
-                  </div>
-                  {session.song && <Link href={`/songs/${session.song.id}`} className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200">{session.song.title}</Link>}
-                  {session.notes && <p className="whitespace-pre-wrap text-sm text-zinc-600">{session.notes}</p>}
-                </div>
-              ))}
-            </div>
+            <Table>
+              <THead>
+                <TR>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Song</th>
+                  <th className="px-4 py-3 text-right">Duration</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </TR>
+              </THead>
+              <TBody>
+                {sessions.map((session) => (
+                  <TR key={session.id}>
+                    <TD>{formatInTimeZone(session.startedAt, timezone, { weekday: "short", month: "short", day: "numeric" })}</TD>
+                    <TD>
+                      {session.song ? (
+                        <Link href={`/songs/${session.song.id}`} className="font-medium text-zinc-700 underline">{session.song.title}</Link>
+                      ) : "No song"}
+                      {session.notes && <p className="mt-1 max-w-xs truncate text-xs text-zinc-500">{session.notes}</p>}
+                    </TD>
+                    <TD numeric>
+                      {formatDuration(session.durationSec)}
+                      {session.bpm && <span className="ml-1 text-xs text-zinc-500">{session.bpm} BPM</span>}
+                    </TD>
+                    <TD numeric>
+                      <form action={deletePractice.bind(null, session.id)}>
+                        <Button type="submit" size="xs" variant="ghost">Delete</Button>
+                      </form>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
           )}
         </Card>
       </div>

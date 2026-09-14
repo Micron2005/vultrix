@@ -175,11 +175,23 @@ export function IdeaCapture({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {!recording ? (
-            <Button type="button" variant="secondary" onClick={startRecording}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={startRecording}
+              className="h-12 w-12 rounded-full p-0"
+              aria-label="Record voice memo"
+            >
               Record
             </Button>
           ) : (
-            <Button type="button" variant="danger" onClick={stopRecording}>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={stopRecording}
+              className="h-12 w-12 animate-pulse rounded-full p-0 ring-4 ring-red-200"
+              aria-label="Stop recording"
+            >
               Stop · {formatDuration(recordingSeconds)}
             </Button>
           )}

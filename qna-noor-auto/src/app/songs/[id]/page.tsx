@@ -7,7 +7,9 @@ import { SongForm } from "../SongForm";
 import { DeleteSongButton } from "../DeleteSongButton";
 import { SongsTabs } from "../SongsTabs";
 import { IdeaBody } from "../ideas/IdeaBody";
+import { LyricsEditor } from "./LyricsEditor";
 import { addSongTask, deleteSong, moveSong, removeSongTask, toggleSongTask, updateSong } from "../actions";
+import { parseLyricsMeta } from "@/lib/lyrics";
 
 export default async function SongDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,6 +30,12 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
       />
       <SongsTabs active="board" />
       <SongForm action={updateSong.bind(null, song.id)} song={song} />
+      <LyricsEditor
+        songId={song.id}
+        initialLyrics={song.lyrics ?? ""}
+        initialMeta={parseLyricsMeta(song.lyricsMeta)}
+        bpm={song.bpm}
+      />
       <Card className="mt-6 max-w-2xl p-5">
         <h2 className="mb-3 text-sm font-semibold text-zinc-900">Stage</h2>
         <div className="flex gap-1 overflow-x-auto pb-2">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardBody, CardHeader, EmptyState, PageHeader } from "@/components/ui";
+import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import { listSongIdeas, listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../SongsTabs";
@@ -51,7 +51,7 @@ export default async function SongIdeasPage({
           />
         ) : (
           ideas.map((idea) => (
-            <Card key={idea.id} className="space-y-3 p-5">
+            <Card key={idea.id} className={`space-y-3 border-l-4 p-5 ${idea.audioDataUrl ? "border-l-[var(--vx-accent-600)]" : "border-l-transparent"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-zinc-900">
@@ -81,12 +81,14 @@ export default async function SongIdeasPage({
                 </div>
               )}
               {idea.song && (
-                <Link
+                <Badge tone="accent" className="inline-flex">
+                  <Link
                   href={`/songs/${idea.song.id}`}
-                  className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200"
+                  className="hover:underline"
                 >
                   {idea.song.title}
-                </Link>
+                  </Link>
+                </Badge>
               )}
               <form action={updateIdea.bind(null, idea.id)} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="title" value={idea.title ?? ""} />
