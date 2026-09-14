@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Card, PageHeader, Select } from "@/components/ui";
+import { Card, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import { listSongIdeas, listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../SongsTabs";
+import { AttachSelect } from "./AttachSelect";
 import { IdeaBody } from "./IdeaBody";
 import { IdeaCapture } from "./IdeaCapture";
 import { DeleteIdeaButton } from "./DeleteIdeaButton";
@@ -89,20 +90,7 @@ export default async function SongIdeasPage({
               <form action={updateIdea.bind(null, idea.id)} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="title" value={idea.title ?? ""} />
                 <input type="hidden" name="body" value={idea.body ?? ""} />
-                <Select
-                  name="songId"
-                  defaultValue={idea.songId ?? ""}
-                  aria-label="Attach idea to song"
-                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
-                  className="max-w-xs text-xs"
-                >
-                  <option value="">Attach to…</option>
-                  {songs.map((song) => (
-                    <option key={song.id} value={song.id}>
-                      {song.title}
-                    </option>
-                  ))}
-                </Select>
+                <AttachSelect songs={songs} defaultValue={idea.songId ?? ""} />
               </form>
             </Card>
           ))
