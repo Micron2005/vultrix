@@ -25,6 +25,7 @@ import { sanitizeFeatureKeys } from "@/lib/features";
 import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
 import { APP_NAME, SALES_EMAIL, SUPPORT_EMAIL } from "@/lib/branding";
 import { isValidTimeZone } from "@/lib/timezone";
+import { normalizeFocusPacks, type FocusPackId } from "@/lib/focusPacks";
 
 export type EnsureResult = {
   orgId: string;
@@ -42,6 +43,7 @@ type Pending = {
   passwordHash: string;
   accountType: string;
   features: string[];
+  focusPacks: FocusPackId[];
   timezone?: string;
 };
 
@@ -79,6 +81,15 @@ function pendingFromMetadata(
       .map((key) => key.trim())
       .filter(Boolean),
   );
+  const focusPacks =
+    accountType === "PERSONAL"
+      ? normalizeFocusPacks(
+          String(m.signupFocusPacks ?? "")
+            .split(",")
+            .map((key) => key.trim())
+            .filter(Boolean),
+        )
+      : [];
   const submittedTimezone = String(m.signupTimezone ?? "").trim();
   const timezone = isValidTimeZone(submittedTimezone)
     ? submittedTimezone
@@ -94,6 +105,7 @@ function pendingFromMetadata(
     passwordHash,
     accountType,
     features,
+    focusPacks,
     ...(timezone ? { timezone } : {}),
   };
 }
@@ -176,6 +188,7 @@ export async function materializeAccount(
         status: "ACTIVE",
         accountType: pending.accountType,
         features: pending.features,
+        focusPacks: pending.focusPacks,
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,

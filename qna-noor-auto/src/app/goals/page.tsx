@@ -288,6 +288,7 @@ export default async function GoalsPage({
   const starterTemplates = templatesFor(
     normalizeGoalTemplateAccountType(accountType),
     (metric) => metricAllowed(metric, { accountType, features }),
+    user.focusPacks,
   ).filter((template) => {
     const title = template.title.trim().toLowerCase();
     return !active.some(({ goal }) => goal.title.trim().toLowerCase() === title) &&

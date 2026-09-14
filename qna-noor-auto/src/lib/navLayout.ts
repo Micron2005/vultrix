@@ -1,9 +1,11 @@
 import type { FeatureKey } from "@/lib/features";
+import type { FocusPackId } from "@/lib/focusPacks";
 
 export type NavCatalogItem = {
   href: string;
   label: string;
   feature?: FeatureKey;
+  pack?: FocusPackId;
   required?: boolean;
 };
 
@@ -37,6 +39,7 @@ export const NAV_ITEMS: NavCatalogItem[] = [
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
   { href: "/goals", label: "Goals" },
+  { href: "/songs", label: "Songs", pack: "music" },
   { href: "/sales", label: "Sales", feature: "financials" },
   { href: "/reports", label: "Reports", feature: "reports" },
   { href: "/import", label: "Import", feature: "import_export" },
@@ -53,6 +56,7 @@ type NavEligibilityOptions = {
   canViewFinancials: boolean;
   canManageUsers: boolean;
   aiAssistantEnabled: boolean;
+  focusPacks: readonly string[];
 };
 
 const STAFF_HIDDEN_HREFS = new Set([
@@ -69,6 +73,7 @@ export function getEligibleNavItems({
   canViewFinancials,
   canManageUsers,
   aiAssistantEnabled,
+  focusPacks,
 }: NavEligibilityOptions): NavCatalogItem[] {
   const features = new Set(enabledFeatures);
 
@@ -77,6 +82,9 @@ export function getEligibleNavItems({
       return canManageUsers;
     }
     if (item.href === "/assistant") return aiAssistantEnabled;
+    if (item.pack) {
+      return accountType === "PERSONAL" && focusPacks.includes(item.pack);
+    }
     if (item.href === "/notes" && accountType === "AUTO_SHOP") return false;
     if (
       item.href === "/repair-orders" &&

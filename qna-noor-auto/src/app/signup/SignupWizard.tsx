@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { startSignup } from "./actions";
 import { sanitizeFeatureKeys } from "@/lib/features";
+import { FOCUS_PACKS, normalizeFocusPacks, type FocusPackId } from "@/lib/focusPacks";
 import { VultrixMark } from "@/components/VultrixMark";
 
 type SignupWizardProps = {
@@ -33,6 +34,7 @@ type PersistedSignupWizard = {
   phone: string;
   username: string;
   agreed: boolean;
+  focusPacks?: FocusPackId[];
 };
 
 const SIGNUP_STORAGE_KEY = "vultrix_signup_wizard_v1";
@@ -65,6 +67,7 @@ export function SignupWizard({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [focusPacks, setFocusPacks] = useState<FocusPackId[]>([]);
   const [timezone, setTimezone] = useState("");
   const [stepError, setStepError] = useState("");
 
@@ -121,6 +124,7 @@ export function SignupWizard({
         if (typeof saved.phone === "string") setPhone(saved.phone);
         if (typeof saved.username === "string") setUsername(saved.username);
         if (typeof saved.agreed === "boolean") setAgreed(saved.agreed);
+        setFocusPacks(normalizeFocusPacks(saved.focusPacks));
       });
     } catch {
       return;
@@ -141,6 +145,7 @@ export function SignupWizard({
       phone,
       username,
       agreed,
+      focusPacks,
     };
     try {
       window.sessionStorage.setItem(
@@ -162,6 +167,7 @@ export function SignupWizard({
     phone,
     username,
     agreed,
+    focusPacks,
   ]);
 
   const accountType =
@@ -233,6 +239,14 @@ export function SignupWizard({
 
   function setInvoices(value: "yes" | "no") {
     setInvoiceChoice(value);
+  }
+
+  function toggleFocusPack(id: FocusPackId) {
+    setFocusPacks((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
   }
 
   return (
@@ -460,6 +474,41 @@ export function SignupWizard({
                   </div>
                 </button>
               ))}
+              {path === "personal" && (
+                <div className="space-y-3 border-t border-zinc-200 pt-4">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-800">
+                      What are you focusing on?
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Optional — choose any that fit and you can change them later.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {FOCUS_PACKS.map((pack) => (
+                      <label
+                        key={pack.id}
+                        className={`rounded-lg border p-3 text-left ${
+                          focusPacks.includes(pack.id)
+                            ? "border-zinc-900 bg-zinc-50"
+                            : "border-zinc-200 hover:border-zinc-400"
+                        }`}
+                      >
+                        <span className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            checked={focusPacks.includes(pack.id)}
+                            onChange={() => toggleFocusPack(pack.id)}
+                            className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                          />
+                          <span className="font-medium text-zinc-900">{pack.label}</span>
+                        </span>
+                        <div className="mt-1 text-xs text-zinc-500">{pack.blurb}</div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -538,6 +587,11 @@ export function SignupWizard({
               type="hidden"
               name="features"
               value={finalFeatures.join(",")}
+            />
+            <input
+              type="hidden"
+              name="focusPacks"
+              value={focusPacks.join(",")}
             />
             <div className="flex gap-3">
               {step > 1 && (

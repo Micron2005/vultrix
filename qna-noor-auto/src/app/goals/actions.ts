@@ -31,15 +31,16 @@ async function requireGoalsContext(): Promise<{
   orgId: string;
   timezone: string;
   accountType: string;
-  hasInvoices: boolean;
-  features: Set<string>;
+    hasInvoices: boolean;
+    features: Set<string>;
+    focusPacks: readonly string[];
 }> {
   const user = await requireUser();
   assertCanViewFinancials(user.role);
   if (!user.orgId) redirect("/admin");
   const organization = await db.organization.findUnique({
     where: { id: user.orgId },
-    select: { accountType: true, features: true },
+    select: { accountType: true, features: true, focusPacks: true },
   });
   const accountType = organization?.accountType ?? user.accountType ?? "AUTO_SHOP";
   const features = enabledFeatureSet({
@@ -52,6 +53,10 @@ async function requireGoalsContext(): Promise<{
     accountType,
     hasInvoices: features.has("invoices"),
     features,
+    focusPacks:
+      accountType === "PERSONAL"
+        ? (organization?.focusPacks ?? user.focusPacks)
+        : [],
   };
 }
 
@@ -169,11 +174,12 @@ export async function createGoal(fd: FormData) {
 }
 
 export async function applyGoalTemplate(fd: FormData) {
-  const { orgId, timezone, accountType, features } = await requireGoalsContext();
+  const { orgId, timezone, accountType, features, focusPacks } = await requireGoalsContext();
   const user = await requireUser();
   const template = templatesFor(
     normalizeGoalTemplateAccountType(accountType),
     (metric) => metricAllowed(metric, { accountType, features }),
+    focusPacks,
   ).find((candidate) => candidate.id === text(fd, "templateId"));
   if (!template) throw new Error("Starter idea is not available.");
 

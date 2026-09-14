@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { IntelTabs } from "../../intel/IntelTabs";
+import { noteCategoriesFor } from "@/lib/focusPacks";
 
 export default async function NewNotePage({
   searchParams,
@@ -33,6 +34,10 @@ export default async function NewNotePage({
     distinct: ["category"],
     orderBy: { category: "asc" },
   });
+  const categorySuggestions = [
+    ...categories.flatMap((item) => item.category ? [item.category] : []),
+    ...(user.accountType === "PERSONAL" ? noteCategoriesFor(user.focusPacks) : []),
+  ].filter((value, index, values) => values.indexOf(value) === index);
   return (
     <>
       <PageHeader
@@ -54,7 +59,7 @@ export default async function NewNotePage({
           action={createNote}
           accountType={user.accountType}
           submitLabel="Create note"
-          categories={categories.flatMap((item) => item.category ? [item.category] : [])}
+          categories={categorySuggestions}
           note={{
             ...(initialCategory ? { category: initialCategory } : {}),
             ...(year ? { yearMin: Number(year), yearMax: Number(year) } : {}),

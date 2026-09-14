@@ -1,5 +1,6 @@
 import type { FeatureKey } from "@/lib/features";
 import type { CurrentUser } from "@/lib/session";
+import type { FocusPackId } from "@/lib/focusPacks";
 
 export type DashboardBlockId =
   | "today"
@@ -15,7 +16,8 @@ export type DashboardBlockId =
   | "vehicles_due"
   | "tech_hours"
   | "outstanding"
-  | "recent_records";
+  | "recent_records"
+  | "songs";
 
 export type DashboardLayout = {
   columns: 1 | 2 | 3;
@@ -43,6 +45,7 @@ export type DashboardBlockDefinition = {
   defaultVisible: boolean;
   defaultVisiblePersonal?: boolean;
   requires: FeatureKey[];
+  pack?: FocusPackId;
   wide?: boolean;
   settings?: Array<{
     key: string;
@@ -93,6 +96,15 @@ export const DASHBOARD_BLOCKS: DashboardBlockDefinition[] = [
     hint: "Your active goals and current progress.",
     defaultVisible: true,
     requires: [],
+  },
+  {
+    id: "songs",
+    label: "Songs in progress",
+    hint: "Your songs by stage.",
+    defaultVisible: false,
+    defaultVisiblePersonal: true,
+    requires: [],
+    pack: "music",
   },
   {
     id: "schedule",

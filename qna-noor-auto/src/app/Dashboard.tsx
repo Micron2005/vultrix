@@ -28,6 +28,7 @@ import { TechHoursBlock } from "./dashboard-blocks/TechHoursBlock";
 import { OutstandingBlock } from "./dashboard-blocks/OutstandingBlock";
 import { RecentRecordsBlock } from "./dashboard-blocks/RecentRecordsBlock";
 import { GetStartedCard } from "./dashboard-blocks/GetStartedCard";
+import { SongsBlock } from "./dashboard-blocks/SongsBlock";
 import { loadOnboarding } from "@/lib/onboarding";
 
 type SearchParams = Promise<{
@@ -43,6 +44,7 @@ type DashboardContext = {
   hasInvoices: boolean;
   hasVehicles: boolean;
   showMoneyCards: boolean;
+  focusPacks: readonly string[];
 };
 
 function hasRequiredFeatures(
@@ -53,6 +55,14 @@ function hasRequiredFeatures(
   if (
     context.accountType === "PERSONAL" &&
     (id === "counts" || id === "outstanding" || id === "recent_records")
+  ) {
+    return false;
+  }
+  const definition = DASHBOARD_BLOCKS.find((block) => block.id === id);
+  if (
+    definition?.pack &&
+    (context.accountType !== "PERSONAL" ||
+      !context.focusPacks.includes(definition.pack))
   ) {
     return false;
   }
@@ -232,6 +242,8 @@ async function blockNode(
           title={title}
         />
       );
+    case "songs":
+      return <SongsBlock orgId={props.orgId} editing={props.editing} title={title} />;
   }
 }
 
@@ -269,6 +281,7 @@ export async function Dashboard({
       ((features.has("financials") &&
         (features.has("repair_orders") || features.has("invoices"))) ||
         features.has("invoices")),
+    focusPacks: user.focusPacks,
   };
   const layout = resolveDashboardLayout(
     layoutRecord?.dashLayout,

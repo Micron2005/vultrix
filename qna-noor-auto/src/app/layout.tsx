@@ -142,6 +142,7 @@ export default async function RootLayout({
             enabledFeatures={enabledFeatures}
             accountType={user.accountType}
             aiAssistantEnabled={user.aiAssistantEnabled}
+            focusPacks={user.focusPacks}
             navLayout={appearanceRecord?.navLayout}
             navDefault={organization?.navDefault}
             mode={navLayout.mode}

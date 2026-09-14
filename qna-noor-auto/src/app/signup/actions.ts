@@ -8,6 +8,7 @@ import { getStripe, billingConfigured } from "@/lib/stripe";
 import { resolvePriceId, TRIAL_DAYS } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 import { isValidTimeZone } from "@/lib/timezone";
+import { normalizeFocusPacks } from "@/lib/focusPacks";
 
 function back(params: Record<string, string>): never {
   const qs = new URLSearchParams(params).toString();
@@ -63,6 +64,15 @@ export async function startSignup(formData: FormData) {
     .map((key) => key.trim())
     .filter(Boolean);
   const features = sanitizeFeatureKeys(accountType, submittedFeatures);
+  const focusPacks =
+    accountType === "PERSONAL"
+      ? normalizeFocusPacks(
+          String(formData.get("focusPacks") ?? "")
+            .split(",")
+            .map((key) => key.trim())
+            .filter(Boolean),
+        )
+      : [];
   const displayName =
     accountType === "PERSONAL" ? `${firstName} ${lastName}`.trim() : name;
 
@@ -118,6 +128,7 @@ export async function startSignup(formData: FormData) {
       signupPasswordHash: hashPassword(password),
       signupAccountType: accountType,
       signupFeatures: features.join(","),
+      signupFocusPacks: focusPacks.join(","),
       ...(timezone ? { signupTimezone: timezone } : {}),
     },
   });

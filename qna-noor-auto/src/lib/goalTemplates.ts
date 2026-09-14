@@ -1,10 +1,12 @@
-export type GoalTemplateAccountType = "AUTO_SHOP" | "BUSINESS" | "PERSONAL";
+import type { FocusPackId } from "@/lib/focusPacks";
 
+export type GoalTemplateAccountType = "AUTO_SHOP" | "BUSINESS" | "PERSONAL";
 export type GoalTemplate = {
   id: string;
   title: string;
   blurb: string;
   accountTypes: Array<GoalTemplateAccountType>;
+  pack?: FocusPackId;
   shape: "number" | "task";
   goal?: {
     metric: string;
@@ -224,6 +226,106 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
     shape: "number",
     goal: { metric: "UNITS_SOLD", period: "MONTH", target: 10 },
   },
+  {
+    id: "music-practice",
+    title: "Practice 30 minutes",
+    blurb: "Build a daily music practice habit.",
+    accountTypes: ["PERSONAL"],
+    pack: "music",
+    shape: "task",
+    routine: {
+      kind: "DAILY",
+      showStreak: true,
+      items: ["Practice 30 minutes"],
+    },
+  },
+  {
+    id: "music-finish-demo",
+    title: "Finish one demo",
+    blurb: "Move one song from idea to demo each week.",
+    accountTypes: ["PERSONAL"],
+    pack: "music",
+    shape: "task",
+    routine: {
+      kind: "WEEKLY",
+      items: ["Finish one demo"],
+    },
+  },
+  {
+    id: "study-hour",
+    title: "Study 1 hour",
+    blurb: "Make focused study time part of every day.",
+    accountTypes: ["PERSONAL"],
+    pack: "study",
+    shape: "task",
+    routine: { kind: "DAILY", items: ["Study 1 hour"] },
+  },
+  {
+    id: "study-flashcards",
+    title: "Review flashcards",
+    blurb: "Keep your recall practice consistent on weekdays.",
+    accountTypes: ["PERSONAL"],
+    pack: "study",
+    shape: "task",
+    routine: { kind: "WEEKDAYS", items: ["Review flashcards"] },
+  },
+  {
+    id: "tech-commit",
+    title: "Ship one commit",
+    blurb: "Make a small, meaningful change every day.",
+    accountTypes: ["PERSONAL"],
+    pack: "tech",
+    shape: "task",
+    routine: { kind: "DAILY", items: ["Ship one commit"] },
+  },
+  {
+    id: "tech-learning",
+    title: "Write up what I learned",
+    blurb: "Turn weekly learning into reusable notes.",
+    accountTypes: ["PERSONAL"],
+    pack: "tech",
+    shape: "task",
+    routine: { kind: "WEEKLY", items: ["Write up what I learned"] },
+  },
+  {
+    id: "fitness-workout",
+    title: "Workout",
+    blurb: "Follow a simple daily workout sequence.",
+    accountTypes: ["PERSONAL"],
+    pack: "fitness",
+    shape: "task",
+    routine: {
+      kind: "DAILY",
+      items: ["Warm up", "Main set", "Stretch"],
+    },
+  },
+  {
+    id: "fitness-water",
+    title: "Drink 8 glasses of water",
+    blurb: "Stay hydrated every day.",
+    accountTypes: ["PERSONAL"],
+    pack: "fitness",
+    shape: "task",
+    routine: { kind: "DAILY", items: ["Drink 8 glasses of water"] },
+  },
+  {
+    id: "creator-post",
+    title: "Post today",
+    blurb: "Keep your publishing rhythm moving.",
+    accountTypes: ["PERSONAL"],
+    pack: "creator",
+    shape: "task",
+    routine: { kind: "WEEKDAYS", items: ["Post today"] },
+  },
+  {
+    id: "creator-plan",
+    title: "Plan next week's content",
+    blurb: "Start the next week with a clear content plan.",
+    accountTypes: ["PERSONAL"],
+    pack: "creator",
+    shape: "task",
+    routine: { kind: "WEEKLY", items: ["Plan next week's content"] },
+  },
 ];
 
 export function normalizeGoalTemplateAccountType(
@@ -238,9 +340,11 @@ export function normalizeGoalTemplateAccountType(
 export function templatesFor(
   accountType: GoalTemplateAccountType,
   allowedMetric: (metric: string) => boolean,
+  focusPacks: readonly string[] = [],
 ): GoalTemplate[] {
   return GOAL_TEMPLATES.flatMap((template) => {
     if (!template.accountTypes.includes(accountType)) return [];
+    if (template.pack && !focusPacks.includes(template.pack)) return [];
     if (!template.goal || allowedMetric(template.goal.metric)) return [template];
     if (template.id !== "me-side-hustle") return [];
     return [

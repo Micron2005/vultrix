@@ -46,6 +46,7 @@ export async function loadOnboarding(
       where: { id: orgId },
       select: {
         accountType: true,
+        focusPacks: true,
         onboardingDismissedAt: true,
         stripeConnectChargesEnabled: true,
         aiAssistantEnabled: true,
@@ -138,6 +139,15 @@ export async function loadOnboarding(
     addStep(step("goal", "Set a goal", "", "/goals", goalsDone));
     addStep(step("staff", "Add a login for your team", "", "/settings/users", userCount > 1));
   } else if (accountType === "PERSONAL") {
+    addStep(
+      step(
+        "focus_packs",
+        "Pick what you're using Vultrix for",
+        "Choose the pages, dashboard cards, and starter goals that fit your life.",
+        "/settings",
+        organization.focusPacks.length > 0,
+      ),
+    );
     addStep(
       step(
         "appearance",

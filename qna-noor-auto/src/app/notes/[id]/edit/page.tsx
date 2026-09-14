@@ -4,6 +4,7 @@ import { requireOrgId, requireUser } from "@/lib/session";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { NoteForm } from "../../NoteForm";
 import { updateNote } from "../../actions";
+import { noteCategoriesFor } from "@/lib/focusPacks";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,10 @@ export default async function EditNotePage({
     distinct: ["category"],
     orderBy: { category: "asc" },
   });
+  const categorySuggestions = [
+    ...categories.flatMap((item) => item.category ? [item.category] : []),
+    ...(user.accountType === "PERSONAL" ? noteCategoriesFor(user.focusPacks) : []),
+  ].filter((value, index, values) => values.indexOf(value) === index);
 
   const action = updateNote.bind(null, note.id);
 
@@ -45,7 +50,7 @@ export default async function EditNotePage({
           accountType={user.accountType}
           note={note}
           submitLabel="Save changes"
-          categories={categories.flatMap((item) => item.category ? [item.category] : [])}
+          categories={categorySuggestions}
           initialImages={note.images.map((image) => ({ dataUrl: image.dataUrl, caption: image.caption }))}
         />
       </div>
