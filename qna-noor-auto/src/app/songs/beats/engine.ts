@@ -1,3 +1,4 @@
+import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
 import {
   BEAT_TRACKS,
   KIT_CONFIG,
@@ -63,6 +64,7 @@ export class BeatEngine {
     onStep?: (patternIndex: number, step: number) => void,
   ) {
     this.stop();
+    unlockMediaRoute();
     const context = this.context ?? new AudioContext();
     this.context = context;
     this.master = this.master ?? context.createGain();
@@ -71,7 +73,7 @@ export class BeatEngine {
       this.master.connect(context.destination);
       this.masterConnected = true;
     }
-    await context.resume();
+    await ensureRunning(context);
     this.playback = { beat, mode, patternId, onStep };
     this.sequenceIndex = 0;
     this.step = 0;
@@ -92,6 +94,7 @@ export class BeatEngine {
   }
 
   async preview(beat: BeatDocument, track: BeatTrack, accent = false) {
+    unlockMediaRoute();
     const context = this.context ?? new AudioContext();
     this.context = context;
     this.master = this.master ?? context.createGain();
@@ -99,7 +102,7 @@ export class BeatEngine {
       this.master.connect(context.destination);
       this.masterConnected = true;
     }
-    await context.resume();
+    await ensureRunning(context);
     this.scheduleTrackVoice(context, this.master, track, accent ? 1.5 : 1, context.currentTime + 0.01, beat.kit);
   }
 
@@ -107,9 +110,16 @@ export class BeatEngine {
     const context = this.context;
     const playback = this.playback;
     if (!context || !playback) return;
+    if (context.state !== "running") {
+      void context.resume();
+      return;
+    }
     const patterns = patternSequence(playback.beat.data, playback.mode, playback.patternId);
     if (!patterns.length) return;
     const stepDuration = 60 / playback.beat.bpm / 4;
+    if (this.nextNoteTime < context.currentTime - 0.2) {
+      this.nextNoteTime = context.currentTime + 0.05;
+    }
     while (this.nextNoteTime < context.currentTime + 0.1) {
       const pattern = patterns[this.sequenceIndex % patterns.length];
       const delay = this.step % 2 === 1

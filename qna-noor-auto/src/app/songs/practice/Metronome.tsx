@@ -3,6 +3,8 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { logPractice } from "./actions";
+import { BpmInput } from "../BpmInput";
+import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
 
 type SongOption = {
   id: string;
@@ -115,9 +117,10 @@ export function Metronome({
 
   async function startMetronome() {
     setError("");
+    unlockMediaRoute();
     const context = audioContextRef.current ?? new AudioContext();
     audioContextRef.current = context;
-    await context.resume();
+    await ensureRunning(context);
     nextNoteTimeRef.current = context.currentTime + 0.05;
     beatRef.current = 0;
     schedule();
@@ -180,12 +183,11 @@ export function Metronome({
               <p className="mt-1 text-xs text-zinc-500">Find your pocket, then log the work.</p>
             </div>
             <label className="flex items-center gap-2 text-xs text-zinc-500">
-              <Input
-                type="number"
+              <BpmInput
                 min={40}
                 max={240}
                 value={bpm}
-                onChange={(event) => updateBpm(Number(event.target.value))}
+                onCommit={updateBpm}
                 aria-label="BPM number"
                 className="w-24 text-3xl font-semibold tabular-nums"
               />
