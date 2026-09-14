@@ -9,6 +9,11 @@ import {
   PageHeader,
   Select,
   StatusBadge,
+  Table,
+  TBody,
+  TD,
+  THead,
+  TR,
 } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -265,57 +270,55 @@ export default async function RepairOrdersPage({
         />
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-2 font-medium">RO #</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
+                <th className="px-4 py-2.5 text-left">RO #</th>
+                <th className="px-4 py-2.5 text-left">Customer</th>
                 {isAutoShop && (
-                  <th className="px-4 py-2 font-medium">Vehicle</th>
+                  <th className="px-4 py-2.5 text-left">Vehicle</th>
                 )}
-                <th className="px-4 py-2 font-medium">Complaint</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Opened</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
+                <th className="px-4 py-2.5 text-left">Complaint</th>
+                <th className="px-4 py-2.5 text-left">Status</th>
+                <th className="px-4 py-2.5 text-left">Opened</th>
+                <th className="px-4 py-2.5 text-right">Total</th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
+            </THead>
+            <TBody>
               {ros.map((ro) => {
                 const shopFees = shopFeesByRO.get(ro.id) ?? [];
                 const { total } = computeTotals({ ...excludeDeclinedJobLines(ro), shopFees });
                 return (
-                  <tr key={ro.id} className="hover:bg-zinc-50">
-                    <td className="px-4 py-2">
+                  <TR key={ro.id}>
+                    <TD>
                       <Link
                         href={`/repair-orders/${ro.id}`}
                         className="font-medium text-zinc-900 hover:underline"
                       >
                         #{ro.roNumber}
                       </Link>
-                    </td>
-                    <td className="px-4 py-2">{fullName(ro.customer)}</td>
+                    </TD>
+                    <TD>{fullName(ro.customer)}</TD>
                     {isAutoShop && (
-                      <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                      <TD>{vehicleLabel(ro.vehicle)}</TD>
                     )}
-                    <td className="px-4 py-2 text-zinc-600 max-w-xs truncate">
+                    <TD className="max-w-xs truncate text-zinc-600">
                       {ro.complaint ?? "—"}
-                    </td>
-                    <td className="px-4 py-2">
+                    </TD>
+                    <TD>
                       <StatusBadge status={ro.status} />
-                    </td>
-                    <td className="px-4 py-2 text-zinc-500">
+                    </TD>
+                    <TD className="text-zinc-500">
                       {formatDate(ro.openedAt)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
+                    </TD>
+                    <TD numeric>
                       {formatMoney(total)}
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 );
               })}
-            </tbody>
-            </table>
-          </div>
+            </TBody>
+          </Table>
         </Card>
       )}
     </>

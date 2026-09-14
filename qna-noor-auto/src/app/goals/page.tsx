@@ -6,6 +6,11 @@ import {
   LinkButton,
   PageHeader,
   StatTile,
+  Table,
+  TBody,
+  TD,
+  THead,
+  TR,
 } from "@/components/ui";
 import { GoalsOverview } from "@/components/charts/GoalsOverview";
 import { getCurrentUser, roleLabel } from "@/lib/session";
@@ -343,28 +348,26 @@ export default async function GoalsPage({
       {users.length >= 2 && (
         <Card className="mb-6 overflow-hidden">
           <CardHeader title="Team today" />
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 text-xs text-zinc-500">
+          <Table>
+              <THead>
                 <tr>
-                  <th className="px-4 py-3 font-medium">Username</th>
-                  <th className="px-4 py-3 font-medium">Role</th>
-                  <th className="px-4 py-3 font-medium">Done/total today</th>
+                  <th className="px-4 py-2.5 text-left">Username</th>
+                  <th className="px-4 py-2.5 text-left">Role</th>
+                  <th className="px-4 py-2.5 text-left">Done/total today</th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200">
+              </THead>
+              <TBody>
                 {teamToday.map((member) => (
-                  <tr key={member.userId}>
-                    <td className="px-4 py-3 text-zinc-800">{member.username}</td>
-                    <td className="px-4 py-3 text-zinc-600">{roleLabel(member.role)}</td>
-                    <td className="px-4 py-3 text-zinc-600">
+                  <TR key={member.userId}>
+                    <TD className="text-zinc-800">{member.username}</TD>
+                    <TD className="text-zinc-600">{roleLabel(member.role)}</TD>
+                    <TD className="text-zinc-600">
                       {member.total ? `${member.done} / ${member.total}` : "—"}
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+          </Table>
         </Card>
       )}
 

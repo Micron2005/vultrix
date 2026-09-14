@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardHeader, LinkButton } from "@/components/ui";
+import { Card, CardHeader, LinkButton, Table, TBody, TD, THead, TR } from "@/components/ui";
 import { db } from "@/lib/db";
 
 export async function TechHoursBlock({
@@ -50,33 +50,31 @@ export async function TechHoursBlock({
           Manage techs →
         </LinkButton>
       </CardHeader>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500">
+      <Table>
+        <THead>
           <tr>
             <th className="px-4 py-2 font-medium">Technician</th>
             <th className="px-4 py-2 text-right font-medium">Hours</th>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-200">
+        </THead>
+        <TBody>
           {hoursThisWeek.map((technician) => (
-            <tr key={technician.id} className="hover:bg-zinc-50">
-              <td className="px-4 py-2">
+            <TR key={technician.id}>
+              <TD>
                 <Link
                   href={`/technicians/${technician.id}`}
                   className="font-medium text-zinc-900 hover:underline"
                 >
                   {technician.name}
                 </Link>
-              </td>
-              <td className="px-4 py-2 text-right font-semibold">
+              </TD>
+              <TD numeric className="font-semibold">
                 {technician.hours.toFixed(1)}
-              </td>
-            </tr>
+              </TD>
+            </TR>
           ))}
-        </tbody>
-        </table>
-      </div>
+        </TBody>
+      </Table>
     </Card>
   );
 }

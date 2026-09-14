@@ -1,5 +1,15 @@
 import Link from "next/link";
-import { Card, CardHeader, Input, LinkButton, PageHeader, Select, Button } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Input,
+  LinkButton,
+  PageHeader,
+  Select,
+} from "@/components/ui";
 import { listBeats } from "@/lib/beats";
 import { formatDateTime } from "@/lib/utils";
 import { listSongs, requireMusicPack } from "@/lib/songs";
@@ -27,20 +37,23 @@ export default async function BeatsPage({
       <SongsTabs active="beats" />
       <Card className="max-w-2xl p-5">
         <CardHeader title="New beat" />
-        <form action={createBeat} className="space-y-3 pt-4">
-          <Input name="title" placeholder="Beat title" required />
+        <CardBody>
+          <form action={createBeat} className="space-y-3">
+            <Input name="title" placeholder="Beat title" required />
             <Select name="songId" defaultValue={selectedSongId} aria-label="Attach new beat to a song">
-            <option value="">No song</option>
-            {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-          </Select>
-          <Button type="submit">Start beat</Button>
-        </form>
+              <option value="">No song</option>
+              {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+            </Select>
+            <Button type="submit">Start beat</Button>
+          </form>
+        </CardBody>
       </Card>
       <section className="mt-6">
         {beats.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-sm text-zinc-500">No beats yet. Start with a kick on 1.</p>
-          </Card>
+          <EmptyState
+            title="No beats yet"
+            description="Start with a kick on 1."
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {beats.map((beat) => (

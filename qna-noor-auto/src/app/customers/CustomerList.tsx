@@ -1,5 +1,15 @@
 import Link from "next/link";
-import { Card, EmptyState, Input, LinkButton } from "@/components/ui";
+import {
+  Card,
+  EmptyState,
+  Input,
+  LinkButton,
+  Table,
+  TBody,
+  TD,
+  THead,
+  TR,
+} from "@/components/ui";
 import { fullName } from "@/lib/utils";
 
 type Row = {
@@ -106,28 +116,27 @@ export function CustomerList({
                 >
                   {L}
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                  <thead className="bg-white text-left text-xs text-zinc-500 uppercase tracking-wider">
+                <Table>
+                  <THead>
                     <tr>
-                      <th className="px-4 py-2 font-medium">
+                      <th className="px-4 py-2.5 text-left">
                         {isBiz ? "Company" : "Name"}
                       </th>
                       {isBiz && (
-                        <th className="px-4 py-2 font-medium">Contact</th>
+                        <th className="px-4 py-2.5 text-left">Contact</th>
                       )}
-                      <th className="px-4 py-2 font-medium">Phone</th>
-                      <th className="px-4 py-2 font-medium">Email</th>
-                      <th className="px-4 py-2 font-medium text-right">
+                      <th className="px-4 py-2.5 text-left">Phone</th>
+                      <th className="px-4 py-2.5 text-left">Email</th>
+                      <th className="px-4 py-2.5 text-right">
                         Vehicles
                       </th>
-                      <th className="px-4 py-2 font-medium text-right">ROs</th>
+                      <th className="px-4 py-2.5 text-right">ROs</th>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200">
+                  </THead>
+                  <TBody>
                     {sections.get(L)!.map((c) => (
-                      <tr key={c.id} className="hover:bg-zinc-50">
-                        <td className="px-4 py-2">
+                      <TR key={c.id}>
+                        <TD>
                           <Link
                             href={`/customers/${c.id}`}
                             className="font-medium text-zinc-900 hover:underline"
@@ -141,29 +150,28 @@ export function CustomerList({
                               {c.companyName}
                             </div>
                           )}
-                        </td>
+                        </TD>
                         {isBiz && (
-                          <td className="px-4 py-2 text-zinc-600">
+                          <TD className="text-zinc-600">
                             {fullName(c)}
-                          </td>
+                          </TD>
                         )}
-                        <td className="px-4 py-2 text-zinc-600">
+                        <TD className="text-zinc-600">
                           {c.phone ?? "—"}
-                        </td>
-                        <td className="px-4 py-2 text-zinc-600">
+                        </TD>
+                        <TD className="text-zinc-600">
                           {c.email ?? "—"}
-                        </td>
-                        <td className="px-4 py-2 text-right text-zinc-600">
+                        </TD>
+                        <TD numeric className="text-zinc-600">
                           {c._count.vehicles}
-                        </td>
-                        <td className="px-4 py-2 text-right text-zinc-600">
+                        </TD>
+                        <TD numeric className="text-zinc-600">
                           {c._count.repairOrders}
-                        </td>
-                      </tr>
+                        </TD>
+                      </TR>
                     ))}
-                  </tbody>
-                  </table>
-                </div>
+                  </TBody>
+                </Table>
               </Card>
             ))}
           </div>
