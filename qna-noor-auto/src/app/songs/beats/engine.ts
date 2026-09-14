@@ -179,29 +179,28 @@ export class BeatEngine {
     kit: BeatKit,
   ) {
     const config = KIT_CONFIG[kit];
+    if (track === "kick") {
+      this.scheduleKick(context, destination, level, time, config.kickDecay, config.detune);
+      return;
+    }
     const gain = context.createGain();
     const filter = context.createBiquadFilter();
     filter.type = "lowpass";
     filter.frequency.setValueAtTime(config.lowpass, time);
     gain.gain.setValueAtTime(0.0001, time);
     const peak = Math.min(0.9, level * 0.32);
-    const decay =
-      track === "kick"
-        ? config.kickDecay
-        : track === "snare"
-          ? config.snareDecay
-          : config.hatDecay;
+    const decay = track === "snare" ? config.snareDecay : config.hatDecay;
     gain.gain.exponentialRampToValueAtTime(peak, time + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
     filter.connect(gain);
     gain.connect(destination);
 
-    if (track === "kick" || track === "tom" || track === "rim") {
+    if (track === "tom" || track === "rim") {
       const oscillator = context.createOscillator();
       oscillator.type = track === "rim" ? "square" : "sine";
       oscillator.detune.value = config.detune;
-      oscillator.frequency.setValueAtTime(track === "kick" ? 150 : track === "tom" ? 180 : 420, time);
-      oscillator.frequency.exponentialRampToValueAtTime(track === "kick" ? 48 : 110, time + decay);
+      oscillator.frequency.setValueAtTime(track === "tom" ? 180 : 420, time);
+      oscillator.frequency.exponentialRampToValueAtTime(110, time + decay);
       oscillator.connect(filter);
       oscillator.start(time);
       oscillator.stop(time + decay + 0.02);
@@ -254,6 +253,64 @@ export class BeatEngine {
       oscillator.start(time);
       oscillator.stop(time + duration + 0.02);
     }
+  }
+
+  // Sub sine alone disappears on phone/laptop speakers; layer a punchier
+  // body (triangle, fast pitch drop) and a short noise click so the kick
+  // reads on any speaker.
+  private scheduleKick(
+    context: AudioContextLike,
+    destination: AudioNode,
+    level: number,
+    time: number,
+    decay: number,
+    detune: number,
+  ) {
+    const peak = Math.min(1, level * 0.6);
+
+    const subGain = context.createGain();
+    subGain.gain.setValueAtTime(0.0001, time);
+    subGain.gain.exponentialRampToValueAtTime(peak, time + 0.004);
+    subGain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
+    const sub = context.createOscillator();
+    sub.type = "sine";
+    sub.detune.value = detune;
+    sub.frequency.setValueAtTime(140, time);
+    sub.frequency.exponentialRampToValueAtTime(45, time + Math.min(0.12, decay));
+    sub.connect(subGain);
+    subGain.connect(destination);
+    sub.start(time);
+    sub.stop(time + decay + 0.02);
+
+    const bodyDecay = Math.min(0.14, decay);
+    const bodyGain = context.createGain();
+    bodyGain.gain.setValueAtTime(0.0001, time);
+    bodyGain.gain.exponentialRampToValueAtTime(peak * 0.7, time + 0.002);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + bodyDecay);
+    const body = context.createOscillator();
+    body.type = "triangle";
+    body.detune.value = detune;
+    body.frequency.setValueAtTime(320, time);
+    body.frequency.exponentialRampToValueAtTime(70, time + 0.06);
+    body.connect(bodyGain);
+    bodyGain.connect(destination);
+    body.start(time);
+    body.stop(time + bodyDecay + 0.02);
+
+    const clickGain = context.createGain();
+    clickGain.gain.setValueAtTime(peak * 0.5, time);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.012);
+    const clickFilter = context.createBiquadFilter();
+    clickFilter.type = "bandpass";
+    clickFilter.frequency.setValueAtTime(2500, time);
+    clickFilter.Q.value = 0.8;
+    const click = context.createBufferSource();
+    click.buffer = this.noiseBuffer(context);
+    click.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(destination);
+    click.start(time);
+    click.stop(time + 0.02);
   }
 
   private noiseBuffer(context: AudioContextLike) {
