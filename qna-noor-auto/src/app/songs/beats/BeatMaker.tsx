@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select } from "@/components/ui";
-import { attachBeatToSong, renameBeat, saveBeat } from "./actions";
+import { attachBeatToSong, deleteBeat, renameBeat, saveBeat } from "./actions";
 import { BeatEngine, type BeatPlaybackMode } from "./engine";
 import {
   BEAT_TRACKS,
@@ -243,6 +243,11 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     }
   }
 
+  async function removeBeat() {
+    if (!window.confirm(`Delete "${title.trim() || beat.title}"?`)) return;
+    await deleteBeat(beat.id);
+  }
+
   return (
     <div className="space-y-6">
       <Card className="p-4">
@@ -290,6 +295,9 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <Button type="button" variant="secondary" onClick={() => void exportWav()}>
             Export WAV
           </Button>
+          <Button type="button" variant="danger" onClick={() => void removeBeat()}>
+            Delete beat
+          </Button>
           <span className="text-xs text-zinc-500">
             {saveError ? "Save failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
           </span>
@@ -326,7 +334,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <Button type="button" size="sm" variant="secondary" onClick={() => addPattern()}>+ Pattern</Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => addPattern(true)}>Duplicate</Button>
           <Button type="button" size="sm" variant="ghost" onClick={renamePattern}>Rename</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={removePattern}>Delete</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={removePattern}>Delete pattern</Button>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-zinc-600">Chain</span>
@@ -359,7 +367,9 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                   <button type="button" onClick={() => toggleMute(track)} className={`rounded px-1.5 py-1 text-[10px] ${muted.has(track) ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>{muted.has(track) ? "M" : "mute"}</button>
                 </div>
                 {selectedPattern.steps[track].map((value, step) => (
-                  <button key={step} type="button" onClick={() => toggleStep(track, step)} className={`h-9 rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)]" : value === 1 ? "bg-[var(--vx-accent-500)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track} step ${step + 1}`} />
+                  <button key={step} type="button" onClick={() => toggleStep(track, step)} className={`relative h-9 rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)] ring-2 ring-[var(--vx-accent-700)] ring-inset" : value === 1 ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track} step ${step + 1}`}>
+                    {value === 2 && <span aria-hidden="true" className="absolute inset-1 rounded-full border border-[var(--vx-accent-fg)]/70" />}
+                  </button>
                 ))}
               </div>
             ))}

@@ -52,23 +52,22 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
   }, [bpm, beatsPerBar, volume, muted]);
 
   useEffect(() => {
-    let timer: number | undefined;
+    let saved: { bpm?: number; beats?: number } = {};
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
         bpm?: number;
         beats?: number;
       };
-      preferencesLoadedRef.current = true;
-      timer = window.setTimeout(() => {
-        if (saved.bpm && saved.bpm >= 40 && saved.bpm <= 240) setBpm(saved.bpm);
-        if (saved.beats && [2, 3, 4, 6].includes(saved.beats)) {
-          setBeatsPerBar(saved.beats);
-        }
-      }, 0);
     } catch {
       // Ignore malformed local preferences.
-      preferencesLoadedRef.current = true;
     }
+    const timer = window.setTimeout(() => {
+      if (saved.bpm && saved.bpm >= 40 && saved.bpm <= 240) setBpm(saved.bpm);
+      if (saved.beats && [2, 3, 4, 6].includes(saved.beats)) {
+        setBeatsPerBar(saved.beats);
+      }
+      preferencesLoadedRef.current = true;
+    }, 0);
     return () => {
       if (timer) window.clearTimeout(timer);
     };
