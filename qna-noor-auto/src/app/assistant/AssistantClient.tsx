@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Input } from "@/components/ui";
+import { Badge, Button, Input } from "@/components/ui";
 
 type TranscriptEntry = {
   role: "user" | "assistant";
@@ -740,6 +740,16 @@ export function AssistantClient({
                 <ul className="mt-2 space-y-1 text-xs text-zinc-500">
                   {entry.steps.map((step, stepIndex) => (
                     <li key={`${step.tool}-${stepIndex}`}>
+                      {step.tool === "remember" &&
+                        step.confirmation.startsWith("Remembered") && (
+                          <Badge tone="accent" className="mr-2">Remembered</Badge>
+                        )}
+                      {step.tool === "forget" &&
+                        step.confirmation.startsWith("Forgot") && (
+                          <Badge tone="accent" className="mr-2">
+                            {step.confirmation}
+                          </Badge>
+                        )}
                       {step.confirmation}
                       {step.link && (
                         <Link

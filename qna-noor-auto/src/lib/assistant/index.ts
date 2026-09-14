@@ -6,11 +6,16 @@ export {
   adjustAssistantInventory,
   createAssistantInventoryPart,
   getAssistantFinancialSummary,
+  getAssistantSong,
+  getAssistantSongs,
   getAssistantInventoryOverview,
   getAssistantReportsSummary,
   getAssistantUpcomingEvents,
   readAssistantNote,
   removeAssistantCalendarEvent,
+  saveAssistantSongLyrics,
+  setAssistantLyricNote,
+  logAssistantPractice,
   updateAssistantNote,
 } from "./actions";
 export type {

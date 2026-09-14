@@ -19,12 +19,215 @@ import { createNoteForOrg } from "@/lib/notes";
 import { enabledFeatureSet } from "@/lib/features";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
+import {
+  parseLyrics,
+  parseLyricsMeta,
+  LyricsTextSchema,
+  type LyricsMeta,
+} from "@/lib/lyrics";
 
 export type AssistantResult<T> = {
   data: T;
   confirmation: string;
   link?: { href: string; label: string };
 };
+
+const songSelectorSchema = z.object({
+  id: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+});
+
+type SongSelector = z.input<typeof songSelectorSchema>;
+
+async function findAssistantSong(orgId: string, selector: SongSelector) {
+  const id = requireOrgId(orgId);
+  const input = songSelectorSchema.parse(selector);
+  if (!input.id && !input.title) throw new Error("Tell me the song title or ID.");
+  return db.song.findFirst({
+    where: {
+      orgId: id,
+      ...(input.id ? { id: input.id } : { title: input.title }),
+    },
+    include: {
+      tasks: { orderBy: { sortOrder: "asc" } },
+      ideas: { orderBy: { createdAt: "desc" }, take: 10 },
+      practiceSessions: {
+        where: { startedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+        orderBy: { startedAt: "desc" },
+        select: { durationSec: true, startedAt: true },
+      },
+      beats: {
+        orderBy: { updatedAt: "desc" },
+        select: { title: true, bpm: true, kit: true },
+      },
+    },
+  });
+}
+
+export async function getAssistantSongs(orgId: string) {
+  const id = requireOrgId(orgId);
+  const songs = await db.song.findMany({
+    where: { orgId: id },
+    orderBy: [{ updatedAt: "desc" }, { sortOrder: "asc" }],
+    include: {
+      tasks: { select: { done: true } },
+      practiceSessions: {
+        orderBy: { startedAt: "desc" },
+        take: 1,
+        select: { startedAt: true },
+      },
+    },
+  });
+  return {
+    data: songs.map((song) => ({
+      id: song.id,
+      title: song.title,
+      stage: song.stage,
+      key: song.musicalKey,
+      bpm: song.bpm,
+      hasLyrics: Boolean(song.lyrics?.trim()),
+      taskProgress: `${song.tasks.filter((task) => task.done).length}/${song.tasks.length}`,
+      lastPracticedAt: song.practiceSessions[0]?.startedAt ?? null,
+    })),
+    confirmation: `Found ${songs.length} song${songs.length === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function getAssistantSong(
+  orgId: string,
+  selector: SongSelector,
+) {
+  const song = await findAssistantSong(orgId, selector);
+  if (!song) throw new Error("I couldn't find that song.");
+  const meta = parseLyricsMeta(song.lyricsMeta);
+  const lines = parseLyrics(song.lyrics ?? "")
+    .filter((line): line is Extract<typeof line, { kind: "line" }> => line.kind === "line")
+    .map((line) => ({
+      text: line.text,
+      syllables: line.syllables,
+      bars: meta.lines[line.text]?.bars ?? null,
+      note: meta.lines[line.text]?.note ?? null,
+    }));
+  return {
+    data: {
+      id: song.id,
+      title: song.title,
+      stage: song.stage,
+      key: song.musicalKey,
+      bpm: song.bpm,
+      genre: song.genre,
+      collaborators: song.collaborators,
+      notes: song.notes,
+      lyrics: song.lyrics,
+      tasks: song.tasks.map(({ id, stage, label, done, sortOrder }) => ({
+        id,
+        stage,
+        label,
+        done,
+        sortOrder,
+      })),
+      lines,
+      ideas: song.ideas.map((idea) => ({
+        title: idea.title,
+        text: idea.body,
+      })),
+      practiceLast30Days: {
+        minutes: Math.round(
+          song.practiceSessions.reduce((sum, session) => sum + session.durationSec, 0) / 60,
+        ),
+        sessions: song.practiceSessions.length,
+      },
+      beats: song.beats,
+    },
+    confirmation: `Loaded ${song.title}.`,
+  };
+}
+
+export async function saveAssistantSongLyrics(
+  orgId: string,
+  selector: SongSelector,
+  lyrics: string,
+) {
+  const song = await findAssistantSong(orgId, selector);
+  if (!song) throw new Error("I couldn't find that song.");
+  LyricsTextSchema.parse(lyrics);
+  const existing = parseLyricsMeta(song.lyricsMeta);
+  const lineTexts = new Set(
+    parseLyrics(lyrics)
+      .filter((line): line is Extract<typeof line, { kind: "line" }> => line.kind === "line")
+      .map((line) => line.text),
+  );
+  const lines = Object.fromEntries(
+    Object.entries(existing.lines).filter(([text]) => lineTexts.has(text)),
+  );
+  const lyricsMeta: LyricsMeta = { v: 1, lines };
+  await db.song.update({ where: { id: song.id }, data: { lyrics, lyricsMeta: JSON.stringify(lyricsMeta) } });
+  return {
+    data: { id: song.id, title: song.title },
+    confirmation: `Saved lyrics for ${song.title}.`,
+  };
+}
+
+export async function setAssistantLyricNote(
+  orgId: string,
+  selector: SongSelector,
+  line: string,
+  note: string,
+) {
+  const song = await findAssistantSong(orgId, selector);
+  if (!song) throw new Error("I couldn't find that song.");
+  const lyricLines = parseLyrics(song.lyrics ?? "").filter(
+    (item): item is Extract<typeof item, { kind: "line" }> => item.kind === "line",
+  );
+  const exact = lyricLines.find((item) => item.text === line);
+  const matched = exact ?? lyricLines.find(
+    (item) => item.text.toLowerCase() === line.toLowerCase(),
+  );
+  if (!matched) throw new Error("I couldn't find that lyric line.");
+  const meta = parseLyricsMeta(song.lyricsMeta);
+  const current = meta.lines[matched.text] ?? {};
+  const trimmedNote = note.trim().slice(0, 300);
+  meta.lines[matched.text] = {
+    ...current,
+    ...(trimmedNote ? { note: trimmedNote } : {}),
+  };
+  if (!trimmedNote) delete meta.lines[matched.text].note;
+  await db.song.update({
+    where: { id: song.id },
+    data: { lyricsMeta: JSON.stringify(meta) },
+  });
+  return {
+    data: { title: song.title, line: matched.text, note: trimmedNote || null },
+    confirmation: `Saved the phrasing note for “${matched.text}”.`,
+  };
+}
+
+export async function logAssistantPractice(
+  orgId: string,
+  minutes: number,
+  selector?: SongSelector,
+  bpm?: number,
+  notes?: string,
+) {
+  const id = requireOrgId(orgId);
+  const song = selector ? await findAssistantSong(id, selector) : null;
+  if (selector && !song) throw new Error("I couldn't find that song.");
+  const duration = Math.max(1, Math.min(240, Math.round(minutes)));
+  const session = await db.practiceSession.create({
+    data: {
+      orgId: id,
+      songId: song?.id,
+      startedAt: new Date(Date.now() - duration * 60_000),
+      durationSec: duration * 60,
+      bpm: bpm ?? null,
+      notes: notes?.trim().slice(0, 1000) || null,
+    },
+  });
+  return {
+    data: { id: session.id, minutes: duration, song: song?.title ?? null },
+    confirmation: `Logged ${duration} minutes${song ? ` for ${song.title}` : ""}.`,
+  };
+}
 
 const orgIdSchema = z.string().trim().min(1, "Organization is required.");
 const dateInputSchema = z.union([z.date(), z.string().trim().min(1)]);
