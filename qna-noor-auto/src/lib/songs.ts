@@ -66,7 +66,7 @@ export async function moveSong(orgId: string, id: string, stage: SongStage) {
     data: {
       stage,
       releasedAt:
-        stage === "RELEASED" ? existing.releasedAt ?? new Date() : null,
+        stage === "RELEASED" ? existing.releasedAt ?? new Date() : existing.releasedAt,
     },
   });
 }

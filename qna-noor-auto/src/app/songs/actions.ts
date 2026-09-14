@@ -9,7 +9,7 @@ import {
   isSongStage,
   moveSong as moveSongRecord,
   requireMusicPack,
-  type SongStage,
+  SONG_STAGES,
 } from "@/lib/songs";
 
 const SongSchema = z.object({
@@ -44,11 +44,13 @@ export async function createSong(formData: FormData) {
       orgId,
       ...data,
       tasks: {
-        create: DEFAULT_STAGE_TASKS[data.stage as SongStage].map((label, sortOrder) => ({
-          stage: data.stage,
-          label,
-          sortOrder,
-        })),
+        create: SONG_STAGES.flatMap((stage) =>
+          DEFAULT_STAGE_TASKS[stage.id].map((label, sortOrder) => ({
+            stage: stage.id,
+            label,
+            sortOrder,
+          })),
+        ),
       },
     },
   });
@@ -72,7 +74,9 @@ export async function updateSong(id: string, formData: FormData) {
     data: {
       ...data,
       releasedAt:
-        data.stage === "RELEASED" ? existing.releasedAt ?? new Date() : null,
+        data.stage === "RELEASED"
+          ? existing.releasedAt ?? new Date()
+          : existing.releasedAt,
     },
   });
   revalidatePath("/songs");
