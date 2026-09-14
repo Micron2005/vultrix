@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { logPractice } from "./actions";
 
@@ -9,20 +9,34 @@ type SongOption = {
   title: string;
 };
 
-const STORAGE_KEY = "vx_metronome_v1";
-
 function formatTimer(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function Metronome({ songs }: { songs: SongOption[] }) {
-  const [bpm, setBpm] = useState(100);
-  const [beatsPerBar, setBeatsPerBar] = useState(4);
+export function Metronome({
+  songs,
+  bpm,
+  beatsPerBar,
+  metronomeRunning,
+  currentBeat,
+  setBpm,
+  setBeatsPerBar,
+  setMetronomeRunning,
+  setCurrentBeat,
+}: {
+  songs: SongOption[];
+  bpm: number;
+  beatsPerBar: number;
+  metronomeRunning: boolean;
+  currentBeat: number;
+  setBpm: Dispatch<SetStateAction<number>>;
+  setBeatsPerBar: Dispatch<SetStateAction<number>>;
+  setMetronomeRunning: Dispatch<SetStateAction<boolean>>;
+  setCurrentBeat: Dispatch<SetStateAction<number>>;
+}) {
   const [volume, setVolume] = useState(0.6);
   const [muted, setMuted] = useState(false);
-  const [metronomeRunning, setMetronomeRunning] = useState(false);
-  const [currentBeat, setCurrentBeat] = useState(-1);
   const [timerStatus, setTimerStatus] = useState<"idle" | "running" | "paused">("idle");
   const [elapsedSec, setElapsedSec] = useState(0);
   const [showFinish, setShowFinish] = useState(false);
@@ -31,7 +45,6 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
   const beatsRef = useRef(beatsPerBar);
   const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
-  const preferencesLoadedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const schedulerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nextNoteTimeRef = useRef(0);
@@ -43,35 +56,7 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
     beatsRef.current = beatsPerBar;
     volumeRef.current = volume;
     mutedRef.current = muted;
-    if (preferencesLoadedRef.current) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ bpm, beats: beatsPerBar }),
-      );
-    }
   }, [bpm, beatsPerBar, volume, muted]);
-
-  useEffect(() => {
-    let saved: { bpm?: number; beats?: number } = {};
-    try {
-      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
-        bpm?: number;
-        beats?: number;
-      };
-    } catch {
-      // Ignore malformed local preferences.
-    }
-    const timer = window.setTimeout(() => {
-      if (saved.bpm && saved.bpm >= 40 && saved.bpm <= 240) setBpm(saved.bpm);
-      if (saved.beats && [2, 3, 4, 6].includes(saved.beats)) {
-        setBeatsPerBar(saved.beats);
-      }
-      preferencesLoadedRef.current = true;
-    }, 0);
-    return () => {
-      if (timer) window.clearTimeout(timer);
-    };
-  }, []);
 
   useEffect(() => {
     if (timerStatus !== "running") return;
@@ -186,8 +171,8 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
   }
 
   return (
-    <Card className="p-5">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+    <>
+      <Card className="p-5">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -235,42 +220,46 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button type="button" onClick={metronomeRunning ? stopMetronome : startMetronome}>{metronomeRunning ? "Stop" : "Start"}</Button>
-            <Button type="button" variant="secondary" onClick={() => setTimerStatus((value) => value === "running" ? "paused" : "running")}>{timerStatus === "running" ? "Pause timer" : "Start timer"}</Button>
+          </div>
+        </div>
+      </Card>
+      <Card className="p-5">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Practice timer</p>
+          <p className="mt-2 text-5xl font-semibold tabular-nums text-zinc-900">{formatTimer(elapsedSec)}</p>
+          <p className="mt-2 text-xs text-zinc-500">{timerStatus === "running" ? "Timer running" : timerStatus === "paused" ? "Paused" : "Ready when you are."}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => setTimerStatus((value) => value === "running" ? "paused" : "running")}>{timerStatus === "running" ? "Pause" : "Start timer"}</Button>
             <Button type="button" variant="ghost" onClick={resetTimer}>Reset</Button>
             <Button type="button" variant="ghost" onClick={finishSession}>Finish session</Button>
           </div>
         </div>
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Practice timer</p>
-          <p className="mt-2 text-5xl font-semibold tabular-nums text-zinc-900">{formatTimer(elapsedSec)}</p>
-          <p className="mt-2 text-xs text-zinc-500">{timerStatus === "running" ? "Timer running" : timerStatus === "paused" ? "Paused" : "Ready when you are."}</p>
-        </div>
-      </div>
-      {showFinish && (
-        <form action={saveSession} className="mt-6 space-y-3 border-t border-zinc-200 pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900">Finish session</h3>
-            <span className="text-xs text-zinc-500">{formatTimer(elapsedSec)} · {bpm} BPM</span>
-          </div>
-          {elapsedSec < 30 ? (
-            <p className="text-xs text-zinc-500">Sessions under 30 seconds are not saved.</p>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Select name="songId" aria-label="Song">
-                  <option value="">No song</option>
-                  {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-                </Select>
-                <input type="hidden" name="durationSec" value={elapsedSec} />
-                <input type="hidden" name="bpm" value={bpm} />
-              </div>
-              <Textarea name="notes" placeholder="What did you work on?" rows={3} />
-              <Button type="submit">Save session</Button>
-            </>
-          )}
-          {error && <p className="text-xs text-red-700">{error}</p>}
-        </form>
-      )}
-    </Card>
+        {showFinish && (
+          <form action={saveSession} className="mt-6 space-y-3 border-t border-zinc-200 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900">Finish session</h3>
+              <span className="text-xs text-zinc-500">{formatTimer(elapsedSec)} · {bpm} BPM</span>
+            </div>
+            {elapsedSec < 30 ? (
+              <p className="text-xs text-zinc-500">Sessions under 30 seconds are not saved.</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Select name="songId" aria-label="Song">
+                    <option value="">No song</option>
+                    {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+                  </Select>
+                  <input type="hidden" name="durationSec" value={elapsedSec} />
+                  <input type="hidden" name="bpm" value={bpm} />
+                </div>
+                <Textarea name="notes" placeholder="What did you work on?" rows={3} />
+                <Button type="submit">Save session</Button>
+              </>
+            )}
+            {error && <p className="text-xs text-red-700">{error}</p>}
+          </form>
+        )}
+      </Card>
+    </>
   );
 }

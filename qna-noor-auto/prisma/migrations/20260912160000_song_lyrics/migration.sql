@@ -1,0 +1,3 @@
+ALTER TABLE "Song"
+ADD COLUMN "lyrics" TEXT,
+ADD COLUMN "lyricsMeta" TEXT;
