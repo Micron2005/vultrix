@@ -302,9 +302,9 @@ export function Nav({
                 onClick={closeMobile}
                 aria-current={active ? "page" : undefined}
                 className={
-                  "rounded-lg px-3 py-2 text-sm transition-colors " +
+                  "relative rounded-lg px-3 py-2 text-sm transition-colors " +
                   (active
-                    ? "bg-[var(--vx-accent-50)] font-medium text-[var(--vx-accent-700)]"
+                    ? "bg-[var(--vx-accent-600)]/15 font-medium text-zinc-900 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[var(--vx-accent-600)]"
                     : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900")
                 }
               >
@@ -323,16 +323,18 @@ export function Nav({
             <ExternalLink className="h-4 w-4" />
             View landing page
           </a>
-          <form action="/logout" method="post" className="mx-1 mt-3 rounded-lg border border-zinc-200 p-1">
-            <button
-              type="submit"
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-              data-testid="nav-sign-out"
-            >
-              Sign out
-            </button>
-          </form>
         </nav>
+      </div>
+      <div className="mt-auto shrink-0 border-t border-zinc-200 p-2">
+        <form action="/logout" method="post" className="rounded-lg border border-zinc-200 p-1">
+          <button
+            type="submit"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            data-testid="nav-sign-out"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -375,9 +377,9 @@ export function Nav({
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={
-                      "whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors " +
+                      "relative whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors " +
                       (active
-                        ? "bg-[var(--vx-accent-50)] font-medium text-[var(--vx-accent-700)]"
+                        ? "bg-[var(--vx-accent-600)]/15 font-medium text-zinc-900 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[var(--vx-accent-600)]"
                         : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900")
                     }
                   >

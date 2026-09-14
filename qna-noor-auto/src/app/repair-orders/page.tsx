@@ -198,7 +198,7 @@ export default async function RepairOrdersPage({
       />
 
       <form
-        className="mb-4 flex flex-wrap items-center gap-2 max-w-3xl"
+        className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
         method="GET"
       >
         <Input
@@ -209,9 +209,9 @@ export default async function RepairOrdersPage({
               ? "Search RO #, customer, company, VIN, plate, complaint…"
               : "Search invoice #, customer, company, complaint…"
           }
-          className="flex-1 min-w-[16rem]"
+          className="min-w-0"
         />
-        <Select name="view" defaultValue={viewMode}>
+        <Select name="view" defaultValue={viewMode} className="sm:w-48">
           <option value="open">
             Open only (hide paid/cancelled)
           </option>
@@ -221,11 +221,11 @@ export default async function RepairOrdersPage({
               : "All invoices (include paid/cancelled)"}
           </option>
         </Select>
-        <Select name="sort" defaultValue={sortMode}>
+        <Select name="sort" defaultValue={sortMode} className="sm:w-48">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </Select>
-        <Select name="status" defaultValue={statusFilter ?? ""}>
+        <Select name="status" defaultValue={statusFilter ?? ""} className="sm:w-48">
           <option value="">Any status</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>

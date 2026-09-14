@@ -199,7 +199,7 @@ export function SegmentedControl({
             className={cn(
               "min-h-8 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
               value === option.value
-                ? "bg-white text-[var(--vx-accent-700)] shadow-sm"
+                ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)] shadow-sm"
                 : "text-zinc-600 hover:text-zinc-900",
             )}
             onClick={() => onChange(option.value)}
@@ -327,7 +327,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium",
         badgeTones[tone],
         className,
       )}
@@ -448,6 +448,7 @@ export function StatTile({
   value,
   hint,
   delta,
+  className,
 }: {
   label: string;
   value: string;
@@ -456,6 +457,7 @@ export function StatTile({
     value: string;
     tone: "up" | "down" | "flat";
   };
+  className?: string;
 }) {
   const deltaClass = {
     up: "text-green-700",
@@ -463,7 +465,7 @@ export function StatTile({
     flat: "text-zinc-500",
   };
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5">
+    <div className={cn("rounded-xl border border-zinc-200 bg-white p-5", className)}>
       <p className="text-sm text-zinc-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-zinc-900">
         {value}
