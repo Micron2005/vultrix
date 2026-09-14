@@ -227,6 +227,20 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
     goal: { metric: "UNITS_SOLD", period: "MONTH", target: 10 },
   },
   {
+    id: "music-practice-hours",
+    title: "Practice 5 hours a week",
+    blurb: "Track your timed music practice.",
+    accountTypes: ["PERSONAL"],
+    pack: "music",
+    shape: "number",
+    goal: {
+      metric: "practice_minutes",
+      period: "WEEK",
+      target: 300,
+      unit: "min",
+    },
+  },
+  {
     id: "music-practice",
     title: "Practice 30 minutes",
     blurb: "Build a daily music practice habit.",

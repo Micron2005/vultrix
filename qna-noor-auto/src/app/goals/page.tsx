@@ -287,7 +287,7 @@ export default async function GoalsPage({
   const teamToday = users.length >= 2 ? await loadTeamToday(user.orgId, timezone) : [];
   const starterTemplates = templatesFor(
     normalizeGoalTemplateAccountType(accountType),
-    (metric) => metricAllowed(metric, { accountType, features }),
+    (metric) => metricAllowed(metric, { accountType, features, focusPacks: user.focusPacks }),
     user.focusPacks,
   ).filter((template) => {
     const title = template.title.trim().toLowerCase();
@@ -543,6 +543,7 @@ export default async function GoalsPage({
             <NewGoalPicker
               accountType={accountType}
               features={[...features]}
+              focusPacks={user.focusPacks}
               hasInvoices={hasInvoices}
               today={today}
               goals={active.map(({ goal }) => ({ id: goal.id, title: goal.title }))}

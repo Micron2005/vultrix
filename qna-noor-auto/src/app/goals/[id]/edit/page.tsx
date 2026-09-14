@@ -39,6 +39,7 @@ export default async function EditGoalPage({
           submitLabel="Save goal"
           accountType={user.accountType ?? "AUTO_SHOP"}
           features={[...features]}
+          focusPacks={user.focusPacks}
           hasInvoices={hasInvoices}
           initial={{
             title: goal.title,

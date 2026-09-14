@@ -9,6 +9,7 @@ import { RoutineForm } from "./RoutineForm";
 type NewGoalPickerProps = {
   accountType: string;
   features: string[];
+  focusPacks: string[];
   hasInvoices: boolean;
   today: string;
   goals: Array<{ id: string; title: string }>;
@@ -18,6 +19,7 @@ type NewGoalPickerProps = {
 export function NewGoalPicker({
   accountType,
   features,
+  focusPacks,
   hasInvoices,
   today,
   goals,
@@ -48,6 +50,7 @@ export function NewGoalPicker({
             action={createGoal}
             accountType={accountType}
             features={features}
+            focusPacks={focusPacks}
             hasInvoices={hasInvoices}
             initial={{ startDate: today }}
           />

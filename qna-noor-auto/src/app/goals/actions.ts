@@ -99,6 +99,7 @@ function goalInput(
   timezone: string,
   accountType: string,
   features: Set<string>,
+  focusPacks: readonly string[],
 ) {
   const title = text(fd, "title");
   const metric = text(fd, "metric") as GoalMetric;
@@ -124,7 +125,7 @@ function goalInput(
 
   if (!title) throw new Error("Goal name is required.");
   if (!GOAL_METRICS.includes(metric)) throw new Error("Goal type is invalid.");
-  if (!metricAllowed(metric, { accountType, features })) {
+  if (!metricAllowed(metric, { accountType, features, focusPacks })) {
     throw new Error("That goal type is not available for this account.");
   }
   if (!GOAL_PERIODS.includes(period)) throw new Error("Goal period is invalid.");
@@ -156,9 +157,9 @@ function goalInput(
 }
 
 export async function createGoal(fd: FormData) {
-  const { orgId, timezone, accountType, features } = await requireGoalsContext();
+  const { orgId, timezone, accountType, features, focusPacks } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, accountType, features);
+  const input = goalInput(fd, timezone, accountType, features, focusPacks);
   const goal = await db.goal.create({ data: { orgId, ...input } });
   await logActivity({
     orgId,
@@ -178,7 +179,7 @@ export async function applyGoalTemplate(fd: FormData) {
   const user = await requireUser();
   const template = templatesFor(
     normalizeGoalTemplateAccountType(accountType),
-    (metric) => metricAllowed(metric, { accountType, features }),
+    (metric) => metricAllowed(metric, { accountType, features, focusPacks }),
     focusPacks,
   ).find((candidate) => candidate.id === text(fd, "templateId"));
   if (!template) throw new Error("Starter idea is not available.");
@@ -255,9 +256,9 @@ export async function applyGoalTemplate(fd: FormData) {
 }
 
 export async function updateGoal(id: string, fd: FormData) {
-  const { orgId, timezone, accountType, features } = await requireGoalsContext();
+  const { orgId, timezone, accountType, features, focusPacks } = await requireGoalsContext();
   const user = await requireUser();
-  const input = goalInput(fd, timezone, accountType, features);
+  const input = goalInput(fd, timezone, accountType, features, focusPacks);
   const goal = await db.goal.updateMany({
     where: { id, orgId },
     data: input,
