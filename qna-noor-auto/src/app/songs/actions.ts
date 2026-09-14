@@ -60,11 +60,19 @@ export async function createSong(formData: FormData) {
 export async function updateSong(id: string, formData: FormData) {
   const { orgId } = await requireMusicPack();
   const data = songData(formData);
+  const existing = await db.song.findFirst({
+    where: { id, orgId },
+    select: { releasedAt: true },
+  });
+  if (!existing) {
+    redirect("/songs");
+  }
   await db.song.updateMany({
     where: { id, orgId },
     data: {
       ...data,
-      releasedAt: data.stage === "RELEASED" ? new Date() : null,
+      releasedAt:
+        data.stage === "RELEASED" ? existing.releasedAt ?? new Date() : null,
     },
   });
   revalidatePath("/songs");

@@ -51,7 +51,40 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
         <div className="mt-5 space-y-2">
           {otherTasks.map((stage) => (
             <details key={stage.id} className="rounded-md border border-zinc-200 px-3 py-2">
-              <summary className="cursor-pointer text-sm text-zinc-700">{stage.label} · {stage.tasks.filter((task) => task.done).length}/{stage.tasks.length}</summary>
+              <summary className="cursor-pointer text-sm text-zinc-700">
+                {stage.label} · {stage.tasks.filter((task) => task.done).length}/{stage.tasks.length}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {stage.tasks.map((task) => (
+                  <form
+                    key={task.id}
+                    action={toggleSongTask.bind(null, task.id, !task.done)}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <button
+                      type="submit"
+                      className="flex min-w-0 items-center gap-2 text-left text-sm"
+                    >
+                      <input type="checkbox" checked={task.done} readOnly />
+                      <span
+                        className={
+                          task.done
+                            ? "text-zinc-400 line-through"
+                            : "text-zinc-700"
+                        }
+                      >
+                        {task.label}
+                      </span>
+                    </button>
+                    <button
+                      formAction={removeSongTask.bind(null, task.id)}
+                      className="text-xs text-red-600"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                ))}
+              </div>
             </details>
           ))}
         </div>

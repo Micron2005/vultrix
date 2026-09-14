@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, Card, LinkButton } from "@/components/ui";
 import { SONG_STAGES } from "@/lib/songStages";
@@ -56,7 +57,7 @@ export function SongsBoard({
                   const songIndex = SONG_STAGES.findIndex((item) => item.id === song.stage);
                   return (
                     <Card key={song.id} className="p-3">
-                      <a href={`/songs/${song.id}`} className="block">
+                      <Link href={`/songs/${song.id}`} className="block">
                         <p className="font-medium text-zinc-900">{song.title}</p>
                         {(song.musicalKey || song.bpm) && (
                           <p className="mt-1 text-xs text-zinc-500">
@@ -66,7 +67,7 @@ export function SongsBoard({
                         <p className="mt-2 text-xs text-zinc-500">
                           {song.tasks.filter((task) => task.done).length}/{song.tasks.length} tasks
                         </p>
-                      </a>
+                      </Link>
                       <div className="mt-2 flex justify-between">
                         <Button
                           type="button"

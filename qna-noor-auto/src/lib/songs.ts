@@ -45,11 +45,17 @@ export async function getSong(orgId: string, id: string) {
 }
 
 export async function moveSong(orgId: string, id: string, stage: SongStage) {
+  const existing = await db.song.findFirst({
+    where: { id, orgId },
+    select: { releasedAt: true },
+  });
+  if (!existing) return;
   return db.song.updateMany({
     where: { id, orgId },
     data: {
       stage,
-      releasedAt: stage === "RELEASED" ? new Date() : null,
+      releasedAt:
+        stage === "RELEASED" ? existing.releasedAt ?? new Date() : null,
     },
   });
 }
