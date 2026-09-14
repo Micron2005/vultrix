@@ -1124,6 +1124,7 @@ model Organization {
   status    String   @default("ACTIVE")
   accountType String  @default("AUTO_SHOP")
   features   String[] @default([])
+  focusPacks String[] @default([])
   shareFixes Boolean  @default(false)
   timezone   String   @default("America/New_York")
 
@@ -1196,8 +1197,39 @@ model Organization {
   routineItems      RoutineItem[]
   routineCheckOffs  RoutineCheckOff[]
   notifications    Notification[]
+  songs             Song[]
 
   @@index([status])
+}
+
+model Song {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title         String
+  stage         String   @default("IDEA")
+  musicalKey    String?
+  bpm           Int?
+  genre         String?
+  collaborators String?
+  notes         String?
+  releasedAt    DateTime?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tasks         SongTask[]
+
+  @@index([orgId, stage])
+}
+
+model SongTask {
+  id        String   @id @default(cuid())
+  songId    String
+  song      Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  stage     String
+  label     String
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
 }
 
 model ActivityLog {

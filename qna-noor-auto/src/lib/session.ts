@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
 import { SESSION_COOKIE, userIdFromToken } from "./auth";
+import { normalizeFocusPacks, type FocusPackId } from "./focusPacks";
 
 export type Role = "SUPERADMIN" | "OWNER" | "ADMIN" | "STAFF";
 
@@ -30,6 +31,7 @@ export type CurrentUser = {
   orgStatus: string | null;
   accountType: string | null;
   features: string[];
+  focusPacks: FocusPackId[];
   aiAssistantEnabled: boolean;
   aiAssistantName: string;
   aiAssistantVoice: string | null;
@@ -66,6 +68,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     orgStatus: user.organization?.status ?? null,
     accountType: user.organization?.accountType ?? null,
     features: user.organization?.features ?? [],
+    focusPacks:
+      user.organization?.accountType === "PERSONAL"
+        ? normalizeFocusPacks(user.organization.focusPacks)
+        : [],
     aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
     aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
     aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,

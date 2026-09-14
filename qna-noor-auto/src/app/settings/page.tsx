@@ -63,6 +63,8 @@ import { resetOnboarding } from "@/app/onboarding-actions";
 import { ShopBranding } from "./ShopBranding";
 import { TestAiKeyButton } from "./TestAiKeyButton";
 import { saveVehicleIntelSharing } from "./vehicle-intel-actions";
+import { saveFocusPacks } from "./focus-actions";
+import { FOCUS_PACKS } from "@/lib/focusPacks";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +164,7 @@ export default async function SettingsPage({
     canViewFinancials: Boolean(user && canViewFinancials(user.role)),
     canManageUsers: Boolean(user && canManageUsers(user.role)),
     aiAssistantEnabled: org.aiAssistantEnabled,
+    focusPacks: user.focusPacks,
   }).map((item) => ({
     ...item,
     label: navItemLabel(item, {
@@ -335,6 +338,38 @@ export default async function SettingsPage({
             : "Account configuration"
         }
       />
+      {accountType === "PERSONAL" && (
+        <Card className="mb-6 max-w-2xl">
+          <CardHeader title="What are you using Vultrix for?" />
+          <form action={saveFocusPacks} className="space-y-4 p-6">
+            <p className="text-sm text-zinc-600">
+              Turns on the pages, dashboard cards and goal templates for what
+              you do. Pick as many as you like.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {FOCUS_PACKS.map((pack) => (
+                <label
+                  key={pack.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 hover:border-zinc-400"
+                >
+                  <input
+                    type="checkbox"
+                    name="packs"
+                    value={pack.id}
+                    defaultChecked={user.focusPacks.includes(pack.id)}
+                    className="mt-1 h-4 w-4 rounded border-zinc-300"
+                  />
+                  <span>
+                    <span className="font-medium text-zinc-900">{pack.label}</span>
+                    <span className="mt-1 block text-xs text-zinc-500">{pack.blurb}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <SaveButton>Save focus packs</SaveButton>
+          </form>
+        </Card>
+      )}
       <Card className="mb-6 max-w-2xl">
         <CardHeader title="Appearance" />
         <div className="flex flex-col items-stretch gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">

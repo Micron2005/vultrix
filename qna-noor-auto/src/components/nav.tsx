@@ -30,6 +30,7 @@ type NavProps = {
   enabledFeatures?: string[];
   accountType?: string | null;
   aiAssistantEnabled?: boolean;
+  focusPacks?: readonly string[];
   canViewFinancials?: boolean;
   navLayout?: string | null;
   navDefault?: string | null;
@@ -65,6 +66,7 @@ export function Nav({
   enabledFeatures = [],
   accountType,
   aiAssistantEnabled = false,
+  focusPacks = [],
   canViewFinancials = true,
   navLayout,
   navDefault,
@@ -114,6 +116,7 @@ export function Nav({
         canViewFinancials,
         canManageUsers: Boolean(canManageUsers),
         aiAssistantEnabled,
+        focusPacks,
       })
   ).map((item) => {
     const label = navItemLabel(item, { accountType, enabledFeatures });
