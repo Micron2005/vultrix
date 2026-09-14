@@ -4,7 +4,7 @@ import { listBeats } from "@/lib/beats";
 import { formatDateTime } from "@/lib/utils";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../SongsTabs";
-import { createBeat } from "./actions";
+import { createBeat, deleteBeat } from "./actions";
 
 export default async function BeatsPage({
   searchParams,
@@ -51,6 +51,12 @@ export default async function BeatsPage({
                   {beat.song && <p className="mt-3 inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-700">{beat.song.title}</p>}
                   <p className="mt-3 text-xs text-zinc-500">Updated {formatDateTime(beat.updatedAt)}</p>
                 </Link>
+                <form
+                  action={deleteBeat.bind(null, beat.id)}
+                  className="mt-4"
+                >
+                  <Button type="submit" size="sm" variant="danger">Delete</Button>
+                </form>
               </Card>
             ))}
           </div>
