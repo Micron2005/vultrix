@@ -9,6 +9,11 @@ import {
   PageHeader,
   Select,
   StatusBadge,
+  Table,
+  TBody,
+  TD,
+  THead,
+  TR,
 } from "@/components/ui";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -193,7 +198,7 @@ export default async function RepairOrdersPage({
       />
 
       <form
-        className="mb-4 flex flex-wrap items-center gap-2 max-w-3xl"
+        className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
         method="GET"
       >
         <Input
@@ -204,9 +209,9 @@ export default async function RepairOrdersPage({
               ? "Search RO #, customer, company, VIN, plate, complaint…"
               : "Search invoice #, customer, company, complaint…"
           }
-          className="flex-1 min-w-[16rem]"
+          className="min-w-0"
         />
-        <Select name="view" defaultValue={viewMode}>
+        <Select name="view" defaultValue={viewMode} className="sm:w-48">
           <option value="open">
             Open only (hide paid/cancelled)
           </option>
@@ -216,11 +221,11 @@ export default async function RepairOrdersPage({
               : "All invoices (include paid/cancelled)"}
           </option>
         </Select>
-        <Select name="sort" defaultValue={sortMode}>
+        <Select name="sort" defaultValue={sortMode} className="sm:w-48">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </Select>
-        <Select name="status" defaultValue={statusFilter ?? ""}>
+        <Select name="status" defaultValue={statusFilter ?? ""} className="sm:w-48">
           <option value="">Any status</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -265,57 +270,55 @@ export default async function RepairOrdersPage({
         />
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-2 font-medium">RO #</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
+                <th className="px-4 py-2.5 text-left">RO #</th>
+                <th className="px-4 py-2.5 text-left">Customer</th>
                 {isAutoShop && (
-                  <th className="px-4 py-2 font-medium">Vehicle</th>
+                  <th className="px-4 py-2.5 text-left">Vehicle</th>
                 )}
-                <th className="px-4 py-2 font-medium">Complaint</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Opened</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
+                <th className="px-4 py-2.5 text-left">Complaint</th>
+                <th className="px-4 py-2.5 text-left">Status</th>
+                <th className="px-4 py-2.5 text-left">Opened</th>
+                <th className="px-4 py-2.5 text-right">Total</th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
+            </THead>
+            <TBody>
               {ros.map((ro) => {
                 const shopFees = shopFeesByRO.get(ro.id) ?? [];
                 const { total } = computeTotals({ ...excludeDeclinedJobLines(ro), shopFees });
                 return (
-                  <tr key={ro.id} className="hover:bg-zinc-50">
-                    <td className="px-4 py-2">
+                  <TR key={ro.id}>
+                    <TD>
                       <Link
                         href={`/repair-orders/${ro.id}`}
                         className="font-medium text-zinc-900 hover:underline"
                       >
                         #{ro.roNumber}
                       </Link>
-                    </td>
-                    <td className="px-4 py-2">{fullName(ro.customer)}</td>
+                    </TD>
+                    <TD>{fullName(ro.customer)}</TD>
                     {isAutoShop && (
-                      <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>
+                      <TD>{vehicleLabel(ro.vehicle)}</TD>
                     )}
-                    <td className="px-4 py-2 text-zinc-600 max-w-xs truncate">
+                    <TD className="max-w-xs truncate text-zinc-600">
                       {ro.complaint ?? "—"}
-                    </td>
-                    <td className="px-4 py-2">
+                    </TD>
+                    <TD>
                       <StatusBadge status={ro.status} />
-                    </td>
-                    <td className="px-4 py-2 text-zinc-500">
+                    </TD>
+                    <TD className="text-zinc-500">
                       {formatDate(ro.openedAt)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
+                    </TD>
+                    <TD numeric>
                       {formatMoney(total)}
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 );
               })}
-            </tbody>
-            </table>
-          </div>
+            </TBody>
+          </Table>
         </Card>
       )}
     </>

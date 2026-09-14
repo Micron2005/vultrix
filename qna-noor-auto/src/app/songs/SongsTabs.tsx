@@ -8,14 +8,14 @@ export function SongsTabs({
   return (
     <nav
       aria-label="Songs"
-      className="mb-6 grid w-full grid-cols-4 gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1"
+      className="mb-6 grid w-full grid-cols-4 gap-1 rounded-lg bg-zinc-100 p-1"
     >
       <Link
         href="/songs"
         aria-current={active === "board" ? "page" : undefined}
         className={
           active === "board"
-            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)]"
+            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)] shadow-sm"
             : "inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium text-zinc-700 hover:bg-white"
         }
       >
@@ -26,7 +26,7 @@ export function SongsTabs({
         aria-current={active === "ideas" ? "page" : undefined}
         className={
           active === "ideas"
-            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)]"
+            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)] shadow-sm"
             : "inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium text-zinc-700 hover:bg-white"
         }
       >
@@ -37,7 +37,7 @@ export function SongsTabs({
         aria-current={active === "practice" ? "page" : undefined}
         className={
           active === "practice"
-            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)]"
+            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)] shadow-sm"
             : "inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium text-zinc-700 hover:bg-white"
         }
       >
@@ -48,7 +48,7 @@ export function SongsTabs({
         aria-current={active === "beats" ? "page" : undefined}
         className={
           active === "beats"
-            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)]"
+            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)] shadow-sm"
             : "inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium text-zinc-700 hover:bg-white"
         }
       >

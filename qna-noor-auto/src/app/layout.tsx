@@ -150,7 +150,9 @@ export default async function RootLayout({
           />
           <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0 print:pl-0">
             {isDemoOrg(user.orgId) && <DemoBanner />}
-            <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
+            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+              {children}
+            </div>
           </main>
           {user.aiAssistantEnabled && (
             <AssistantClient

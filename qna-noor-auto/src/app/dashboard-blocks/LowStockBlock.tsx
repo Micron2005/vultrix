@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardHeader, LinkButton } from "@/components/ui";
+import { Badge, Card, CardHeader, LinkButton, Table, TBody, TD, THead, TR } from "@/components/ui";
 import { db } from "@/lib/db";
 
 export async function LowStockBlock({
@@ -38,9 +38,8 @@ export async function LowStockBlock({
           Full inventory →
         </LinkButton>
       </CardHeader>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500">
+      <Table>
+          <THead>
             <tr>
               <th className="whitespace-nowrap px-4 py-2 font-medium">Part</th>
               <th className="whitespace-nowrap px-4 py-2 font-medium">Part #</th>
@@ -48,45 +47,35 @@ export async function LowStockBlock({
               <th className="whitespace-nowrap px-4 py-2 font-medium text-right">Reorder at</th>
               <th className="whitespace-nowrap px-4 py-2 font-medium text-right">Status</th>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
+          </THead>
+          <TBody>
             {visibleParts.map((part) => {
               const out = part.qtyOnHand <= 0;
               return (
-                <tr key={part.id} className="hover:bg-zinc-50">
-                  <td className="px-4 py-2">
+                <TR key={part.id}>
+                  <TD>
                     <Link
                       href={`/inventory/${part.id}`}
                       className="font-medium text-zinc-900 hover:underline"
                     >
                       {part.name}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs text-zinc-600">
+                  </TD>
+                  <TD className="font-mono text-xs text-zinc-600">
                     {part.partNumber ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">{part.qtyOnHand}</td>
-                  <td className="px-4 py-2 text-right text-zinc-500 tabular-nums">
+                  </TD>
+                  <TD numeric>{part.qtyOnHand}</TD>
+                  <TD numeric className="text-zinc-500">
                     {part.reorderLevel}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <span
-                      className={
-                        "text-[10px] uppercase font-semibold px-2 py-1 rounded " +
-                        (out
-                          ? "bg-red-100 text-red-800"
-                          : "bg-amber-100 text-amber-900")
-                      }
-                    >
-                      {out ? "Out" : "Low"}
-                    </span>
-                  </td>
-                </tr>
+                  </TD>
+                  <TD numeric>
+                    <Badge tone={out ? "danger" : "warning"}>{out ? "Out" : "Low"}</Badge>
+                  </TD>
+                </TR>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+      </Table>
     </Card>
   );
 }

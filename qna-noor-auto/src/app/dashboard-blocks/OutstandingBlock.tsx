@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardHeader } from "@/components/ui";
+import { Card, CardHeader, Table, TBody, TD, THead, TR, Badge } from "@/components/ui";
 import { db } from "@/lib/db";
 import { computeTotals, excludeDeclinedJobLines } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
@@ -65,9 +65,8 @@ export async function OutstandingBlock({
           `Outstanding invoices (${outstandingWithBalance.length}) · ${formatMoney(moneyOwed)} owed`
         }
       />
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500">
+      <Table>
+          <THead>
             <tr>
               <th className="whitespace-nowrap px-4 py-2 font-medium">{autoShop ? "RO #" : "Invoice #"}</th>
               <th className="whitespace-nowrap px-4 py-2 font-medium">Customer</th>
@@ -77,51 +76,43 @@ export async function OutstandingBlock({
               <th className="px-4 py-2 text-right font-medium">Paid</th>
               <th className="px-4 py-2 text-right font-medium">Balance</th>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200">
+          </THead>
+          <TBody>
             {outstandingWithBalance.map(({ ro, total, paid, balance }) => (
-              <tr key={ro.id} className="hover:bg-zinc-50">
-                <td className="px-4 py-2">
+              <TR key={ro.id}>
+                <TD>
                   <Link
                     href={`/repair-orders/${ro.id}`}
                     className="font-medium text-zinc-900 hover:underline"
                   >
                     #{ro.roNumber}
                   </Link>
-                </td>
-                <td className="px-4 py-2">
+                </TD>
+                <TD>
                   <div className="flex items-center gap-2">
                     <span>
                       {ro.customer.type === "BUSINESS" && ro.customer.companyName
                         ? ro.customer.companyName
                         : fullName(ro.customer)}
                     </span>
-                    <span
-                      className={
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium " +
-                        (ro.customer.type === "BUSINESS"
-                          ? "bg-indigo-100 text-indigo-700"
-                          : "bg-zinc-100 text-zinc-600")
-                      }
-                    >
+                    <Badge tone={ro.customer.type === "BUSINESS" ? "info" : "neutral"}>
                       {ro.customer.type === "BUSINESS" ? "Business" : "Individual"}
-                    </span>
+                    </Badge>
                   </div>
-                </td>
-                {hasVehicles && <td className="px-4 py-2">{vehicleLabel(ro.vehicle)}</td>}
-                <td className="px-4 py-2 text-zinc-500">
+                </TD>
+                {hasVehicles && <TD>{vehicleLabel(ro.vehicle)}</TD>}
+                <TD className="text-zinc-500">
                   {ro.invoicedAt ? formatDate(ro.invoicedAt) : "—"}
-                </td>
-                <td className="px-4 py-2 text-right">{formatMoney(total)}</td>
-                <td className="px-4 py-2 text-right text-zinc-500">{formatMoney(paid)}</td>
-                <td className="px-4 py-2 text-right font-semibold text-red-700">
+                </TD>
+                <TD numeric>{formatMoney(total)}</TD>
+                <TD numeric className="text-zinc-500">{formatMoney(paid)}</TD>
+                <TD numeric className="font-semibold text-red-700">
                   {formatMoney(balance)}
-                </td>
-              </tr>
+                </TD>
+              </TR>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+      </Table>
     </Card>
   );
 }

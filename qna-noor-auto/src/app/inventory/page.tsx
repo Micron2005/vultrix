@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import {
   EmptyState,
+  Input,
   LinkButton,
   PageHeader,
 } from "@/components/ui";
@@ -158,11 +159,11 @@ export default async function InventoryPage({
         <form action="/inventory" method="get" className="ml-auto">
           {filter !== "active" && <input type="hidden" name="filter" value={filter} />}
           {cat && <input type="hidden" name="cat" value={cat} />}
-          <input
+          <Input
             name="q"
             defaultValue={q}
             placeholder="Search name, part #, supplier, category…"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-64"
           />
         </form>
       </div>

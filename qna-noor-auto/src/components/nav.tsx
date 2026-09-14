@@ -247,7 +247,7 @@ export function Nav({
 
   const sidebarBody = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="p-5 border-b border-zinc-200 flex items-center justify-between gap-2">
+      <div className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 p-3">
         <Link href="/" className="flex min-w-0 items-center gap-2" onClick={closeMobile}>
           <VultrixMark tile className="h-7 w-7 shrink-0" />
           <div className="min-w-0">
@@ -287,12 +287,12 @@ export function Nav({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[var(--vx-accent-600)] focus:outline-none focus:ring-2 focus:ring-[var(--vx-accent-600)]/25"
               aria-label="Search"
             />
           </form>
         )}
-        <nav className="p-2 flex flex-col gap-1">
+        <nav className="flex flex-col gap-1 p-2">
           {navItems.map((item) => {
             const active = isActive(pathname, item.href, renderedHrefs);
             return (
@@ -302,10 +302,10 @@ export function Nav({
                 onClick={closeMobile}
                 aria-current={active ? "page" : undefined}
                 className={
-                  "rounded-md px-3 py-2 text-sm transition-colors " +
+                  "relative rounded-lg px-3 py-2 text-sm transition-colors " +
                   (active
-                    ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-                    : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
+                    ? "bg-[var(--vx-accent-600)]/15 font-medium text-zinc-900 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[var(--vx-accent-600)]"
+                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900")
                 }
               >
                 {item.label}
@@ -317,22 +317,24 @@ export function Nav({
             target="_blank"
             rel="noopener noreferrer"
             onClick={closeMobile}
-            className="mt-2 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+            className="mt-2 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
             data-testid="nav-view-landing"
           >
             <ExternalLink className="h-4 w-4" />
             View landing page
           </a>
-          <form action="/logout" method="post" className="mt-1 border-t border-zinc-200 pt-2">
-            <button
-              type="submit"
-              className="w-full text-left rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-              data-testid="nav-sign-out"
-            >
-              Sign out
-            </button>
-          </form>
         </nav>
+      </div>
+      <div className="mt-auto shrink-0 border-t border-zinc-200 p-2">
+        <form action="/logout" method="post" className="rounded-lg border border-zinc-200 p-1">
+          <button
+            type="submit"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            data-testid="nav-sign-out"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -353,7 +355,7 @@ export function Nav({
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                  className="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[var(--vx-accent-600)] focus:outline-none focus:ring-2 focus:ring-[var(--vx-accent-600)]/25"
                   aria-label="Search"
                 />
               </form>
@@ -375,10 +377,10 @@ export function Nav({
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={
-                      "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors " +
+                      "relative whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors " +
                       (active
-                        ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]"
-                        : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900")
+                        ? "bg-[var(--vx-accent-600)]/15 font-medium text-zinc-900 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-[var(--vx-accent-600)]"
+                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900")
                     }
                   >
                     {item.label}

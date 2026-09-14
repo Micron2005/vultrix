@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, PageHeader } from "@/components/ui";
+import { Card, CardBody, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import { listSongIdeas, listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../SongsTabs";
@@ -31,23 +31,24 @@ export default async function SongIdeasPage({
         description="Ideas — lyric snippets and voice memos, before they're a song."
       />
       <SongsTabs active="ideas" />
-      <Card className="max-w-2xl p-5">
-        <h2 className="mb-1 text-sm font-semibold text-zinc-900">
-          Capture an idea
-        </h2>
-        <p className="mb-4 text-xs text-zinc-500">
-          Save a thought now and turn it into a song later.
-        </p>
-        <IdeaCapture
-          songs={songs.map((song) => ({ id: song.id, title: song.title }))}
-          initialSongId={selectedSongId}
+      <Card className="max-w-2xl">
+        <CardHeader
+          title="Capture an idea"
+          description="Save a thought now and turn it into a song later."
         />
+        <CardBody>
+          <IdeaCapture
+            songs={songs.map((song) => ({ id: song.id, title: song.title }))}
+            initialSongId={selectedSongId}
+          />
+        </CardBody>
       </Card>
       <section className="mt-6 space-y-3">
         {ideas.length === 0 ? (
-          <Card className="p-5 text-sm text-zinc-600">
-            Nothing captured yet. Hum it, type it, save it.
-          </Card>
+          <EmptyState
+            title="Nothing captured yet"
+            description="Hum it, type it, save it."
+          />
         ) : (
           ideas.map((idea) => (
             <Card key={idea.id} className="space-y-3 p-5">

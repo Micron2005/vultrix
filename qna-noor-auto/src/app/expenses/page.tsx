@@ -623,7 +623,7 @@ export default async function ExpensesListPage({
       </div>
 
       <Card className="p-4 mb-4">
-        <form className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm items-end">
+        <form className="grid grid-cols-1 gap-3 text-sm items-end sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_12rem_auto]">
           <label className="block">
             <span className="block text-xs font-medium text-zinc-700 mb-1">
               From

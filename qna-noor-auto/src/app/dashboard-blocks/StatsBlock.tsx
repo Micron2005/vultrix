@@ -1,4 +1,4 @@
-import { StatCard } from "@/components/StatCard";
+import { StatTile } from "@/components/ui";
 import { getAssistantFinancialSummary } from "@/lib/assistant";
 import { loadScheduledForMonth } from "@/lib/recurring";
 import {
@@ -65,37 +65,35 @@ export async function StatsBlock({
         : "this month";
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-      <StatCard
-        label={`Money in (${periodLabel})`}
+      <StatTile
+        label={`Money in ${periodLabel}`}
         value={formatMoney(summary.moneyIn)}
-        sublines={
+        hint={
           hasScheduled
-            ? [`Expected by month end: ${formatMoney(summary.moneyIn + scheduledIncome)}`]
+            ? `Expected by month end: ${formatMoney(summary.moneyIn + scheduledIncome)}`
             : undefined
         }
       />
-      <StatCard
-        label={`Money out (${periodLabel})`}
+      <StatTile
+        label={`Money out ${periodLabel}`}
         value={formatMoney(summary.moneyOut)}
-        sublines={
+        hint={
           hasScheduled
-            ? [`Expected by month end: ${formatMoney(summary.moneyOut + scheduledExpenses)}`]
+            ? `Expected by month end: ${formatMoney(summary.moneyOut + scheduledExpenses)}`
             : undefined
         }
       />
-      <StatCard
-        label={`Net (${periodLabel})`}
+      <StatTile
+        label={`Net ${periodLabel}`}
         value={formatMoney(summary.net)}
-        sublines={
+        hint={
           hasScheduled
-            ? [
-                `Expected by month end: ${formatMoney(
+            ? `Expected by month end: ${formatMoney(
                   summary.moneyIn +
                     scheduledIncome -
                     summary.moneyOut -
                     scheduledExpenses,
-                )}`,
-              ]
+                )}`
             : undefined
         }
       />

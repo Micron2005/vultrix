@@ -1,5 +1,15 @@
 import Link from "next/link";
-import { Card, CardHeader, Button, Input, Select, Textarea, PageHeader } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Input,
+  Select,
+  Textarea,
+  PageHeader,
+} from "@/components/ui";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { formatInTimeZone } from "@/lib/timezone";
 import { orgTimeZone } from "@/lib/orgTimezone";
@@ -33,7 +43,7 @@ export default async function PracticePage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="This week" />
-          <div className="grid grid-cols-3 gap-3 p-4">
+          <CardBody className="grid grid-cols-3 gap-3">
             <div>
               <p className="text-xs text-zinc-500">Minutes</p>
               <p className="mt-1 text-2xl font-semibold text-zinc-900">{summary.totalMinutes}</p>
@@ -46,8 +56,8 @@ export default async function PracticePage() {
               <p className="text-xs text-zinc-500">Streak</p>
               <p className="mt-1 text-2xl font-semibold text-zinc-900">{summary.currentStreak}<span className="ml-1 text-xs font-normal text-zinc-500">days</span></p>
             </div>
-          </div>
-          <div className="grid grid-cols-7 items-end gap-2 px-4 pb-5">
+          </CardBody>
+          <div className="grid grid-cols-7 items-end gap-2 px-5 pb-5">
             {summary.days.map((day) => (
               <div key={day.day} className="text-center">
                 <div className="flex h-24 items-end justify-center">
@@ -66,7 +76,7 @@ export default async function PracticePage() {
         </Card>
         <Card>
           <CardHeader title="Log" />
-          <form action={logManualPractice} className="space-y-3 border-b border-zinc-200 p-4">
+          <form action={logManualPractice} className="space-y-3 border-b border-zinc-200 p-5">
             <p className="text-xs font-medium text-zinc-700">Forgot to time it? Add minutes</p>
             <div className="grid gap-2 sm:grid-cols-3">
               <Input name="minutes" type="number" min={1} max={240} placeholder="Minutes" required />
@@ -80,7 +90,10 @@ export default async function PracticePage() {
             <Button type="submit" size="sm" variant="secondary">Add minutes</Button>
           </form>
           {sessions.length === 0 ? (
-            <p className="p-4 text-sm text-zinc-500">No practice sessions logged yet.</p>
+            <EmptyState
+              title="No practice sessions logged yet"
+              className="m-5"
+            />
           ) : (
             <div className="divide-y divide-zinc-200">
               {sessions.map((session) => (
