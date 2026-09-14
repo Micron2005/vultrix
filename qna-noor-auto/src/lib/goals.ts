@@ -19,6 +19,7 @@ export const GOAL_METRICS = [
   "LOGGED_LATEST",
   "EVENTS",
   "NOTES_WRITTEN",
+  "practice_minutes",
   "MANUAL",
 ] as const;
 
@@ -321,6 +322,16 @@ async function metricActual(
           where: { orgId, createdAt: { gte: range.from, lte: range.to } },
         }),
       };
+    case "practice_minutes": {
+      const sessions = await db.practiceSession.findMany({
+        where: { orgId, startedAt: { gte: range.from, lte: range.to } },
+        select: { durationSec: true },
+      });
+      return {
+        ...empty,
+        actual: sessions.reduce((sum, session) => sum + session.durationSec, 0) / 60,
+      };
+    }
     case "MANUAL":
       return { ...empty, actual: goal.manualProgress ?? 0 };
     default:
@@ -479,6 +490,7 @@ export function goalMetricLabel(
     LOGGED_LATEST: "A number I track (weight, savings balance)",
     EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",
     NOTES_WRITTEN: "Notes written",
+    practice_minutes: "Practice minutes",
     MANUAL: "I'll update this myself",
   };
   return labels[metric] ?? metric;

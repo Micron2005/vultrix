@@ -17,7 +17,8 @@ export type DashboardBlockId =
   | "tech_hours"
   | "outstanding"
   | "recent_records"
-  | "songs";
+  | "songs"
+  | "practice";
 
 export type DashboardLayout = {
   columns: 1 | 2 | 3;
@@ -101,6 +102,15 @@ export const DASHBOARD_BLOCKS: DashboardBlockDefinition[] = [
     id: "songs",
     label: "Songs in progress",
     hint: "Your songs by stage.",
+    defaultVisible: false,
+    defaultVisiblePersonal: true,
+    requires: [],
+    pack: "music",
+  },
+  {
+    id: "practice",
+    label: "Practice this week",
+    hint: "Your practice time and streak.",
     defaultVisible: false,
     defaultVisiblePersonal: true,
     requires: [],

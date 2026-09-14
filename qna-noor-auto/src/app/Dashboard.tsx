@@ -29,6 +29,7 @@ import { OutstandingBlock } from "./dashboard-blocks/OutstandingBlock";
 import { RecentRecordsBlock } from "./dashboard-blocks/RecentRecordsBlock";
 import { GetStartedCard } from "./dashboard-blocks/GetStartedCard";
 import { SongsBlock } from "./dashboard-blocks/SongsBlock";
+import { PracticeBlock } from "./dashboard-blocks/PracticeBlock";
 import { loadOnboarding } from "@/lib/onboarding";
 
 type SearchParams = Promise<{
@@ -244,6 +245,14 @@ async function blockNode(
       );
     case "songs":
       return <SongsBlock orgId={props.orgId} editing={props.editing} title={title} />;
+    case "practice":
+      return (
+        <PracticeBlock
+          orgId={props.orgId}
+          timezone={props.timezone}
+          title={title}
+        />
+      );
   }
 }
 

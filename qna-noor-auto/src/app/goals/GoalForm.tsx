@@ -25,6 +25,7 @@ type GoalFormProps = {
   }>;
   accountType: string;
   features: string[];
+  focusPacks: string[];
   hasInvoices: boolean;
   submitLabel?: string;
 };
@@ -34,6 +35,7 @@ export function GoalForm({
   initial,
   accountType,
   features,
+  focusPacks,
   hasInvoices,
   submitLabel = "Create goal",
 }: GoalFormProps) {
@@ -58,17 +60,19 @@ export function GoalForm({
     LOGGED_LATEST: "A number I track (weight, savings balance)",
     EVENTS: hasInvoices ? "Appointments booked" : "Calendar events",
     NOTES_WRITTEN: "Notes written",
+    practice_minutes: "Practice minutes",
     MANUAL: "I'll update this myself",
   };
   const metrics = Object.keys(labels).filter((value) =>
-    metricAllowed(value, { accountType, features }),
+    metricAllowed(value, { accountType, features, focusPacks }),
   );
   const directionChoice =
     metric === "LOGGED_TOTAL" || metric === "LOGGED_LATEST";
   const unitChoice =
     metric === "LOGGED_TOTAL" ||
     metric === "LOGGED_LATEST" ||
-    metric === "MANUAL";
+    metric === "MANUAL" ||
+    metric === "practice_minutes";
 
   return (
     <form action={action} className="space-y-4">

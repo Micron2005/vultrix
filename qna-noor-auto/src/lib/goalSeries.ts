@@ -359,6 +359,23 @@ export async function loadGoalSeries(
       }
       break;
     }
+    case "practice_minutes": {
+      const rows = await db.practiceSession.findMany({
+        where: {
+          orgId,
+          startedAt: { gte: range.start, lte: range.end },
+        },
+        select: { startedAt: true, durationSec: true },
+      });
+      for (const row of rows) {
+        addToBucket(
+          buckets,
+          localCalendarDay(row.startedAt, timezone),
+          row.durationSec / 60,
+        );
+      }
+      break;
+    }
     default:
       return { supported: false, points: [], cumulative: [], pace: [], totalDays: 0 };
   }
