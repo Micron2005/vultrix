@@ -147,8 +147,6 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
     schedulerRef.current = null;
     setMetronomeRunning(false);
     setCurrentBeat(-1);
-    if (timerStatus === "running") setTimerStatus("paused");
-    setShowFinish(true);
   }
 
   function finishSession() {
@@ -181,6 +179,7 @@ export function Metronome({ songs }: { songs: SongOption[] }) {
     setError("");
     try {
       await logPractice(formData);
+      stopMetronome();
       resetTimer();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save practice.");
