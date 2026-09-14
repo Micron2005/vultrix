@@ -2,12 +2,14 @@ import { LinkButton, PageHeader } from "@/components/ui";
 import { createSong } from "../actions";
 import { requireMusicPack } from "@/lib/songs";
 import { SongForm } from "../SongForm";
+import { SongsTabs } from "../SongsTabs";
 
 export default async function NewSongPage() {
   await requireMusicPack();
   return (
     <>
       <PageHeader title="New song" actions={<LinkButton href="/songs" variant="secondary">Cancel</LinkButton>} />
+      <SongsTabs active="board" />
       <SongForm action={createSong} />
     </>
   );

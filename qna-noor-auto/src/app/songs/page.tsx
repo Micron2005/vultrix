@@ -2,6 +2,7 @@ import { LinkButton, PageHeader } from "@/components/ui";
 import { requireMusicPack, listSongs } from "@/lib/songs";
 import { moveSong } from "./actions";
 import { SongsBoard } from "./SongsBoard";
+import { SongsTabs } from "./SongsTabs";
 
 export default async function SongsPage() {
   const { orgId } = await requireMusicPack();
@@ -13,6 +14,7 @@ export default async function SongsPage() {
         description="Every song from idea to release."
         actions={<LinkButton href="/songs/new">New song</LinkButton>}
       />
+      <SongsTabs active="board" />
       <SongsBoard songs={songs} moveSongAction={moveSong} />
     </>
   );

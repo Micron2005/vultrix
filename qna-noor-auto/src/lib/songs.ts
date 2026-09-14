@@ -37,10 +37,21 @@ export async function listSongs(orgId: string) {
   });
 }
 
+export async function listSongIdeas(orgId: string) {
+  return db.songIdea.findMany({
+    where: { orgId },
+    orderBy: { createdAt: "desc" },
+    include: { song: { select: { id: true, title: true } } },
+  });
+}
+
 export async function getSong(orgId: string, id: string) {
   return db.song.findFirst({
     where: { id, orgId },
-    include: { tasks: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      tasks: { orderBy: { sortOrder: "asc" } },
+      ideas: { orderBy: { createdAt: "desc" } },
+    },
   });
 }
 
@@ -55,7 +66,7 @@ export async function moveSong(orgId: string, id: string, stage: SongStage) {
     data: {
       stage,
       releasedAt:
-        stage === "RELEASED" ? existing.releasedAt ?? new Date() : null,
+        stage === "RELEASED" ? existing.releasedAt ?? new Date() : existing.releasedAt,
     },
   });
 }
