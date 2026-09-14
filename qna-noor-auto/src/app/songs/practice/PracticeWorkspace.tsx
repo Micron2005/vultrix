@@ -60,7 +60,7 @@ export function PracticeWorkspace({ songs }: { songs: PracticeSong[] }) {
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
-      <div className="order-2 lg:order-1">
+      <div className="order-2 space-y-6 lg:order-1">
         <Metronome
           songs={songs}
           bpm={bpm}

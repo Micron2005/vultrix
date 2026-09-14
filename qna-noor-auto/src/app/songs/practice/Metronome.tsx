@@ -171,8 +171,8 @@ export function Metronome({
   }
 
   return (
-    <Card className="p-5">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+    <>
+      <Card className="p-5">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -220,42 +220,46 @@ export function Metronome({
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button type="button" onClick={metronomeRunning ? stopMetronome : startMetronome}>{metronomeRunning ? "Stop" : "Start"}</Button>
-            <Button type="button" variant="secondary" onClick={() => setTimerStatus((value) => value === "running" ? "paused" : "running")}>{timerStatus === "running" ? "Pause timer" : "Start timer"}</Button>
+          </div>
+        </div>
+      </Card>
+      <Card className="p-5">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Practice timer</p>
+          <p className="mt-2 text-5xl font-semibold tabular-nums text-zinc-900">{formatTimer(elapsedSec)}</p>
+          <p className="mt-2 text-xs text-zinc-500">{timerStatus === "running" ? "Timer running" : timerStatus === "paused" ? "Paused" : "Ready when you are."}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => setTimerStatus((value) => value === "running" ? "paused" : "running")}>{timerStatus === "running" ? "Pause" : "Start timer"}</Button>
             <Button type="button" variant="ghost" onClick={resetTimer}>Reset</Button>
             <Button type="button" variant="ghost" onClick={finishSession}>Finish session</Button>
           </div>
         </div>
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Practice timer</p>
-          <p className="mt-2 text-5xl font-semibold tabular-nums text-zinc-900">{formatTimer(elapsedSec)}</p>
-          <p className="mt-2 text-xs text-zinc-500">{timerStatus === "running" ? "Timer running" : timerStatus === "paused" ? "Paused" : "Ready when you are."}</p>
-        </div>
-      </div>
-      {showFinish && (
-        <form action={saveSession} className="mt-6 space-y-3 border-t border-zinc-200 pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900">Finish session</h3>
-            <span className="text-xs text-zinc-500">{formatTimer(elapsedSec)} · {bpm} BPM</span>
-          </div>
-          {elapsedSec < 30 ? (
-            <p className="text-xs text-zinc-500">Sessions under 30 seconds are not saved.</p>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Select name="songId" aria-label="Song">
-                  <option value="">No song</option>
-                  {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-                </Select>
-                <input type="hidden" name="durationSec" value={elapsedSec} />
-                <input type="hidden" name="bpm" value={bpm} />
-              </div>
-              <Textarea name="notes" placeholder="What did you work on?" rows={3} />
-              <Button type="submit">Save session</Button>
-            </>
-          )}
-          {error && <p className="text-xs text-red-700">{error}</p>}
-        </form>
-      )}
-    </Card>
+        {showFinish && (
+          <form action={saveSession} className="mt-6 space-y-3 border-t border-zinc-200 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900">Finish session</h3>
+              <span className="text-xs text-zinc-500">{formatTimer(elapsedSec)} · {bpm} BPM</span>
+            </div>
+            {elapsedSec < 30 ? (
+              <p className="text-xs text-zinc-500">Sessions under 30 seconds are not saved.</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Select name="songId" aria-label="Song">
+                    <option value="">No song</option>
+                    {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+                  </Select>
+                  <input type="hidden" name="durationSec" value={elapsedSec} />
+                  <input type="hidden" name="bpm" value={bpm} />
+                </div>
+                <Textarea name="notes" placeholder="What did you work on?" rows={3} />
+                <Button type="submit">Save session</Button>
+              </>
+            )}
+            {error && <p className="text-xs text-red-700">{error}</p>}
+          </form>
+        )}
+      </Card>
+    </>
   );
 }
