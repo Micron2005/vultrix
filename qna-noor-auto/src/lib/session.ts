@@ -33,6 +33,7 @@ export type CurrentUser = {
   features: string[];
   focusPacks: FocusPackId[];
   aiAssistantEnabled: boolean;
+  aiMemoryEnabled: boolean;
   aiAssistantName: string;
   aiAssistantVoice: string | null;
   totpEnrolled: boolean;
@@ -73,6 +74,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         ? normalizeFocusPacks(user.organization.focusPacks)
         : [],
     aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
+    aiMemoryEnabled: user.aiMemoryEnabled,
     aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
     aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,
     totpEnrolled: Boolean(user.totpSecret),

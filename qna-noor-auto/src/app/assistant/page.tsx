@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Card, PageHeader } from "@/components/ui";
+import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireOrgId } from "@/lib/session";
 import { AssistantClient } from "./AssistantClient";
@@ -28,6 +28,7 @@ export default async function AssistantPage() {
       <PageHeader
         title={org.aiAssistantName}
         description="Talk to your assistant or type a request."
+        actions={<LinkButton href="/assistant/memory" variant="secondary">Memory</LinkButton>}
       />
       <Card className="max-w-3xl">
         <AssistantClient

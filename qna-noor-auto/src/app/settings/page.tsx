@@ -35,7 +35,10 @@ import {
   deleteShopFee,
   updateShopFee,
 } from "./shop-fees-actions";
-import { saveAiAssistantSettings } from "./ai-assistant-actions";
+import {
+  saveAiAssistantSettings,
+  setAiMemoryEnabled,
+} from "./ai-assistant-actions";
 import { VoicePicker } from "./VoicePicker";
 import { TimezonePicker } from "./TimezonePicker";
 import { ThemeToggle, type ThemeMode } from "@/components/ThemeToggle";
@@ -734,10 +737,11 @@ export default async function SettingsPage({
         </div>
       )}
 
-      {canManageOrgSettings && (
+      {(canManageOrgSettings || org.aiAssistantEnabled) && (
         <Card className="mt-6 max-w-2xl">
           <CardHeader title="AI assistant" />
-          <form action={saveAiAssistantSettings} className="space-y-4 p-6">
+          {canManageOrgSettings && (
+            <form action={saveAiAssistantSettings} className="space-y-4 p-6">
             {sp.assistant_saved && (
               <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
                 AI assistant settings saved.
@@ -823,7 +827,39 @@ export default async function SettingsPage({
               <SaveButton>Save assistant settings</SaveButton>
               <TestAiKeyButton aiKeyConfigured={aiKeyConfigured} />
             </div>
-          </form>
+            </form>
+          )}
+          {org.aiAssistantEnabled && (
+            <div className="border-t border-zinc-200 p-6">
+              <form action={setAiMemoryEnabled} className="space-y-3">
+                <label className="flex items-start gap-3 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    name="enabled"
+                    defaultChecked={user.aiMemoryEnabled}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                  />
+                  <span>
+                    <span className="font-medium">
+                      Let {org.aiAssistantName} remember things about me across chats
+                    </span>
+                    <span className="mt-1 block text-xs text-zinc-500">
+                      Memories are private to this login and can be reviewed or removed at any time.
+                    </span>
+                  </span>
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <SaveButton>Save memory setting</SaveButton>
+                  <Link
+                    href="/assistant/memory"
+                    className="text-sm font-medium text-[var(--vx-accent-600)] hover:underline"
+                  >
+                    Manage memories →
+                  </Link>
+                </div>
+              </form>
+            </div>
+          )}
         </Card>
       )}
 

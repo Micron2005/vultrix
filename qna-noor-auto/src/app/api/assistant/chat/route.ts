@@ -11,9 +11,14 @@ import {
   getAssistantFinancialSummary,
   getAssistantInventoryOverview,
   getAssistantReportsSummary,
+  getAssistantSong,
+  getAssistantSongs,
   getAssistantUpcomingEvents,
+  logAssistantPractice,
   readAssistantNote,
   removeAssistantCalendarEvent,
+  saveAssistantSongLyrics,
+  setAssistantLyricNote,
   updateAssistantNote,
   type AddCalendarEventArgs,
   type AddExpenseArgs,
@@ -41,8 +46,9 @@ import {
   runAssistantConversation,
   type ProviderCaller,
 } from "@/lib/assistant/conversation";
-import { describeNow } from "@/lib/assistant/datetime";
 import { friendlyError } from "@/lib/assistant/errors";
+import { listMemories, rememberMemory, forgetMemory } from "@/lib/assistant/memory";
+import { buildAssistantSystemPrompt } from "@/lib/assistant/prompt";
 import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -268,6 +274,98 @@ const tools: AssistantToolDefinition[] = [
   },
 ];
 
+const memoryTools: AssistantToolDefinition[] = [
+  {
+    name: "remember",
+    description: "Save a useful fact or preference about the user. Never store passwords, keys, or card numbers.",
+    parameters: {
+      type: "object",
+      properties: {
+        content: property("string", "The fact or preference to remember"),
+        category: property("string", "preference, fact, project, or other"),
+      },
+      required: ["content"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "forget",
+    description: "Forget memories matching a word or phrase, or a specific memory ID.",
+    parameters: {
+      type: "object",
+      properties: { query: property("string"), id: property("string") },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "list_memories",
+    description: "List what you remember about the user when they ask what you know about them.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+];
+
+const musicTools: AssistantToolDefinition[] = [
+  {
+    name: "get_songs",
+    description: "List the user's songs and their stage, key, BPM, lyrics status, task progress, and latest practice date.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_song",
+    description: "Load a specific song's real metadata, tasks, lyrics, lyric notes, ideas, practice totals, and attached beats before advising.",
+    parameters: {
+      type: "object",
+      properties: { id: property("string"), title: property("string") },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "save_song_lyrics",
+    description: "Only after the user has approved the exact lyrics you propose; show them first.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: property("string"),
+        title: property("string"),
+        lyrics: property("string"),
+      },
+      required: ["lyrics"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "set_lyric_note",
+    description: "Save a pronunciation, phrasing, or performance note on an exact lyric line.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: property("string"),
+        title: property("string"),
+        line: property("string"),
+        note: property("string"),
+      },
+      required: ["line", "note"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "log_practice",
+    description: "Log a completed practice session.",
+    parameters: {
+      type: "object",
+      properties: {
+        minutes: property("number"),
+        songId: property("string"),
+        songTitle: property("string"),
+        bpm: property("number"),
+        notes: property("string"),
+      },
+      required: ["minutes"],
+      additionalProperties: false,
+    },
+  },
+];
+
 const providerSchema = z.enum(["OPENAI", "ANTHROPIC"]);
 const MAX_TOOL_ITERATIONS = 6;
 
@@ -278,6 +376,9 @@ async function executeTool(
   args: unknown,
   canViewFinancials: boolean,
   accountType: string | null,
+  userId: string,
+  memoryEnabled: boolean,
+  musicEnabled: boolean,
 ): Promise<{
   confirmation: string;
   result: unknown;
@@ -344,52 +445,108 @@ async function executeTool(
           args as ReportsSummaryArgs,
           ctx,
         ));
+      case "remember":
+        if (!memoryEnabled) throw new Error("Assistant memory is disabled.");
+        {
+          const input = args as { content: string; category?: string };
+          const saved = await rememberMemory(orgId, userId, {
+            ...input,
+            source: "ASSISTANT",
+          });
+          return {
+            confirmation: saved.deduped ? "Remembered." : "Remembered.",
+            result: saved,
+          };
+        }
+      case "forget":
+        if (!memoryEnabled) throw new Error("Assistant memory is disabled.");
+        {
+          const { count } = await forgetMemory(
+            orgId,
+            userId,
+            args as { id?: string; query?: string },
+          );
+          return {
+            confirmation: `Forgot ${count} memor${count === 1 ? "y" : "ies"}.`,
+            result: { count },
+          };
+        }
+      case "list_memories":
+        if (!memoryEnabled) throw new Error("Assistant memory is disabled.");
+        {
+          const memories = await listMemories(orgId, userId);
+          return {
+            confirmation: `I remember ${memories.length} thing${memories.length === 1 ? "" : "s"} about you.`,
+            result: memories.map(({ id, content, category, source, updatedAt }) => ({
+              id,
+              content,
+              category,
+              source,
+              updatedAt,
+            })),
+          };
+        }
+      case "get_songs":
+        if (!musicEnabled) throw new Error("Music tools are not available.");
+        return finish(await getAssistantSongs(orgId));
+      case "get_song":
+        if (!musicEnabled) throw new Error("Music tools are not available.");
+        return finish(await getAssistantSong(
+          orgId,
+          args as { id?: string; title?: string },
+        ));
+      case "save_song_lyrics":
+        if (!musicEnabled) throw new Error("Music tools are not available.");
+        {
+          const input = args as { id?: string; title?: string; lyrics: string };
+          return finish(await saveAssistantSongLyrics(
+            orgId,
+            { id: input.id, title: input.title },
+            input.lyrics,
+          ));
+        }
+      case "set_lyric_note":
+        if (!musicEnabled) throw new Error("Music tools are not available.");
+        {
+          const input = args as {
+            id?: string;
+            title?: string;
+            line: string;
+            note: string;
+          };
+          return finish(await setAssistantLyricNote(
+            orgId,
+            { id: input.id, title: input.title },
+            input.line,
+            input.note,
+          ));
+        }
+      case "log_practice":
+        if (!musicEnabled) throw new Error("Music tools are not available.");
+        {
+          const input = args as {
+            minutes: number;
+            songId?: string;
+            songTitle?: string;
+            bpm?: number;
+            notes?: string;
+          };
+          return finish(await logAssistantPractice(
+            orgId,
+            input.minutes,
+            input.songId || input.songTitle
+              ? { id: input.songId, title: input.songTitle }
+              : undefined,
+            input.bpm,
+            input.notes,
+          ));
+        }
     }
   } catch (error) {
     console.error("[assistant] provider error", error);
     const message = friendlyError(error);
     return { confirmation: message, result: { error: message } };
   }
-}
-
-function buildSystemPrompt(
-  assistantName: string,
-  timezone: string,
-  now: Date,
-  accountType: string | null,
-): string {
-  const accountContext =
-    accountType === "AUTO_SHOP"
-      ? "You are helping run an auto repair shop, including inventory and parts, expenses, repair knowledge notes, calendar and appointments, and shop reports."
-      : accountType === "BUSINESS"
-        ? "You are helping run a small business, including inventory, expenses, knowledge notes, calendar and appointments, and business reports."
-        : "You are helping organize a person's life, including income, expenses, knowledge notes, calendar and reminders.";
-  return [
-    `You are ${assistantName}, a friendly, knowledgeable AI assistant.`,
-    accountContext,
-    `The current date and time is ${describeNow(timezone, now)}. Use it to resolve relative dates like "tomorrow" or "next week".`,
-    "",
-    "You do two things well:",
-    "1. Be a full general-purpose assistant: answer any question — facts, explanations, advice, math, writing, coding, brainstorming, recipes, how-tos, and more — at whatever length the question deserves, exactly like ChatGPT. The app tools are an extra capability, not your only purpose.",
-    "2. Take actions in the user's app using the available tools.",
-    "",
-    "Guidelines:",
-    "- For a general question or chit-chat, answer directly and naturally without calling a tool; only call a tool when the user wants to read or change their own data in this app.",
-    "- Never refuse or deflect a general question by saying you can only help with the app. If you don't know something, say so plainly rather than inventing details.",
-    "- When the user does want to read or change their data (inventory, income, expenses, calendar, notes, reports), call the matching tool instead of pretending. For auto-shop accounts, do not offer income logging; use invoices and shop reports for revenue.",
-    "- Act on clear requests right away; you may pass natural-language dates/times to tools (they're resolved against the current time above).",
-    '- After a tool runs, confirm what happened in one short sentence and always repeat the exact resolved date and time the tool reported (e.g. "Added Doctor\'s appointment — Tue, Sep 8 at 9:00 AM"), so the user can catch a wrong day. Never claim success if a tool returned an error.',
-    "- If a tool reports it's missing information, ask the user for exactly that one thing in a friendly way — never dead-end with a generic error.",
-    "",
-    "Notes flow:",
-    "- Use add_note / read_note / update_note only for saving or reading the user's notes, ideas, or reminders. Never store inventory, income, expense, or calendar items as notes — use their own tools.",
-    "- If the user asks to save a note but hasn't given a title, call add_note WITHOUT a title. When it returns needsTitle, ask the user what they'd like to call it.",
-    "- When the user then gives a title, call update_note to set it. If they say they don't know or don't care, reassure them: \"No problem — you can always add a title later,\" and move on.",
-    "",
-    "Inventory phrasing:",
-    "- \"Used\", \"used up\", \"ran out of\", \"finished\", \"sold\", \"broke\", or \"threw out\" means adjust_inventory with a NEGATIVE delta. \"Got\", \"bought\", \"received\", or \"restocked\" means a POSITIVE delta.",
-    "- Apply inventory changes immediately without waiting for cost or storage details. Use adjust_inventory for an existing item and create_inventory_part for a new item when cost, price, or location are given. Never ask for a reason or who received the item.",
-  ].join("\n");
 }
 
 export async function POST(request: Request) {
@@ -452,16 +609,29 @@ export async function POST(request: Request) {
     { role: "user", content: parsed.data.message },
   ];
 
+  const memoryEnabled = user.aiMemoryEnabled;
+  const musicEnabled =
+    org.accountType === "PERSONAL" && user.focusPacks.includes("music");
+  const memories = memoryEnabled
+    ? await listMemories(user.orgId, user.id)
+    : [];
   const assistantTools =
     org.accountType === "AUTO_SHOP"
       ? tools.filter((tool) => tool.name !== "add_income")
       : tools;
-  const systemPrompt = buildSystemPrompt(
-    org.aiAssistantName,
+  const availableTools = [
+    ...assistantTools,
+    ...(memoryEnabled ? memoryTools : []),
+    ...(musicEnabled ? musicTools : []),
+  ];
+  const systemPrompt = buildAssistantSystemPrompt({
+    assistantName: org.aiAssistantName,
     timezone,
     now,
-    org.accountType,
-  );
+    accountType: org.accountType,
+    memories,
+    musicEnabled,
+  });
   const model = provider === "OPENAI" ? OPENAI_MODEL : ANTHROPIC_MODEL;
 
   const callProvider: ProviderCaller = (conversationMessages) =>
@@ -471,7 +641,7 @@ export async function POST(request: Request) {
       model,
       systemPrompt,
       messages: conversationMessages,
-      tools: assistantTools,
+      tools: availableTools,
     });
 
   try {
@@ -485,6 +655,9 @@ export async function POST(request: Request) {
           args,
           user.role !== "STAFF",
           org.accountType,
+          user.id,
+          memoryEnabled,
+          musicEnabled,
         ),
       messages,
       maxIterations: MAX_TOOL_ITERATIONS,

@@ -13,7 +13,15 @@ export type AssistantToolName =
   | "get_financial_summary"
   | "get_inventory_overview"
   | "get_upcoming_events"
-  | "get_reports_summary";
+  | "get_reports_summary"
+  | "remember"
+  | "forget"
+  | "list_memories"
+  | "get_songs"
+  | "get_song"
+  | "save_song_lyrics"
+  | "set_lyric_note"
+  | "log_practice";
 
 export type JsonSchema = {
   type: "object";

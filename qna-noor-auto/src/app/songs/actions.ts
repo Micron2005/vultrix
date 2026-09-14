@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { LyricsMetaSchema, LyricsTextSchema } from "@/lib/lyrics";
 import {
   DEFAULT_STAGE_TASKS,
   isSongStage,
@@ -20,16 +21,6 @@ const SongSchema = z.object({
   genre: z.string().optional(),
   collaborators: z.string().optional(),
   notes: z.string().optional(),
-});
-
-const LyricsMetaLineSchema = z.object({
-  bars: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8)]).optional(),
-  note: z.string().max(300).optional(),
-});
-
-const LyricsMetaSchema = z.object({
-  v: z.literal(1),
-  lines: z.record(z.string(), LyricsMetaLineSchema),
 });
 
 function songData(formData: FormData) {
@@ -100,7 +91,7 @@ export async function saveLyrics(
   payload: { lyrics: string; lyricsMeta: unknown },
 ) {
   const { orgId } = await requireMusicPack();
-  const lyrics = z.string().max(20_000).parse(payload.lyrics);
+  const lyrics = LyricsTextSchema.parse(payload.lyrics);
   const lyricsMeta = LyricsMetaSchema.parse(payload.lyricsMeta);
   const entries = Object.entries(lyricsMeta.lines);
   if (entries.length > 200) {

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type LyricLine =
   | { kind: "section"; label: string }
   | { kind: "line"; text: string; syllables: number }
@@ -5,6 +7,18 @@ export type LyricLine =
 
 export type LyricMetaLine = { bars?: 1 | 2 | 4 | 8; note?: string };
 export type LyricsMeta = { v: 1; lines: Record<string, LyricMetaLine> };
+
+export const LyricsMetaLineSchema = z.object({
+  bars: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8)]).optional(),
+  note: z.string().max(300).optional(),
+});
+
+export const LyricsMetaSchema = z.object({
+  v: z.literal(1),
+  lines: z.record(z.string(), LyricsMetaLineSchema),
+});
+
+export const LyricsTextSchema = z.string().max(20_000);
 
 export const LYRIC_SECTIONS = [
   "Intro",

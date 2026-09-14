@@ -1197,6 +1197,7 @@ model Organization {
   routineItems      RoutineItem[]
   routineCheckOffs  RoutineCheckOff[]
   notifications    Notification[]
+  assistantMemories AssistantMemory[]
   songs             Song[]
   practiceSessions  PracticeSession[]
   ideas             SongIdea[]
@@ -1339,6 +1340,21 @@ model CalendarEvent {
   @@index([startsAt])
 }
 
+model AssistantMemory {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content      String
+  category     String       @default("fact")
+  source       String       @default("ASSISTANT")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([orgId, userId, updatedAt])
+}
+
 model User {
   id           String        @id @default(cuid())
   // Null only for a platform SUPERADMIN (M.S.A.M Enterprise staff).
@@ -1360,6 +1376,7 @@ model User {
   uiScale      String?
   uiRadius     String?
   uiFont       String?
+  aiMemoryEnabled Boolean @default(true)
   dashLayout   String?
   navLayout    String?
   totpSecret   String?
@@ -1375,6 +1392,7 @@ model User {
   routineCheckOffs   RoutineCheckOff[]    @relation("RoutineCheckOffUser")
   completedMilestones GoalMilestone[]     @relation("GoalMilestoneDoneBy")
   notifications      Notification[]
+  assistantMemories  AssistantMemory[]
 
   @@index([orgId])
 }

@@ -81,3 +81,21 @@ export async function saveAiAssistantSettings(formData: FormData) {
   revalidatePath("/");
   redirect("/settings?assistant_saved=1");
 }
+
+export async function setAiMemoryEnabled(formData: FormData) {
+  const user = await requireUser();
+  if (!user.orgId) redirect("/settings?assistant_error=no_org");
+  const org = await db.organization.findUnique({
+    where: { id: user.orgId },
+    select: { aiAssistantEnabled: true },
+  });
+  if (!org?.aiAssistantEnabled) redirect("/settings");
+  await db.user.update({
+    where: { id: user.id },
+    data: { aiMemoryEnabled: formData.get("enabled") === "on" },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/assistant");
+  revalidatePath("/assistant/memory");
+  redirect("/settings?assistant_saved=1");
+}
