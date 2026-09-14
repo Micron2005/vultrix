@@ -1200,6 +1200,7 @@ model Organization {
   songs             Song[]
   practiceSessions  PracticeSession[]
   ideas             SongIdea[]
+  beats             Beat[]
 
   @@index([status])
 }
@@ -1222,6 +1223,7 @@ model Song {
   tasks         SongTask[]
   ideas         SongIdea[]
   practiceSessions PracticeSession[]
+  beats         Beat[]
 
   @@index([orgId, stage])
 }
@@ -1267,6 +1269,23 @@ model PracticeSession {
   createdAt    DateTime @default(now())
 
   @@index([orgId, startedAt])
+}
+
+model Beat {
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  songId       String?
+  song         Song?        @relation(fields: [songId], references: [id], onDelete: SetNull)
+  title        String
+  bpm          Int          @default(90)
+  swing        Int          @default(0)
+  kit          String       @default("808")
+  data         String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([orgId, updatedAt])
 }
 
 model ActivityLog {

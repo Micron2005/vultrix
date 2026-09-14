@@ -147,6 +147,36 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
           </div>
         )}
       </Card>
+      <Card className="mt-6 max-w-2xl p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">Beats</h2>
+            <p className="mt-1 text-xs text-zinc-500">Patterns attached to this song.</p>
+          </div>
+          <Link
+            href={`/songs/beats?song=${song.id}`}
+            className="text-xs font-medium text-zinc-700 underline"
+          >
+            Open beats →
+          </Link>
+        </div>
+        {song.beats.length === 0 ? (
+          <p className="mt-4 text-sm text-zinc-500">No beats attached yet.</p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {song.beats.map((beat) => (
+              <Link
+                key={beat.id}
+                href={`/songs/beats/${beat.id}`}
+                className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50"
+              >
+                <span className="font-medium text-zinc-800">{beat.title}</span>
+                <span className="text-xs text-zinc-500">{beat.bpm} BPM · {beat.kit}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
       <div className="mt-6">
         <DeleteSongButton action={deleteSong.bind(null, song.id)} />
       </div>

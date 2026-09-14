@@ -51,6 +51,7 @@ export async function getSong(orgId: string, id: string) {
     include: {
       tasks: { orderBy: { sortOrder: "asc" } },
       ideas: { orderBy: { createdAt: "desc" } },
+      beats: { orderBy: { updatedAt: "desc" } },
     },
   });
 }
