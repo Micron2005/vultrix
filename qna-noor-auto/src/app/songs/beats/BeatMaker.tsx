@@ -9,10 +9,14 @@ import {
   BEAT_TRACKS,
   BeatDataSchema,
   KITS,
+  MELODIC_INSTRUMENTS,
+  MELODIC_LABELS,
+  noteName,
   type BeatData,
   type BeatKit,
   type BeatPattern,
   type BeatTrack,
+  type MelodicInstrument,
 } from "./kits";
 
 type BeatMakerProps = {
@@ -57,7 +61,15 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [bassOpen, setBassOpen] = useState(true);
+  const [openInstruments, setOpenInstruments] = useState<Set<MelodicInstrument>>(
+    () => new Set<MelodicInstrument>(["bass"]),
+  );
+  const [topNote, setTopNote] = useState<Record<MelodicInstrument, number>>({
+    bass: 72,
+    piano: 71,
+    eguitar: 64,
+    aguitar: 64,
+  });
   const [muted, setMuted] = useState<Set<BeatTrack>>(() => new Set());
   const engineRef = useRef<BeatEngine | null>(null);
 
@@ -120,21 +132,77 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     });
   }
 
-  function toggleBassNote(note: number, step: number) {
+  function toggleNote(instrument: MelodicInstrument, note: number, step: number) {
+    if (
+      data[instrument].notes.length >= 128 &&
+      (instrument !== "bass" ||
+        !data[instrument].notes.some((item) => item.step === step))
+    ) {
+      return;
+    }
     setData((current) => {
-      const existing = current.bass.notes.find((item) => item.step === step);
-      const notes = current.bass.notes.filter((item) => item.step !== step);
-      if (!existing || existing.note !== note) notes.push({ step, note, len: 1 });
-      return { ...current, bass: { notes } };
+      const currentNotes = current[instrument].notes;
+      if (instrument === "bass") {
+        const existing = currentNotes.find((item) => item.step === step);
+        const notes = currentNotes.filter((item) => item.step !== step);
+        if (!existing || existing.note !== note) notes.push({ step, note, len: 1 });
+        return { ...current, [instrument]: { notes } };
+      }
+      const existingIndex = currentNotes.findIndex(
+        (item) => item.step === step && item.note === note,
+      );
+      if (existingIndex >= 0) {
+        return {
+          ...current,
+          [instrument]: {
+            notes: currentNotes.filter((_, index) => index !== existingIndex),
+          },
+        };
+      }
+      if (currentNotes.length >= 128) return current;
+      return {
+        ...current,
+        [instrument]: {
+          notes: [...currentNotes, { step, note, len: 1 }],
+        },
+      };
     });
     markDirty();
+  }
+
+  function toggleInstrument(instrument: MelodicInstrument) {
+    setOpenInstruments((current) => {
+      const next = new Set(current);
+      if (next.has(instrument)) next.delete(instrument);
+      else next.add(instrument);
+      return next;
+    });
+  }
+
+  function shiftTopNote(instrument: MelodicInstrument, delta: number) {
+    setTopNote((current) => ({
+      ...current,
+      [instrument]: Math.max(35, Math.min(96, current[instrument] + delta)),
+    }));
   }
 
   function addPattern(duplicate = false) {
     if (data.patterns.length >= 16) return;
     const source = duplicate && selectedPattern ? selectedPattern : null;
     const next: BeatPattern = source
-      ? { ...cloneData({ v: 1, patterns: [source], chain: [], bass: { notes: [] } }).patterns[0], id: patternId(), name: `${source.name} copy` }
+      ? {
+          ...cloneData({
+            v: 1,
+            patterns: [source],
+            chain: [],
+            bass: { notes: [] },
+            piano: { notes: [] },
+            eguitar: { notes: [] },
+            aguitar: { notes: [] },
+          }).patterns[0],
+          id: patternId(),
+          name: `${source.name} copy`,
+        }
       : {
           id: patternId(),
           name: String.fromCharCode(65 + data.patterns.length),
@@ -380,27 +448,105 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
         </div>
       </Card>
 
-      <Card className="p-4">
-        <button type="button" onClick={() => setBassOpen((value) => !value)} className="flex w-full items-center justify-between text-left">
-          <span className="text-sm font-semibold text-zinc-900">Bass</span>
-          <span className="text-xs text-zinc-500">{bassOpen ? "Collapse" : "Expand"}</span>
-        </button>
-        {bassOpen && (
-          <div className="mt-4 overflow-x-auto">
-            <div className="min-w-[760px] space-y-1">
-              {Array.from({ length: 12 }, (_, row) => 72 - row).map((note) => (
-                <div key={note} className="grid grid-cols-[3rem_repeat(16,minmax(2.2rem,1fr))] gap-1">
-                  <span className="self-center text-[10px] text-zinc-500">MIDI {note}</span>
-                  {Array.from({ length: 16 }, (_, step) => {
-                    const active = data.bass.notes.find((item) => item.step === step)?.note === note;
-                    return <button key={step} type="button" onClick={() => toggleBassNote(note, step)} className={`h-6 rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`Bass MIDI ${note} step ${step + 1}`} />;
-                  })}
-                </div>
-              ))}
+      {MELODIC_INSTRUMENTS.map((instrument) => {
+        const isOpen = openInstruments.has(instrument);
+        const notes = data[instrument].notes;
+        const top = topNote[instrument];
+        return (
+          <Card key={instrument} className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => toggleInstrument(instrument)}
+                className="flex min-w-0 items-center gap-2 text-left"
+                aria-expanded={isOpen}
+              >
+                <span className="text-sm font-semibold text-zinc-900">
+                  {MELODIC_LABELS[instrument]}
+                </span>
+                {!isOpen && (
+                  <span className="text-xs text-zinc-500">
+                    {notes.length} {notes.length === 1 ? "note" : "notes"}
+                  </span>
+                )}
+                <span className="text-xs text-zinc-500">{isOpen ? "Collapse" : "Expand"}</span>
+              </button>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-zinc-500">Top {noteName(top)}</span>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => shiftTopNote(instrument, -12)}
+                  aria-label={`Lower ${MELODIC_LABELS[instrument]} octave`}
+                >
+                  −
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => shiftTopNote(instrument, 12)}
+                  aria-label={`Raise ${MELODIC_LABELS[instrument]} octave`}
+                >
+                  +
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </Card>
+            {isOpen && (
+              <div className="mt-4 overflow-x-auto">
+                <div className="min-w-[760px] space-y-1">
+                  {Array.from({ length: 12 }, (_, row) => top - row).map((note) => (
+                    <div
+                      key={note}
+                      className="grid grid-cols-[4.5rem_repeat(16,minmax(2.2rem,1fr))] gap-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void engineRef.current?.previewNote(
+                            { title, bpm, swing, kit, data },
+                            instrument,
+                            note,
+                          )
+                        }
+                        className="sticky left-0 z-10 truncate bg-white pr-2 text-left text-[10px] text-zinc-500 hover:text-zinc-950"
+                        title={`Play ${noteName(note)}`}
+                      >
+                        {noteName(note)}
+                      </button>
+                      {Array.from({ length: 16 }, (_, step) => {
+                        const active = notes.some(
+                          (item) => item.step === step && item.note === note,
+                        );
+                        return (
+                          <button
+                            key={step}
+                            type="button"
+                            onClick={() => toggleNote(instrument, note, step)}
+                            className={`relative h-6 rounded ${
+                              step % 4 === 0 ? "border-l-2 border-zinc-300" : ""
+                            } ${
+                              activeStep === step
+                                ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1"
+                                : ""
+                            } ${
+                              active
+                                ? "bg-[var(--vx-accent-600)]"
+                                : "bg-zinc-100 hover:bg-zinc-200"
+                            }`}
+                            aria-label={`${MELODIC_LABELS[instrument]} ${noteName(note)} step ${step + 1}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }

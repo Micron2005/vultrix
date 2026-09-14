@@ -13,10 +13,30 @@ export const BEAT_TRACKS = [
 
 export type BeatTrack = (typeof BEAT_TRACKS)[number];
 export type BeatKit = "808" | "Acoustic" | "Lo-fi";
+export const MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
+export type MelodicInstrument = (typeof MELODIC_INSTRUMENTS)[number];
+
+export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
+  bass: "Bass",
+  piano: "Piano",
+  eguitar: "Electric guitar",
+  aguitar: "Acoustic guitar",
+};
 
 export const KITS = ["808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
 
 const stepArray = z.array(z.number().int().min(0).max(2)).length(16);
+const notesSchema = z.object({
+  notes: z
+    .array(
+      z.object({
+        step: z.number().int().min(0).max(15),
+        note: z.number().int().min(24).max(96),
+        len: z.number().int().min(1).max(16),
+      }),
+    )
+    .max(128),
+});
 
 export const BeatDataSchema = z.object({
   v: z.literal(1),
@@ -38,17 +58,10 @@ export const BeatDataSchema = z.object({
     .min(1)
     .max(16),
   chain: z.array(z.string().min(1).max(32)).max(64),
-  bass: z.object({
-    notes: z
-      .array(
-        z.object({
-          step: z.number().int().min(0).max(15),
-          note: z.number().int().min(24).max(96),
-          len: z.number().int().min(1).max(16),
-        }),
-      )
-      .max(128),
-  }),
+  bass: notesSchema,
+  piano: notesSchema.default({ notes: [] }),
+  eguitar: notesSchema.default({ notes: [] }),
+  aguitar: notesSchema.default({ notes: [] }),
 });
 
 export type BeatData = z.infer<typeof BeatDataSchema>;
@@ -72,7 +85,15 @@ export const DEFAULT_BEAT_DATA: BeatData = {
   ],
   chain: [],
   bass: { notes: [] },
+  piano: { notes: [] },
+  eguitar: { notes: [] },
+  aguitar: { notes: [] },
 };
+
+export function noteName(midi: number) {
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  return `${names[midi % 12]}${Math.floor(midi / 12) - 1}`;
+}
 
 export const KIT_CONFIG = {
   "808": {
