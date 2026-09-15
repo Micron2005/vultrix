@@ -47,6 +47,16 @@ export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
 };
 
 export const KITS = ["Drums", "808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
+export const SECTION_LABELS = [
+  "Intro",
+  "Verse",
+  "Pre-hook",
+  "Hook",
+  "Bridge",
+  "Break",
+  "Outro",
+  "Custom",
+] as const;
 
 const stepArray = z.array(z.number().int().min(0).max(2)).length(16);
 const noteSchema = z.object({
@@ -66,6 +76,13 @@ const trackSchema = z.object({
 const keySchema = z.object({
   root: z.number().int().min(0).max(11),
   scale: z.enum(["major", "minor", "pentatonic", "blues", "dorian", "mixolydian"]),
+});
+const sectionSchema = z.object({
+  id: z.string().min(1).max(32),
+  name: z.string().min(1).max(40),
+  patternId: z.string().min(1).max(32),
+  repeats: z.number().int().min(1).max(32).default(1),
+  mutedTracks: z.array(z.string().min(1).max(32)).max(16).default([]),
 });
 const drumsSchema = z
   .object(
@@ -89,7 +106,8 @@ export const BeatDataV2Schema = z.object({
   v: z.literal(2),
   tracks: z.array(trackSchema).min(1).max(16),
   patterns: z.array(patternV2Schema).min(1).max(16),
-  chain: z.array(z.string().min(1).max(32)).max(64),
+  chain: z.array(z.string().min(1).max(32)).max(64).default([]),
+  sections: z.array(sectionSchema).max(64).default([]),
   key: keySchema.optional(),
 });
 
@@ -137,6 +155,7 @@ export type BeatData = BeatDataV2;
 export type BeatPattern = BeatData["patterns"][number];
 export type BeatNote = BeatPattern["notes"][string][number];
 export type BeatTrackInstance = BeatData["tracks"][number];
+export type BeatSection = z.infer<typeof sectionSchema>;
 
 export function stepsFor(pattern: BeatPattern) {
   return pattern.bars * 16;
@@ -208,12 +227,50 @@ export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
       ),
     })),
     chain: data.chain,
+    sections: [],
   };
+}
+
+export function normalizeBeatData(data: BeatData): BeatData {
+  if (data.sections.length || !data.chain.length) return data;
+  const byId = new Map(data.patterns.map((pattern) => [pattern.id, pattern]));
+  const sections: BeatSection[] = [];
+  for (const patternId of data.chain) {
+    const previous = sections.at(-1);
+    if (previous?.patternId === patternId) {
+      previous.repeats = Math.min(32, previous.repeats + 1);
+      continue;
+    }
+    const pattern = byId.get(patternId);
+    sections.push({
+      id: `s${sections.length + 1}`,
+      name: pattern?.name ?? `Section ${sections.length + 1}`,
+      patternId,
+      repeats: 1,
+      mutedTracks: [],
+    });
+  }
+  return { ...data, sections, chain: [] };
+}
+
+export function sectionSequence(data: BeatData) {
+  const byId = new Map(data.patterns.map((pattern) => [pattern.id, pattern]));
+  return data.sections.flatMap((section, sectionIndex) => {
+    const pattern = byId.get(section.patternId);
+    if (!pattern) return [];
+    return Array.from({ length: section.repeats }, (_, repeat) => ({
+      pattern,
+      section,
+      sectionIndex,
+      repeat,
+    }));
+  });
 }
 
 export const BeatDataSchema = z
   .union([BeatDataV2Schema, BeatDataV1Schema])
-  .transform(migrateBeatData);
+  .transform(migrateBeatData)
+  .transform(normalizeBeatData);
 
 const defaultTracks: BeatData["tracks"] = [
   { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0 },
@@ -228,6 +285,7 @@ export const DEFAULT_BEAT_DATA: BeatData = {
   tracks: defaultTracks,
   patterns: [defaultPattern],
   chain: [],
+  sections: [],
 };
 
 export function noteName(midi: number) {

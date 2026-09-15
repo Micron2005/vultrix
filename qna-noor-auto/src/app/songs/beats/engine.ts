@@ -4,6 +4,7 @@ import { scheduleRealDrum } from "./realKit";
 import {
   BEAT_TRACKS,
   KIT_CONFIG,
+  sectionSequence,
   stepsFor,
   type BeatData,
   type BeatKit,
@@ -21,7 +22,7 @@ export type BeatDocument = {
   data: BeatData;
 };
 
-export type BeatPlaybackMode = "pattern" | "chain";
+export type BeatPlaybackMode = "pattern" | "song";
 
 type AudioContextLike = BaseAudioContext;
 
@@ -29,20 +30,26 @@ function midiFrequency(note: number) {
   return 440 * 2 ** ((note - 69) / 12);
 }
 
+type PlaybackSequenceItem = {
+  pattern: BeatPattern;
+  mutedTracks: ReadonlySet<string>;
+};
+
 function patternSequence(
   data: BeatData,
   mode: BeatPlaybackMode,
   patternId: string,
-): BeatPattern[] {
+): PlaybackSequenceItem[] {
   const byId = new Map(data.patterns.map((pattern) => [pattern.id, pattern]));
-  if (mode === "chain" && data.chain.length) {
-    const chain = data.chain
-      .map((id) => byId.get(id))
-      .filter((pattern): pattern is BeatPattern => Boolean(pattern));
-    if (chain.length) return chain;
+  if (mode === "song" && data.sections.length) {
+    const sequence = sectionSequence(data).map((item) => ({
+      pattern: item.pattern,
+      mutedTracks: new Set(item.section.mutedTracks),
+    }));
+    if (sequence.length) return sequence;
   }
   const selected = byId.get(patternId) ?? data.patterns[0];
-  return selected ? [selected] : [];
+  return selected ? [{ pattern: selected, mutedTracks: new Set() }] : [];
 }
 
 export class BeatEngine {
@@ -65,6 +72,7 @@ export class BeatEngine {
   private playback: {
     getDocument: () => BeatDocument;
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
+    /** First argument is the index into the expanded playback sequence. */
     onStep?: (patternIndex: number, step: number) => void;
   } | null = null;
 
@@ -167,7 +175,8 @@ export class BeatEngine {
       this.nextNoteTime = context.currentTime + 0.05;
     }
     while (this.nextNoteTime < context.currentTime + 0.1) {
-      const pattern = patterns[this.sequenceIndex % patterns.length];
+      const sequenceItem = patterns[this.sequenceIndex % patterns.length];
+      const pattern = sequenceItem.pattern;
       const delay = this.step % 2 === 1
         ? (document.swing / 100) * stepDuration * 0.5
         : 0;
@@ -175,7 +184,7 @@ export class BeatEngine {
         context,
         this.master!,
         document,
-        pattern,
+        sequenceItem,
         this.sequenceIndex,
         this.step,
         this.nextNoteTime + delay,
@@ -193,12 +202,14 @@ export class BeatEngine {
     context: AudioContextLike,
     destination: AudioNode,
     beat: BeatDocument,
-    pattern: BeatPattern,
+    sequenceItem: PlaybackSequenceItem,
     patternIndex: number,
     step: number,
     time: number,
   ) {
+    const { pattern, mutedTracks } = sequenceItem;
     for (const track of beat.data.tracks) {
+      if (mutedTracks.has(track.id)) continue;
       const route = this.trackRoute(context, destination, track, time);
       if (track.kind === "drums") {
         for (const voice of BEAT_TRACKS) {
@@ -756,16 +767,16 @@ export class BeatEngine {
     return buffer;
   }
 
-  async renderWav(beat: BeatDocument) {
+  async renderWav(beat: BeatDocument, patternId?: string) {
     const patterns = patternSequence(
       beat.data,
-      beat.data.chain.length ? "chain" : "pattern",
-      beat.data.patterns[0]?.id ?? "",
+      beat.data.sections.length ? "song" : "pattern",
+      patternId ?? beat.data.patterns[0]?.id ?? "",
     );
-    const renderPatterns = beat.data.chain.length ? patterns : [...patterns, ...patterns];
+    const renderPatterns = beat.data.sections.length ? patterns : [...patterns, ...patterns];
     const stepDuration = 60 / beat.bpm / 4;
     const seconds = renderPatterns.reduce(
-      (total, pattern) => total + stepsFor(pattern) * stepDuration,
+      (total, sequenceItem) => total + stepsFor(sequenceItem.pattern) * stepDuration,
       0,
     ) + 1;
     const context = new OfflineAudioContext(2, Math.ceil(seconds * 44100), 44100);
@@ -779,11 +790,13 @@ export class BeatEngine {
     destination.connect(compressor);
     compressor.connect(context.destination);
     let patternOffset = 0;
-    renderPatterns.forEach((pattern) => {
+    renderPatterns.forEach((sequenceItem) => {
+      const { pattern, mutedTracks } = sequenceItem;
       for (let step = 0; step < stepsFor(pattern); step += 1) {
         const baseTime = (patternOffset + step) * stepDuration;
         const time = baseTime + (step % 2 === 1 ? (beat.swing / 100) * stepDuration * 0.5 : 0);
         for (const track of beat.data.tracks) {
+          if (mutedTracks.has(track.id)) continue;
           const route = this.trackRoute(context, destination, track, time);
           if (track.kind === "drums") {
             for (const voice of BEAT_TRACKS) {

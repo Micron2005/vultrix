@@ -13,6 +13,8 @@ import {
   MELODIC_INSTRUMENTS,
   MELODIC_LABELS,
   noteName,
+  SECTION_LABELS,
+  sectionSequence,
   stepsFor,
   type BeatData,
   type BeatKit,
@@ -96,9 +98,13 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const [selectedPatternId, setSelectedPatternId] = useState(
     initialData.patterns[0]?.id ?? "",
   );
+  const [arrangementPatternId, setArrangementPatternId] = useState(
+    initialData.patterns[0]?.id ?? "",
+  );
   const [mode, setMode] = useState<BeatPlaybackMode>("pattern");
   const [playing, setPlaying] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
+  const [activeSequenceIndex, setActiveSequenceIndex] = useState(-1);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -125,6 +131,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     ),
   );
   const [newTrackKind, setNewTrackKind] = useState<MelodicInstrument>("piano");
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const dragNoteRef = useRef<{ trackId: string; note: number; step: number; dragged: boolean } | null>(null);
   const didDragRef = useRef(false);
   const [engine] = useState(() => new BeatEngine());
@@ -182,6 +189,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const selectedPattern =
     data.patterns.find((pattern) => pattern.id === selectedPatternId) ?? data.patterns[0];
   const currentDocument: BeatDocument = { title, bpm, swing, kit, data };
+  const arrangementSequence = sectionSequence(data);
 
   function markDirty() {
     setDirty(true);
@@ -440,6 +448,10 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     updateData((current) => ({
       ...current,
       tracks: current.tracks.filter((item) => item.id !== trackId),
+      sections: current.sections.map((section) => ({
+        ...section,
+        mutedTracks: section.mutedTracks.filter((id) => id !== trackId),
+      })),
       patterns: current.patterns.map((pattern) => {
         const drums = { ...pattern.drums };
         const notes = { ...pattern.notes };
@@ -479,8 +491,12 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
       ...current,
       patterns: remaining,
       chain: current.chain.filter((id) => id !== selectedPattern.id),
+      sections: current.sections.filter((section) => section.patternId !== selectedPattern.id),
     }));
     setSelectedPatternId(remaining[0].id);
+    setArrangementPatternId((current) =>
+      current === selectedPattern.id ? remaining[0].id : current,
+    );
   }
 
   function renamePattern() {
@@ -490,16 +506,84 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     updatePattern(selectedPattern.id, (pattern) => ({ ...pattern, name: name.slice(0, 40) }));
   }
 
-  function addToChain(id: string) {
-    if (!id || data.chain.length >= 64) return;
-    updateData((current) => ({ ...current, chain: [...current.chain, id] }));
-  }
-
-  function removeFromChain(index: number) {
+  function updateSection(sectionId: string, updater: (section: BeatData["sections"][number]) => BeatData["sections"][number]) {
     updateData((current) => ({
       ...current,
-      chain: current.chain.filter((_, itemIndex) => itemIndex !== index),
+      sections: current.sections.map((section) =>
+        section.id === sectionId ? updater(section) : section,
+      ),
     }));
+  }
+
+  function nextSectionName(sections: BeatData["sections"]) {
+    return SECTION_LABELS.find((label) => !sections.some((section) => section.name === label)) ?? "Custom";
+  }
+
+  function addSection(patternId: string) {
+    if (!patternId || data.sections.length >= 64) return;
+    updateData((current) => ({
+      ...current,
+      sections: [
+        ...current.sections,
+        {
+          id: `s${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          name: nextSectionName(current.sections),
+          patternId,
+          repeats: 1,
+          mutedTracks: [],
+        },
+      ],
+    }));
+  }
+
+  function removeSection(sectionId: string) {
+    updateData((current) => ({
+      ...current,
+      sections: current.sections.filter((section) => section.id !== sectionId),
+    }));
+  }
+
+  function duplicateSection(sectionId: string) {
+    if (data.sections.length >= 64) return;
+    updateData((current) => {
+      const index = current.sections.findIndex((section) => section.id === sectionId);
+      if (index < 0) return current;
+      const source = current.sections[index];
+      const copy = {
+        ...source,
+        id: `s${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      };
+      const sections = [...current.sections];
+      sections.splice(index + 1, 0, copy);
+      return { ...current, sections };
+    });
+  }
+
+  function reorderSection(sectionId: string, direction: -1 | 1) {
+    updateData((current) => {
+      const index = current.sections.findIndex((section) => section.id === sectionId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.sections.length) return current;
+      const sections = [...current.sections];
+      [sections[index], sections[nextIndex]] = [sections[nextIndex], sections[index]];
+      return { ...current, sections };
+    });
+  }
+
+  function toggleSectionTrack(sectionId: string, trackId: string) {
+    updateSection(sectionId, (section) => ({
+      ...section,
+      mutedTracks: section.mutedTracks.includes(trackId)
+        ? section.mutedTracks.filter((id) => id !== trackId)
+        : [...section.mutedTracks, trackId],
+    }));
+  }
+
+  function sectionDurationBars() {
+    return data.sections.reduce((total, section) => {
+      const pattern = data.patterns.find((item) => item.id === section.patternId);
+      return total + (pattern?.bars ?? 0) * section.repeats;
+    }, 0);
   }
 
   async function togglePlayback() {
@@ -508,12 +592,26 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
       engine.stop();
       setPlaying(false);
       setActiveStep(-1);
+      setActiveSequenceIndex(-1);
       return;
     }
     await engine.play(
       () => docRef.current,
       () => ({ mode: modeRef.current, patternId: selectedRef.current }),
-      (_patternIndex, step) => setActiveStep(step),
+      (sequenceIndex, step) => {
+        setActiveStep(step);
+        if (modeRef.current !== "song") {
+          setActiveSequenceIndex(-1);
+          return;
+        }
+        const sequence = sectionSequence(docRef.current.data);
+        if (!sequence.length) return;
+        const item = sequence[sequenceIndex % sequence.length];
+        setActiveSequenceIndex(sequenceIndex % sequence.length);
+        if (item && item.pattern.id !== selectedRef.current) {
+          setSelectedPatternId(item.pattern.id);
+        }
+      },
     );
     setPlaying(true);
   }
@@ -530,7 +628,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
 
   async function exportWav() {
     if (!engine) return;
-    const blob = await engine.renderWav(docRef.current);
+    const blob = await engine.renderWav(docRef.current, selectedRef.current);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -638,14 +736,14 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
               {playing ? "Stop" : "Play"}
             </Button>
             <div className="flex overflow-hidden rounded-md border border-zinc-300">
-              {(["pattern", "chain"] as const).map((item) => (
+              {(["pattern", "song"] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setMode(item)}
                   className={`px-2 py-1.5 text-xs font-medium ${mode === item ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
                 >
-                  {item === "pattern" ? "Loop" : "Chain"}
+                  {item === "pattern" ? "Loop" : "Song"}
                 </button>
               ))}
             </div>
@@ -734,21 +832,6 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
             Snap to key
           </label>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-zinc-600">Chain</span>
-          {data.chain.map((id, index) => {
-            const pattern = data.patterns.find((item) => item.id === id);
-            return (
-              <button key={`${id}-${index}`} type="button" onClick={() => removeFromChain(index)} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-700">
-                {pattern?.name ?? "?"} ×
-              </button>
-            );
-          })}
-          <Select value="" onChange={(event) => addToChain(event.target.value)} aria-label="Add pattern to chain" className="w-36 text-xs">
-            <option value="">Add pattern…</option>
-            {data.patterns.map((pattern) => <option key={pattern.id} value={pattern.id}>{pattern.name}</option>)}
-          </Select>
-        </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4">
           <span className="text-xs font-medium text-zinc-600">Add track</span>
           <Select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as MelodicInstrument)} className="w-44 text-xs">
@@ -757,6 +840,110 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <Button type="button" size="sm" variant="secondary" onClick={addTrack} disabled={data.tracks.length >= 16}>+ Add track</Button>
           <span className="text-xs text-zinc-500">{data.tracks.length}/16 tracks</span>
         </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-zinc-900">Arrangement</span>
+          <Select
+            value={arrangementPatternId}
+            onChange={(event) => setArrangementPatternId(event.target.value)}
+            className="w-44 text-xs"
+            aria-label="Pattern for new section"
+          >
+            {data.patterns.map((pattern) => <option key={pattern.id} value={pattern.id}>{pattern.name}</option>)}
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => addSection(arrangementPatternId)}
+          >
+            Add section
+          </Button>
+          <span className="text-xs text-zinc-500">
+            {sectionDurationBars()} bars · {Math.floor(sectionDurationBars() * 4 * 60 / bpm / 60)}:{String(Math.floor(sectionDurationBars() * 4 * 60 / bpm) % 60).padStart(2, "0")} at {bpm} BPM
+          </span>
+        </div>
+        {data.sections.length === 0 ? (
+          <p className="mt-3 text-xs text-zinc-500">No sections yet — add your patterns in order (Intro, Verse, Hook…) to build the full song.</p>
+        ) : (
+          <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+            {data.sections.map((section, sectionIndex) => {
+              const pattern = data.patterns.find((item) => item.id === section.patternId);
+              const active = arrangementSequence[activeSequenceIndex]?.sectionIndex === sectionIndex;
+              return (
+                <div
+                  key={section.id}
+                  className={`min-w-[5.5rem] rounded-lg border bg-zinc-50 p-3 ${active ? "ring-2 ring-[var(--vx-accent-600)]" : "border-zinc-200"}`}
+                  style={{ width: `${Math.max(5.5, (pattern?.bars ?? 1) * section.repeats * 2.5)}rem` }}
+                >
+                  <div className="flex items-center gap-1">
+                    {editingSectionId === section.id ? (
+                      <Input
+                        autoFocus
+                        defaultValue={section.name}
+                        list="beat-section-labels"
+                        maxLength={40}
+                        onBlur={(event) => {
+                          const name = event.target.value.trim();
+                          if (name) updateSection(section.id, (current) => ({ ...current, name }));
+                          setEditingSectionId(null);
+                        }}
+                        className="h-7 min-w-0 flex-1 text-xs"
+                      />
+                    ) : (
+                      <button type="button" onClick={() => setEditingSectionId(section.id)} className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-zinc-900 hover:underline">
+                        {section.name}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => reorderSection(section.id, -1)} className="rounded bg-white px-1.5 py-1 text-xs" aria-label="Move section left">◀</button>
+                    <button type="button" onClick={() => reorderSection(section.id, 1)} className="rounded bg-white px-1.5 py-1 text-xs" aria-label="Move section right">▶</button>
+                    <button type="button" onClick={() => duplicateSection(section.id)} className="rounded bg-white px-1.5 py-1 text-[10px]">Duplicate</button>
+                    <button type="button" onClick={() => removeSection(section.id)} className="rounded px-1.5 py-1 text-xs text-red-700" aria-label="Remove section">×</button>
+                  </div>
+                  <Select
+                    value={section.patternId}
+                    onClick={() => setSelectedPatternId(section.patternId)}
+                    onChange={(event) => {
+                      setSelectedPatternId(event.target.value);
+                      updateSection(section.id, (current) => ({ ...current, patternId: event.target.value }));
+                    }}
+                    className="mt-2 w-full text-xs"
+                    aria-label={`${section.name} pattern`}
+                  >
+                    {data.patterns.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </Select>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-zinc-600">
+                    Repeats
+                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.max(1, current.repeats - 1) }))} className="rounded bg-white px-2 py-1">−</button>
+                    <span className="tabular-nums">×{section.repeats}</span>
+                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.min(32, current.repeats + 1) }))} className="rounded bg-white px-2 py-1">+</button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {data.tracks.map((track) => {
+                      const muted = section.mutedTracks.includes(track.id);
+                      return (
+                        <button
+                          key={track.id}
+                          type="button"
+                          title={`${muted ? "Unmute" : "Mute"} ${track.name}`}
+                          onClick={() => toggleSectionTrack(section.id, track.id)}
+                          className={`rounded px-1.5 py-1 text-[10px] ${muted ? "text-zinc-400 line-through" : "bg-white text-zinc-600"}`}
+                        >
+                          {track.name.slice(0, 1)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <datalist id="beat-section-labels">
+          {SECTION_LABELS.map((label) => <option key={label} value={label} />)}
+        </datalist>
       </Card>
 
       {/* eslint-disable-next-line react-hooks/refs */}
