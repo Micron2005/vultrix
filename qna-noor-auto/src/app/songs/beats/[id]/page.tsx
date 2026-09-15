@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
-import { getBeat } from "@/lib/beats";
+import { getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
@@ -13,9 +13,10 @@ export default async function BeatDetailPage({
 }) {
   const { id } = await params;
   const { orgId } = await requireMusicPack();
-  const [beat, songs] = await Promise.all([
+  const [beat, songs, takes] = await Promise.all([
     getBeat(orgId, id),
     listSongs(orgId),
+    listBeatTakes(orgId, id),
   ]);
   if (!beat) notFound();
   const data = BeatDataSchema.parse(JSON.parse(beat.data));
@@ -30,6 +31,10 @@ export default async function BeatDetailPage({
       <BeatMaker
         beat={{ ...beat, data: JSON.stringify(data), shareToken: beat.shareToken }}
         songs={songs.map((song) => ({ id: song.id, title: song.title }))}
+        takes={takes.map((take) => ({
+          ...take,
+          createdAt: take.createdAt.toISOString(),
+        }))}
       />
       <Card className="mt-6 max-w-2xl p-4">
         <p className="text-xs text-zinc-500">Autosave runs two seconds after the last change.</p>

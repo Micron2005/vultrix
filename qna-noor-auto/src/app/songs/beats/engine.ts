@@ -24,6 +24,13 @@ export type BeatDocument = {
 
 export type BeatPlaybackMode = "pattern" | "song";
 
+export type BeatTakeAudio = {
+  buffer: AudioBuffer;
+  offsetMs: number;
+  gain: number;
+  muted: boolean;
+};
+
 type AudioContextLike = BaseAudioContext;
 
 function midiFrequency(note: number) {
@@ -59,6 +66,8 @@ export class BeatEngine {
   private masterConnected = false;
   private timer: number | null = null;
   private nextNoteTime = 0;
+  private playStartTime: number | null = null;
+  private takeSources: AudioBufferSourceNode[] = [];
   private sequenceIndex = 0;
   private step = 0;
   private mutedTracks = new Set<string>();
@@ -76,6 +85,23 @@ export class BeatEngine {
     onStep?: (patternIndex: number, step: number) => void;
   } | null = null;
 
+  get startTime() {
+    return this.playStartTime;
+  }
+
+  get currentTime() {
+    return this.context?.currentTime ?? 0;
+  }
+
+  get audioContext() {
+    const context = this.context ?? new AudioContext();
+    this.context = context;
+    this.master = this.master ?? context.createGain();
+    this.master.gain.value = 0.8;
+    this.ensureRealtimeMaster(context);
+    return context;
+  }
+
   async play(
     getDocument: () => BeatDocument,
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string },
@@ -83,7 +109,7 @@ export class BeatEngine {
   ) {
     this.stop();
     unlockMediaRoute();
-    const context = this.context ?? new AudioContext();
+    const context = this.audioContext;
     this.context = context;
     this.master = this.master ?? context.createGain();
     this.master.gain.value = 0.8;
@@ -93,6 +119,7 @@ export class BeatEngine {
     this.sequenceIndex = 0;
     this.step = 0;
     this.nextNoteTime = context.currentTime + 0.05;
+    this.playStartTime = this.nextNoteTime;
     this.schedule();
     this.timer = window.setInterval(() => this.schedule(), 25);
   }
@@ -101,6 +128,43 @@ export class BeatEngine {
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     this.playback = null;
+    this.playStartTime = null;
+    for (const source of this.takeSources) {
+      try {
+        source.stop();
+      } catch {
+        // The source may already have ended.
+      }
+      source.disconnect();
+    }
+    this.takeSources = [];
+  }
+
+  playTakes(takes: BeatTakeAudio[], startTime: number) {
+    const context = this.audioContext;
+    this.master = this.master ?? context.createGain();
+    this.ensureRealtimeMaster(context);
+    for (const take of takes) {
+      if (take.muted) continue;
+      const offset = take.offsetMs / 1000;
+      const now = context.currentTime;
+      const start = Math.max(startTime + offset, now);
+      const bufferOffset = Math.max(0, now - (startTime + offset));
+      if (bufferOffset >= take.buffer.duration) continue;
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = take.buffer;
+      gain.gain.value = take.gain / 100;
+      source.connect(gain);
+      gain.connect(this.master);
+      source.onended = () => {
+        this.takeSources = this.takeSources.filter((item) => item !== source);
+        source.disconnect();
+        gain.disconnect();
+      };
+      source.start(start, bufferOffset);
+      this.takeSources.push(source);
+    }
   }
 
   private ensureRealtimeMaster(context: AudioContext) {
@@ -767,7 +831,11 @@ export class BeatEngine {
     return buffer;
   }
 
-  async renderWav(beat: BeatDocument, patternId?: string) {
+  async renderWav(
+    beat: BeatDocument,
+    patternId?: string,
+    takes?: BeatTakeAudio[],
+  ) {
     const patterns = patternSequence(
       beat.data,
       beat.data.sections.length ? "song" : "pattern",
@@ -775,10 +843,15 @@ export class BeatEngine {
     );
     const renderPatterns = beat.data.sections.length ? patterns : [...patterns, ...patterns];
     const stepDuration = 60 / beat.bpm / 4;
-    const seconds = renderPatterns.reduce(
+    const beatSeconds = renderPatterns.reduce(
       (total, sequenceItem) => total + stepsFor(sequenceItem.pattern) * stepDuration,
       0,
-    ) + 1;
+    );
+    const takeSeconds = (takes ?? []).reduce((longest, take) => {
+      const end = take.offsetMs / 1000 + take.buffer.duration;
+      return Math.max(longest, end);
+    }, 0);
+    const seconds = Math.max(beatSeconds, takeSeconds) + 1;
     const context = new OfflineAudioContext(2, Math.ceil(seconds * 44100), 44100);
     const destination = context.createGain();
     destination.gain.value = 0.8;
@@ -832,6 +905,19 @@ export class BeatEngine {
       }
       patternOffset += stepsFor(pattern);
     });
+    for (const take of takes ?? []) {
+      if (take.muted) continue;
+      const offset = take.offsetMs / 1000;
+      const bufferOffset = Math.max(0, -offset);
+      if (bufferOffset >= take.buffer.duration) continue;
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = take.buffer;
+      gain.gain.value = take.gain / 100;
+      source.connect(gain);
+      gain.connect(destination);
+      source.start(Math.max(0, offset), bufferOffset);
+    }
     const rendered = await context.startRendering();
     return this.encodeWav(rendered);
   }

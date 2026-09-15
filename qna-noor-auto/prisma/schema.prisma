@@ -1202,6 +1202,7 @@ model Organization {
   practiceSessions  PracticeSession[]
   ideas             SongIdea[]
   beats             Beat[]
+  beatTakes         BeatTake[]
 
   @@index([status])
 }
@@ -1289,8 +1290,27 @@ model Beat {
   data         String
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  takes        BeatTake[]
 
   @@index([orgId, updatedAt])
+}
+
+model BeatTake {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  beatId        String
+  beat          Beat    @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  name          String
+  audioDataUrl  String
+  audioMimeType String
+  durationSec   Int
+  offsetMs      Int      @default(0)
+  gain          Int      @default(100)
+  muted         Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([beatId, createdAt])
 }
 
 model ActivityLog {
