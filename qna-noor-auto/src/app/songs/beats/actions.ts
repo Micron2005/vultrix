@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -37,6 +38,44 @@ function revalidateBeatPaths(id?: string) {
   if (id) revalidatePath(`/songs/beats/${id}`);
   revalidatePath("/songs");
   revalidatePath("/");
+}
+
+async function newBeatShareToken(): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const token = randomBytes(16).toString("base64url");
+    const existing = await db.beat.findUnique({
+      where: { shareToken: token },
+      select: { id: true },
+    });
+    if (!existing) return token;
+  }
+  throw new Error("Could not generate unique beat share token");
+}
+
+export async function enableBeatShare(id: string) {
+  const { orgId } = await requireMusicPack();
+  const beat = await db.beat.findFirst({
+    where: { id, orgId },
+    select: { shareToken: true },
+  });
+  if (!beat) return { token: null };
+  if (beat.shareToken) return { token: beat.shareToken };
+  const token = await newBeatShareToken();
+  await db.beat.updateMany({
+    where: { id, orgId },
+    data: { shareToken: token },
+  });
+  revalidateBeatPaths(id);
+  return { token };
+}
+
+export async function disableBeatShare(id: string) {
+  const { orgId } = await requireMusicPack();
+  await db.beat.updateMany({
+    where: { id, orgId },
+    data: { shareToken: null },
+  });
+  revalidateBeatPaths(id);
 }
 
 export async function createBeat(formData: FormData) {

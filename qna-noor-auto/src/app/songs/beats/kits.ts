@@ -46,6 +46,18 @@ export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
   pluck: "Pluck",
 };
 
+export const TRACK_KIND_COLORS: Record<TrackKind, string> = {
+  drums: "bg-violet-500",
+  bass: "bg-cyan-500",
+  piano: "bg-amber-500",
+  eguitar: "bg-emerald-500",
+  aguitar: "bg-lime-500",
+  strings: "bg-pink-500",
+  pad: "bg-sky-500",
+  lead: "bg-orange-500",
+  pluck: "bg-fuchsia-500",
+};
+
 export const KITS = ["Drums", "808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
 export const SECTION_LABELS = [
   "Intro",

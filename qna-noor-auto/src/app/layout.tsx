@@ -42,6 +42,7 @@ export default async function RootLayout({
     !user ||
     pathname === "/home" ||
     pathname === "/status" ||
+    pathname.startsWith("/b/") ||
     pathname === "/admin/landing/preview"
   ) {
     const darkLoggedOutPath = ["/login", "/signup", "/admin/login", "/status"].includes(
