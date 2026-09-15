@@ -1,4 +1,5 @@
 import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
+import { overdriveCurve, stringBuffer } from "./strings";
 import {
   BEAT_TRACKS,
   KIT_CONFIG,
@@ -326,7 +327,7 @@ export class BeatEngine {
     beat: BeatDocument,
     time: number,
   ) {
-    const duration = Math.min(16, length) * (60 / beat.bpm / 4);
+    const duration = Math.min(64, length) * (60 / beat.bpm / 4);
     if (instrument === "bass") {
       this.scheduleBass(context, destination, note, duration, velocity, beat, time);
       return;
@@ -426,35 +427,44 @@ export class BeatEngine {
     velocity: number,
     time: number,
   ) {
-    const filter = context.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 2800;
+    // Plucked string → pickup tone → tube-style overdrive → speaker cab.
+    const string = context.createBufferSource();
+    string.buffer = stringBuffer(context, "electric", midiFrequency(note));
+    const pickup = context.createBiquadFilter();
+    pickup.type = "peaking";
+    pickup.frequency.value = 1400;
+    pickup.Q.value = 1.1;
+    pickup.gain.value = 5;
+    const preamp = context.createGain();
+    preamp.gain.value = 3.5 * Math.min(1.5, Math.max(0.4, velocity));
     const shaper = context.createWaveShaper();
-    const curve = new Float32Array(256);
-    for (let index = 0; index < curve.length; index += 1) {
-      const input = (index / (curve.length - 1)) * 2 - 1;
-      curve[index] = Math.tanh(input * 3);
-    }
-    shaper.curve = curve;
-    shaper.oversample = "2x";
+    shaper.curve = overdriveCurve(2.6);
+    shaper.oversample = "4x";
+    const cab = context.createBiquadFilter();
+    cab.type = "lowpass";
+    cab.frequency.value = 3400;
+    cab.Q.value = 0.9;
+    const presence = context.createBiquadFilter();
+    presence.type = "peaking";
+    presence.frequency.value = 700;
+    presence.Q.value = 0.8;
+    presence.gain.value = 3;
     const gain = context.createGain();
+    const hold = time + Math.max(duration, 0.25);
+    const end = hold + 0.18;
     gain.gain.setValueAtTime(0.0001, time);
-    const end = time + Math.max(duration, 0.5);
-    gain.gain.exponentialRampToValueAtTime(0.22 * velocity, time + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.32, time + 0.003);
+    gain.gain.setValueAtTime(0.32, hold);
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
-    shaper.connect(filter);
-    filter.connect(gain);
+    string.connect(pickup);
+    pickup.connect(preamp);
+    preamp.connect(shaper);
+    shaper.connect(cab);
+    cab.connect(presence);
+    presence.connect(gain);
     gain.connect(destination);
-    const frequency = midiFrequency(note);
-    for (const [type, detune] of [["sawtooth", -5], ["square", 5]] as const) {
-      const oscillator = context.createOscillator();
-      oscillator.type = type;
-      oscillator.detune.value = detune;
-      oscillator.frequency.value = frequency;
-      oscillator.connect(shaper);
-      oscillator.start(time);
-      oscillator.stop(end + 0.02);
-    }
+    string.start(time);
+    string.stop(end + 0.02);
   }
 
   private scheduleAcousticGuitar(
@@ -465,47 +475,38 @@ export class BeatEngine {
     velocity: number,
     time: number,
   ) {
-    const filter = context.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 4500;
+    // Plucked string through a guitar-body resonance (air ~100 Hz, top ~220 Hz).
+    const string = context.createBufferSource();
+    string.buffer = stringBuffer(context, "acoustic", midiFrequency(note));
+    const air = context.createBiquadFilter();
+    air.type = "peaking";
+    air.frequency.value = 105;
+    air.Q.value = 2.5;
+    air.gain.value = 6;
+    const top = context.createBiquadFilter();
+    top.type = "peaking";
+    top.frequency.value = 230;
+    top.Q.value = 1.8;
+    top.gain.value = 4;
+    const sparkle = context.createBiquadFilter();
+    sparkle.type = "highshelf";
+    sparkle.frequency.value = 5000;
+    sparkle.gain.value = -4;
     const gain = context.createGain();
+    const hold = time + Math.max(duration, 0.3);
+    const end = hold + 0.15;
+    const level = 0.42 * velocity;
     gain.gain.setValueAtTime(0.0001, time);
-    const end = time + Math.max(duration, 0.7);
-    gain.gain.exponentialRampToValueAtTime(0.28 * velocity, time + 0.003);
+    gain.gain.exponentialRampToValueAtTime(level, time + 0.002);
+    gain.gain.setValueAtTime(level, hold);
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
-    filter.connect(gain);
+    string.connect(air);
+    air.connect(top);
+    top.connect(sparkle);
+    sparkle.connect(gain);
     gain.connect(destination);
-    const frequency = midiFrequency(note);
-    const body = context.createOscillator();
-    body.type = "triangle";
-    body.frequency.value = frequency;
-    body.connect(filter);
-    body.start(time);
-    body.stop(end + 0.02);
-    const harmonic = context.createOscillator();
-    const harmonicGain = context.createGain();
-    harmonic.type = "sine";
-    harmonic.frequency.value = frequency * 2;
-    harmonicGain.gain.value = 0.35;
-    harmonic.connect(harmonicGain);
-    harmonicGain.connect(filter);
-    harmonic.start(time);
-    harmonic.stop(end + 0.02);
-    const pluckFilter = context.createBiquadFilter();
-    pluckFilter.type = "bandpass";
-    pluckFilter.frequency.value = 3000;
-    pluckFilter.Q.value = 1.2;
-    const pluckGain = context.createGain();
-    pluckGain.gain.setValueAtTime(0.0001, time);
-    pluckGain.gain.exponentialRampToValueAtTime(0.16 * velocity, time + 0.001);
-    pluckGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.01);
-    const pluck = context.createBufferSource();
-    pluck.buffer = this.noiseBuffer(context);
-    pluck.connect(pluckFilter);
-    pluckFilter.connect(pluckGain);
-    pluckGain.connect(filter);
-    pluck.start(time);
-    pluck.stop(time + 0.01);
+    string.start(time);
+    string.stop(end + 0.02);
   }
 
   // Sub sine alone disappears on phone/laptop speakers; layer a punchier
