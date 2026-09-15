@@ -13,7 +13,7 @@ export const BEAT_TRACKS = [
 
 export const DRUM_VOICES = BEAT_TRACKS;
 export type BeatTrack = (typeof BEAT_TRACKS)[number];
-export type BeatKit = "808" | "Acoustic" | "Lo-fi";
+export type BeatKit = "Drums" | "808" | "Acoustic" | "Lo-fi";
 export const MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
 export type MelodicInstrument = (typeof MELODIC_INSTRUMENTS)[number];
 export type TrackKind = "drums" | MelodicInstrument;
@@ -25,7 +25,7 @@ export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
   aguitar: "Acoustic guitar",
 };
 
-export const KITS = ["808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
+export const KITS = ["Drums", "808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
 
 const stepArray = z.array(z.number().int().min(0).max(2)).length(16);
 const noteSchema = z.object({
@@ -208,6 +208,14 @@ export function noteName(midi: number) {
 }
 
 export const KIT_CONFIG = {
+  // Synthesized separately in realKit.ts; values only used as a fallback.
+  Drums: {
+    kickDecay: 0.38,
+    snareDecay: 0.2,
+    hatDecay: 0.05,
+    lowpass: 16000,
+    detune: 0,
+  },
   "808": {
     kickDecay: 0.42,
     snareDecay: 0.18,

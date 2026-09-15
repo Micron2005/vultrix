@@ -1,5 +1,6 @@
 import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
 import { overdriveCurve, stringBuffer } from "./strings";
+import { scheduleRealDrum } from "./realKit";
 import {
   BEAT_TRACKS,
   KIT_CONFIG,
@@ -269,6 +270,10 @@ export class BeatEngine {
     time: number,
     kit: BeatKit,
   ) {
+    if (kit === "Drums") {
+      scheduleRealDrum(context, destination, track, level, time, this.noiseBuffer(context));
+      return;
+    }
     const config = KIT_CONFIG[kit];
     if (track === "kick") {
       this.scheduleKick(context, destination, level, time, config.kickDecay, config.detune);
