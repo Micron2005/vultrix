@@ -373,7 +373,7 @@ export class BeatEngine {
       this.scheduleLead(context, destination, note, duration, velocity, time);
       return;
     }
-    this.schedulePluck(context, destination, note, velocity, time);
+    this.schedulePluck(context, destination, note, duration, velocity, time);
   }
 
   private scheduleBass(
@@ -558,6 +558,7 @@ export class BeatEngine {
     context: AudioContextLike,
     destination: AudioNode,
     note: number,
+    duration: number,
     velocity: number,
     time: number,
   ) {
@@ -565,16 +566,18 @@ export class BeatEngine {
     filter.type = "highpass";
     filter.frequency.value = 300;
     const gain = context.createGain();
+    const end = time + Math.min(duration, 0.8);
     gain.gain.setValueAtTime(0.0001, time);
     gain.gain.exponentialRampToValueAtTime(0.35 * velocity, time + 0.001);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+    gain.gain.setValueAtTime(0.35 * velocity, end);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end + 0.05);
     filter.connect(gain);
     gain.connect(destination);
     const source = context.createBufferSource();
     source.buffer = stringBuffer(context, "pluck", midiFrequency(note));
     source.connect(filter);
     source.start(time);
-    source.stop(time + 0.07);
+    source.stop(end + 0.02);
   }
 
   private scheduleElectricGuitar(

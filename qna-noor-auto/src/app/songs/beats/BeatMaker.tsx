@@ -167,6 +167,18 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     return () => window.clearTimeout(timeout);
   }, [beat.id, bpm, swing, kit, data, dirty]);
 
+  useEffect(() => {
+    const endInteraction = () => {
+      dragNoteRef.current = null;
+    };
+    window.addEventListener("pointerup", endInteraction);
+    window.addEventListener("pointercancel", endInteraction);
+    return () => {
+      window.removeEventListener("pointerup", endInteraction);
+      window.removeEventListener("pointercancel", endInteraction);
+    };
+  }, []);
+
   const selectedPattern =
     data.patterns.find((pattern) => pattern.id === selectedPatternId) ?? data.patterns[0];
   const currentDocument: BeatDocument = { title, bpm, swing, kit, data };
@@ -243,12 +255,24 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
         (item) => item.note === note && item.step <= step && step < item.step + item.len,
       );
       if (action === "length" && existing) {
-        existing.len = Math.max(1, Math.min(length ?? 1, stepsFor(pattern) - existing.step));
-        return { ...pattern, notes: { ...pattern.notes, [trackId]: notes } };
+        const nextLength = Math.max(1, Math.min(length ?? 1, stepsFor(pattern) - existing.step));
+        return {
+          ...pattern,
+          notes: {
+            ...pattern.notes,
+            [trackId]: notes.map((item) => (item === existing ? { ...item, len: nextLength } : item)),
+          },
+        };
       }
       if (action === "velocity" && existing) {
-        existing.vel = existing.vel < 0.8 ? 1 : existing.vel < 1.15 ? 1.3 : 0.6;
-        return { ...pattern, notes: { ...pattern.notes, [trackId]: notes } };
+        const velocity = existing.vel < 0.8 ? 1 : existing.vel < 1.15 ? 1.3 : 0.6;
+        return {
+          ...pattern,
+          notes: {
+            ...pattern.notes,
+            [trackId]: notes.map((item) => (item === existing ? { ...item, vel: velocity } : item)),
+          },
+        };
       }
       if (existing && action === "toggle") {
         const next = notes.filter((item) => item !== existing);
@@ -680,10 +704,18 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <label className="flex items-center gap-1 text-xs text-zinc-600">
             Key
             <Select
-              value={String(data.key?.root ?? 0)}
-              onChange={(event) => updateKey(Number(event.target.value), data.key?.scale ?? "major")}
+              value={data.key ? String(data.key.root) : ""}
+              onChange={(event) => {
+                if (!event.target.value) {
+                  setSnapToKey(false);
+                  updateData((current) => ({ ...current, key: undefined }));
+                  return;
+                }
+                updateKey(Number(event.target.value), data.key?.scale ?? "major");
+              }}
               className="w-20 text-xs"
             >
+              <option value="">—</option>
               {KEY_NAMES.map((name, index) => <option key={name} value={index}>{name}</option>)}
             </Select>
           </label>
@@ -698,7 +730,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
             </Select>
           </label>
           <label className="flex items-center gap-1 text-xs text-zinc-600">
-            <input type="checkbox" checked={snapToKey} onChange={(event) => setSnapToKey(event.target.checked)} />
+            <input type="checkbox" checked={snapToKey} disabled={!data.key} onChange={(event) => setSnapToKey(event.target.checked)} />
             Snap to key
           </label>
         </div>
@@ -872,14 +904,17 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                                 key={step}
                                 type="button"
                                 disabled={Boolean(noteItem && !isNoteStart)}
-                                onPointerDown={() => beginNoteInteraction(track.id, track.kind as MelodicInstrument, note, step)}
+                                onPointerDown={(event) => {
+                                  event.currentTarget.releasePointerCapture?.(event.pointerId);
+                                  beginNoteInteraction(track.id, track.kind as MelodicInstrument, note, step);
+                                }}
                                 onPointerEnter={() => extendNote(track.id, track.kind as MelodicInstrument, note, step)}
                                 onPointerUp={endNoteInteraction}
                                 onClick={() => {
                                   if (velocityModes.has(track.id) && noteItem) updateNote(track.id, track.kind as MelodicInstrument, note, step, "velocity");
                                   else toggleNote(track.id, track.kind as MelodicInstrument, note, step);
                                 }}
-                                className={`relative h-6 rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
+                                className={`relative h-6 touch-none rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
                                 style={active ? { opacity: (0.45 + velocity / 2) * (snapToKey && !noteInKey(note, data.key) ? 0.55 : 1) } : undefined}
                                 aria-label={`${track.name} ${noteName(note)} step ${step + 1}${noteItem ? ` length ${noteItem.len}` : ""}`}
                               />
