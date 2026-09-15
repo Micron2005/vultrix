@@ -19,7 +19,7 @@ export default async function InspectionRunnerPage({
     db.inspection.findFirst({
       where: { id: inspectionId, orgId, repairOrderId: id },
       include: {
-        repairOrder: { include: { vehicle: true, customer: { select: { firstName: true, lastName: true, portalToken: true } } } },
+        repairOrder: { include: { vehicle: true, customer: { select: { firstName: true, lastName: true, email: true, portalToken: true } } } },
         technician: true,
         items: { orderBy: { sortOrder: "asc" }, include: { photos: { orderBy: { createdAt: "asc" } } } },
       },
@@ -33,10 +33,12 @@ export default async function InspectionRunnerPage({
     roNumber: inspection.repairOrder.roNumber,
     vehicle: inspection.repairOrder.vehicle ? vehicleLabel(inspection.repairOrder.vehicle) : `RO #${inspection.repairOrder.roNumber}`,
     customerName: fullName(inspection.repairOrder.customer),
+    customerEmail: inspection.repairOrder.customer.email,
     portalToken: inspection.repairOrder.customer.portalToken,
     templateName: inspection.templateName,
     status: inspection.status,
     sentAt: inspection.sentAt?.toISOString() ?? null,
+    sendReason: null,
     summary: inspection.summary ?? "",
     technicianId: inspection.technicianId,
     items: inspection.items.map((item) => ({

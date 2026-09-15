@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAllSettings, shopBranding, shopBrandStyle } from "@/lib/shop";
 import { formatDate, vehicleLabel } from "@/lib/utils";
+import { InspectionPhotoViewer } from "./InspectionPhotoViewer";
 
 export const dynamic = "force-dynamic";
 
@@ -73,8 +74,7 @@ function SummaryChip({ label, count, className }: { label: string; count: number
 function ReportGroup({ title, items, tone }: { title: string; items: Array<{ id: string; name: string; section: string; note: string | null; photos: Array<{ id: string; dataUrl: string }> }>; tone: "red" | "amber" | "green" }) {
   if (!items.length) return null;
   const bar = tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-400" : "bg-emerald-500";
-  return <section className="border-t border-zinc-200 px-4 py-5 sm:px-8">{title && <h2 className="mb-3 text-sm font-semibold text-zinc-900">{title}</h2>}<div className="space-y-4">{items.map((item) => <div key={item.id} className="relative pl-3"><div className={`absolute bottom-0 left-0 top-0 w-1 rounded-full ${bar}`} /><div className="font-medium text-zinc-900">{item.name}<span className="ml-2 text-xs font-normal text-zinc-500">{item.section}</span></div>{item.note && <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{item.note}</p>}{item.photos.length > 0 && <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">{item.photos.map((photo) => <a key={photo.id} href={photo.dataUrl} target="_blank" rel="noreferrer">
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={photo.dataUrl} alt="" className="h-20 w-full rounded object-cover" />
-  </a>)}</div>}</div>)}</div></section>;
+  const groups = new Map<string, typeof items>();
+  for (const item of items) groups.set(item.section, [...(groups.get(item.section) ?? []), item]);
+  return <section className="border-t border-zinc-200 px-4 py-5 sm:px-8">{title && <h2 className="mb-3 text-sm font-semibold text-zinc-900">{title}</h2>}<div className="space-y-5">{[...groups.entries()].map(([section, sectionItems]) => <div key={section}><h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">{section}</h3><div className="space-y-4">{sectionItems.map((item) => <div key={item.id} className="relative pl-3"><div className={`absolute bottom-0 left-0 top-0 w-1 rounded-full ${bar}`} /><div className="font-medium text-zinc-900">{item.name}</div>{item.note && <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{item.note}</p>}{item.photos.length > 0 && <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">{item.photos.map((photo) => <InspectionPhotoViewer key={photo.id} dataUrl={photo.dataUrl} />)}</div>}</div>)}</div></div>)}</div></section>;
 }

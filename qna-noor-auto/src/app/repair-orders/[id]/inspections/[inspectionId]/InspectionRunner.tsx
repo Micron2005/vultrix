@@ -25,10 +25,12 @@ export type InspectionRunnerData = {
   roNumber: number;
   vehicle: string;
   customerName: string;
+  customerEmail: string | null;
   portalToken: string | null;
   templateName: string;
   status: string;
   sentAt: string | null;
+  sendReason: "sent" | "no_email" | "email_not_configured" | null;
   summary: string;
   technicianId: string | null;
   items: Array<{ id: string; section: string; name: string; rating: Rating; note: string; jobId: string | null; photos: Array<{ id: string; dataUrl: string }> }>;
@@ -49,6 +51,7 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
   const [technicianId, setTechnicianId] = useState(data.technicianId ?? "");
   const [status, setStatus] = useState(data.status);
   const [sentAt, setSentAt] = useState(data.sentAt);
+  const [sendReason, setSendReason] = useState(data.sendReason);
   const [busy] = useTransition();
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const groups = useMemo(() => {
@@ -100,7 +103,7 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
   async function send() {
     const result = await sendInspectionToCustomer(data.id);
     setSentAt(new Date().toISOString());
-    alert(result.emailed ? "Inspection sent and emailed." : "Inspection sent. The customer has no email or email is not configured.");
+    setSendReason(result.reason);
   }
   const portalLink = data.portalToken ? `/p/${data.portalToken}/ro/${data.repairOrderId}/inspection/${data.id}` : null;
   return (
@@ -167,9 +170,9 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
                 <button type="button" onClick={() => { void reopenInspection(data.id); setStatus("IN_PROGRESS"); setSentAt(null); }} className="rounded-md border border-zinc-300 px-4 py-2 text-sm">Reopen</button>
               </>
             )}
-            {canDelete && <form action={deleteInspection.bind(null, data.id)}><button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-700">Delete</button></form>}
+            {canDelete && <form action={deleteInspection.bind(null, data.id)} onSubmit={(event) => { if (!confirm("Delete this inspection? Photos and ratings will be lost.")) event.preventDefault(); }}><button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-700">Delete</button></form>}
           </div>
-          {status === "COMPLETED" && sentAt && <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sent {new Date(sentAt).toLocaleDateString()} · {data.portalToken ? "portal link ready" : "customer has no portal link"}</div>}
+          {status === "COMPLETED" && sentAt && <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sent {new Date(sentAt).toLocaleDateString()} · {data.portalToken ? "portal link ready" : "customer has no portal link"}{sendReason === "sent" && data.customerEmail ? ` · Emailed to ${data.customerEmail}` : sendReason === "no_email" ? " · Customer has no email — share the portal link" : sendReason === "email_not_configured" ? " · Email isn't set up for this shop — share the portal link" : ""}</div>}
           {status === "COMPLETED" && sentAt && portalLink && <div className="mt-2 flex flex-wrap items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-zinc-100 px-2 py-1 text-xs">{portalLink}</code><button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${portalLink}`)} className="rounded border border-zinc-300 px-2 py-1 text-xs">Copy portal link</button></div>}
         </section>
       </div>
@@ -180,10 +183,10 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
 function PhotoTools({ item, onFiles, onDelete }: { item: InspectionRunnerData["items"][number]; onFiles: (files: FileList | null) => void; onDelete: (id: string) => void }) {
   return (
     <div className="space-y-2">
-      {item.photos.length > 0 && <div className="grid grid-cols-4 gap-2">{item.photos.map((photo) => <div key={photo.id} className="relative"><a href={photo.dataUrl} target="_blank" rel="noreferrer">
+      {item.photos.length > 0 && <div className="grid grid-cols-4 gap-2">{item.photos.map((photo) => <div key={photo.id} className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={photo.dataUrl} alt="" className="h-16 w-full rounded object-cover" />
-      </a><button type="button" onClick={() => onDelete(photo.id)} className="absolute right-0 top-0 rounded bg-black/70 px-1 text-xs text-white">×</button></div>)}</div>}
+      <button type="button" onClick={() => onDelete(photo.id)} className="absolute right-0 top-0 rounded bg-black/70 px-1 text-xs text-white">×</button></div>)}</div>}
       {item.photos.length < 6 && <label className="inline-flex cursor-pointer rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50">Add photo<input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} /></label>}
     </div>
   );

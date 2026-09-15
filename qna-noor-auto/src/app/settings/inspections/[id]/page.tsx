@@ -32,7 +32,7 @@ export default async function InspectionTemplatePage({ params }: { params: Promi
           </form>
         </Card>
         <InspectionTemplateEditor
-          initialItems={template.items.map((item) => ({ section: item.section, name: item.name }))}
+          initialItems={template.items.map((item) => ({ id: item.id, section: item.section, name: item.name }))}
           saveAction={saveInspectionTemplateItems.bind(null, template.id)}
         />
         <form action={deleteInspectionTemplate.bind(null, template.id)}>

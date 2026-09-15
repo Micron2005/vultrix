@@ -162,7 +162,10 @@ async function appOrigin() {
   return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? (host ? `${proto}://${host}` : "https://vultrix.net");
 }
 
-export async function sendInspectionToCustomer(id: string): Promise<{ emailed: boolean }> {
+export async function sendInspectionToCustomer(id: string): Promise<{
+  emailed: boolean;
+  reason: "sent" | "no_email" | "email_not_configured";
+}> {
   const orgId = await requireOrgId();
   const inspection = await db.inspection.findFirst({
     where: { id, orgId },
@@ -175,8 +178,13 @@ export async function sendInspectionToCustomer(id: string): Promise<{ emailed: b
   if (inspection.status !== "COMPLETED") throw new Error("Complete the inspection before sending it");
   const sentAt = new Date();
   await db.inspection.update({ where: { id }, data: { sentAt } });
+  if (!inspection.repairOrder.customer.email) {
+    revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
+    revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
+    return { emailed: false, reason: "no_email" };
+  }
   let emailed = false;
-  if (inspection.repairOrder.customer.email && inspection.repairOrder.customer.portalToken) {
+  if (inspection.repairOrder.customer.portalToken) {
     const settings = await getAllSettings(orgId);
     const branding = await shopBranding(orgId);
     const shop = settings.shopName || "Your repair shop";
@@ -192,7 +200,7 @@ export async function sendInspectionToCustomer(id: string): Promise<{ emailed: b
   }
   revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
   revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
-  return { emailed };
+  return { emailed, reason: emailed ? "sent" : "email_not_configured" };
 }
 
 export async function addJobFromInspectionItem(itemId: string) {

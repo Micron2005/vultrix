@@ -40,6 +40,7 @@ export async function ensureInspectionTemplates(orgId: string) {
     });
   }
   for (const [sortOrder, template] of DEFAULT_INSPECTION_TEMPLATES.entries()) {
+    let itemSortOrder = 0;
     await db.inspectionTemplate.create({
       data: {
         orgId,
@@ -47,10 +48,10 @@ export async function ensureInspectionTemplates(orgId: string) {
         sortOrder,
         items: {
           create: template.sections.flatMap(({ section, items }) =>
-            items.map((name, itemIndex) => ({
+            items.map((name) => ({
               section,
               name,
-              sortOrder: itemIndex,
+              sortOrder: itemSortOrder++,
             })),
           ),
         },
