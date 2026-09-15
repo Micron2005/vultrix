@@ -6,6 +6,20 @@ import { attachBeatToSong, deleteBeat, renameBeat, saveBeat } from "./actions";
 import { BpmInput } from "../BpmInput";
 import { BeatEngine, type BeatDocument, type BeatPlaybackMode } from "./engine";
 import {
+  chordNotes,
+  chordEvents,
+  chordForDegree,
+  chordName,
+  degreeLabel,
+  KEY_NAMES,
+  melodyFor,
+  noteInKey,
+  progressionsFor,
+  SCALE_INTERVALS,
+  type Rhythm,
+  type Voicing,
+} from "./theory";
+import {
   BEAT_TRACKS,
   BeatDataSchema,
   emptyPattern,
@@ -58,34 +72,6 @@ function trackKindLabel(track: BeatTrackInstance) {
   return track.kind === "drums" ? "Drums" : MELODIC_LABELS[track.kind];
 }
 
-const SCALE_INTERVALS: Record<BeatScale, number[]> = {
-  major: [0, 2, 4, 5, 7, 9, 11],
-  minor: [0, 2, 3, 5, 7, 8, 10],
-  pentatonic: [0, 2, 4, 7, 9],
-  blues: [0, 3, 5, 6, 7, 10],
-  dorian: [0, 2, 3, 5, 7, 9, 10],
-  mixolydian: [0, 2, 4, 5, 7, 9, 10],
-};
-
-const KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-function noteInKey(note: number, key: { root: number; scale: BeatScale } | undefined) {
-  if (!key) return true;
-  return SCALE_INTERVALS[key.scale].includes((note - key.root + 120) % 12);
-}
-
-function chordNotes(root: number, key: { root: number; scale: BeatScale } | undefined) {
-  const intervals = SCALE_INTERVALS[key?.scale ?? "major"];
-  const rootPitch = key ? key.root : root % 12;
-  const degree = intervals.findIndex((interval) => interval === (root % 12 - rootPitch + 12) % 12);
-  const index = degree >= 0 ? degree : 0;
-  const pitches = [index, index + 2, index + 4].map((offset) => {
-    const octave = Math.floor(offset / intervals.length);
-    return root + intervals[offset % intervals.length] - intervals[index] + octave * 12;
-  });
-  return [...new Set(pitches)].filter((pitch) => pitch >= 24 && pitch <= 96);
-}
-
 export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
   const [title, setTitle] = useState(beat.title);
@@ -132,6 +118,25 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   );
   const [newTrackKind, setNewTrackKind] = useState<MelodicInstrument>("piano");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [progressionId, setProgressionId] = useState("major-pop");
+  const [customDegrees, setCustomDegrees] = useState([0, 4, 5, 3]);
+  const [voicing, setVoicing] = useState<Voicing>("triads");
+  const [rhythm, setRhythm] = useState<Rhythm>("bar");
+  const [chordTrackId, setChordTrackId] = useState(
+    initialData.tracks.find((track) => !["drums", "bass", "lead"].includes(track.kind))?.id ?? "",
+  );
+  const [melodyTrackId, setMelodyTrackId] = useState(
+    initialData.tracks.find((track) => ["lead", "pluck", "piano", "eguitar", "aguitar", "strings"].includes(track.kind))?.id ?? "",
+  );
+  const [alsoWriteBass, setAlsoWriteBass] = useState(
+    initialData.tracks.some((track) => track.kind === "bass"),
+  );
+  const [melodyDensity, setMelodyDensity] = useState<"sparse" | "medium" | "busy">("medium");
+  const [melodySeed, setMelodySeed] = useState(1);
+  const [lastFill, setLastFill] = useState<{
+    patternId: string;
+    notes: Record<string, BeatPattern["notes"][string]>;
+  } | null>(null);
   const dragNoteRef = useRef<{ trackId: string; note: number; step: number; dragged: boolean } | null>(null);
   const didDragRef = useRef(false);
   const [engine] = useState(() => new BeatEngine());
@@ -190,6 +195,23 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     data.patterns.find((pattern) => pattern.id === selectedPatternId) ?? data.patterns[0];
   const currentDocument: BeatDocument = { title, bpm, swing, kit, data };
   const arrangementSequence = sectionSequence(data);
+  const progressionOptions = data.key ? progressionsFor(data.key.scale) : [];
+  const selectedProgression = progressionOptions.find((item) => item.id === progressionId);
+  const progressionDegrees = progressionId === "custom"
+    ? customDegrees
+    : selectedProgression?.degrees ?? progressionOptions[0]?.degrees ?? [0, 4, 5, 3];
+  const chordTargets = data.tracks.filter(
+    (track) => track.kind !== "drums" && track.kind !== "bass" && track.kind !== "lead",
+  );
+  const melodyTargets = data.tracks.filter((track) =>
+    ["lead", "pluck", "piano", "eguitar", "aguitar", "strings"].includes(track.kind),
+  );
+  const activeChordTrackId = chordTargets.some((track) => track.id === chordTrackId)
+    ? chordTrackId
+    : chordTargets[0]?.id ?? "";
+  const activeMelodyTrackId = melodyTargets.some((track) => track.id === melodyTrackId)
+    ? melodyTrackId
+    : melodyTargets[0]?.id ?? "";
 
   function markDirty() {
     setDirty(true);
@@ -207,6 +229,72 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
         pattern.id === id ? updater(pattern) : pattern,
       ),
     }));
+  }
+
+  function writeGeneratedNotes(notesByTrack: Record<string, BeatPattern["notes"][string]>) {
+    if (!selectedPattern) return;
+    setLastFill({
+      patternId: selectedPattern.id,
+      notes: Object.fromEntries(
+        Object.keys(notesByTrack).map((trackId) => [
+          trackId,
+          cloneData(selectedPattern.notes[trackId] ?? []),
+        ]),
+      ),
+    });
+    updatePattern(selectedPattern.id, (pattern) => ({
+      ...pattern,
+      notes: { ...pattern.notes, ...notesByTrack },
+    }));
+  }
+
+  function undoFill() {
+    if (!lastFill || !selectedPattern || lastFill.patternId !== selectedPattern.id) return;
+    updatePattern(selectedPattern.id, (pattern) => ({
+      ...pattern,
+      notes: { ...pattern.notes, ...cloneData(lastFill.notes) },
+    }));
+    setLastFill(null);
+  }
+
+  function writeChords() {
+    if (!selectedPattern || !data.key || !activeChordTrackId) return;
+    const events = chordEvents(selectedPattern.bars, progressionDegrees.length, rhythm);
+    const octave = 48;
+    const notes = events.flatMap((event) =>
+      chordForDegree(data.key!.root, data.key!.scale, progressionDegrees[event.chordIndex], octave, voicing)
+        .map((note) => ({ step: event.step, note, len: event.len, vel: 1 })),
+    );
+    const notesByTrack: Record<string, BeatPattern["notes"][string]> = {
+      [activeChordTrackId]: notes.slice(0, 256),
+    };
+    const bass = data.tracks.find((track) => track.kind === "bass");
+    if (alsoWriteBass && bass) {
+      notesByTrack[bass.id] = events.map((event) => ({
+        step: event.step,
+        note: chordForDegree(data.key!.root, data.key!.scale, progressionDegrees[event.chordIndex], octave, "triads")[0] - 12,
+        len: event.len,
+        vel: 1,
+      }));
+    }
+    writeGeneratedNotes(notesByTrack);
+  }
+
+  function writeMelody() {
+    if (!selectedPattern || !data.key || !activeMelodyTrackId) return;
+    const seed = melodySeed;
+    setMelodySeed((current) => current + 1);
+    writeGeneratedNotes({
+      [activeMelodyTrackId]: melodyFor({
+        root: data.key.root,
+        scale: data.key.scale,
+        degrees: progressionDegrees,
+        bars: selectedPattern.bars,
+        octave: 60,
+        seed,
+        density: melodyDensity,
+      }),
+    });
   }
 
   function toggleDrum(trackId: string, voice: BeatTrack, step: number) {
@@ -414,13 +502,13 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     });
   }
 
-  function addTrack() {
+  function addTrack(kind = newTrackKind) {
     if (data.tracks.length >= 16) return;
-    const label = MELODIC_LABELS[newTrackKind];
-    const count = data.tracks.filter((track) => track.kind === newTrackKind).length;
+    const label = MELODIC_LABELS[kind];
+    const count = data.tracks.filter((track) => track.kind === kind).length;
     const track = {
       id: trackId(),
-      kind: newTrackKind,
+      kind,
       name: count === 0 ? label : `${label} ${count + 1}`,
       volume: 1,
       pan: 0,
@@ -435,7 +523,8 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
       })),
     }));
     setOpenTracks((current) => new Set(current).add(track.id));
-    setTopNotes((current) => ({ ...current, [track.id]: defaultTop(newTrackKind) }));
+    setTopNotes((current) => ({ ...current, [track.id]: defaultTop(kind) }));
+    return track.id;
   }
 
   function removeTrack(trackId: string) {
@@ -832,12 +921,126 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
             Snap to key
           </label>
         </div>
+        {data.key ? (
+          <div className="mt-4 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-zinc-800">Chords &amp; melody</span>
+              <Select
+                value={progressionId === "custom" || progressionOptions.some((item) => item.id === progressionId) ? progressionId : progressionOptions[0]?.id ?? ""}
+                onChange={(event) => setProgressionId(event.target.value)}
+                className="w-56 text-xs"
+                aria-label="Chord progression"
+              >
+                {progressionOptions.map((progression) => (
+                  <option key={progression.id} value={progression.id}>
+                    {progression.name} — {progression.mood}
+                  </option>
+                ))}
+                <option value="custom">Custom…</option>
+              </Select>
+              {progressionId === "custom" && (
+                <div className="flex flex-wrap items-center gap-1">
+                  {customDegrees.map((degree, index) => (
+                    <Select
+                      key={index}
+                      value={degree}
+                      onChange={(event) => setCustomDegrees((current) => current.map((item, itemIndex) => itemIndex === index ? Number(event.target.value) : item))}
+                      className="w-20 text-xs"
+                      aria-label={`Custom chord ${index + 1}`}
+                    >
+                      {Array.from({ length: 7 }, (_, item) => (
+                        <option key={item} value={item}>{degreeLabel(item, data.key!.scale)}</option>
+                      ))}
+                    </Select>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-zinc-600">
+              {progressionDegrees.map((degree, index) => (
+                <span key={`${degree}-${index}`} className="flex items-center gap-2">
+                  {index > 0 && <span aria-hidden="true">·</span>}
+                  <span className="rounded bg-white px-2 py-1">{chordName(data.key!.root, data.key!.scale, degree, voicing)}</span>
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                Voicing
+                <Select value={voicing} onChange={(event) => setVoicing(event.target.value as Voicing)} className="w-24 text-xs">
+                  <option value="triads">Triads</option>
+                  <option value="sevenths">7ths</option>
+                  <option value="power">Power</option>
+                </Select>
+              </label>
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                Rhythm
+                <Select value={rhythm} onChange={(event) => setRhythm(event.target.value as Rhythm)} className="w-24 text-xs">
+                  <option value="bar">Whole</option>
+                  <option value="half">Half</option>
+                  <option value="quarter">Quarter</option>
+                  <option value="stab">Stab</option>
+                </Select>
+              </label>
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                Target
+                {chordTargets.length ? (
+                  <Select value={activeChordTrackId} onChange={(event) => setChordTrackId(event.target.value)} className="w-40 text-xs">
+                    {chordTargets.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+                  </Select>
+                ) : (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => {
+                    const id = addTrack("piano");
+                    if (id) setChordTrackId(id);
+                  }}>
+                    Add a Piano track
+                  </Button>
+                )}
+              </label>
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                <input type="checkbox" checked={alsoWriteBass} disabled={!data.tracks.some((track) => track.kind === "bass")} onChange={(event) => setAlsoWriteBass(event.target.checked)} />
+                also write bass root notes
+              </label>
+              <Button type="button" size="sm" variant="secondary" onClick={writeChords} disabled={!activeChordTrackId}>Write chords</Button>
+              {lastFill?.patternId === selectedPattern?.id && <button type="button" className="text-xs text-zinc-500 underline" onClick={undoFill}>Undo</button>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                Melody
+                {melodyTargets.length ? (
+                  <Select value={activeMelodyTrackId} onChange={(event) => setMelodyTrackId(event.target.value)} className="w-40 text-xs">
+                    {melodyTargets.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+                  </Select>
+                ) : (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => {
+                    const id = addTrack("lead");
+                    if (id) setMelodyTrackId(id);
+                  }}>
+                    Add a Lead track
+                  </Button>
+                )}
+              </label>
+              <label className="flex items-center gap-1 text-xs text-zinc-600">
+                Density
+                <Select value={melodyDensity} onChange={(event) => setMelodyDensity(event.target.value as "sparse" | "medium" | "busy")} className="w-24 text-xs">
+                  <option value="sparse">Sparse</option>
+                  <option value="medium">Medium</option>
+                  <option value="busy">Busy</option>
+                </Select>
+              </label>
+              <Button type="button" size="sm" variant="secondary" onClick={writeMelody} disabled={!activeMelodyTrackId}>Suggest melody</Button>
+              {lastFill?.patternId === selectedPattern?.id && <button type="button" className="text-xs text-zinc-500 underline" onClick={undoFill}>Undo</button>}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-zinc-500">Set a key above to generate chords and melodies.</p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4">
           <span className="text-xs font-medium text-zinc-600">Add track</span>
           <Select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as MelodicInstrument)} className="w-44 text-xs">
             {MELODIC_INSTRUMENTS.map((kind) => <option key={kind} value={kind}>{MELODIC_LABELS[kind]}</option>)}
           </Select>
-          <Button type="button" size="sm" variant="secondary" onClick={addTrack} disabled={data.tracks.length >= 16}>+ Add track</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => { addTrack(); }} disabled={data.tracks.length >= 16}>+ Add track</Button>
           <span className="text-xs text-zinc-500">{data.tracks.length}/16 tracks</span>
         </div>
       </Card>
