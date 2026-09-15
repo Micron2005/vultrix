@@ -1227,80 +1227,88 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
         </div>
       </div>
       {trackView === "mixer" && (
-        <Card className="overflow-x-auto p-3">
-          <div className="min-w-[38rem] space-y-2">
+        <Card className="p-3">
+          <div className="space-y-2">
             {data.tracks.map((track, trackIndex) => (
-              <div key={track.id} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-2 py-1.5">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--vx-accent-600)]" aria-hidden="true" />
-                <div className="w-28 shrink-0">
-                  {editingTrackId === track.id ? (
-                    <Input
-                      autoFocus
-                      value={editingTrackName}
-                      maxLength={40}
-                      onChange={(event) => setEditingTrackName(event.target.value)}
-                      onBlur={() => saveTrackName(track.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          saveTrackName(track.id);
-                        }
-                      }}
-                      className="h-8 text-xs"
-                      aria-label={`Name ${track.name}`}
-                    />
-                  ) : (
+              <div key={track.id} className="flex flex-col gap-2 rounded-lg bg-zinc-50 px-2 py-1.5 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center justify-between gap-2 sm:contents">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:w-28 sm:flex-none">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--vx-accent-600)]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      {editingTrackId === track.id ? (
+                        <Input
+                          autoFocus
+                          value={editingTrackName}
+                          maxLength={40}
+                          onChange={(event) => setEditingTrackName(event.target.value)}
+                          onBlur={() => saveTrackName(track.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              saveTrackName(track.id);
+                            }
+                          }}
+                          className="h-8 text-xs"
+                          aria-label={`Name ${track.name}`}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="block max-w-full truncate text-left text-xs font-semibold text-zinc-900 hover:underline"
+                          onClick={() => {
+                            setFocusTrackId(track.id);
+                            setOpenTracks(new Set([track.id]));
+                            setTrackView("grid");
+                          }}
+                        >
+                          {track.name}
+                        </button>
+                      )}
+                      <span className="block truncate text-[10px] text-zinc-500">{trackKindLabel(track)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
-                      className="block max-w-full truncate text-left text-xs font-semibold text-zinc-900 hover:underline"
-                      onClick={() => {
-                        setFocusTrackId(track.id);
-                        setOpenTracks(new Set([track.id]));
-                        setTrackView("grid");
-                      }}
+                      onClick={() => toggleTrackMute(track.id)}
+                      className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${mutedTracks.has(track.id) ? "bg-red-100 text-red-700" : "bg-zinc-200 text-zinc-600"}`}
+                      aria-label={`${mutedTracks.has(track.id) ? "Unmute" : "Mute"} ${track.name}`}
                     >
-                      {track.name}
+                      M
                     </button>
-                  )}
-                  <span className="block truncate text-[10px] text-zinc-500">{trackKindLabel(track)}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toggleTrackMute(track.id)}
-                  className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${mutedTracks.has(track.id) ? "bg-red-100 text-red-700" : "bg-zinc-200 text-zinc-600"}`}
-                  aria-label={`${mutedTracks.has(track.id) ? "Unmute" : "Mute"} ${track.name}`}
-                >
-                  M
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleTrackSolo(track.id)}
-                  className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${soloTrackId === track.id ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-zinc-200 text-zinc-600"}`}
-                  aria-label={`${soloTrackId === track.id ? "Unsolo" : "Solo"} ${track.name}`}
-                >
-                  S
-                </button>
-                <label className="flex min-w-28 flex-1 items-center gap-1 text-[10px] text-zinc-500">
-                  Vol
-                  <input type="range" min={0} max={150} value={Math.round(track.volume * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, volume: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} volume`} />
-                </label>
-                <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
-                  Pan
-                  <input type="range" min={-100} max={100} value={Math.round(track.pan * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, pan: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} pan`} />
-                </label>
-                <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
-                  Rev
-                  <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} reverb`} />
-                </label>
-                <div className="relative shrink-0">
-                  <button type="button" onClick={() => setMixerMenuId((current) => current === track.id ? null : track.id)} className="h-9 w-9 rounded text-lg text-zinc-600 hover:bg-zinc-200 sm:h-7 sm:w-7" aria-label={`More options for ${track.name}`}>⋮</button>
-                  {mixerMenuId === track.id && (
-                    <div className="absolute right-0 top-10 z-20 flex min-w-28 flex-col rounded-md border border-zinc-200 bg-white p-1 shadow-lg sm:top-8">
-                      <button type="button" disabled={trackIndex === 0} onClick={() => { shiftTrack(track.id, -1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move up</button>
-                      <button type="button" disabled={trackIndex === data.tracks.length - 1} onClick={() => { shiftTrack(track.id, 1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move down</button>
-                      <button type="button" onClick={() => { setMixerMenuId(null); removeTrack(track.id); }} className="rounded px-2 py-1.5 text-left text-xs text-red-700">Delete</button>
+                    <button
+                      type="button"
+                      onClick={() => toggleTrackSolo(track.id)}
+                      className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${soloTrackId === track.id ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-zinc-200 text-zinc-600"}`}
+                      aria-label={`${soloTrackId === track.id ? "Unsolo" : "Solo"} ${track.name}`}
+                    >
+                      S
+                    </button>
+                    <div className="relative shrink-0">
+                      <button type="button" onClick={() => setMixerMenuId((current) => current === track.id ? null : track.id)} className="h-9 w-9 rounded text-lg text-zinc-600 hover:bg-zinc-200 sm:h-7 sm:w-7" aria-label={`More options for ${track.name}`}>⋮</button>
+                      {mixerMenuId === track.id && (
+                        <div className="absolute right-0 top-10 z-20 flex min-w-28 flex-col rounded-md border border-zinc-200 bg-white p-1 shadow-lg sm:top-8">
+                          <button type="button" disabled={trackIndex === 0} onClick={() => { shiftTrack(track.id, -1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move up</button>
+                          <button type="button" disabled={trackIndex === data.tracks.length - 1} onClick={() => { shiftTrack(track.id, 1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move down</button>
+                          <button type="button" onClick={() => { setMixerMenuId(null); removeTrack(track.id); }} className="rounded px-2 py-1.5 text-left text-xs text-red-700">Delete</button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </div>
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:contents">
+                  <label className="flex min-w-0 items-center gap-1 text-[10px] text-zinc-500 sm:min-w-28 sm:flex-1">
+                    Vol
+                    <input type="range" min={0} max={150} value={Math.round(track.volume * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, volume: Number(event.target.value) / 100 }))} className="min-w-0 w-full" aria-label={`${track.name} volume`} />
+                  </label>
+                  <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
+                    Pan
+                    <input type="range" min={-100} max={100} value={Math.round(track.pan * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, pan: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} pan`} />
+                  </label>
+                  <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
+                    Rev
+                    <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} reverb`} />
+                  </label>
                 </div>
               </div>
             ))}
