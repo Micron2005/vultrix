@@ -1280,6 +1280,8 @@ model Beat {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   songId       String?
   song         Song?        @relation(fields: [songId], references: [id], onDelete: SetNull)
+  // Shareable play-only link; /b/[token]
+  shareToken   String?      @unique
   title        String
   bpm          Int          @default(90)
   swing        Int          @default(0)

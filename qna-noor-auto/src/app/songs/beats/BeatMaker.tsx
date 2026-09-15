@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button, Card, Input, Select } from "@/components/ui";
-import { attachBeatToSong, deleteBeat, renameBeat, saveBeat } from "./actions";
+import {
+  attachBeatToSong,
+  deleteBeat,
+  disableBeatShare,
+  enableBeatShare,
+  renameBeat,
+  saveBeat,
+} from "./actions";
 import { BpmInput } from "../BpmInput";
 import { BeatEngine, type BeatDocument, type BeatPlaybackMode } from "./engine";
 import {
@@ -49,6 +56,7 @@ type BeatMakerProps = {
     kit: string;
     data: string;
     songId: string | null;
+    shareToken: string | null;
   };
   songs: Array<{ id: string; title: string }>;
 };
@@ -82,6 +90,11 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const [kit, setKit] = useState<BeatKit>(
     KITS.includes(beat.kit as BeatKit) ? (beat.kit as BeatKit) : "808",
   );
+  const [shareToken, setShareToken] = useState(beat.shareToken);
+  const [shareCopied, setShareCopied] = useState(false);
+  const shareUrl = shareToken
+    ? `${typeof window === "undefined" ? "" : window.location.origin}/b/${shareToken}`
+    : "";
   const [data, setData] = useState(initialData);
   const [selectedPatternId, setSelectedPatternId] = useState(
     initialData.patterns[0]?.id ?? "",
@@ -791,6 +804,23 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     await deleteBeat(beat.id);
   }
 
+  async function shareBeat() {
+    const result = await enableBeatShare(beat.id);
+    if (result.token) setShareToken(result.token);
+  }
+
+  async function stopSharing() {
+    await disableBeatShare(beat.id);
+    setShareToken(null);
+  }
+
+  async function copyShareLink() {
+    if (!shareUrl) return;
+    await navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 1600);
+  }
+
   return (
     <div className="space-y-6 pb-24 sm:pb-0">
       <Card className="p-4">
@@ -873,6 +903,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <div className="flex items-center gap-1">
             <Button type="button" size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => void exportWav()}>Export</Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void shareBeat()}>Share</Button>
             <Button type="button" size="sm" variant="danger" onClick={() => void removeBeat()}>Delete</Button>
           </div>
           <span className="text-xs text-zinc-500">
@@ -880,6 +911,25 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           </span>
           {playing && <span className="text-xs text-zinc-500">No sound? Turn up the volume and flip the ringer switch off silent.</span>}
         </div>
+        {shareToken && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Input readOnly value={shareUrl} aria-label="Beat share link" className="min-w-0 flex-1 text-xs" />
+            <Button type="button" size="sm" variant="secondary" onClick={() => void copyShareLink()}>
+              {shareCopied ? "Copied" : "Copy"}
+            </Button>
+            <a
+              href={shareUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-[var(--vx-accent-700)] hover:bg-[var(--vx-accent-600)]/10"
+            >
+              Open
+            </a>
+            <button type="button" onClick={() => void stopSharing()} className="h-8 px-2 text-xs font-medium text-red-700 hover:underline">
+              Stop sharing
+            </button>
+          </div>
+        )}
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
           <BpmInput
             min={40}

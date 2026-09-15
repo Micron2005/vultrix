@@ -28,7 +28,7 @@ export default async function BeatDetailPage({
       />
       <SongsTabs active="beats" />
       <BeatMaker
-        beat={{ ...beat, data: JSON.stringify(data) }}
+        beat={{ ...beat, data: JSON.stringify(data), shareToken: beat.shareToken }}
         songs={songs.map((song) => ({ id: song.id, title: song.title }))}
       />
       <Card className="mt-6 max-w-2xl p-4">
