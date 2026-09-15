@@ -641,7 +641,7 @@ export async function updateLaborLineTech(
 // desync the printed invoice from the stored record.
 const LOCKED_STATUSES = new Set(["INVOICED", "PAID", "CANCELLED"]);
 
-async function assertROEditable(
+export async function assertROEditable(
   orgId: string,
   repairOrderId: string,
 ): Promise<void> {

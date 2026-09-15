@@ -77,6 +77,9 @@ import {
 import { getCustomerContactLists } from "@/lib/customerContacts";
 import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
 import { depositDue } from "@/lib/roTotal";
+import { ensureInspectionTemplates } from "@/lib/inspectionTemplates";
+import { startInspection } from "./inspection-actions";
+import { StartInspectionPicker } from "./StartInspectionPicker";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +127,10 @@ export default async function RepairOrderDetailPage({
       feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
       photos: { orderBy: { sortOrder: "asc" } },
+      inspections: {
+        orderBy: { createdAt: "desc" },
+        include: { items: { select: { rating: true } } },
+      },
     },
   });
   if (!ro) notFound();
@@ -170,6 +177,8 @@ export default async function RepairOrderDetailPage({
     orderBy: { name: "asc" },
     select: { id: true, name: true, initials: true },
   });
+  const inspectionTemplates =
+    user.accountType === "AUTO_SHOP" ? await ensureInspectionTemplates(orgId) : [];
 
   const catalogParts = await db.part.findMany({
     where: { archived: false, orgId },
@@ -251,6 +260,7 @@ export default async function RepairOrderDetailPage({
   const addPart = addPartLine.bind(null, ro.id);
   const addFee = addFeeLine.bind(null, ro.id);
   const addJobAction = addJob.bind(null, ro.id);
+  const startInspectionAction = startInspection.bind(null, ro.id);
   const recordPay = recordPayment.bind(null, ro.id);
   const del = deleteRepairOrder.bind(null, ro.id);
   const genShare = generateShareToken.bind(null, ro.id);
@@ -451,6 +461,32 @@ export default async function RepairOrderDetailPage({
           canDelete={canDelete(user.role)}
         />
       </Card>
+
+      {user.accountType === "AUTO_SHOP" && (
+        <Card className="mb-4">
+          <CardHeader title={`Inspections (${ro.inspections.length})`} />
+          {ro.inspections.length > 0 && (
+            <div className="divide-y divide-zinc-200">
+              {ro.inspections.map((inspection) => {
+                const checked = inspection.items.filter((item) => item.rating != null).length;
+                const attention = inspection.items.filter((item) => item.rating === "ATTENTION").length;
+                const urgent = inspection.items.filter((item) => item.rating === "URGENT").length;
+                const sent = inspection.sentAt ? `Sent ${formatDate(inspection.sentAt)}` : inspection.status === "COMPLETED" ? "Completed" : "In progress";
+                return (
+                  <Link key={inspection.id} href={`/repair-orders/${ro.id}/inspections/${inspection.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-zinc-50">
+                    <span className="font-medium text-zinc-900">{inspection.templateName}</span>
+                    <span className="text-xs text-zinc-500">{checked}/{inspection.items.length} checked · <span className="text-amber-700">{attention} Attention</span> · <span className="text-red-700">{urgent} Urgent</span> · {sent}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+          <StartInspectionPicker
+            templates={inspectionTemplates.map((template) => ({ id: template.id, name: template.name, itemCount: template.items.length }))}
+            action={startInspectionAction}
+          />
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <Card className="lg:col-span-2">

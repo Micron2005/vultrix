@@ -58,6 +58,11 @@ export default async function CustomerPortalROPage({
       partLines: { orderBy: { sortOrder: "asc" } },
       feeLines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paidAt: "desc" } },
+      inspections: {
+        where: { sentAt: { not: null } },
+        orderBy: { sentAt: "desc" },
+        select: { id: true, templateName: true, sentAt: true },
+      },
     },
   });
 
@@ -222,6 +227,20 @@ export default async function CustomerPortalROPage({
               </div>
               <div className="text-zinc-800 whitespace-pre-line">
                 {ro.correction}
+              </div>
+            </section>
+          )}
+
+          {ro.inspections.length > 0 && (
+            <section className="border-b border-zinc-200 px-4 py-4 sm:px-8">
+              <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Inspection reports</div>
+              <div className="mt-2 space-y-2">
+                {ro.inspections.map((inspection) => (
+                  <Link key={inspection.id} href={`/p/${token}/ro/${roId}/inspection/${inspection.id}`} className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50">
+                    <span className="font-medium text-zinc-900">{inspection.templateName}</span>
+                    <span className="text-xs text-[var(--vx-accent-600)]">Inspection report →</span>
+                  </Link>
+                ))}
               </div>
             </section>
           )}

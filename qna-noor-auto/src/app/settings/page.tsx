@@ -864,6 +864,15 @@ export default async function SettingsPage({
       )}
 
       {showAutoSettings && <div id="shop-fees" className="h-4" />}
+      {accountType === "AUTO_SHOP" && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Digital inspections" />
+          <div className="space-y-3 p-6">
+            <p className="text-sm text-zinc-600">Customize the checklists your technicians use on repair orders.</p>
+            <Link href="/settings/inspections" className="inline-flex items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--vx-accent-700)]">Manage inspection templates →</Link>
+          </div>
+        </Card>
+      )}
       {showAutoSettings && <Card className="max-w-4xl mt-6">
         <CardHeader title="Shop fees">
           <span className="text-xs text-zinc-500 font-normal">

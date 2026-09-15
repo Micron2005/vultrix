@@ -187,6 +187,7 @@ model RepairOrder {
   payments          Payment[]
   shopFeeExclusions RepairOrderShopFeeExclusion[]
   photos            RepairOrderPhoto[]
+  inspections       Inspection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,6 +225,7 @@ model Job {
   laborLines LaborLine[]
   partLines  PartLine[]
   feeLines   FeeLine[]
+  inspectionItems InspectionItem[]
 
   createdAt DateTime @default(now())
 
@@ -291,6 +293,7 @@ model Technician {
 
   laborLines LaborLine[]
   laborLineAssignments LaborLineTech[]
+  inspections Inspection[]
 
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -1203,6 +1206,8 @@ model Organization {
   ideas             SongIdea[]
   beats             Beat[]
   beatTakes         BeatTake[]
+  inspectionTemplates InspectionTemplate[]
+  inspections       Inspection[]
 
   @@index([status])
 }
@@ -1485,4 +1490,74 @@ model RepairOrderPhoto {
 
   @@index([repairOrderId])
   @@index([orgId])
+}
+
+model InspectionTemplate {
+  id        String @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int @default(0)
+  items     InspectionTemplateItem[]
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+}
+
+model InspectionTemplateItem {
+  id         String @id @default(cuid())
+  templateId String
+  template   InspectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  section    String
+  name       String
+  sortOrder  Int @default(0)
+
+  @@index([templateId])
+}
+
+model Inspection {
+  id            String @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  templateName  String
+  technicianId  String?
+  technician    Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  status        String @default("IN_PROGRESS")
+  sentAt        DateTime?
+  summary       String?
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+  items         InspectionItem[]
+
+  @@index([repairOrderId])
+  @@index([orgId])
+}
+
+model InspectionItem {
+  id           String @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  section      String
+  name         String
+  sortOrder    Int @default(0)
+  rating       String?
+  note         String?
+  jobId        String?
+  job          Job? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  photos       InspectionPhoto[]
+
+  @@index([inspectionId])
+}
+
+model InspectionPhoto {
+  id        String @id @default(cuid())
+  orgId     String
+  itemId    String
+  item      InspectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  dataUrl   String
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
