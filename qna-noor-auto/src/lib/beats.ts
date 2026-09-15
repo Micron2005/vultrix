@@ -14,3 +14,10 @@ export async function getBeat(orgId: string, id: string) {
     include: { song: { select: { id: true, title: true } } },
   });
 }
+
+export async function listBeatTakes(orgId: string, beatId: string) {
+  return db.beatTake.findMany({
+    where: { orgId, beatId },
+    orderBy: { createdAt: "asc" },
+  });
+}

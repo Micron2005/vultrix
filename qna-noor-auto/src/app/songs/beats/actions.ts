@@ -24,6 +24,21 @@ const BeatSaveSchema = z.object({
   data: BeatDataSchema,
 });
 
+const BeatTakeSaveSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  audioDataUrl: z.string().startsWith("data:audio/").max(6_000_000),
+  audioMimeType: z.string().max(60),
+  durationSec: z.number().int().min(1).max(180),
+  offsetMs: z.number().int().min(-2000).max(2000),
+});
+
+const BeatTakePatchSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  offsetMs: z.number().int().min(-2000).max(2000).optional(),
+  gain: z.number().int().min(0).max(150).optional(),
+  muted: z.boolean().optional(),
+}).partial();
+
 async function validSongId(orgId: string, raw: string | null) {
   if (!raw) return null;
   const song = await db.song.findFirst({
@@ -135,4 +150,65 @@ export async function deleteBeat(id: string) {
   await db.beat.deleteMany({ where: { id, orgId } });
   revalidateBeatPaths();
   redirect("/songs/beats");
+}
+
+export async function saveBeatTake(beatId: string, payload: unknown) {
+  const { orgId } = await requireMusicPack();
+  const parsed = BeatTakeSaveSchema.parse(payload);
+  const beat = await db.beat.findFirst({
+    where: { id: beatId, orgId },
+    select: { id: true },
+  });
+  if (!beat) throw new Error("Beat not found");
+  const count = await db.beatTake.count({ where: { beatId, orgId } });
+  if (count >= 12) throw new Error("Up to 12 takes per beat");
+  const take = await db.beatTake.create({
+    data: {
+      orgId,
+      beatId,
+      name: parsed.name,
+      audioDataUrl: parsed.audioDataUrl,
+      audioMimeType: parsed.audioMimeType,
+      durationSec: parsed.durationSec,
+      offsetMs: parsed.offsetMs,
+    },
+  });
+  revalidatePath(`/songs/beats/${beatId}`);
+  return {
+    id: take.id,
+    name: take.name,
+    audioDataUrl: take.audioDataUrl,
+    audioMimeType: take.audioMimeType,
+    durationSec: take.durationSec,
+    offsetMs: take.offsetMs,
+    gain: take.gain,
+    muted: take.muted,
+    createdAt: take.createdAt,
+  };
+}
+
+export async function updateBeatTake(id: string, patch: unknown) {
+  const { orgId } = await requireMusicPack();
+  const parsed = BeatTakePatchSchema.parse(patch);
+  const take = await db.beatTake.findFirst({
+    where: { id, orgId },
+    select: { beatId: true },
+  });
+  if (!take) return;
+  await db.beatTake.updateMany({
+    where: { id, orgId },
+    data: parsed,
+  });
+  revalidatePath(`/songs/beats/${take.beatId}`);
+}
+
+export async function deleteBeatTake(id: string) {
+  const { orgId } = await requireMusicPack();
+  const take = await db.beatTake.findFirst({
+    where: { id, orgId },
+    select: { beatId: true },
+  });
+  if (!take) return;
+  await db.beatTake.deleteMany({ where: { id, orgId } });
+  revalidatePath(`/songs/beats/${take.beatId}`);
 }

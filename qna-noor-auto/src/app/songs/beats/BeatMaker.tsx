@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import { BpmInput } from "../BpmInput";
 import { BeatEngine, type BeatDocument, type BeatPlaybackMode } from "./engine";
+import { VocalsPanel, type Take } from "./VocalsPanel";
 import {
   chordNotes,
   chordEvents,
@@ -59,6 +60,7 @@ type BeatMakerProps = {
     shareToken: string | null;
   };
   songs: Array<{ id: string; title: string }>;
+  takes: Take[];
 };
 
 function parseBeatData(raw: string): BeatData {
@@ -81,7 +83,7 @@ function trackKindLabel(track: BeatTrackInstance) {
   return track.kind === "drums" ? "Drums" : MELODIC_LABELS[track.kind];
 }
 
-export function BeatMaker({ beat, songs }: BeatMakerProps) {
+export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
@@ -721,34 +723,44 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     }, 0);
   }
 
-  async function togglePlayback() {
-    if (!engine) return;
-    if (playing) {
-      engine.stop();
-      setPlaying(false);
-      setActiveStep(-1);
+  function onPlaybackStep(sequenceIndex: number, step: number) {
+    setActiveStep(step);
+    if (modeRef.current !== "song") {
       setActiveSequenceIndex(-1);
       return;
     }
+    const sequence = sectionSequence(docRef.current.data);
+    if (!sequence.length) return;
+    const item = sequence[sequenceIndex % sequence.length];
+    setActiveSequenceIndex(sequenceIndex % sequence.length);
+    if (item && item.pattern.id !== selectedRef.current) {
+      setSelectedPatternId(item.pattern.id);
+    }
+  }
+
+  async function startBeat() {
+    if (!engine) return;
     await engine.play(
       () => docRef.current,
       () => ({ mode: modeRef.current, patternId: selectedRef.current }),
-      (sequenceIndex, step) => {
-        setActiveStep(step);
-        if (modeRef.current !== "song") {
-          setActiveSequenceIndex(-1);
-          return;
-        }
-        const sequence = sectionSequence(docRef.current.data);
-        if (!sequence.length) return;
-        const item = sequence[sequenceIndex % sequence.length];
-        setActiveSequenceIndex(sequenceIndex % sequence.length);
-        if (item && item.pattern.id !== selectedRef.current) {
-          setSelectedPatternId(item.pattern.id);
-        }
-      },
+      onPlaybackStep,
     );
     setPlaying(true);
+  }
+
+  function stopBeat() {
+    engine.stop();
+    setPlaying(false);
+    setActiveStep(-1);
+    setActiveSequenceIndex(-1);
+  }
+
+  async function togglePlayback() {
+    if (playing) {
+      stopBeat();
+      return;
+    }
+    await startBeat();
   }
 
   useEffect(() => {
@@ -1260,6 +1272,20 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           {SECTION_LABELS.map((label) => <option key={label} value={label} />)}
         </datalist>
       </Card>
+
+      <VocalsPanel
+        beatId={beat.id}
+        title={title}
+        engine={engine}
+        getDocument={() => docRef.current}
+        getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}
+        onStep={onPlaybackStep}
+        playing={playing}
+        setPlaying={setPlaying}
+        startBeat={startBeat}
+        stopBeat={stopBeat}
+        initialTakes={takes}
+      />
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold text-zinc-900">Tracks</span>
