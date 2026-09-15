@@ -21,7 +21,7 @@ export default async function InspectionRunnerPage({
       include: {
         repairOrder: { include: { vehicle: true, customer: { select: { firstName: true, lastName: true, portalToken: true } } } },
         technician: true,
-        items: { orderBy: [{ section: "asc" }, { sortOrder: "asc" }], include: { photos: { orderBy: { createdAt: "asc" } } } },
+        items: { orderBy: { sortOrder: "asc" }, include: { photos: { orderBy: { createdAt: "asc" } } } },
       },
     }),
     db.technician.findMany({ where: { orgId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),

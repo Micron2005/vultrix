@@ -15,7 +15,7 @@ export default async function PortalInspectionPage({ params }: { params: Promise
     include: {
       technician: true,
       repairOrder: { include: { vehicle: true, customer: true } },
-      items: { orderBy: [{ rating: "asc" }, { section: "asc" }, { sortOrder: "asc" }], include: { photos: { orderBy: { createdAt: "asc" } } } },
+      items: { orderBy: { sortOrder: "asc" }, include: { photos: { orderBy: { createdAt: "asc" } } } },
     },
   });
   if (!inspection) notFound();
