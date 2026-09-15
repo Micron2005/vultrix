@@ -2,10 +2,12 @@ import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
 import {
   BEAT_TRACKS,
   KIT_CONFIG,
+  MELODIC_INSTRUMENTS,
   type BeatData,
   type BeatKit,
   type BeatPattern,
   type BeatTrack,
+  type MelodicInstrument,
 } from "./kits";
 
 export type BeatDocument = {
@@ -106,6 +108,31 @@ export class BeatEngine {
     this.scheduleTrackVoice(context, this.master, track, accent ? 1.5 : 1, context.currentTime + 0.01, beat.kit);
   }
 
+  async previewNote(
+    beat: BeatDocument,
+    instrument: MelodicInstrument,
+    note: number,
+  ) {
+    unlockMediaRoute();
+    const context = this.context ?? new AudioContext();
+    this.context = context;
+    this.master = this.master ?? context.createGain();
+    if (!this.masterConnected) {
+      this.master.connect(context.destination);
+      this.masterConnected = true;
+    }
+    await ensureRunning(context);
+    this.scheduleInstrument(
+      context,
+      this.master,
+      instrument,
+      note,
+      2,
+      beat,
+      context.currentTime + 0.01,
+    );
+  }
+
   private schedule() {
     const context = this.context;
     const playback = this.playback;
@@ -158,9 +185,11 @@ export class BeatEngine {
         this.scheduleTrackVoice(context, destination, track, value === 2 ? 1.5 : 1, time, beat.kit);
       }
     }
-    for (const note of beat.data.bass.notes) {
-      if (note.step === step) {
-        this.scheduleBass(context, destination, note.note, note.len, beat, time);
+    for (const instrument of MELODIC_INSTRUMENTS) {
+      for (const note of beat.data[instrument].notes) {
+        if (note.step === step) {
+          this.scheduleInstrument(context, destination, instrument, note.note, note.len, beat, time);
+        }
       }
     }
     if (this.playback?.onStep) {
@@ -226,11 +255,36 @@ export class BeatEngine {
     }
   }
 
+  private scheduleInstrument(
+    context: AudioContextLike,
+    destination: AudioNode,
+    instrument: MelodicInstrument,
+    note: number,
+    length: number,
+    beat: BeatDocument,
+    time: number,
+  ) {
+    const duration = Math.min(16, length) * (60 / beat.bpm / 4);
+    if (instrument === "bass") {
+      this.scheduleBass(context, destination, note, duration, beat, time);
+      return;
+    }
+    if (instrument === "piano") {
+      this.schedulePiano(context, destination, note, duration, time);
+      return;
+    }
+    if (instrument === "eguitar") {
+      this.scheduleElectricGuitar(context, destination, note, duration, time);
+      return;
+    }
+    this.scheduleAcousticGuitar(context, destination, note, duration, time);
+  }
+
   private scheduleBass(
     context: AudioContextLike,
     destination: AudioNode,
     note: number,
-    length: number,
+    duration: number,
     beat: BeatDocument,
     time: number,
   ) {
@@ -238,7 +292,6 @@ export class BeatEngine {
     const filter = context.createBiquadFilter();
     filter.type = "lowpass";
     filter.frequency.value = beat.kit === "Lo-fi" ? 900 : 1800;
-    const duration = Math.min(16, length) * (60 / beat.bpm / 4);
     gain.gain.setValueAtTime(0.0001, time);
     gain.gain.exponentialRampToValueAtTime(0.25, time + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
@@ -253,6 +306,140 @@ export class BeatEngine {
       oscillator.start(time);
       oscillator.stop(time + duration + 0.02);
     }
+  }
+
+  private schedulePiano(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 6000;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.3, time + 0.005);
+    const end = time + Math.max(duration, 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    for (const [multiplier, level] of [[1, 1], [2, 0.5], [3, 0.2]] as const) {
+      const oscillator = context.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency * multiplier;
+      oscillator.connect(filter);
+      oscillator.start(time);
+      oscillator.stop(end + 0.02);
+      if (level < 1) {
+        const partialGain = context.createGain();
+        partialGain.gain.value = level;
+        oscillator.disconnect();
+        oscillator.connect(partialGain);
+        partialGain.connect(filter);
+      }
+    }
+    const attackGain = context.createGain();
+    attackGain.gain.setValueAtTime(0.0001, time);
+    attackGain.gain.exponentialRampToValueAtTime(0.12, time + 0.001);
+    attackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+    attackGain.connect(filter);
+    const attack = context.createOscillator();
+    attack.type = "triangle";
+    attack.frequency.value = frequency;
+    attack.connect(attackGain);
+    attack.start(time);
+    attack.stop(time + 0.05);
+  }
+
+  private scheduleElectricGuitar(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 2800;
+    const shaper = context.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let index = 0; index < curve.length; index += 1) {
+      const input = (index / (curve.length - 1)) * 2 - 1;
+      curve[index] = Math.tanh(input * 3);
+    }
+    shaper.curve = curve;
+    shaper.oversample = "2x";
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    const end = time + Math.max(duration, 0.5);
+    gain.gain.exponentialRampToValueAtTime(0.22, time + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    shaper.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    for (const [type, detune] of [["sawtooth", -5], ["square", 5]] as const) {
+      const oscillator = context.createOscillator();
+      oscillator.type = type;
+      oscillator.detune.value = detune;
+      oscillator.frequency.value = frequency;
+      oscillator.connect(shaper);
+      oscillator.start(time);
+      oscillator.stop(end + 0.02);
+    }
+  }
+
+  private scheduleAcousticGuitar(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 4500;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    const end = time + Math.max(duration, 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.28, time + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    const body = context.createOscillator();
+    body.type = "triangle";
+    body.frequency.value = frequency;
+    body.connect(filter);
+    body.start(time);
+    body.stop(end + 0.02);
+    const harmonic = context.createOscillator();
+    const harmonicGain = context.createGain();
+    harmonic.type = "sine";
+    harmonic.frequency.value = frequency * 2;
+    harmonicGain.gain.value = 0.35;
+    harmonic.connect(harmonicGain);
+    harmonicGain.connect(filter);
+    harmonic.start(time);
+    harmonic.stop(end + 0.02);
+    const pluckFilter = context.createBiquadFilter();
+    pluckFilter.type = "bandpass";
+    pluckFilter.frequency.value = 3000;
+    pluckFilter.Q.value = 1.2;
+    const pluckGain = context.createGain();
+    pluckGain.gain.setValueAtTime(0.0001, time);
+    pluckGain.gain.exponentialRampToValueAtTime(0.16, time + 0.001);
+    pluckGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.01);
+    const pluck = context.createBufferSource();
+    pluck.buffer = this.noiseBuffer(context);
+    pluck.connect(pluckFilter);
+    pluckFilter.connect(pluckGain);
+    pluckGain.connect(filter);
+    pluck.start(time);
+    pluck.stop(time + 0.01);
   }
 
   // Sub sine alone disappears on phone/laptop speakers; layer a punchier
@@ -346,8 +533,12 @@ export class BeatEngine {
           const value = pattern.steps[track][step];
           if (value) this.scheduleTrackVoice(context, destination, track, value === 2 ? 1.5 : 1, time, beat.kit);
         }
-        for (const note of beat.data.bass.notes) {
-          if (note.step === step) this.scheduleBass(context, destination, note.note, note.len, beat, time);
+        for (const instrument of MELODIC_INSTRUMENTS) {
+          for (const note of beat.data[instrument].notes) {
+            if (note.step === step) {
+              this.scheduleInstrument(context, destination, instrument, note.note, note.len, beat, time);
+            }
+          }
         }
       }
     });
