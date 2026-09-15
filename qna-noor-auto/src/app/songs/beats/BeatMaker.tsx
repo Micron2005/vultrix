@@ -75,6 +75,7 @@ function trackKindLabel(track: BeatTrackInstance) {
 
 export function BeatMaker({ beat, songs }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
+  const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
   const [bpm, setBpm] = useState(beat.bpm);
   const [swing, setSwing] = useState(beat.swing);
@@ -138,6 +139,11 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     patternId: string;
     notes: Record<string, BeatPattern["notes"][string]>;
   } | null>(null);
+  const [trackView, setTrackView] = useState<"grid" | "mixer">("grid");
+  const [isPhone, setIsPhone] = useState(false);
+  const [focusTrackId, setFocusTrackId] = useState(initialFirstTrackId);
+  const [soloTrackId, setSoloTrackId] = useState<string | null>(null);
+  const [mixerMenuId, setMixerMenuId] = useState<string | null>(null);
   const dragNoteRef = useRef<{ trackId: string; note: number; step: number; dragged: boolean } | null>(null);
   const didDragRef = useRef(false);
   const [engine] = useState(() => new BeatEngine());
@@ -156,6 +162,20 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
       engine.stop();
     };
   }, [engine]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const applyViewport = () => {
+      setIsPhone(media.matches);
+      if (media.matches) {
+        setTrackView("mixer");
+        setOpenTracks(new Set(initialFirstTrackId ? [initialFirstTrackId] : []));
+      }
+    };
+    applyViewport();
+    media.addEventListener("change", applyViewport);
+    return () => media.removeEventListener("change", applyViewport);
+  }, [initialFirstTrackId]);
 
   useEffect(() => {
     docRef.current = { title, bpm, swing, kit, data };
@@ -454,11 +474,13 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
 
   function toggleTrack(trackId: string) {
     setOpenTracks((current) => {
+      if (isPhone) return current.has(trackId) ? new Set() : new Set([trackId]);
       const next = new Set(current);
       if (next.has(trackId)) next.delete(trackId);
       else next.add(trackId);
       return next;
     });
+    if (isPhone) setFocusTrackId(trackId);
   }
 
   function toggleTrackMute(trackId: string) {
@@ -467,7 +489,17 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     if (muted) next.delete(trackId);
     else next.add(trackId);
     setMutedTracks(next);
-    engine?.setTrackMuted(trackId, !muted);
+    engine?.setTrackMuted(trackId, soloTrackId ? trackId !== soloTrackId || !muted : !muted);
+  }
+
+  function toggleTrackSolo(trackId: string) {
+    if (soloTrackId === trackId) {
+      setSoloTrackId(null);
+      data.tracks.forEach((track) => engine.setTrackMuted(track.id, mutedTracks.has(track.id)));
+      return;
+    }
+    setSoloTrackId(trackId);
+    data.tracks.forEach((track) => engine.setTrackMuted(track.id, track.id !== trackId));
   }
 
   function toggleVoiceMute(voice: BeatTrack) {
@@ -760,9 +792,9 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 sm:pb-0">
       <Card className="p-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -774,11 +806,11 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                 event.currentTarget.blur();
               }
             }}
-            className="min-w-48 flex-1 text-lg font-semibold"
+            className="col-span-2 min-w-0 text-lg font-semibold sm:min-w-48 sm:flex-1"
             aria-label="Beat title"
           />
-          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
-            <label className="flex items-center gap-2 text-xs text-zinc-600">
+          <div className="col-span-2 grid grid-cols-2 gap-2 rounded-lg bg-zinc-50 p-2 sm:flex sm:items-center">
+            <label className="hidden items-center gap-2 text-xs text-zinc-600 sm:flex">
               BPM
               <BpmInput
                 min={40}
@@ -821,7 +853,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
               </Select>
             </label>
           </div>
-          <div className="flex items-center gap-1 rounded-lg bg-zinc-50 p-2">
+          <div className="hidden items-center gap-1 rounded-lg bg-zinc-50 p-2 sm:flex">
             <Button type="button" size="sm" onClick={() => void togglePlayback()}>
               {playing ? "Stop" : "Play"}
             </Button>
@@ -839,7 +871,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button type="button" size="sm" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
+            <Button type="button" size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => void exportWav()}>Export</Button>
             <Button type="button" size="sm" variant="danger" onClick={() => void removeBeat()}>Delete</Button>
           </div>
@@ -847,6 +879,35 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
             {saveError ? "Save failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
           </span>
           {playing && <span className="text-xs text-zinc-500">No sound? Turn up the volume and flip the ringer switch off silent.</span>}
+        </div>
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
+          <BpmInput
+            min={40}
+            max={200}
+            value={bpm}
+            onCommit={(next) => {
+              setBpm(next);
+              markDirty();
+            }}
+            className="w-16"
+            aria-label="BPM"
+          />
+          <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()}>
+            {playing ? "Stop" : "Play"}
+          </Button>
+          <div className="flex overflow-hidden rounded-md border border-zinc-300">
+            {(["pattern", "song"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setMode(item)}
+                className={`min-h-11 px-2 text-xs font-medium ${mode === item ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
+              >
+                {item === "pattern" ? "Loop" : "Song"}
+              </button>
+            ))}
+          </div>
+          <Button type="button" className="min-h-11" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <form action={attachBeatToSong.bind(null, beat.id)} className="flex items-center gap-2">
@@ -1101,10 +1162,10 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                         {section.name}
                       </button>
                     )}
-                    <button type="button" onClick={() => reorderSection(section.id, -1)} className="rounded bg-white px-1.5 py-1 text-xs" aria-label="Move section left">◀</button>
-                    <button type="button" onClick={() => reorderSection(section.id, 1)} className="rounded bg-white px-1.5 py-1 text-xs" aria-label="Move section right">▶</button>
+                    <button type="button" onClick={() => reorderSection(section.id, -1)} className="h-9 w-9 rounded bg-white text-xs sm:h-7 sm:w-7" aria-label="Move section left">◀</button>
+                    <button type="button" onClick={() => reorderSection(section.id, 1)} className="h-9 w-9 rounded bg-white text-xs sm:h-7 sm:w-7" aria-label="Move section right">▶</button>
                     <button type="button" onClick={() => duplicateSection(section.id)} className="rounded bg-white px-1.5 py-1 text-[10px]">Duplicate</button>
-                    <button type="button" onClick={() => removeSection(section.id)} className="rounded px-1.5 py-1 text-xs text-red-700" aria-label="Remove section">×</button>
+                    <button type="button" onClick={() => removeSection(section.id)} className="h-9 w-9 rounded text-xs text-red-700 sm:h-7 sm:w-7" aria-label="Remove section">×</button>
                   </div>
                   <Select
                     value={section.patternId}
@@ -1120,9 +1181,9 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                   </Select>
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-600">
                     Repeats
-                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.max(1, current.repeats - 1) }))} className="rounded bg-white px-2 py-1">−</button>
+                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.max(1, current.repeats - 1) }))} className="h-9 w-9 rounded bg-white sm:h-7 sm:w-7">−</button>
                     <span className="tabular-nums">×{section.repeats}</span>
-                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.min(32, current.repeats + 1) }))} className="rounded bg-white px-2 py-1">+</button>
+                    <button type="button" onClick={() => updateSection(section.id, (current) => ({ ...current, repeats: Math.min(32, current.repeats + 1) }))} className="h-9 w-9 rounded bg-white sm:h-7 sm:w-7">+</button>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {data.tracks.map((track) => {
@@ -1133,7 +1194,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                           type="button"
                           title={`${muted ? "Unmute" : "Mute"} ${track.name}`}
                           onClick={() => toggleSectionTrack(section.id, track.id)}
-                          className={`rounded px-1.5 py-1 text-[10px] ${muted ? "text-zinc-400 line-through" : "bg-white text-zinc-600"}`}
+                          className={`min-h-9 min-w-9 rounded px-1.5 py-1 text-[10px] sm:min-h-7 sm:min-w-7 ${muted ? "text-zinc-400 line-through" : "bg-white text-zinc-600"}`}
                         >
                           {track.name.slice(0, 1)}
                         </button>
@@ -1150,9 +1211,114 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
         </datalist>
       </Card>
 
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-zinc-900">Tracks</span>
+        <div className="flex overflow-hidden rounded-md border border-zinc-300">
+          {(["grid", "mixer"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => setTrackView(view)}
+              className={`min-h-9 px-3 text-xs font-medium sm:min-h-7 ${trackView === view ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
+            >
+              {view === "grid" ? "Grid" : "Mixer"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {trackView === "mixer" && (
+        <Card className="p-3">
+          <div className="space-y-2">
+            {data.tracks.map((track, trackIndex) => (
+              <div key={track.id} className="flex flex-col gap-2 rounded-lg bg-zinc-50 px-2 py-1.5 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center justify-between gap-2 sm:contents">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:w-28 sm:flex-none">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--vx-accent-600)]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      {editingTrackId === track.id ? (
+                        <Input
+                          autoFocus
+                          value={editingTrackName}
+                          maxLength={40}
+                          onChange={(event) => setEditingTrackName(event.target.value)}
+                          onBlur={() => saveTrackName(track.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              saveTrackName(track.id);
+                            }
+                          }}
+                          className="h-8 text-xs"
+                          aria-label={`Name ${track.name}`}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="block max-w-full truncate text-left text-xs font-semibold text-zinc-900 hover:underline"
+                          onClick={() => {
+                            setFocusTrackId(track.id);
+                            setOpenTracks(new Set([track.id]));
+                            setTrackView("grid");
+                          }}
+                        >
+                          {track.name}
+                        </button>
+                      )}
+                      <span className="block truncate text-[10px] text-zinc-500">{trackKindLabel(track)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleTrackMute(track.id)}
+                      className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${mutedTracks.has(track.id) ? "bg-red-100 text-red-700" : "bg-zinc-200 text-zinc-600"}`}
+                      aria-label={`${mutedTracks.has(track.id) ? "Unmute" : "Mute"} ${track.name}`}
+                    >
+                      M
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleTrackSolo(track.id)}
+                      className={`h-9 w-9 shrink-0 rounded text-[10px] sm:h-7 sm:w-7 ${soloTrackId === track.id ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-zinc-200 text-zinc-600"}`}
+                      aria-label={`${soloTrackId === track.id ? "Unsolo" : "Solo"} ${track.name}`}
+                    >
+                      S
+                    </button>
+                    <div className="relative shrink-0">
+                      <button type="button" onClick={() => setMixerMenuId((current) => current === track.id ? null : track.id)} className="h-9 w-9 rounded text-lg text-zinc-600 hover:bg-zinc-200 sm:h-7 sm:w-7" aria-label={`More options for ${track.name}`}>⋮</button>
+                      {mixerMenuId === track.id && (
+                        <div className="absolute right-0 top-10 z-20 flex min-w-28 flex-col rounded-md border border-zinc-200 bg-white p-1 shadow-lg sm:top-8">
+                          <button type="button" disabled={trackIndex === 0} onClick={() => { shiftTrack(track.id, -1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move up</button>
+                          <button type="button" disabled={trackIndex === data.tracks.length - 1} onClick={() => { shiftTrack(track.id, 1); setMixerMenuId(null); }} className="rounded px-2 py-1.5 text-left text-xs disabled:opacity-40">Move down</button>
+                          <button type="button" onClick={() => { setMixerMenuId(null); removeTrack(track.id); }} className="rounded px-2 py-1.5 text-left text-xs text-red-700">Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:contents">
+                  <label className="flex min-w-0 items-center gap-1 text-[10px] text-zinc-500 sm:min-w-28 sm:flex-1">
+                    Vol
+                    <input type="range" min={0} max={150} value={Math.round(track.volume * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, volume: Number(event.target.value) / 100 }))} className="min-w-0 w-full" aria-label={`${track.name} volume`} />
+                  </label>
+                  <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
+                    Pan
+                    <input type="range" min={-100} max={100} value={Math.round(track.pan * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, pan: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} pan`} />
+                  </label>
+                  <label className="flex w-20 shrink-0 items-center gap-1 text-[10px] text-zinc-500">
+                    Rev
+                    <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} reverb`} />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* eslint-disable-next-line react-hooks/refs */}
-      {selectedPattern && data.tracks.map((track, trackIndex) => {
-        const isOpen = openTracks.has(track.id);
+      {trackView === "grid" && selectedPattern && data.tracks.map((track, trackIndex) => {
+        const isOpen = isPhone ? focusTrackId === track.id && openTracks.has(track.id) : openTracks.has(track.id);
         const stepCount = stepsFor(selectedPattern);
         const hitCount = track.kind === "drums"
           ? Object.values(selectedPattern.drums[track.id] ?? {}).reduce(
@@ -1165,7 +1331,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
           <Card key={track.id} className="overflow-hidden p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <button type="button" onClick={() => toggleTrack(track.id)} className="shrink-0 text-zinc-500" aria-label={`${isOpen ? "Collapse" : "Expand"} ${track.name}`}>
+                <button type="button" onClick={() => toggleTrack(track.id)} className="h-9 w-9 shrink-0 text-zinc-500 sm:h-7 sm:w-7" aria-label={`${isOpen ? "Collapse" : "Expand"} ${track.name}`}>
                   {isOpen ? "▾" : "▸"}
                 </button>
                 {editingTrackId === track.id ? (
@@ -1203,6 +1369,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                 <button type="button" onClick={() => toggleTrackMute(track.id)} className={`rounded px-2 py-1 text-[10px] ${mutedTracks.has(track.id) ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>
                   {mutedTracks.has(track.id) ? "Muted" : "Mute"}
                 </button>
+                <div className={`${isPhone && !isOpen ? "hidden" : "flex"} flex-wrap items-center gap-2`}>
                 <label className="flex items-center gap-1 text-[10px] text-zinc-500">
                   Vol
                   <input type="range" min={0} max={150} value={Math.round(track.volume * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, volume: Number(event.target.value) / 100 }))} className="w-20" aria-label={`${track.name} volume`} />
@@ -1245,34 +1412,35 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                   </>
                 )}
               </div>
+              </div>
             </div>
             {isOpen && (
               <div className="mt-4 overflow-x-auto">
                 <div style={{ minWidth: `${stepCount * 2.75 + 8}rem` }} className="space-y-1">
-                  <div className={`grid gap-1 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
+                  <div className={`grid gap-1 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
                     <span className="text-right text-[10px] text-zinc-400">Bars</span>
-                    <div className="grid grid-cols-[repeat(var(--bars),minmax(2.2rem,1fr))] gap-1" style={{ "--bars": selectedPattern.bars } as CSSProperties}>
+                    <div className="grid grid-cols-[repeat(var(--bars),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--bars),minmax(2.2rem,1fr))]" style={{ "--bars": selectedPattern.bars } as CSSProperties}>
                       {Array.from({ length: selectedPattern.bars }, (_, bar) => <span key={bar} className="text-center text-[10px] text-zinc-400">{bar + 1}</span>)}
                     </div>
                   </div>
-                  <div className={`grid gap-1 pb-2 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
+                  <div className={`grid gap-1 pb-2 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
                     <span />
-                    <div className="grid grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))] gap-1" style={{ "--steps": stepCount } as CSSProperties}>
-                      {Array.from({ length: stepCount }, (_, step) => <span key={step} className={`text-center text-[10px] text-zinc-400 ${step % 4 === 0 ? "border-l border-zinc-300" : ""}`}>{step + 1}</span>)}
+                    <div className="grid grid-cols-[repeat(var(--steps),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))]" style={{ "--steps": stepCount } as CSSProperties}>
+                      {Array.from({ length: stepCount }, (_, step) => <span key={step} className={`text-center text-[10px] text-zinc-400 ${step % 4 === 0 ? "border-l border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""}`}>{step + 1}</span>)}
                     </div>
                   </div>
                   {track.kind === "drums" ? (
                     BEAT_TRACKS.map((voice) => (
                       <div key={voice} className="grid grid-cols-[8rem_1fr] gap-1 py-1">
-                        <div className="sticky left-0 z-10 flex items-center gap-1 bg-white pr-2">
-                          <button type="button" onClick={() => void engine.preview(currentDocument, voice)} className="min-w-0 flex-1 truncate text-left text-xs font-medium capitalize text-zinc-700 hover:text-zinc-950">{voice}</button>
+                        <div className="sticky left-0 z-10 flex min-w-12 items-center gap-1 bg-white pr-2">
+                          <button type="button" onClick={() => void engine.preview(currentDocument, voice)} className="min-w-12 flex-1 truncate text-left text-xs font-medium capitalize text-zinc-700 hover:text-zinc-950">{voice}</button>
                           <button type="button" onClick={() => toggleVoiceMute(voice)} className={`rounded px-1.5 py-1 text-[10px] ${mutedVoices.has(voice) ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>{mutedVoices.has(voice) ? "M" : "mute"}</button>
                         </div>
-                        <div className="grid grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))] gap-1" style={{ "--steps": stepCount } as CSSProperties}>
+                        <div className="grid grid-cols-[repeat(var(--steps),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))]" style={{ "--steps": stepCount } as CSSProperties}>
                           {Array.from({ length: stepCount }, (_, step) => {
                             const value = selectedPattern.drums[track.id]?.[voice]?.[step] ?? 0;
                             return (
-                              <button key={step} type="button" onClick={() => toggleDrum(track.id, voice, step)} className={`relative h-9 rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)] ring-2 ring-[var(--vx-accent-700)] ring-inset" : value === 1 ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track.name} ${voice} step ${step + 1}`}>
+                              <button key={step} type="button" onClick={() => toggleDrum(track.id, voice, step)} className={`relative h-9 min-w-9 rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)] ring-2 ring-[var(--vx-accent-700)] ring-inset" : value === 1 ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track.name} ${voice} step ${step + 1}`}>
                                 {value === 2 && <span aria-hidden="true" className="absolute inset-1 rounded-full border border-[var(--vx-accent-fg)]/70" />}
                               </button>
                             );
@@ -1283,8 +1451,8 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                   ) : (
                     Array.from({ length: 12 }, (_, row) => top - row).map((note) => (
                       <div key={note} className="grid grid-cols-[4.5rem_1fr] gap-1">
-                        <button type="button" onClick={() => void engine.previewNote(currentDocument, track.kind as MelodicInstrument, note)} className={`sticky left-0 z-10 truncate bg-white pr-2 text-left text-[10px] text-zinc-500 hover:text-zinc-950 ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`} title={`Play ${noteName(note)}`}>{noteName(note)}</button>
-                        <div className="grid grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))] gap-1" style={{ "--steps": stepCount } as CSSProperties}>
+                        <button type="button" onClick={() => void engine.previewNote(currentDocument, track.kind as MelodicInstrument, note)} className={`sticky left-0 z-10 min-w-12 truncate bg-white pr-2 text-left text-[10px] text-zinc-500 hover:text-zinc-950 ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`} title={`Play ${noteName(note)}`}>{noteName(note)}</button>
+                        <div className="grid grid-cols-[repeat(var(--steps),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))]" style={{ "--steps": stepCount } as CSSProperties}>
                           {Array.from({ length: stepCount }, (_, step) => {
                             const noteItem = (selectedPattern.notes[track.id] ?? []).find((item) => item.note === note && item.step <= step && step < item.step + item.len);
                             const active = Boolean(noteItem);
@@ -1305,7 +1473,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
                                   if (velocityModes.has(track.id) && noteItem) updateNote(track.id, track.kind as MelodicInstrument, note, step, "velocity");
                                   else toggleNote(track.id, track.kind as MelodicInstrument, note, step);
                                 }}
-                                className={`relative h-6 touch-none rounded ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
+                                className={`relative h-9 min-w-9 touch-none rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
                                 style={active ? { opacity: (0.45 + velocity / 2) * (snapToKey && !noteInKey(note, data.key) ? 0.55 : 1) } : undefined}
                                 aria-label={`${track.name} ${noteName(note)} step ${step + 1}${noteItem ? ` length ${noteItem.len}` : ""}`}
                               />
