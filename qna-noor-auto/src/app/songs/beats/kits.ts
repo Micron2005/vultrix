@@ -14,15 +14,36 @@ export const BEAT_TRACKS = [
 export const DRUM_VOICES = BEAT_TRACKS;
 export type BeatTrack = (typeof BEAT_TRACKS)[number];
 export type BeatKit = "Drums" | "808" | "Acoustic" | "Lo-fi";
-export const MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
+export const MELODIC_INSTRUMENTS = [
+  "bass",
+  "piano",
+  "eguitar",
+  "aguitar",
+  "strings",
+  "pad",
+  "lead",
+  "pluck",
+] as const;
 export type MelodicInstrument = (typeof MELODIC_INSTRUMENTS)[number];
 export type TrackKind = "drums" | MelodicInstrument;
+export type BeatScale =
+  | "major"
+  | "minor"
+  | "pentatonic"
+  | "blues"
+  | "dorian"
+  | "mixolydian";
+export const V1_MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
 
 export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
   bass: "Bass",
   piano: "Piano",
   eguitar: "Electric guitar",
   aguitar: "Acoustic guitar",
+  strings: "Strings",
+  pad: "Pad",
+  lead: "Lead",
+  pluck: "Pluck",
 };
 
 export const KITS = ["Drums", "808", "Acoustic", "Lo-fi"] as const satisfies readonly BeatKit[];
@@ -40,6 +61,11 @@ const trackSchema = z.object({
   name: z.string().min(1).max(40),
   volume: z.number().min(0).max(1.5).default(1),
   pan: z.number().min(-1).max(1).default(0),
+  reverb: z.number().min(0).max(1).default(0),
+});
+const keySchema = z.object({
+  root: z.number().int().min(0).max(11),
+  scale: z.enum(["major", "minor", "pentatonic", "blues", "dorian", "mixolydian"]),
 });
 const drumsSchema = z
   .object(
@@ -64,6 +90,7 @@ export const BeatDataV2Schema = z.object({
   tracks: z.array(trackSchema).min(1).max(16),
   patterns: z.array(patternV2Schema).min(1).max(16),
   chain: z.array(z.string().min(1).max(32)).max(64),
+  key: keySchema.optional(),
 });
 
 const notesV1Schema = z.object({
@@ -149,7 +176,7 @@ export function emptyPattern(
 
 export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
   if (data.v === 2) return data;
-  const melodicTracks = MELODIC_INSTRUMENTS
+  const melodicTracks = V1_MELODIC_INSTRUMENTS
     .filter((kind) => kind !== "bass")
     .filter((kind) => data[kind].notes.length > 0)
     .map((kind) => ({
@@ -158,10 +185,11 @@ export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
       name: MELODIC_LABELS[kind],
       volume: 1,
       pan: 0,
+      reverb: 0,
     }));
   const tracks: BeatData["tracks"] = [
-    { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0 },
-    { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0 },
+    { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0 },
+    { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0 },
     ...melodicTracks,
   ];
   return {
@@ -173,7 +201,7 @@ export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
       bars: 1,
       drums: { drums: pattern.steps },
       notes: Object.fromEntries(
-        MELODIC_INSTRUMENTS.map((kind) => [
+        V1_MELODIC_INSTRUMENTS.map((kind) => [
           kind,
           data[kind].notes.map((note) => ({ ...note, vel: 1 })),
         ]),
@@ -188,8 +216,8 @@ export const BeatDataSchema = z
   .transform(migrateBeatData);
 
 const defaultTracks: BeatData["tracks"] = [
-  { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0 },
-  { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0 },
+  { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0 },
+  { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0 },
 ];
 const defaultPattern = emptyPattern(defaultTracks, "A");
 defaultPattern.drums.drums.kick[0] = 1;

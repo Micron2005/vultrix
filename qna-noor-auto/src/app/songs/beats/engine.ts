@@ -48,6 +48,7 @@ function patternSequence(
 export class BeatEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
   private masterConnected = false;
   private timer: number | null = null;
   private nextNoteTime = 0;
@@ -56,9 +57,10 @@ export class BeatEngine {
   private mutedTracks = new Set<string>();
   private mutedVoices = new Set<BeatTrack>();
   private noiseBuffers = new WeakMap<AudioContextLike, AudioBuffer>();
+  private reverbBuffers = new WeakMap<AudioContextLike, AudioBuffer>();
   private trackRoutes = new WeakMap<
     AudioContextLike,
-    Map<string, { gain: GainNode; panner: StereoPannerNode }>
+    Map<string, { gain: GainNode; panner: StereoPannerNode; reverbSend: GainNode }>
   >();
   private playback: {
     getDocument: () => BeatDocument;
@@ -77,10 +79,7 @@ export class BeatEngine {
     this.context = context;
     this.master = this.master ?? context.createGain();
     this.master.gain.value = 0.8;
-    if (!this.masterConnected) {
-      this.master.connect(context.destination);
-      this.masterConnected = true;
-    }
+    this.ensureRealtimeMaster(context);
     await ensureRunning(context);
     this.playback = { getDocument, getPlayback, onStep };
     this.sequenceIndex = 0;
@@ -94,6 +93,18 @@ export class BeatEngine {
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     this.playback = null;
+  }
+
+  private ensureRealtimeMaster(context: AudioContext) {
+    if (this.masterConnected || !this.master) return;
+    this.compressor = context.createDynamicsCompressor();
+    this.compressor.threshold.value = -14;
+    this.compressor.ratio.value = 3;
+    this.compressor.attack.value = 0.005;
+    this.compressor.release.value = 0.15;
+    this.master.connect(this.compressor);
+    this.compressor.connect(context.destination);
+    this.masterConnected = true;
   }
 
   setTrackMuted(trackId: string, muted: boolean) {
@@ -111,10 +122,7 @@ export class BeatEngine {
     const context = this.context ?? new AudioContext();
     this.context = context;
     this.master = this.master ?? context.createGain();
-    if (!this.masterConnected) {
-      this.master.connect(context.destination);
-      this.masterConnected = true;
-    }
+    this.ensureRealtimeMaster(context);
     await ensureRunning(context);
     this.scheduleTrackVoice(context, this.master, track, accent ? 1.5 : 1, context.currentTime + 0.01, beat.kit);
   }
@@ -128,10 +136,7 @@ export class BeatEngine {
     const context = this.context ?? new AudioContext();
     this.context = context;
     this.master = this.master ?? context.createGain();
-    if (!this.masterConnected) {
-      this.master.connect(context.destination);
-      this.masterConnected = true;
-    }
+    this.ensureRealtimeMaster(context);
     await ensureRunning(context);
     this.scheduleInstrument(
       context,
@@ -248,9 +253,15 @@ export class BeatEngine {
     if (!route) {
       const gain = context.createGain();
       const panner = context.createStereoPanner();
+      const reverbSend = context.createGain();
+      const convolver = context.createConvolver();
+      convolver.buffer = this.reverbBuffer(context);
       gain.connect(panner);
       panner.connect(master);
-      route = { gain, panner };
+      panner.connect(reverbSend);
+      reverbSend.connect(convolver);
+      convolver.connect(master);
+      route = { gain, panner, reverbSend };
       routes.set(track.id, route);
     }
     route.gain.gain.setTargetAtTime(
@@ -259,6 +270,7 @@ export class BeatEngine {
       0.01,
     );
     route.panner.pan.setTargetAtTime(track.pan, time, 0.01);
+    route.reverbSend.gain.setTargetAtTime(track.reverb, time, 0.01);
     return route.panner;
   }
 
@@ -345,7 +357,23 @@ export class BeatEngine {
       this.scheduleElectricGuitar(context, destination, note, duration, velocity, time);
       return;
     }
-    this.scheduleAcousticGuitar(context, destination, note, duration, velocity, time);
+    if (instrument === "aguitar") {
+      this.scheduleAcousticGuitar(context, destination, note, duration, velocity, time);
+      return;
+    }
+    if (instrument === "strings") {
+      this.scheduleStrings(context, destination, note, duration, velocity, time);
+      return;
+    }
+    if (instrument === "pad") {
+      this.schedulePad(context, destination, note, duration, velocity, time);
+      return;
+    }
+    if (instrument === "lead") {
+      this.scheduleLead(context, destination, note, duration, velocity, time);
+      return;
+    }
+    this.schedulePluck(context, destination, note, velocity, time);
   }
 
   private scheduleBass(
@@ -422,6 +450,131 @@ export class BeatEngine {
     attack.connect(attackGain);
     attack.start(time);
     attack.stop(time + 0.05);
+  }
+
+  private scheduleStrings(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    velocity: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 2200;
+    const gain = context.createGain();
+    const end = time + duration + 0.25;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.16 * velocity, time + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    for (const detune of [-7, 0, 7]) {
+      const oscillator = context.createOscillator();
+      oscillator.type = "sawtooth";
+      oscillator.detune.value = detune;
+      oscillator.frequency.value = frequency;
+      oscillator.connect(filter);
+      oscillator.start(time);
+      oscillator.stop(end + 0.02);
+    }
+    const octaveGain = context.createGain();
+    octaveGain.gain.value = 0.3;
+    octaveGain.connect(filter);
+    const octave = context.createOscillator();
+    octave.type = "sawtooth";
+    octave.frequency.value = frequency * 2;
+    octave.connect(octaveGain);
+    octave.start(time);
+    octave.stop(end + 0.02);
+  }
+
+  private schedulePad(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    velocity: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(600, time);
+    filter.frequency.linearRampToValueAtTime(1800, time + 0.4);
+    const gain = context.createGain();
+    const end = time + duration + 0.6;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.18 * velocity, time + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    for (const [type, detune] of [["triangle", -5], ["triangle", 5], ["sine", 0]] as const) {
+      const oscillator = context.createOscillator();
+      oscillator.type = type;
+      oscillator.detune.value = detune;
+      oscillator.frequency.value = frequency;
+      oscillator.connect(filter);
+      oscillator.start(time);
+      oscillator.stop(end + 0.02);
+    }
+  }
+
+  private scheduleLead(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    duration: number,
+    velocity: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 3500;
+    const gain = context.createGain();
+    const peak = 0.14 * velocity;
+    const release = time + duration + 0.08;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(peak, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.7), time + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.0001, release);
+    filter.connect(gain);
+    gain.connect(destination);
+    const frequency = midiFrequency(note);
+    for (const [type, detune] of [["square", -6], ["sawtooth", 6]] as const) {
+      const oscillator = context.createOscillator();
+      oscillator.type = type;
+      oscillator.detune.value = detune;
+      oscillator.frequency.value = frequency;
+      oscillator.connect(filter);
+      oscillator.start(time);
+      oscillator.stop(release + 0.02);
+    }
+  }
+
+  private schedulePluck(
+    context: AudioContextLike,
+    destination: AudioNode,
+    note: number,
+    velocity: number,
+    time: number,
+  ) {
+    const filter = context.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 300;
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.35 * velocity, time + 0.001);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+    filter.connect(gain);
+    gain.connect(destination);
+    const source = context.createBufferSource();
+    source.buffer = stringBuffer(context, "pluck", midiFrequency(note));
+    source.connect(filter);
+    source.start(time);
+    source.stop(time + 0.07);
   }
 
   private scheduleElectricGuitar(
@@ -584,6 +737,22 @@ export class BeatEngine {
     return buffer;
   }
 
+  private reverbBuffer(context: AudioContextLike) {
+    const cached = this.reverbBuffers.get(context);
+    if (cached) return cached;
+    const length = Math.floor(context.sampleRate * 1.8);
+    const buffer = context.createBuffer(2, length, context.sampleRate);
+    for (let channelIndex = 0; channelIndex < 2; channelIndex += 1) {
+      const channel = buffer.getChannelData(channelIndex);
+      for (let index = 0; index < length; index += 1) {
+        const decay = 1 - index / length;
+        channel[index] = (Math.random() * 2 - 1) * decay ** 2.5;
+      }
+    }
+    this.reverbBuffers.set(context, buffer);
+    return buffer;
+  }
+
   async renderWav(beat: BeatDocument) {
     const patterns = patternSequence(
       beat.data,
@@ -599,7 +768,13 @@ export class BeatEngine {
     const context = new OfflineAudioContext(2, Math.ceil(seconds * 44100), 44100);
     const destination = context.createGain();
     destination.gain.value = 0.8;
-    destination.connect(context.destination);
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -14;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.005;
+    compressor.release.value = 0.15;
+    destination.connect(compressor);
+    compressor.connect(context.destination);
     let patternOffset = 0;
     renderPatterns.forEach((pattern) => {
       for (let step = 0; step < stepsFor(pattern); step += 1) {
