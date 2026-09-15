@@ -577,7 +577,7 @@ export class BeatEngine {
     source.buffer = stringBuffer(context, "pluck", midiFrequency(note));
     source.connect(filter);
     source.start(time);
-    source.stop(end + 0.02);
+    source.stop(end + 0.07);
   }
 
   private scheduleElectricGuitar(
