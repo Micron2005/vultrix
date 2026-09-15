@@ -10,6 +10,7 @@ import {
   chordEvents,
   chordForDegree,
   chordName,
+  degreeRoot,
   degreeLabel,
   KEY_NAMES,
   melodyFor,
@@ -272,7 +273,7 @@ export function BeatMaker({ beat, songs }: BeatMakerProps) {
     if (alsoWriteBass && bass) {
       notesByTrack[bass.id] = events.map((event) => ({
         step: event.step,
-        note: chordForDegree(data.key!.root, data.key!.scale, progressionDegrees[event.chordIndex], octave, "triads")[0] - 12,
+        note: octave - 12 + degreeRoot(data.key!.root, data.key!.scale, progressionDegrees[event.chordIndex]),
         len: event.len,
         vel: 1,
       }));

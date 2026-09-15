@@ -106,6 +106,12 @@ function normalizeVoicing(notes: number[], octave: number) {
 
 export type Voicing = "triads" | "sevenths" | "power";
 
+export function degreeRoot(root: number, scale: BeatScale, degree: number) {
+  const intervals = SCALE_INTERVALS[scale];
+  const index = ((degree % intervals.length) + intervals.length) % intervals.length;
+  return ((root + intervals[index]) % 12 + 12) % 12;
+}
+
 export function chordForDegree(
   root: number,
   scale: BeatScale,
@@ -113,10 +119,11 @@ export function chordForDegree(
   octave: number,
   voicing: Voicing,
 ) {
-  if (voicing === "power") {
-    return normalizeVoicing([octave + root, octave + root + 7, octave + root + 12], octave);
-  }
   const intervals = SCALE_INTERVALS[scale];
+  const pitch = root + intervals[degree % intervals.length] + Math.floor(degree / intervals.length) * 12;
+  if (voicing === "power") {
+    return normalizeVoicing([octave + pitch, octave + pitch + 7, octave + pitch + 12], octave);
+  }
   const count = voicing === "sevenths" ? 4 : 3;
   const notes = Array.from({ length: count }, (_, offset) => {
     const index = degree + offset * 2;
@@ -126,8 +133,7 @@ export function chordForDegree(
 }
 
 export function chordName(root: number, scale: BeatScale, degree: number, voicing: Voicing) {
-  const intervals = SCALE_INTERVALS[scale];
-  const pitch = (root + intervals[((degree % intervals.length) + intervals.length) % intervals.length]) % 12;
+  const pitch = degreeRoot(root, scale, degree);
   const quality = degreeQuality(degree, scale);
   if (voicing === "power") return `${KEY_NAMES[pitch]}5`;
   if (voicing === "sevenths") {
@@ -210,10 +216,10 @@ export function melodyFor(opts: {
   const span = Math.max(1, Math.floor(totalSteps / chordCount));
   const notes: BeatNote[] = [];
   const usedNotes: number[] = [];
-  const scaleNotes = Array.from({ length: 17 }, (_, index) => {
+  const scaleNotes = Array.from({ length: 24 }, (_, index) => {
     const octaveOffset = Math.floor(index / intervals.length);
     return opts.octave + intervals[index % intervals.length] + octaveOffset * 12;
-  });
+  }).filter((note) => note <= opts.octave + 16);
   const densityStep = opts.density === "sparse" ? 4 : opts.density === "medium" ? 2 : 1;
 
   const chordAt = (index: number) =>
