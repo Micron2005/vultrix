@@ -39,6 +39,8 @@ import {
   SECTION_LABELS,
   sectionSequence,
   stepsFor,
+  TRACK_SPEEDS,
+  trackSpeedLabel,
   type BeatData,
   type BeatKit,
   type BeatPattern,
@@ -561,6 +563,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
       volume: 1,
       pan: 0,
       reverb: 0,
+      speed: 1,
     } as const;
     updateData((current) => ({
       ...current,
@@ -1385,6 +1388,18 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
                     Rev
                     <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} reverb`} />
                   </label>
+                  <label className="flex shrink-0 items-center gap-1 text-[10px] text-zinc-500">
+                    Speed
+                    <select
+                      value={track.speed}
+                      onChange={(event) => updateTrack(track.id, (current) => ({ ...current, speed: Number(event.target.value) }))}
+                      className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] text-zinc-700"
+                      aria-label={`${track.name} speed`}
+                    >
+                      {TRACK_SPEEDS.map((speed) => <option key={speed} value={speed}>{trackSpeedLabel(speed)}</option>)}
+                    </select>
+                    <span className="whitespace-nowrap tabular-nums">{trackSpeedLabel(track.speed)} · {Math.round(bpm * track.speed)} BPM</span>
+                  </label>
                 </div>
               </div>
             ))}
@@ -1460,6 +1475,18 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
                   Reverb
                   <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-16" aria-label={`${track.name} reverb`} />
                   <span className="w-8 tabular-nums">{Math.round(track.reverb * 100)}%</span>
+                </label>
+                <label className="flex w-full items-center gap-1 text-[10px] text-zinc-500 sm:w-auto">
+                  Speed
+                  <select
+                    value={track.speed}
+                    onChange={(event) => updateTrack(track.id, (current) => ({ ...current, speed: Number(event.target.value) }))}
+                    className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] text-zinc-700"
+                    aria-label={`${track.name} speed`}
+                  >
+                    {TRACK_SPEEDS.map((speed) => <option key={speed} value={speed}>{trackSpeedLabel(speed)}</option>)}
+                  </select>
+                  <span className="whitespace-nowrap tabular-nums">{trackSpeedLabel(track.speed)} · {Math.round(bpm * track.speed)} BPM</span>
                 </label>
                 {track.kind !== "drums" && (
                   <>

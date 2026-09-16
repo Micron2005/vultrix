@@ -42,6 +42,23 @@ type PlaybackSequenceItem = {
   mutedTracks: ReadonlySet<string>;
 };
 
+function trackStepTimes(
+  globalStep: number,
+  speed: number,
+  stepDuration: number,
+  time: number,
+) {
+  const firstStep = Math.ceil(globalStep * speed - 1e-9);
+  const afterLastStep = Math.ceil((globalStep + 1) * speed - 1e-9);
+  return Array.from({ length: afterLastStep - firstStep }, (_, index) => {
+    const step = firstStep + index;
+    return {
+      step,
+      time: time + (step / speed - globalStep) * stepDuration,
+    };
+  });
+}
+
 function patternSequence(
   data: BeatData,
   mode: BeatPlaybackMode,
@@ -217,6 +234,7 @@ export class BeatEngine {
       note,
       2,
       1,
+      1,
       beat,
       context.currentTime + 0.01,
     );
@@ -251,6 +269,7 @@ export class BeatEngine {
         sequenceItem,
         this.sequenceIndex,
         this.step,
+        stepDuration,
         this.nextNoteTime + delay,
       );
       this.nextNoteTime += stepDuration;
@@ -269,39 +288,45 @@ export class BeatEngine {
     sequenceItem: PlaybackSequenceItem,
     patternIndex: number,
     step: number,
+    stepDuration: number,
     time: number,
   ) {
     const { pattern, mutedTracks } = sequenceItem;
+    const patternSteps = stepsFor(pattern);
     for (const track of beat.data.tracks) {
       if (mutedTracks.has(track.id)) continue;
-      const route = this.trackRoute(context, destination, track, time);
-      if (track.kind === "drums") {
-        for (const voice of BEAT_TRACKS) {
-          const value = pattern.drums[track.id]?.[voice]?.[step] ?? 0;
-          if (value && !this.mutedVoices.has(voice)) {
-            this.scheduleTrackVoice(
-              context,
-              route,
-              voice,
-              value === 2 ? 1.5 : 1,
-              time,
-              beat.kit,
-            );
+      for (const { step: trackStep, time: trackTime } of trackStepTimes(step, track.speed, stepDuration, time)) {
+        const cell = trackStep % patternSteps;
+        const route = this.trackRoute(context, destination, track, trackTime);
+        if (track.kind === "drums") {
+          for (const voice of BEAT_TRACKS) {
+            const value = pattern.drums[track.id]?.[voice]?.[cell] ?? 0;
+            if (value && !this.mutedVoices.has(voice)) {
+              this.scheduleTrackVoice(
+                context,
+                route,
+                voice,
+                value === 2 ? 1.5 : 1,
+                trackTime,
+                beat.kit,
+              );
+            }
           }
-        }
-      } else {
-        for (const note of pattern.notes[track.id] ?? []) {
-          if (note.step === step) {
-            this.scheduleInstrument(
-              context,
-              route,
-              track.kind,
-              note.note,
-              note.len,
-              note.vel,
-              beat,
-              time,
-            );
+        } else {
+          for (const note of pattern.notes[track.id] ?? []) {
+            if (note.step === cell) {
+              this.scheduleInstrument(
+                context,
+                route,
+                track.kind,
+                note.note,
+                note.len,
+                note.vel,
+                track.speed,
+                beat,
+                trackTime,
+              );
+            }
           }
         }
       }
@@ -416,10 +441,11 @@ export class BeatEngine {
     note: number,
     length: number,
     velocity: number,
+    speed: number,
     beat: BeatDocument,
     time: number,
   ) {
-    const duration = Math.min(64, length) * (60 / beat.bpm / 4);
+    const duration = Math.min(64, length) * (60 / beat.bpm / 4) / speed;
     if (instrument === "bass") {
       this.scheduleBass(context, destination, note, duration, velocity, beat, time);
       return;
@@ -870,34 +896,38 @@ export class BeatEngine {
         const time = baseTime + (step % 2 === 1 ? (beat.swing / 100) * stepDuration * 0.5 : 0);
         for (const track of beat.data.tracks) {
           if (mutedTracks.has(track.id)) continue;
-          const route = this.trackRoute(context, destination, track, time);
-          if (track.kind === "drums") {
-            for (const voice of BEAT_TRACKS) {
-              const value = pattern.drums[track.id]?.[voice]?.[step] ?? 0;
-              if (value && !this.mutedVoices.has(voice)) {
-                this.scheduleTrackVoice(
-                  context,
-                  route,
-                  voice,
-                  value === 2 ? 1.5 : 1,
-                  time,
-                  beat.kit,
-                );
+          for (const { step: trackStep, time: trackTime } of trackStepTimes(step, track.speed, stepDuration, time)) {
+            const cell = trackStep % stepsFor(pattern);
+            const route = this.trackRoute(context, destination, track, trackTime);
+            if (track.kind === "drums") {
+              for (const voice of BEAT_TRACKS) {
+                const value = pattern.drums[track.id]?.[voice]?.[cell] ?? 0;
+                if (value && !this.mutedVoices.has(voice)) {
+                  this.scheduleTrackVoice(
+                    context,
+                    route,
+                    voice,
+                    value === 2 ? 1.5 : 1,
+                    trackTime,
+                    beat.kit,
+                  );
+                }
               }
-            }
-          } else {
-            for (const note of pattern.notes[track.id] ?? []) {
-              if (note.step === step) {
-                this.scheduleInstrument(
-                  context,
-                  route,
-                  track.kind,
-                  note.note,
-                  note.len,
-                  note.vel,
-                  beat,
-                  time,
-                );
+            } else {
+              for (const note of pattern.notes[track.id] ?? []) {
+                if (note.step === cell) {
+                  this.scheduleInstrument(
+                    context,
+                    route,
+                    track.kind,
+                    note.note,
+                    note.len,
+                    note.vel,
+                    track.speed,
+                    beat,
+                    trackTime,
+                  );
+                }
               }
             }
           }
