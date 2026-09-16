@@ -34,6 +34,14 @@ export type BeatScale =
   | "dorian"
   | "mixolydian";
 export const V1_MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
+export const TRACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4] as const;
+
+export function trackSpeedLabel(speed: number) {
+  if (speed === 0.25) return "¼×";
+  if (speed === 0.5) return "½×";
+  if (speed === 1.5) return "1½×";
+  return `${speed}×`;
+}
 
 export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
   bass: "Bass",
@@ -84,6 +92,7 @@ const trackSchema = z.object({
   volume: z.number().min(0).max(1.5).default(1),
   pan: z.number().min(-1).max(1).default(0),
   reverb: z.number().min(0).max(1).default(0),
+  speed: z.number().positive().default(1),
 });
 const keySchema = z.object({
   root: z.number().int().min(0).max(11),
@@ -217,10 +226,11 @@ export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
       volume: 1,
       pan: 0,
       reverb: 0,
+      speed: 1,
     }));
   const tracks: BeatData["tracks"] = [
-    { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0 },
-    { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0 },
+    { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0, speed: 1 },
+    { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0, speed: 1 },
     ...melodicTracks,
   ];
   return {
@@ -285,8 +295,8 @@ export const BeatDataSchema = z
   .transform(normalizeBeatData);
 
 const defaultTracks: BeatData["tracks"] = [
-  { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0 },
-  { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0 },
+  { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0, speed: 1 },
+  { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0, speed: 1 },
 ];
 const defaultPattern = emptyPattern(defaultTracks, "A");
 defaultPattern.drums.drums.kick[0] = 1;
