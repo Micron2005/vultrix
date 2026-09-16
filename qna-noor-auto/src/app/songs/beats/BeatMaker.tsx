@@ -39,8 +39,6 @@ import {
   SECTION_LABELS,
   sectionSequence,
   stepsFor,
-  TRACK_SPEEDS,
-  trackSpeedLabel,
   type BeatData,
   type BeatKit,
   type BeatPattern,
@@ -1389,16 +1387,24 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
                     <input type="range" min={0} max={100} value={Math.round(track.reverb * 100)} onChange={(event) => updateTrack(track.id, (current) => ({ ...current, reverb: Number(event.target.value) / 100 }))} className="w-full" aria-label={`${track.name} reverb`} />
                   </label>
                   <label className="flex shrink-0 items-center gap-1 text-[10px] text-zinc-500">
-                    Speed
-                    <select
-                      value={track.speed}
-                      onChange={(event) => updateTrack(track.id, (current) => ({ ...current, speed: Number(event.target.value) }))}
-                      className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] text-zinc-700"
-                      aria-label={`${track.name} speed`}
-                    >
-                      {TRACK_SPEEDS.map((speed) => <option key={speed} value={speed}>{trackSpeedLabel(speed)}</option>)}
-                    </select>
-                    <span className="whitespace-nowrap tabular-nums">{trackSpeedLabel(track.speed)} · {Math.round(bpm * track.speed)} BPM</span>
+                    BPM
+                    <BpmInput
+                      min={40}
+                      max={400}
+                      value={Math.round(bpm * track.speed)}
+                      onCommit={(next) => updateTrack(track.id, (current) => ({ ...current, speed: next / bpm }))}
+                      className="w-20"
+                      aria-label={`${track.name} BPM`}
+                    />
+                    {Math.abs(track.speed - 1) > 0.0001 && (
+                      <button
+                        type="button"
+                        onClick={() => updateTrack(track.id, (current) => ({ ...current, speed: 1 }))}
+                        className="text-[var(--vx-accent-700)] hover:underline"
+                      >
+                        Reset
+                      </button>
+                    )}
                   </label>
                 </div>
               </div>
@@ -1477,16 +1483,24 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
                   <span className="w-8 tabular-nums">{Math.round(track.reverb * 100)}%</span>
                 </label>
                 <label className="flex w-full items-center gap-1 text-[10px] text-zinc-500 sm:w-auto">
-                  Speed
-                  <select
-                    value={track.speed}
-                    onChange={(event) => updateTrack(track.id, (current) => ({ ...current, speed: Number(event.target.value) }))}
-                    className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] text-zinc-700"
-                    aria-label={`${track.name} speed`}
-                  >
-                    {TRACK_SPEEDS.map((speed) => <option key={speed} value={speed}>{trackSpeedLabel(speed)}</option>)}
-                  </select>
-                  <span className="whitespace-nowrap tabular-nums">{trackSpeedLabel(track.speed)} · {Math.round(bpm * track.speed)} BPM</span>
+                  BPM
+                  <BpmInput
+                    min={40}
+                    max={400}
+                    value={Math.round(bpm * track.speed)}
+                    onCommit={(next) => updateTrack(track.id, (current) => ({ ...current, speed: next / bpm }))}
+                    className="w-16"
+                    aria-label={`${track.name} BPM`}
+                  />
+                  {Math.abs(track.speed - 1) > 0.0001 && (
+                    <button
+                      type="button"
+                      onClick={() => updateTrack(track.id, (current) => ({ ...current, speed: 1 }))}
+                      className="text-[var(--vx-accent-700)] hover:underline"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </label>
                 {track.kind !== "drums" && (
                   <>
