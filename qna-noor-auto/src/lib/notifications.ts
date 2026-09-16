@@ -111,3 +111,20 @@ export async function markRead(
     data: { readAt: new Date() },
   });
 }
+
+export async function deleteNotifications(
+  user: NotificationUser,
+  ids: string[] | "all" | "read",
+): Promise<void> {
+  if (!user.orgId) return;
+  await db.notification.deleteMany({
+    where: {
+      ...notificationsWhereForUser(user),
+      ...(ids === "all"
+        ? {}
+        : ids === "read"
+          ? { readAt: { not: null } }
+          : { id: { in: ids } }),
+    },
+  });
+}
