@@ -34,14 +34,6 @@ export type BeatScale =
   | "dorian"
   | "mixolydian";
 export const V1_MELODIC_INSTRUMENTS = ["bass", "piano", "eguitar", "aguitar"] as const;
-export const TRACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4] as const;
-
-export function trackSpeedLabel(speed: number) {
-  if (speed === 0.25) return "¼×";
-  if (speed === 0.5) return "½×";
-  if (speed === 1.5) return "1½×";
-  return `${speed}×`;
-}
 
 export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
   bass: "Bass",
