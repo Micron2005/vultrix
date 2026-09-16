@@ -87,7 +87,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
-  const [bpm, setBpm] = useState(beat.bpm);
+  const [bpm] = useState(beat.bpm);
   const [swing, setSwing] = useState(beat.swing);
   const [kit, setKit] = useState<BeatKit>(
     KITS.includes(beat.kit as BeatKit) ? (beat.kit as BeatKit) : "808",
@@ -853,19 +853,6 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
             aria-label="Beat title"
           />
           <div className="col-span-2 grid grid-cols-2 gap-2 rounded-lg bg-zinc-50 p-2 sm:flex sm:items-center">
-            <label className="hidden items-center gap-2 text-xs text-zinc-600 sm:flex">
-              BPM
-              <BpmInput
-                min={40}
-                max={200}
-                value={bpm}
-                onCommit={(next) => {
-                  setBpm(next);
-                  markDirty();
-                }}
-                className="w-20"
-              />
-            </label>
             <label className="flex items-center gap-2 text-xs text-zinc-600">
               Swing
               <Input
@@ -944,17 +931,6 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
           </div>
         )}
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
-          <BpmInput
-            min={40}
-            max={200}
-            value={bpm}
-            onCommit={(next) => {
-              setBpm(next);
-              markDirty();
-            }}
-            className="w-16"
-            aria-label="BPM"
-          />
           <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()}>
             {playing ? "Stop" : "Play"}
           </Button>
@@ -1190,7 +1166,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
             Add section
           </Button>
           <span className="text-xs text-zinc-500">
-            {sectionDurationBars()} bars · {Math.floor(sectionDurationBars() * 4 * 60 / bpm / 60)}:{String(Math.floor(sectionDurationBars() * 4 * 60 / bpm) % 60).padStart(2, "0")} at {bpm} BPM
+            {sectionDurationBars()} bars · {Math.floor(sectionDurationBars() * 4 * 60 / bpm / 60)}:{String(Math.floor(sectionDurationBars() * 4 * 60 / bpm) % 60).padStart(2, "0")}
           </span>
         </div>
         {data.sections.length === 0 ? (
