@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
@@ -42,6 +42,18 @@ function relativeTime(value: string): string {
 async function readNotifications(body: { ids?: string[]; all?: boolean }) {
   await fetch("/api/notifications", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function deleteNotifications(body: {
+  ids?: string[];
+  all?: boolean;
+  read?: boolean;
+}) {
+  await fetch("/api/notifications", {
+    method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -153,7 +165,6 @@ export function NotificationBell() {
   }
 
   async function markAllRead() {
-    await readNotifications({ all: true });
     setData((current) => ({
       unread: 0,
       items: current.items.map((item) => ({
@@ -161,6 +172,42 @@ export function NotificationBell() {
         readAt: item.readAt ?? new Date().toISOString(),
       })),
     }));
+    await readNotifications({ all: true });
+    await refresh();
+  }
+
+  async function markItemRead(item: NotificationItem) {
+    if (item.readAt) return;
+    setData((current) => ({
+      unread: Math.max(0, current.unread - 1),
+      items: current.items.map((entry) =>
+        entry.id === item.id
+          ? { ...entry, readAt: new Date().toISOString() }
+          : entry,
+      ),
+    }));
+    await readNotifications({ ids: [item.id] });
+    await refresh();
+  }
+
+  async function deleteItem(item: NotificationItem) {
+    setData((current) => ({
+      unread: item.readAt
+        ? current.unread
+        : Math.max(0, current.unread - 1),
+      items: current.items.filter((entry) => entry.id !== item.id),
+    }));
+    await deleteNotifications({ ids: [item.id] });
+    await refresh();
+  }
+
+  async function clearRead() {
+    setData((current) => ({
+      unread: current.unread,
+      items: current.items.filter((item) => !item.readAt),
+    }));
+    await deleteNotifications({ read: true });
+    await refresh();
   }
 
   return (
@@ -202,6 +249,15 @@ export function NotificationBell() {
                 >
                   Mark all read
                 </button>
+                {data.items.some((item) => item.readAt) && (
+                  <button
+                    type="button"
+                    onClick={() => void clearRead()}
+                    className="text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline"
+                  >
+                    Clear read
+                  </button>
+                )}
                 <Link
                   href="/notifications"
                   onClick={() => setOpen(false)}
@@ -214,27 +270,53 @@ export function NotificationBell() {
             {data.items.length ? (
               <div className="min-h-0 max-h-96 flex-1 overflow-y-auto py-1">
                 {data.items.map((item) => (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
-                    onClick={() => void openItem(item)}
                     className={
-                      "block w-full border-l-2 px-4 py-3 text-left hover:bg-zinc-50 " +
+                      "group flex w-full items-start gap-2 border-l-2 px-4 py-3 hover:bg-zinc-50 " +
                       (item.readAt
                         ? "border-transparent"
                         : "border-[var(--vx-accent-600)]")
                     }
                   >
-                    <p className="text-sm font-medium text-zinc-900">
-                      {item.title}
-                    </p>
-                    {item.body && (
-                      <p className="mt-1 text-xs text-zinc-500">{item.body}</p>
-                    )}
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {relativeTime(item.createdAt)}
-                    </p>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void openItem(item)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="text-sm font-medium text-zinc-900">
+                        {item.title}
+                      </p>
+                      {item.body && (
+                        <p className="mt-1 text-xs text-zinc-500">{item.body}</p>
+                      )}
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {relativeTime(item.createdAt)}
+                      </p>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                      {!item.readAt && (
+                        <button
+                          type="button"
+                          onClick={() => void markItemRead(item)}
+                          aria-label="Mark read"
+                          title="Mark read"
+                          className="rounded p-1 text-zinc-500 opacity-0 hover:bg-zinc-200 hover:text-zinc-900 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void deleteItem(item)}
+                        aria-label="Delete"
+                        title="Delete"
+                        className="rounded p-1 text-zinc-500 opacity-0 hover:bg-red-50 hover:text-red-700 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (

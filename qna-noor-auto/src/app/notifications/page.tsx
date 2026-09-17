@@ -4,7 +4,14 @@ import { listNotifications } from "@/lib/notifications";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { formatInTimeZone, localCalendarDay } from "@/lib/timezone";
 import { requireUser } from "@/lib/session";
-import { markAllNotificationsRead } from "./actions";
+import {
+  deleteAllNotifications,
+  deleteNotification,
+  deleteReadNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "./actions";
+import { ConfirmClearAllButton } from "./ConfirmClearAllButton";
 
 function notificationDate(date: Date, timezone: string): string {
   return formatInTimeZone(date, timezone, {
@@ -36,14 +43,27 @@ export default async function NotificationsPage() {
       <PageHeader
         title="Notifications"
         actions={
-          <form action={markAllNotificationsRead}>
-            <button
-              type="submit"
-              className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-            >
-              Mark all read
-            </button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={markAllNotificationsRead}>
+              <button
+                type="submit"
+                className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              >
+                Mark all read
+              </button>
+            </form>
+            {items.some((item) => item.readAt) && (
+              <form action={deleteReadNotifications}>
+                <button
+                  type="submit"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  Clear read
+                </button>
+              </form>
+            )}
+            <ConfirmClearAllButton action={deleteAllNotifications} />
+          </div>
         }
       />
       <Card>
@@ -78,7 +98,7 @@ function NotificationRows({
     <div className="divide-y divide-zinc-200">
       {items.map((item) => {
         const content = (
-          <>
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <p className="font-medium text-zinc-900">{item.title}</p>
               {!item.readAt && (
@@ -92,19 +112,40 @@ function NotificationRows({
             <p className="mt-2 text-xs text-zinc-500">
               {notificationDate(item.createdAt, timezone)}
             </p>
-          </>
+          </div>
         );
-        return item.href ? (
-          <Link
+        return (
+          <div
             key={item.id}
-            href={item.href}
-            className="block border-l-2 border-transparent px-4 py-4 hover:bg-zinc-50"
+            className="flex items-start gap-3 border-l-2 border-transparent px-4 py-4 hover:bg-zinc-50"
           >
-            {content}
-          </Link>
-        ) : (
-          <div key={item.id} className="border-l-2 border-transparent px-4 py-4">
-            {content}
+            {item.href ? (
+              <Link href={item.href} className="min-w-0 flex-1">
+                {content}
+              </Link>
+            ) : (
+              content
+            )}
+            <div className="flex shrink-0 items-center gap-2 pt-0.5">
+              {!item.readAt && (
+                <form action={markNotificationRead.bind(null, item.id)}>
+                  <button
+                    type="submit"
+                    className="text-xs font-medium text-[var(--vx-accent-700)] hover:underline"
+                  >
+                    Mark read
+                  </button>
+                </form>
+              )}
+              <form action={deleteNotification.bind(null, item.id)}>
+                <button
+                  type="submit"
+                  className="text-xs font-medium text-red-700 hover:underline"
+                >
+                  Delete
+                </button>
+              </form>
+            </div>
           </div>
         );
       })}

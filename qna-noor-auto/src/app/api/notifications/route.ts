@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  deleteNotifications,
   listNotifications,
   markRead,
   unreadCount,
@@ -39,5 +40,33 @@ export async function POST(request: Request) {
     ? body.ids.filter((id): id is string => typeof id === "string")
     : [];
   await markRead(user, body.all ? "all" : ids);
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!user.orgId) {
+    return NextResponse.json({ ok: true });
+  }
+  let body: { ids?: string[]; all?: boolean; read?: boolean } = {};
+  try {
+    body = (await request.json()) as {
+      ids?: string[];
+      all?: boolean;
+      read?: boolean;
+    };
+  } catch {
+    body = {};
+  }
+  const ids = Array.isArray(body.ids)
+    ? body.ids.filter((id): id is string => typeof id === "string")
+    : [];
+  await deleteNotifications(
+    user,
+    body.all ? "all" : body.read ? "read" : ids,
+  );
   return NextResponse.json({ ok: true });
 }
