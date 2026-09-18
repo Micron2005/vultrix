@@ -933,25 +933,26 @@ export default async function RepairOrderDetailPage({
                       )}
                     </td>
                     <td className="px-2 py-2 text-right">
-                      {f.excluded ? (
-                        <form action={readdShopFeeToRO.bind(null, ro.id, f.id)}>
-                          <button
-                            type="submit"
-                            className="text-xs text-blue-700 hover:underline"
-                          >
-                            Re-add
-                          </button>
-                        </form>
-                      ) : (
-                        <form action={excludeShopFeeFromRO.bind(null, ro.id, f.id)}>
-                          <button
-                            type="submit"
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </form>
-                      )}
+                      {!isLocked &&
+                        (f.excluded ? (
+                          <form action={readdShopFeeToRO.bind(null, ro.id, f.id)}>
+                            <button
+                              type="submit"
+                              className="text-xs text-blue-700 hover:underline"
+                            >
+                              Re-add
+                            </button>
+                          </form>
+                        ) : (
+                          <form action={excludeShopFeeFromRO.bind(null, ro.id, f.id)}>
+                            <button
+                              type="submit"
+                              className="text-xs text-red-600 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        ))}
                     </td>
                   </tr>
                 );
