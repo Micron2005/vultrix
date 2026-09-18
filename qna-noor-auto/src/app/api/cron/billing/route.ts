@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { GRACE_DAYS } from "@/lib/billing";
+import { isAuthorizedCron } from "@/lib/cronAuth";
 
 /**
  * Daily billing enforcement. Puts on hold any business whose payment has been
@@ -12,12 +13,8 @@ import { GRACE_DAYS } from "@/lib/billing";
  * businesses (no subscription, pastDueSince null) are never touched.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const cutoff = new Date(Date.now() - GRACE_DAYS * 24 * 60 * 60 * 1000);

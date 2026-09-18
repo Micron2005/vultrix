@@ -9,6 +9,7 @@ import { adjustInventoryStock, createInventoryPart } from "@/lib/inventory";
 import { notifyLowStockIfCrossed } from "@/lib/lowStock";
 import { logActivity } from "@/lib/activity";
 import { assertCanDelete } from "@/lib/permissions";
+import { verifyPartToken } from "@/lib/scanTokens";
 
 const PartSchema = z.object({
   partNumber: z.string().optional().nullable(),
@@ -334,17 +335,24 @@ export async function scanAdjustStock(id: string, fd: FormData) {
  * compensating StockMove so the audit log shows the undo, and redirects
  * back to the inventory detail page.
  */
-// Public flow: reached from the no-login quick-scan confirmation page
-// (`/q/<id>/done`), so this is NOT org-scoped. The move is identified by the
-// signed quick-scan that created it; we only verify the move belongs to the
-// given part before reverting.
 export async function undoScanMove(fd: FormData) {
   const moveId = String(fd.get("moveId") ?? "").trim();
   const partId = String(fd.get("partId") ?? "").trim();
-  if (!moveId || !partId) return;
+  const scanToken = String(fd.get("k") ?? "").trim();
+  if (!moveId || !partId || !verifyPartToken(partId, scanToken)) return;
 
-  const move = await db.stockMove.findUnique({
-    where: { id: moveId },
+  const part = await db.part.findUnique({
+    where: { id: partId },
+    select: { orgId: true },
+  });
+  if (!part) return;
+
+  const move = await db.stockMove.findFirst({
+    where: {
+      id: moveId,
+      partId,
+      part: { orgId: part.orgId },
+    },
     select: {
       id: true,
       partId: true,

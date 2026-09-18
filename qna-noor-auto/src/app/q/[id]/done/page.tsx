@@ -17,6 +17,7 @@ export default async function QuickScanDonePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     qty?: string;
+    k?: string;
     m?: string;
     dup?: string;
     undone?: string;
@@ -24,6 +25,7 @@ export default async function QuickScanDonePage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
+  const scanToken = (sp.k ?? "").trim();
   const moveId = (sp.m ?? "").trim();
   const duplicate = sp.dup === "1";
   const undone = sp.undone === "1";
@@ -97,6 +99,7 @@ export default async function QuickScanDonePage({
         <form action={undoScanMove} className="mb-3">
           <input type="hidden" name="moveId" value={moveId} />
           <input type="hidden" name="partId" value={id} />
+          <input type="hidden" name="k" value={scanToken} />
           <button
             type="submit"
             className="w-full h-14 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-base font-medium hover:bg-zinc-50 active:scale-[0.99] transition"
