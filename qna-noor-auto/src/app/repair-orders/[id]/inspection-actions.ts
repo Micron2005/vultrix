@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOrgId, requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { assertCanDelete } from "@/lib/permissions";
 import { assertROEditable } from "../actions";
 import { getAllSettings, shopBranding } from "@/lib/shop";
@@ -33,8 +33,16 @@ async function itemForOrg(itemId: string, orgId: string) {
   });
 }
 
+async function requireAutoShop() {
+  const user = await requireUser();
+  if (user.accountType !== "AUTO_SHOP" || !user.orgId) {
+    throw new Error("Vehicle inspections are only available for auto shops");
+  }
+  return { user, orgId: user.orgId };
+}
+
 export async function startInspection(repairOrderId: string, fd: FormData) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const templateId = String(fd.get("templateId") ?? "");
   const ro = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
@@ -68,7 +76,7 @@ export async function rateInspectionItem(
   itemId: string,
   rating: "GOOD" | "ATTENTION" | "URGENT" | "NA" | null,
 ) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   if (rating !== null && !RATINGS.has(rating)) throw new Error("Invalid inspection rating");
   const item = await itemForOrg(itemId, orgId);
   if (!item) throw new Error("Inspection item not found");
@@ -77,7 +85,7 @@ export async function rateInspectionItem(
 }
 
 export async function noteInspectionItem(itemId: string, note: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const item = await itemForOrg(itemId, orgId);
   if (!item) throw new Error("Inspection item not found");
   await db.inspectionItem.update({
@@ -88,7 +96,7 @@ export async function noteInspectionItem(itemId: string, note: string) {
 }
 
 export async function addInspectionPhotos(itemId: string, dataUrls: string[]) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const item = await itemForOrg(itemId, orgId);
   if (!item) throw new Error("Inspection item not found");
   if (!Array.isArray(dataUrls) || dataUrls.length === 0) return;
@@ -104,7 +112,7 @@ export async function addInspectionPhotos(itemId: string, dataUrls: string[]) {
 }
 
 export async function deleteInspectionPhoto(photoId: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const photo = await db.inspectionPhoto.findFirst({
     where: { id: photoId, orgId },
     include: { item: { include: { inspection: { select: { id: true, repairOrderId: true } } } } },
@@ -115,7 +123,7 @@ export async function deleteInspectionPhoto(photoId: string) {
 }
 
 export async function setInspectionTechnician(id: string, technicianId: string | null) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const inspection = await inspectionForOrg(id, orgId);
   if (!inspection) throw new Error("Inspection not found");
   if (technicianId) {
@@ -127,7 +135,7 @@ export async function setInspectionTechnician(id: string, technicianId: string |
 }
 
 export async function setInspectionSummary(id: string, text: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const inspection = await inspectionForOrg(id, orgId);
   if (!inspection) throw new Error("Inspection not found");
   await db.inspection.update({ where: { id }, data: { summary: text.trim().slice(0, 1000) || null } });
@@ -135,7 +143,7 @@ export async function setInspectionSummary(id: string, text: string) {
 }
 
 export async function completeInspection(id: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const inspection = await inspectionForOrg(id, orgId);
   if (!inspection) throw new Error("Inspection not found");
   await db.inspection.update({
@@ -147,7 +155,7 @@ export async function completeInspection(id: string) {
 }
 
 export async function reopenInspection(id: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const inspection = await inspectionForOrg(id, orgId);
   if (!inspection) throw new Error("Inspection not found");
   await db.inspection.update({ where: { id }, data: { status: "IN_PROGRESS", completedAt: null, sentAt: null } });
@@ -166,7 +174,7 @@ export async function sendInspectionToCustomer(id: string): Promise<{
   emailed: boolean;
   reason: "sent" | "no_email" | "email_not_configured";
 }> {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const inspection = await db.inspection.findFirst({
     where: { id, orgId },
     include: {
@@ -204,7 +212,7 @@ export async function sendInspectionToCustomer(id: string): Promise<{
 }
 
 export async function addJobFromInspectionItem(itemId: string) {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireAutoShop();
   const item = await db.inspectionItem.findFirst({
     where: { id: itemId, inspection: { orgId } },
     include: { inspection: { include: { repairOrder: true } } },
@@ -227,8 +235,7 @@ export async function addJobFromInspectionItem(itemId: string) {
 }
 
 export async function deleteInspection(id: string) {
-  const orgId = await requireOrgId();
-  const user = await requireUser();
+  const { orgId, user } = await requireAutoShop();
   assertCanDelete(user.role);
   const inspection = await inspectionForOrg(id, orgId);
   if (!inspection) throw new Error("Inspection not found");

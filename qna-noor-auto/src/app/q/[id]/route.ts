@@ -70,6 +70,7 @@ export async function GET(
 
   const doneUrl = new URL(`/q/${id}/done`, req.url);
   doneUrl.searchParams.set("qty", String(newQty));
+  doneUrl.searchParams.set("k", k);
   if (moveId) doneUrl.searchParams.set("m", moveId);
   if (recent) doneUrl.searchParams.set("dup", "1");
 
