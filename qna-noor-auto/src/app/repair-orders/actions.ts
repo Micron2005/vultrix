@@ -307,11 +307,15 @@ export async function setRepairOrderStatus(id: string, status: string) {
     where: { id, orgId },
     select: {
       id: true,
+      status: true,
       roNumber: true,
       customer: { select: { firstName: true, lastName: true, companyName: true } },
     },
   });
   if (!owned) return;
+  if (owned.status === "PAID" && status !== "PAID") {
+    assertCanManagePayments(user.role);
+  }
   const data: Record<string, unknown> = { status };
   const now = new Date();
   if (status === "IN_PROGRESS") data.startedAt = now;
@@ -1220,6 +1224,7 @@ export async function clearRepairOrder(id: string) {
 export async function revertInvoiceToRepairOrder(id: string) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  assertCanManagePayments(user.role);
   const ro = await db.repairOrder.findFirst({
     where: { id, orgId },
     select: {

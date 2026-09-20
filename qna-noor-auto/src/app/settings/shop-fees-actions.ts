@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { assertCanManageSettings } from "@/lib/permissions";
+import { assertROEditable } from "@/app/repair-orders/actions";
 
 function toNum(v: FormDataEntryValue | null, fallback = 0): number {
   if (v == null) return fallback;
@@ -99,11 +100,17 @@ export async function deleteShopFee(id: string) {
  */
 export async function excludeShopFeeFromRO(repairOrderId: string, shopFeeId: string) {
   const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const ro = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
     select: { id: true },
   });
   if (!ro) redirect("/repair-orders");
+  const fee = await db.shopFee.findFirst({
+    where: { id: shopFeeId, orgId },
+    select: { id: true },
+  });
+  if (!fee) redirect(`/repair-orders/${repairOrderId}`);
   await db.repairOrderShopFeeExclusion.upsert({
     where: { repairOrderId_shopFeeId: { repairOrderId, shopFeeId } },
     create: { repairOrderId, shopFeeId },
@@ -115,11 +122,17 @@ export async function excludeShopFeeFromRO(repairOrderId: string, shopFeeId: str
 
 export async function readdShopFeeToRO(repairOrderId: string, shopFeeId: string) {
   const orgId = await requireOrgId();
+  await assertROEditable(orgId, repairOrderId);
   const ro = await db.repairOrder.findFirst({
     where: { id: repairOrderId, orgId },
     select: { id: true },
   });
   if (!ro) redirect("/repair-orders");
+  const fee = await db.shopFee.findFirst({
+    where: { id: shopFeeId, orgId },
+    select: { id: true },
+  });
+  if (!fee) redirect(`/repair-orders/${repairOrderId}`);
   await db.repairOrderShopFeeExclusion
     .delete({
       where: { repairOrderId_shopFeeId: { repairOrderId, shopFeeId } },
