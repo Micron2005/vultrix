@@ -85,6 +85,53 @@ export async function resolvePriceId(
 }
 
 /**
+ * Start a fresh Stripe subscription for an organization whose previous
+ * subscription is canceled or missing, using the customer's saved payment
+ * method and mirroring the new subscription locally.
+ */
+export async function restartSubscription(
+  orgId: string,
+  trialEnd: Date | null,
+): Promise<Stripe.Subscription> {
+  const org = await db.organization.findUnique({ where: { id: orgId } });
+  const customer = org?.stripeCustomerId;
+  if (!customer) {
+    throw new Error("No Stripe customer on this account.");
+  }
+
+  const priceId = await resolvePriceId(
+    org.accountType,
+    org.features.includes("invoices"),
+  );
+  const now = new Date();
+  const activeTrialEnd =
+    trialEnd && trialEnd > now
+      ? Math.floor(trialEnd.getTime() / 1000)
+      : null;
+  const subscription = await getStripe().subscriptions.create({
+    customer,
+    items: [{ price: priceId }],
+    metadata: { orgId },
+    proration_behavior: "none",
+    ...(activeTrialEnd
+      ? {
+          trial_end: activeTrialEnd,
+          trial_settings: {
+            end_behavior: { missing_payment_method: "create_invoice" },
+          },
+        }
+      : {}),
+    payment_settings: { save_default_payment_method: "on_subscription" },
+  });
+  await syncSubscriptionToOrg(orgId, subscription);
+  return subscription;
+}
+
+export function subscriptionIsDead(status: string | null): boolean {
+  return status === "canceled" || status === "incomplete_expired";
+}
+
+/**
  * Swap a subscription to the price for its account type and invoice choice.
  * Stripe preserves the current trial and billing cycle because only the
  * recurring item's price is changed with proration disabled.

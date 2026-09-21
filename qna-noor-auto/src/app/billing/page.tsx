@@ -7,12 +7,14 @@ import { billingConfigured } from "@/lib/stripe";
 import {
   describeBilling,
   priceForAccount,
+  subscriptionIsDead,
 } from "@/lib/billing";
 import { enabledFeatureSet } from "@/lib/features";
 import { refreshConnectStatus } from "@/lib/connect";
 import { SALES_EMAIL } from "@/lib/branding";
 import {
   openBillingPortal,
+  restartOwnSubscription,
   startConnectOnboarding,
   openConnectDashboard,
   updatePlan,
@@ -108,6 +110,14 @@ export default async function BillingPage({
               This business was set up by the platform owner and has no
               self-serve subscription. Contact support to make changes.
             </p>
+          )}
+          {subscriptionIsDead(org.subscriptionStatus) && org.stripeCustomerId && (
+            <form action={restartOwnSubscription}>
+              <Button type="submit">Restart subscription</Button>
+              <p className="mt-2 text-xs text-zinc-500">
+                Starts a new subscription on the saved card.
+              </p>
+            </form>
           )}
           <p className="text-sm text-zinc-500">
             Subscription or payment questions?{" "}

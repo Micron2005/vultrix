@@ -10,7 +10,7 @@ import {
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireSuperadmin, roleLabel } from "@/lib/session";
 import { APP_NAME } from "@/lib/branding";
-import { describeBilling } from "@/lib/billing";
+import { describeBilling, subscriptionIsDead } from "@/lib/billing";
 import {
   createBusiness,
   extendTrial,
@@ -189,6 +189,13 @@ export default async function AdminPage({
                         <div className="text-xs text-zinc-400">
                           {describeBilling(org)}
                         </div>
+                        {subscriptionIsDead(org.subscriptionStatus) &&
+                          org.stripeCustomerId && (
+                            <div className="text-xs text-zinc-500">
+                              Subscription canceled in Stripe — Reactivate or
+                              Extend trial starts a new one on the saved card.
+                            </div>
+                          )}
                       </div>
                       <form action={setBusinessStatus}>
                         <input type="hidden" name="orgId" value={org.id} />
