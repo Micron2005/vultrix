@@ -229,6 +229,15 @@ export async function syncSubscriptionToOrg(
 
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) return;
+  // A superseded subscription (e.g. the canceled one replaced by a restart)
+  // must not overwrite the org's current one.
+  if (
+    org.stripeSubscriptionId &&
+    org.stripeSubscriptionId !== sub.id &&
+    !grantsAccess
+  ) {
+    return;
+  }
 
   const data: {
     stripeSubscriptionId: string;
