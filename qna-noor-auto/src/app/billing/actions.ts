@@ -9,6 +9,8 @@ import { getStripe, billingConfigured } from "@/lib/stripe";
 import {
   applySubscriptionPriceToSubscription,
   priceForAccount,
+  restartSubscription,
+  subscriptionIsDead,
 } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 import {
@@ -137,6 +139,28 @@ export async function updatePlan(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/");
   redirect(`/billing?plan_saved=${encodeURIComponent(confirmation)}`);
+}
+
+export async function restartOwnSubscription() {
+  const user = await requireUser();
+  if (user.role !== "OWNER" && user.role !== "ADMIN") {
+    back({ error: "Not allowed." });
+  }
+  if (!user.orgId) back({ error: "No business on this account." });
+
+  const org = await db.organization.findUnique({ where: { id: user.orgId } });
+  if (!org) back({ error: "Business not found." });
+  if (!org.stripeCustomerId || !subscriptionIsDead(org.subscriptionStatus)) {
+    back({ error: "There is no canceled subscription to restart." });
+  }
+
+  try {
+    await restartSubscription(org.id, org.trialEndsAt);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    back({ error: `Couldn't restart the subscription: ${message}` });
+  }
+  back({ plan_saved: "Subscription restarted." });
 }
 
 /**

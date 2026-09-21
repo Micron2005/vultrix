@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { requireSuperadmin } from "@/lib/session";
-import { getStripe } from "@/lib/stripe";
-import { syncSubscriptionToOrg } from "@/lib/billing";
+import { billingConfigured, getStripe } from "@/lib/stripe";
+import {
+  restartSubscription,
+  subscriptionIsDead,
+  syncSubscriptionToOrg,
+} from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -163,6 +167,24 @@ export async function setBusinessStatus(formData: FormData) {
   if (!org) back({ error: "Business not found." });
 
   await db.organization.update({ where: { id: orgId }, data: { status } });
+  if (
+    status === "ACTIVE" &&
+    org.stripeCustomerId &&
+    subscriptionIsDead(org.subscriptionStatus) &&
+    billingConfigured()
+  ) {
+    try {
+      await restartSubscription(orgId, org.trialEndsAt);
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message?: string }).message)
+          : "Stripe error";
+      back({
+        error: `Reactivated locally, but couldn't restart the subscription in Stripe: ${msg}`,
+      });
+    }
+  }
   revalidatePath("/admin");
   back({ saved: status === "SUSPENDED" ? "suspended" : "reactivated" });
 }
@@ -248,11 +270,18 @@ export async function extendTrial(formData: FormData) {
   if (org.stripeSubscriptionId) {
     try {
       const stripe = getStripe();
-      const sub = await stripe.subscriptions.update(org.stripeSubscriptionId, {
-        trial_end: Math.floor(trialEnd.getTime() / 1000),
-        proration_behavior: "none",
-      });
-      await syncSubscriptionToOrg(orgId, sub);
+      const existing = await stripe.subscriptions.retrieve(
+        org.stripeSubscriptionId,
+      );
+      if (subscriptionIsDead(existing.status)) {
+        await restartSubscription(orgId, trialEnd);
+      } else {
+        const sub = await stripe.subscriptions.update(org.stripeSubscriptionId, {
+          trial_end: Math.floor(trialEnd.getTime() / 1000),
+          proration_behavior: "none",
+        });
+        await syncSubscriptionToOrg(orgId, sub);
+      }
     } catch (e: unknown) {
       const msg =
         e && typeof e === "object" && "message" in e
