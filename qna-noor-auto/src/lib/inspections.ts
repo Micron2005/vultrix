@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { assertROEditable } from "@/app/repair-orders/actions";
 import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
 import { getAllSettings, shopBranding } from "@/lib/shop";
+import { ensurePortalToken } from "@/lib/portalToken";
 import { db } from "./db";
 import { fullName, vehicleLabel } from "./utils";
 
@@ -322,25 +323,26 @@ export async function sendToCustomer(orgId: string, inspectionId: string): Promi
     );
     return { emailed: false, reason: "no_email" };
   }
-  let emailed = false;
-  if (inspection.repairOrder.customer.portalToken) {
-    const settings = await getAllSettings(orgId);
-    const branding = await shopBranding(orgId);
-    const shop = settings.shopName || "Your repair shop";
-    const origin = await appOrigin();
-    const link = `${origin}/p/${inspection.repairOrder.customer.portalToken}/ro/${inspection.repairOrder.id}/inspection/${inspectionId}`;
-    const header = shopEmailHeader({
-      shopName: shop,
-      logo: branding.logo,
-      accent: branding.accent,
-    });
-    emailed = await sendEmail({
-      to: inspection.repairOrder.customer.email,
-      subject: `Your vehicle inspection from ${shop}`,
-      replyTo: settings.shopEmail || undefined,
-      html: `${header}<p>Hi ${escapeHtml(inspection.repairOrder.customer.firstName)},</p><p>Your vehicle inspection is ready to view.</p><p><a href="${escapeHtml(link)}">View your inspection report</a></p><p>Thanks,<br>${escapeHtml(shop)}</p>`,
-    });
-  }
+  const portalToken = await ensurePortalToken(
+    orgId,
+    inspection.repairOrder.customer.id,
+  );
+  const settings = await getAllSettings(orgId);
+  const branding = await shopBranding(orgId);
+  const shop = settings.shopName || "Your repair shop";
+  const origin = await appOrigin();
+  const link = `${origin}/p/${portalToken}/ro/${inspection.repairOrder.id}/inspection/${inspectionId}`;
+  const header = shopEmailHeader({
+    shopName: shop,
+    logo: branding.logo,
+    accent: branding.accent,
+  });
+  const emailed = await sendEmail({
+    to: inspection.repairOrder.customer.email,
+    subject: `Your vehicle inspection from ${shop}`,
+    replyTo: settings.shopEmail || undefined,
+    html: `${header}<p>Hi ${escapeHtml(inspection.repairOrder.customer.firstName)},</p><p>Your vehicle inspection is ready to view.</p><p><a href="${escapeHtml(link)}">View your inspection report</a></p><p>Thanks,<br>${escapeHtml(shop)}</p>`,
+  });
   revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
   revalidatePath(
     `/repair-orders/${inspection.repairOrderId}/inspections/${inspectionId}`,
