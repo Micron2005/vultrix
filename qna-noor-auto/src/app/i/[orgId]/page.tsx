@@ -8,6 +8,7 @@ import {
 } from "../actions";
 import { IntakePhotos } from "./IntakePhotos";
 import { shopBranding } from "@/lib/shop";
+import { ensureInspectionTemplates } from "@/lib/inspectionTemplates";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ type SP = {
   customerId?: string;
   vehicleId?: string;
   done?: string;
+  roId?: string;
   error?: string;
 };
 
@@ -125,6 +127,20 @@ export default async function IntakePage({
 
   // ---- Step: done -------------------------------------------------------
   if (sp.done) {
+    const ro = sp.roId
+      ? await db.repairOrder.findFirst({
+          where: { id: sp.roId, orgId },
+          select: { id: true },
+        })
+      : null;
+    const templates = ro
+      ? (await ensureInspectionTemplates(orgId)).map((template) => ({
+          id: template.id,
+          name: template.name,
+          itemCount: template.items.length,
+        }))
+      : [];
+
     return (
       <Shell logo={branding.logo} shopName={shopName} title="Ticket created">
         <div className="text-center">
@@ -136,6 +152,40 @@ export default async function IntakePage({
             <span className="font-semibold">#{sp.done}</span> was created. A
             service writer will review and price it.
           </p>
+          {ro && templates.length > 0 ? (
+            <form
+              method="get"
+              action={`/repair-orders/${ro.id}/inspections/start`}
+              className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-left"
+              data-testid="intake-inspect"
+            >
+              <div className="text-sm font-semibold text-zinc-900">
+                Inspect this vehicle
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">
+                For shop staff — you&apos;ll be asked to sign in if you aren&apos;t
+                already.
+              </p>
+              <label className={`${labelCls} mt-3`} htmlFor="templateId">
+                Checklist
+              </label>
+              <select
+                id="templateId"
+                name="templateId"
+                className={fieldCls}
+                defaultValue={templates[0]?.id}
+              >
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} · {template.itemCount} items
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={`mt-3 ${primaryBtn}`}>
+                Start inspection
+              </button>
+            </form>
+          ) : null}
           <a
             href={hrefFor(orgId, k, {})}
             className={`mt-6 ${primaryBtn}`}

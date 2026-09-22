@@ -9,6 +9,7 @@ import { assertCanDelete } from "@/lib/permissions";
 import { assertROEditable } from "../actions";
 import { getAllSettings, shopBranding } from "@/lib/shop";
 import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
+import { createInspectionFromTemplate } from "@/lib/inspections";
 
 const RATINGS = new Set(["GOOD", "ATTENTION", "URGENT", "NA"]);
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -44,32 +45,13 @@ async function requireAutoShop() {
 export async function startInspection(repairOrderId: string, fd: FormData) {
   const { orgId } = await requireAutoShop();
   const templateId = String(fd.get("templateId") ?? "");
-  const ro = await db.repairOrder.findFirst({
-    where: { id: repairOrderId, orgId },
-    select: { id: true },
-  });
-  if (!ro) throw new Error("Repair order not found");
-  const template = await db.inspectionTemplate.findFirst({
-    where: { id: templateId, orgId },
-    include: { items: { orderBy: { sortOrder: "asc" } } },
-  });
-  if (!template) throw new Error("Inspection template not found");
-  const inspection = await db.inspection.create({
-    data: {
-      orgId,
-      repairOrderId,
-      templateName: template.name,
-      items: {
-        create: template.items.map((item) => ({
-          section: item.section,
-          name: item.name,
-          sortOrder: item.sortOrder,
-        })),
-      },
-    },
-  });
+  const inspectionId = await createInspectionFromTemplate(
+    orgId,
+    repairOrderId,
+    templateId,
+  );
   revalidatePath(`/repair-orders/${repairOrderId}`);
-  redirect(`/repair-orders/${repairOrderId}/inspections/${inspection.id}`);
+  redirect(`/repair-orders/${repairOrderId}/inspections/${inspectionId}`);
 }
 
 export async function rateInspectionItem(
