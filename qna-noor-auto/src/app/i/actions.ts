@@ -223,5 +223,5 @@ export async function createIntakeRO(fd: FormData) {
 
   revalidatePath("/repair-orders");
   revalidatePath("/");
-  redirect(step(orgId, k, { done: String(roNumber) }));
+  redirect(step(orgId, k, { done: String(roNumber), roId: ro.id }));
 }
