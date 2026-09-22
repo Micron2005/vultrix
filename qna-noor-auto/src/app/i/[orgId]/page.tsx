@@ -9,6 +9,8 @@ import {
 import { IntakePhotos } from "./IntakePhotos";
 import { shopBranding } from "@/lib/shop";
 import { ensureInspectionTemplates } from "@/lib/inspectionTemplates";
+import { InvalidShell } from "../InvalidShell";
+import { startIntakeInspection } from "../inspection-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -89,20 +91,6 @@ function Shell({
   );
 }
 
-function InvalidShell() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-sm">
-        <h1 className="text-xl font-bold text-zinc-900">Link not valid</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          This intake link is invalid or has expired. Please scan the QR code
-          posted in the shop again, or ask the front desk for a fresh link.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default async function IntakePage({
   params,
   searchParams,
@@ -130,7 +118,18 @@ export default async function IntakePage({
     const ro = sp.roId
       ? await db.repairOrder.findFirst({
           where: { id: sp.roId, orgId },
-          select: { id: true },
+          select: {
+            id: true,
+            roNumber: true,
+            inspections: {
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                templateName: true,
+                items: { select: { rating: true } },
+              },
+            },
+          },
         })
       : null;
     const templates = ro
@@ -152,10 +151,35 @@ export default async function IntakePage({
             <span className="font-semibold">#{sp.done}</span> was created. A
             service writer will review and price it.
           </p>
+          {ro && ro.inspections.length > 0 ? (
+            <div className="mt-6 space-y-2 text-left">
+              <div className="text-sm font-semibold text-zinc-900">
+                Existing inspections
+              </div>
+              {ro.inspections.map((inspection) => {
+                const checked = inspection.items.filter(
+                  (item) => item.rating != null,
+                ).length;
+                return (
+                  <a
+                    key={inspection.id}
+                    href={`/i/${orgId}/inspect/${inspection.id}?k=${encodeURIComponent(k)}`}
+                    className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50"
+                  >
+                    <span className="font-medium text-zinc-800">
+                      {inspection.templateName}
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {checked}/{inspection.items.length} checked
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
           {ro && templates.length > 0 ? (
             <form
-              method="get"
-              action={`/repair-orders/${ro.id}/inspections/start`}
+              action={startIntakeInspection}
               className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-left"
               data-testid="intake-inspect"
             >
@@ -163,9 +187,12 @@ export default async function IntakePage({
                 Inspect this vehicle
               </div>
               <p className="mt-1 text-xs text-zinc-500">
-                For shop staff — you&apos;ll be asked to sign in if you aren&apos;t
-                already.
+                Ratings, notes and photos save to ticket #{ro.roNumber}.
               </p>
+              <input type="hidden" name="orgId" value={orgId} />
+              <input type="hidden" name="k" value={k} />
+              <input type="hidden" name="roId" value={ro.id} />
+              <input type="hidden" name="done" value={sp.done} />
               <label className={`${labelCls} mt-3`} htmlFor="templateId">
                 Checklist
               </label>

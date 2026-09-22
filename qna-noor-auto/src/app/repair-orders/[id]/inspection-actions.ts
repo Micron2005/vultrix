@@ -9,30 +9,25 @@ import { assertCanDelete } from "@/lib/permissions";
 import { assertROEditable } from "../actions";
 import { getAllSettings, shopBranding } from "@/lib/shop";
 import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
-import { createInspectionFromTemplate } from "@/lib/inspections";
+import {
+  addItemPhotos,
+  complete,
+  createInspectionFromTemplate,
+  deleteItemPhoto,
+  inspectionForOrg,
+  noteItem,
+  rateItem,
+  reopen,
+  setSummary,
+  setTechnician,
+} from "@/lib/inspections";
 
-const RATINGS = new Set(["GOOD", "ATTENTION", "URGENT", "NA"]);
-const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 const ratingLabel: Record<string, string> = {
   GOOD: "Good",
   ATTENTION: "Needs attention",
   URGENT: "Urgent",
   NA: "N/A",
 };
-
-async function inspectionForOrg(id: string, orgId: string) {
-  return db.inspection.findFirst({
-    where: { id, orgId },
-    include: { repairOrder: { select: { id: true, customerId: true, roNumber: true, orgId: true } } },
-  });
-}
-
-async function itemForOrg(itemId: string, orgId: string) {
-  return db.inspectionItem.findFirst({
-    where: { id: itemId, inspection: { orgId } },
-    include: { inspection: { select: { id: true, repairOrderId: true, status: true } } },
-  });
-}
 
 async function requireAutoShop() {
   const user = await requireUser();
@@ -59,90 +54,42 @@ export async function rateInspectionItem(
   rating: "GOOD" | "ATTENTION" | "URGENT" | "NA" | null,
 ) {
   const { orgId } = await requireAutoShop();
-  if (rating !== null && !RATINGS.has(rating)) throw new Error("Invalid inspection rating");
-  const item = await itemForOrg(itemId, orgId);
-  if (!item) throw new Error("Inspection item not found");
-  await db.inspectionItem.update({ where: { id: itemId }, data: { rating } });
-  revalidatePath(`/repair-orders/${item.inspection.repairOrderId}/inspections/${item.inspection.id}`);
+  await rateItem(orgId, itemId, rating);
 }
 
 export async function noteInspectionItem(itemId: string, note: string) {
   const { orgId } = await requireAutoShop();
-  const item = await itemForOrg(itemId, orgId);
-  if (!item) throw new Error("Inspection item not found");
-  await db.inspectionItem.update({
-    where: { id: itemId },
-    data: { note: note.trim().slice(0, 500) || null },
-  });
-  revalidatePath(`/repair-orders/${item.inspection.repairOrderId}/inspections/${item.inspection.id}`);
+  await noteItem(orgId, itemId, note);
 }
 
 export async function addInspectionPhotos(itemId: string, dataUrls: string[]) {
   const { orgId } = await requireAutoShop();
-  const item = await itemForOrg(itemId, orgId);
-  if (!item) throw new Error("Inspection item not found");
-  if (!Array.isArray(dataUrls) || dataUrls.length === 0) return;
-  const count = await db.inspectionPhoto.count({ where: { itemId } });
-  if (count + dataUrls.length > 6) throw new Error("Up to 6 photos per item");
-  for (const dataUrl of dataUrls) {
-    const clean = String(dataUrl ?? "").trim();
-    if (!clean.startsWith("data:image/")) throw new Error("One of the files isn't a valid image.");
-    if (clean.length > MAX_PHOTO_BYTES) throw new Error("An image is too large even after resizing.");
-    await db.inspectionPhoto.create({ data: { orgId, itemId, dataUrl: clean } });
-  }
-  revalidatePath(`/repair-orders/${item.inspection.repairOrderId}/inspections/${item.inspection.id}`);
+  await addItemPhotos(orgId, itemId, dataUrls);
 }
 
 export async function deleteInspectionPhoto(photoId: string) {
   const { orgId } = await requireAutoShop();
-  const photo = await db.inspectionPhoto.findFirst({
-    where: { id: photoId, orgId },
-    include: { item: { include: { inspection: { select: { id: true, repairOrderId: true } } } } },
-  });
-  if (!photo) throw new Error("Photo not found");
-  await db.inspectionPhoto.delete({ where: { id: photoId } });
-  revalidatePath(`/repair-orders/${photo.item.inspection.repairOrderId}/inspections/${photo.item.inspection.id}`);
+  await deleteItemPhoto(orgId, photoId);
 }
 
 export async function setInspectionTechnician(id: string, technicianId: string | null) {
   const { orgId } = await requireAutoShop();
-  const inspection = await inspectionForOrg(id, orgId);
-  if (!inspection) throw new Error("Inspection not found");
-  if (technicianId) {
-    const tech = await db.technician.findFirst({ where: { id: technicianId, orgId } });
-    if (!tech) throw new Error("Technician not found");
-  }
-  await db.inspection.update({ where: { id }, data: { technicianId: technicianId || null } });
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
+  await setTechnician(orgId, id, technicianId);
 }
 
 export async function setInspectionSummary(id: string, text: string) {
   const { orgId } = await requireAutoShop();
-  const inspection = await inspectionForOrg(id, orgId);
-  if (!inspection) throw new Error("Inspection not found");
-  await db.inspection.update({ where: { id }, data: { summary: text.trim().slice(0, 1000) || null } });
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
+  await setSummary(orgId, id, text);
 }
 
 export async function completeInspection(id: string) {
   const { orgId } = await requireAutoShop();
-  const inspection = await inspectionForOrg(id, orgId);
-  if (!inspection) throw new Error("Inspection not found");
-  await db.inspection.update({
-    where: { id },
-    data: { status: "COMPLETED", completedAt: new Date() },
-  });
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
+  await complete(orgId, id);
 }
 
 export async function reopenInspection(id: string) {
   const { orgId } = await requireAutoShop();
-  const inspection = await inspectionForOrg(id, orgId);
-  if (!inspection) throw new Error("Inspection not found");
-  await db.inspection.update({ where: { id }, data: { status: "IN_PROGRESS", completedAt: null, sentAt: null } });
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
-  revalidatePath(`/repair-orders/${inspection.repairOrderId}/inspections/${id}`);
+  await reopen(orgId, id);
 }
 
 async function appOrigin() {
