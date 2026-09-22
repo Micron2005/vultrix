@@ -4,36 +4,28 @@ import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fileToResizedDataUrl } from "@/lib/imageResize";
-import {
-  addInspectionPhotos,
-  addJobFromInspectionItem,
-  completeInspection,
-  deleteInspection,
-  deleteInspectionPhoto,
-  noteInspectionItem,
-  rateInspectionItem,
-  reopenInspection,
-  sendInspectionToCustomer,
-  setInspectionSummary,
-  setInspectionTechnician,
-} from "../../inspection-actions";
+import type { InspectionRunnerData, Rating } from "@/lib/inspections";
 
-type Rating = "GOOD" | "ATTENTION" | "URGENT" | "NA" | null;
-export type InspectionRunnerData = {
-  id: string;
-  repairOrderId: string;
-  roNumber: number;
-  vehicle: string;
-  customerName: string;
-  customerEmail: string | null;
-  portalToken: string | null;
-  templateName: string;
-  status: string;
-  sentAt: string | null;
-  sendReason: "sent" | "no_email" | "email_not_configured" | null;
-  summary: string;
-  technicianId: string | null;
-  items: Array<{ id: string; section: string; name: string; rating: Rating; note: string; jobId: string | null; photos: Array<{ id: string; dataUrl: string }> }>;
+export type InspectionRunnerActions = {
+  rate: (itemId: string, rating: Rating) => Promise<void>;
+  note: (itemId: string, note: string) => Promise<void>;
+  addPhotos: (itemId: string, dataUrls: string[]) => Promise<void>;
+  deletePhoto: (photoId: string) => Promise<void>;
+  setTechnician: (
+    inspectionId: string,
+    technicianId: string | null,
+  ) => Promise<void>;
+  setSummary: (inspectionId: string, text: string) => Promise<void>;
+  complete: (inspectionId: string) => Promise<void>;
+  reopen: (inspectionId: string) => Promise<void>;
+  addJob?: (itemId: string) => Promise<void>;
+  send?: (
+    inspectionId: string,
+  ) => Promise<{
+    emailed: boolean;
+    reason: "sent" | "no_email" | "email_not_configured";
+  }>;
+  delete?: (inspectionId: string) => Promise<void>;
 };
 
 const ratingStyles: Record<string, string> = {
@@ -44,7 +36,19 @@ const ratingStyles: Record<string, string> = {
 };
 const ratingNames: Record<string, string> = { GOOD: "Good", ATTENTION: "Attention", URGENT: "Urgent", NA: "N/A" };
 
-export function InspectionRunner({ data, technicians, canDelete }: { data: InspectionRunnerData; technicians: Array<{ id: string; name: string }>; canDelete: boolean }) {
+export function InspectionRunner({
+  data,
+  technicians,
+  actions,
+  backHref,
+  backLabel,
+}: {
+  data: InspectionRunnerData;
+  technicians: Array<{ id: string; name: string }>;
+  actions: InspectionRunnerActions;
+  backHref: string;
+  backLabel: string;
+}) {
   const router = useRouter();
   const [items, setItems] = useState(data.items);
   const [summary, setSummary] = useState(data.summary);
@@ -71,14 +75,14 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
   async function setRating(id: string, rating: Rating) {
     const old = items.find((item) => item.id === id)?.rating ?? null;
     mutateItem(id, { rating });
-    try { await rateInspectionItem(id, rating); } catch { mutateItem(id, { rating: old }); }
+    try { await actions.rate(id, rating); } catch { mutateItem(id, { rating: old }); }
   }
   function queueNote(id: string, note: string) {
     mutateItem(id, { note });
     const old = timers.current.get(id);
     if (old) clearTimeout(old);
     timers.current.set(id, setTimeout(() => {
-      void noteInspectionItem(id, note).catch(() => {});
+      void actions.note(id, note).catch(() => {});
     }, 500));
   }
   async function addPhotos(id: string, files: FileList | null) {
@@ -87,21 +91,23 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
     const item = items.find((current) => current.id === id);
     if (!item) return;
     mutateItem(id, { photos: [...item.photos, ...urls.map((dataUrl, index) => ({ id: `pending-${Date.now()}-${index}`, dataUrl }))] });
-    try { await addInspectionPhotos(id, urls); router.refresh(); } catch { router.refresh(); }
+    try { await actions.addPhotos(id, urls); router.refresh(); } catch { router.refresh(); }
   }
   async function addJob(id: string) {
+    if (!actions.addJob) return;
     mutateItem(id, { jobId: "pending" });
-    try { await addJobFromInspectionItem(id); router.refresh(); } catch { mutateItem(id, { jobId: null }); }
+    try { await actions.addJob(id); router.refresh(); } catch { mutateItem(id, { jobId: null }); }
   }
   async function complete() {
     const unchecked = items.length - counts.checked;
     if (unchecked > 0 && !window.confirm(`${unchecked} item${unchecked === 1 ? "" : "s"} unchecked — complete anyway?`)) return;
-    await completeInspection(data.id);
+    await actions.complete(data.id);
     setStatus("COMPLETED");
     router.refresh();
   }
   async function send() {
-    const result = await sendInspectionToCustomer(data.id);
+    if (!actions.send) return;
+    const result = await actions.send(data.id);
     setSentAt(new Date().toISOString());
     setSendReason(result.reason);
   }
@@ -112,11 +118,11 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
         <div className="mx-auto max-w-3xl px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <Link href={`/repair-orders/${data.repairOrderId}`} className="text-xs text-zinc-500 hover:underline">← RO #{data.roNumber}</Link>
+              <Link href={backHref} className="text-xs text-zinc-500 hover:underline">{backLabel}</Link>
               <h1 className="truncate text-lg font-semibold text-zinc-900">{data.templateName}</h1>
               <p className="truncate text-xs text-zinc-500">{data.vehicle} · {counts.checked} / {items.length} checked</p>
             </div>
-            <select value={technicianId} onChange={(e) => { const next = e.target.value; setTechnicianId(next); void setInspectionTechnician(data.id, next || null); }} className="h-10 max-w-[145px] rounded-md border border-zinc-300 bg-white px-2 text-sm">
+            <select value={technicianId} onChange={(e) => { const next = e.target.value; setTechnicianId(next); void actions.setTechnician(data.id, next || null); }} className="h-10 max-w-[145px] rounded-md border border-zinc-300 bg-white px-2 text-sm">
               <option value="">Technician</option>
               {technicians.map((tech) => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
             </select>
@@ -144,15 +150,15 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
                   {(item.rating === "ATTENTION" || item.rating === "URGENT") ? (
                     <div className="mt-3 space-y-3">
                       <textarea value={item.note} onChange={(e) => queueNote(item.id, e.target.value)} maxLength={500} rows={2} placeholder="What did you find?" className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-                      <PhotoTools item={item} onFiles={(files) => void addPhotos(item.id, files)} onDelete={(photoId) => { void deleteInspectionPhoto(photoId).then(() => router.refresh()); }} />
-                      <button type="button" disabled={Boolean(item.jobId) || busy} onClick={() => void addJob(item.id)} className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium hover:bg-zinc-50 disabled:opacity-60">{item.jobId ? "Job added ✓" : "Add as job"}</button>
+                      <PhotoTools item={item} onFiles={(files) => void addPhotos(item.id, files)} onDelete={(photoId) => { void actions.deletePhoto(photoId).then(() => router.refresh()); }} />
+                      {actions.addJob ? <button type="button" disabled={Boolean(item.jobId) || busy} onClick={() => void addJob(item.id)} className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium hover:bg-zinc-50 disabled:opacity-60">{item.jobId ? "Job added ✓" : "Add as job"}</button> : null}
                     </div>
                   ) : (
                     <details className="mt-2">
                       <summary className="cursor-pointer text-xs font-medium text-zinc-500">Add note / photo</summary>
                       <div className="mt-2 space-y-3">
                         <textarea value={item.note} onChange={(e) => queueNote(item.id, e.target.value)} maxLength={500} rows={2} className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-                        <PhotoTools item={item} onFiles={(files) => void addPhotos(item.id, files)} onDelete={(photoId) => { void deleteInspectionPhoto(photoId).then(() => router.refresh()); }} />
+                        <PhotoTools item={item} onFiles={(files) => void addPhotos(item.id, files)} onDelete={(photoId) => { void actions.deletePhoto(photoId).then(() => router.refresh()); }} />
                       </div>
                     </details>
                   )}
@@ -162,15 +168,15 @@ export function InspectionRunner({ data, technicians, canDelete }: { data: Inspe
           </section>
         ))}
         <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-          <label className="text-sm font-medium text-zinc-800">Note to customer<textarea value={summary} onChange={(e) => setSummary(e.target.value)} onBlur={() => { void setInspectionSummary(data.id, summary); }} maxLength={1000} rows={4} placeholder="A short summary for the customer…" className="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" /></label>
+          <label className="text-sm font-medium text-zinc-800">Note to customer<textarea value={summary} onChange={(e) => setSummary(e.target.value)} onBlur={() => { void actions.setSummary(data.id, summary); }} maxLength={1000} rows={4} placeholder="A short summary for the customer…" className="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" /></label>
           <div className="mt-4 flex flex-wrap gap-2">
             {status !== "COMPLETED" ? <button type="button" onClick={() => void complete()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Mark complete</button> : (
               <>
-                <button type="button" onClick={() => void send()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Send to customer</button>
-                <button type="button" onClick={() => { void reopenInspection(data.id); setStatus("IN_PROGRESS"); setSentAt(null); }} className="rounded-md border border-zinc-300 px-4 py-2 text-sm">Reopen</button>
+                {actions.send ? <button type="button" onClick={() => void send()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Send to customer</button> : <span className="rounded-md bg-zinc-100 px-4 py-2 text-sm text-zinc-600">Sign in on the shop computer to send this to the customer.</span>}
+                <button type="button" onClick={() => { void actions.reopen(data.id); setStatus("IN_PROGRESS"); setSentAt(null); }} className="rounded-md border border-zinc-300 px-4 py-2 text-sm">Reopen</button>
               </>
             )}
-            {canDelete && <form action={deleteInspection.bind(null, data.id)} onSubmit={(event) => { if (!confirm("Delete this inspection? Photos and ratings will be lost.")) event.preventDefault(); }}><button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-700">Delete</button></form>}
+            {actions.delete ? <form action={actions.delete.bind(null, data.id)} onSubmit={(event) => { if (!confirm("Delete this inspection? Photos and ratings will be lost.")) event.preventDefault(); }}><button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-700">Delete</button></form> : null}
           </div>
           {status === "COMPLETED" && sentAt && <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sent {new Date(sentAt).toLocaleDateString()} · {data.portalToken ? "portal link ready" : "customer has no portal link"}{sendReason === "sent" && data.customerEmail ? ` · Emailed to ${data.customerEmail}` : sendReason === "no_email" ? " · Customer has no email — share the portal link" : sendReason === "email_not_configured" ? " · Email isn't set up for this shop — share the portal link" : ""}</div>}
           {status === "COMPLETED" && sentAt && portalLink && <div className="mt-2 flex flex-wrap items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-zinc-100 px-2 py-1 text-xs">{portalLink}</code><button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${portalLink}`)} className="rounded border border-zinc-300 px-2 py-1 text-xs">Copy portal link</button></div>}

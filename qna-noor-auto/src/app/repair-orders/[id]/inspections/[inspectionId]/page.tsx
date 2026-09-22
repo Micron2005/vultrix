@@ -1,8 +1,23 @@
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
-import { vehicleLabel, fullName } from "@/lib/utils";
-import { InspectionRunner, type InspectionRunnerData } from "./InspectionRunner";
+import {
+  loadInspectionRunnerData,
+  loadTechnicians,
+} from "@/lib/inspections";
+import {
+  addInspectionPhotos,
+  addJobFromInspectionItem,
+  completeInspection,
+  deleteInspection,
+  deleteInspectionPhoto,
+  noteInspectionItem,
+  rateInspectionItem,
+  reopenInspection,
+  sendInspectionToCustomer,
+  setInspectionSummary,
+  setInspectionTechnician,
+} from "../../inspection-actions";
+import { InspectionRunner } from "./InspectionRunner";
 
 export const dynamic = "force-dynamic";
 
@@ -15,41 +30,32 @@ export default async function InspectionRunnerPage({
   if (user.accountType !== "AUTO_SHOP") notFound();
   const orgId = await requireOrgId();
   const { id, inspectionId } = await params;
-  const [inspection, technicians] = await Promise.all([
-    db.inspection.findFirst({
-      where: { id: inspectionId, orgId, repairOrderId: id },
-      include: {
-        repairOrder: { include: { vehicle: true, customer: { select: { firstName: true, lastName: true, email: true, portalToken: true } } } },
-        technician: true,
-        items: { orderBy: { sortOrder: "asc" }, include: { photos: { orderBy: { createdAt: "asc" } } } },
-      },
-    }),
-    db.technician.findMany({ where: { orgId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  const [data, technicians] = await Promise.all([
+    loadInspectionRunnerData(orgId, inspectionId, id),
+    loadTechnicians(orgId),
   ]);
-  if (!inspection) notFound();
-  const data: InspectionRunnerData = {
-    id: inspection.id,
-    repairOrderId: inspection.repairOrderId,
-    roNumber: inspection.repairOrder.roNumber,
-    vehicle: inspection.repairOrder.vehicle ? vehicleLabel(inspection.repairOrder.vehicle) : `RO #${inspection.repairOrder.roNumber}`,
-    customerName: fullName(inspection.repairOrder.customer),
-    customerEmail: inspection.repairOrder.customer.email,
-    portalToken: inspection.repairOrder.customer.portalToken,
-    templateName: inspection.templateName,
-    status: inspection.status,
-    sentAt: inspection.sentAt?.toISOString() ?? null,
-    sendReason: null,
-    summary: inspection.summary ?? "",
-    technicianId: inspection.technicianId,
-    items: inspection.items.map((item) => ({
-      id: item.id,
-      section: item.section,
-      name: item.name,
-      rating: item.rating as "GOOD" | "ATTENTION" | "URGENT" | "NA" | null,
-      note: item.note ?? "",
-      jobId: item.jobId,
-      photos: item.photos.map((photo) => ({ id: photo.id, dataUrl: photo.dataUrl })),
-    })),
-  };
-  return <InspectionRunner data={data} technicians={technicians} canDelete={user.role !== "STAFF"} />;
+  if (!data) notFound();
+  return (
+    <InspectionRunner
+      data={data}
+      technicians={technicians}
+      actions={{
+        rate: rateInspectionItem,
+        note: noteInspectionItem,
+        addPhotos: addInspectionPhotos,
+        deletePhoto: deleteInspectionPhoto,
+        setTechnician: setInspectionTechnician,
+        setSummary: setInspectionSummary,
+        complete: completeInspection,
+        reopen: reopenInspection,
+        addJob: addJobFromInspectionItem,
+        send: sendInspectionToCustomer,
+        ...(user.role !== "STAFF"
+          ? { delete: deleteInspection }
+          : {}),
+      }}
+      backHref={`/repair-orders/${id}`}
+      backLabel={`← RO #${data.roNumber}`}
+    />
+  );
 }
