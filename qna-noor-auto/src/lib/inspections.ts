@@ -1,4 +1,8 @@
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { assertROEditable } from "@/app/repair-orders/actions";
+import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
+import { getAllSettings, shopBranding } from "@/lib/shop";
 import { db } from "./db";
 import { fullName, vehicleLabel } from "./utils";
 
@@ -36,6 +40,12 @@ export type InspectionMutationTarget = {
 
 export const RATINGS = new Set(["GOOD", "ATTENTION", "URGENT", "NA"]);
 export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const ratingLabel: Record<string, string> = {
+  GOOD: "Good",
+  ATTENTION: "Needs attention",
+  URGENT: "Urgent",
+  NA: "N/A",
+};
 
 export async function createInspectionFromTemplate(
   orgId: string,
@@ -270,6 +280,113 @@ export async function reopen(
   };
   revalidatePath(`/repair-orders/${target.repairOrderId}`);
   revalidateInspection(target);
+  return target;
+}
+
+async function appOrigin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto =
+    h.get("x-forwarded-proto") ??
+    (host?.startsWith("localhost") ? "http" : "https");
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+    (host ? `${proto}://${host}` : "https://vultrix.net")
+  );
+}
+
+export async function sendToCustomer(orgId: string, inspectionId: string): Promise<{
+  emailed: boolean;
+  reason: "sent" | "no_email" | "email_not_configured";
+}> {
+  const inspection = await db.inspection.findFirst({
+    where: { id: inspectionId, orgId },
+    include: {
+      repairOrder: { include: { customer: true, vehicle: true } },
+      technician: true,
+    },
+  });
+  if (!inspection) throw new Error("Inspection not found");
+  if (inspection.status !== "COMPLETED") {
+    throw new Error("Complete the inspection before sending it");
+  }
+  const sentAt = new Date();
+  await db.inspection.update({
+    where: { id: inspectionId },
+    data: { sentAt },
+  });
+  if (!inspection.repairOrder.customer.email) {
+    revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
+    revalidatePath(
+      `/repair-orders/${inspection.repairOrderId}/inspections/${inspectionId}`,
+    );
+    return { emailed: false, reason: "no_email" };
+  }
+  let emailed = false;
+  if (inspection.repairOrder.customer.portalToken) {
+    const settings = await getAllSettings(orgId);
+    const branding = await shopBranding(orgId);
+    const shop = settings.shopName || "Your repair shop";
+    const origin = await appOrigin();
+    const link = `${origin}/p/${inspection.repairOrder.customer.portalToken}/ro/${inspection.repairOrder.id}/inspection/${inspectionId}`;
+    const header = shopEmailHeader({
+      shopName: shop,
+      logo: branding.logo,
+      accent: branding.accent,
+    });
+    emailed = await sendEmail({
+      to: inspection.repairOrder.customer.email,
+      subject: `Your vehicle inspection from ${shop}`,
+      replyTo: settings.shopEmail || undefined,
+      html: `${header}<p>Hi ${escapeHtml(inspection.repairOrder.customer.firstName)},</p><p>Your vehicle inspection is ready to view.</p><p><a href="${escapeHtml(link)}">View your inspection report</a></p><p>Thanks,<br>${escapeHtml(shop)}</p>`,
+    });
+  }
+  revalidatePath(`/repair-orders/${inspection.repairOrderId}`);
+  revalidatePath(
+    `/repair-orders/${inspection.repairOrderId}/inspections/${inspectionId}`,
+  );
+  return {
+    emailed,
+    reason: emailed ? "sent" : "email_not_configured",
+  };
+}
+
+export async function addJobFromItem(
+  orgId: string,
+  itemId: string,
+): Promise<InspectionMutationTarget> {
+  const item = await db.inspectionItem.findFirst({
+    where: { id: itemId, inspection: { orgId } },
+    include: { inspection: { include: { repairOrder: true } } },
+  });
+  if (!item) throw new Error("Inspection item not found");
+  const target = {
+    inspectionId: item.inspection.id,
+    repairOrderId: item.inspection.repairOrderId,
+  };
+  if (item.jobId) return target;
+  await assertROEditable(orgId, item.inspection.repairOrderId);
+  const max = await db.job.findFirst({
+    where: { repairOrderId: item.inspection.repairOrderId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  const job = await db.job.create({
+    data: {
+      repairOrderId: item.inspection.repairOrderId,
+      name: item.name,
+      notes: `Inspection: ${ratingLabel[item.rating ?? "ATTENTION"] ?? "Needs attention"}. ${item.note ?? ""}`.trim(),
+      sortOrder: (max?.sortOrder ?? 0) + 1,
+    },
+  });
+  await db.inspectionItem.update({
+    where: { id: itemId },
+    data: { jobId: job.id },
+  });
+  revalidatePath(`/repair-orders/${item.inspection.repairOrderId}`);
+  revalidatePath(
+    `/repair-orders/${item.inspection.repairOrderId}/inspections/${item.inspection.id}`,
+  );
   return target;
 }
 

@@ -42,12 +42,14 @@ export function InspectionRunner({
   actions,
   backHref,
   backLabel,
+  finishHref,
 }: {
   data: InspectionRunnerData;
   technicians: Array<{ id: string; name: string }>;
   actions: InspectionRunnerActions;
   backHref: string;
   backLabel: string;
+  finishHref?: string;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(data.items);
@@ -172,7 +174,8 @@ export function InspectionRunner({
           <div className="mt-4 flex flex-wrap gap-2">
             {status !== "COMPLETED" ? <button type="button" onClick={() => void complete()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Mark complete</button> : (
               <>
-                {actions.send ? <button type="button" onClick={() => void send()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Send to customer</button> : <span className="rounded-md bg-zinc-100 px-4 py-2 text-sm text-zinc-600">Sign in on the shop computer to send this to the customer.</span>}
+                {finishHref ? <Link href={finishHref} className="w-full rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-center text-sm font-semibold text-white sm:w-auto">Done — next vehicle</Link> : null}
+                {actions.send ? <button type="button" onClick={() => void send()} className="rounded-md bg-[var(--vx-accent-600)] px-4 py-2 text-sm font-semibold text-white">Send to customer</button> : null}
                 <button type="button" onClick={() => { void actions.reopen(data.id); setStatus("IN_PROGRESS"); setSentAt(null); }} className="rounded-md border border-zinc-300 px-4 py-2 text-sm">Reopen</button>
               </>
             )}
