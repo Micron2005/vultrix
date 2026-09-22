@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { createInspectionFromTemplate } from "@/lib/inspections";
@@ -44,6 +43,5 @@ export default async function StartInspectionPage({
   } catch {
     redirect(`/repair-orders/${id}`);
   }
-  revalidatePath(`/repair-orders/${id}`);
   redirect(`/repair-orders/${id}/inspections/${inspectionId}`);
 }
