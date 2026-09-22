@@ -17,7 +17,7 @@ import {
 } from "@/lib/inspections";
 import type { Rating } from "@/lib/inspections";
 
-export async function requireIntakeOrg(orgId: string, k: string): Promise<void> {
+async function requireIntakeOrg(orgId: string, k: string): Promise<void> {
   if (!verifyOrgIntake(orgId, k)) throw new Error("Not allowed");
   const org = await db.organization.findFirst({
     where: { id: orgId, status: "ACTIVE", accountType: "AUTO_SHOP" },
