@@ -82,7 +82,8 @@ export default async function PublicEstimatePage({
     ro.status === "INVOICED" ||
     ro.status === "PAID" ||
     ro.status === "COMPLETED";
-  const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const recorded = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const paid = ro.status === "PAID" ? Math.max(recorded, totals.total) : recorded;
   const balance = Math.max(0, Math.round((totals.total - paid) * 100) / 100);
   const org = await db.organization.findUnique({
     where: { id: ro.orgId },
@@ -537,7 +538,7 @@ export default async function PublicEstimatePage({
                 <span>Total</span>
                 <span className="tabular-nums">{formatMoney(totals.total)}</span>
               </div>
-              {isInvoiced && paid > 0 && (
+              {isInvoiced && (paid > 0 || ro.status === "PAID") && (
                 <>
                   <div className="flex justify-between text-zinc-600">
                     <span>Paid</span>
