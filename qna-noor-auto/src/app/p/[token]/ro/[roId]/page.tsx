@@ -77,7 +77,8 @@ export default async function CustomerPortalROPage({
     laborSubtotal: preliminary.laborSubtotal,
   });
   const totals = computeTotals({ ...filtered, shopFees: appliedShopFees });
-  const paid = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const recorded = ro.payments.reduce((s, p) => s + p.amount, 0);
+  const paid = ro.status === "PAID" ? Math.max(recorded, totals.total) : recorded;
   const balance = Math.max(0, Math.round((totals.total - paid) * 100) / 100);
 
   const isInvoiced =
