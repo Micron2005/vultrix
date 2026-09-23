@@ -13,6 +13,8 @@ import {
   intakeNoteItem,
   intakeRateItem,
   intakeReopen,
+  intakeSendToCustomer,
+  intakeAddJob,
   intakeSetSummary,
   intakeSetTechnician,
 } from "../../../inspection-actions";
@@ -60,9 +62,12 @@ export default async function IntakeInspectionPage({
         setSummary: intakeSetSummary.bind(null, orgId, k),
         complete: intakeComplete.bind(null, orgId, k),
         reopen: intakeReopen.bind(null, orgId, k),
+        addJob: intakeAddJob.bind(null, orgId, k),
+        send: intakeSendToCustomer.bind(null, orgId, k),
       }}
       backHref={`/i/${orgId}?${backQuery.toString()}`}
       backLabel="← Intake"
+      finishHref={`/i/${orgId}?k=${encodeURIComponent(k)}`}
     />
   );
 }

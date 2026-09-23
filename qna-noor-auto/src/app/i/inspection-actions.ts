@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { verifyOrgIntake } from "@/lib/intakeTokens";
 import {
+  addJobFromItem,
   addItemPhotos,
   complete,
   createInspectionFromTemplate,
@@ -12,6 +13,7 @@ import {
   noteItem,
   rateItem,
   reopen,
+  sendToCustomer,
   setSummary,
   setTechnician,
 } from "@/lib/inspections";
@@ -108,6 +110,27 @@ export async function intakeReopen(
 ) {
   await requireIntakeOrg(orgId, k);
   const target = await reopen(orgId, inspectionId);
+  revalidatePath(`/i/${orgId}/inspect/${target.inspectionId}`);
+}
+
+export async function intakeSendToCustomer(
+  orgId: string,
+  k: string,
+  inspectionId: string,
+) {
+  await requireIntakeOrg(orgId, k);
+  const result = await sendToCustomer(orgId, inspectionId);
+  revalidatePath(`/i/${orgId}/inspect/${inspectionId}`);
+  return result;
+}
+
+export async function intakeAddJob(
+  orgId: string,
+  k: string,
+  itemId: string,
+) {
+  await requireIntakeOrg(orgId, k);
+  const target = await addJobFromItem(orgId, itemId);
   revalidatePath(`/i/${orgId}/inspect/${target.inspectionId}`);
 }
 
