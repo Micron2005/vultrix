@@ -121,6 +121,10 @@ export class Sampler {
         if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
         return response.arrayBuffer();
       });
+      arrayBufferPromise = arrayBufferPromise.catch((error) => {
+        arrayBuffers.delete(url);
+        throw error;
+      });
       arrayBuffers.set(url, arrayBufferPromise);
     }
 

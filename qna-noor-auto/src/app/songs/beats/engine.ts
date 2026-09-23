@@ -66,6 +66,14 @@ function trackStepTimes(
   });
 }
 
+function alignTrackStepAtBoundary(
+  trackStep: number,
+  currentPattern: BeatPattern,
+  nextPattern: BeatPattern | undefined,
+) {
+  return nextPattern && stepsFor(nextPattern) !== stepsFor(currentPattern) ? 0 : trackStep;
+}
+
 function patternSequence(
   data: BeatData,
   mode: BeatPlaybackMode,
@@ -299,6 +307,11 @@ export class BeatEngine {
       if (this.step >= stepsFor(pattern)) {
         this.step = 0;
         this.sequenceIndex += 1;
+        this.trackStep = alignTrackStepAtBoundary(
+          this.trackStep,
+          pattern,
+          patterns[this.sequenceIndex % patterns.length]?.pattern,
+        );
       }
     }
   }
@@ -961,14 +974,15 @@ export class BeatEngine {
     destination.connect(compressor);
     compressor.connect(context.destination);
     let patternOffset = 0;
-    renderPatterns.forEach((sequenceItem) => {
+    let trackStep = 0;
+    renderPatterns.forEach((sequenceItem, sequenceIndex) => {
       const { pattern, mutedTracks } = sequenceItem;
       for (let step = 0; step < stepsFor(pattern); step += 1) {
         const baseTime = (patternOffset + step) * stepDuration;
         const time = baseTime + (step % 2 === 1 ? (beat.swing / 100) * stepDuration * 0.5 : 0);
         for (const track of beat.data.tracks) {
           if (mutedTracks.has(track.id)) continue;
-          for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(patternOffset + step, track.speed, stepDuration, time)) {
+          for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
             const cell = scheduledTrackStep % stepsFor(pattern);
             const route = this.trackRoute(context, destination, track, trackTime);
             if (track.kind === "drums") {
@@ -1004,7 +1018,13 @@ export class BeatEngine {
             }
           }
         }
+        trackStep += 1;
       }
+      trackStep = alignTrackStepAtBoundary(
+        trackStep,
+        pattern,
+        renderPatterns[sequenceIndex + 1]?.pattern,
+      );
       patternOffset += stepsFor(pattern);
     });
     for (const take of takes ?? []) {
