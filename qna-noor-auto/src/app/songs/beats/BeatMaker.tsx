@@ -842,8 +842,8 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
   }
 
   return (
-    <div className="space-y-6 pb-24 sm:pb-0">
-      <Card className="p-4">
+    <div className="flex flex-col gap-6 pb-24 sm:pb-0">
+      <Card className="order-1 p-4">
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           <Input
             value={title}
@@ -949,24 +949,6 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
           </a>
           )
         </p>
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
-          <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()} disabled={loading}>
-            {loading ? "Loading…" : playing ? "Stop" : "Play"}
-          </Button>
-          <div className="flex overflow-hidden rounded-md border border-zinc-300">
-            {(["pattern", "song"] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setMode(item)}
-                className={`min-h-11 px-2 text-xs font-medium ${mode === item ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
-              >
-                {item === "pattern" ? "Loop" : "Song"}
-              </button>
-            ))}
-          </div>
-          <Button type="button" className="min-h-11" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
-        </div>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <form action={attachBeatToSong.bind(null, beat.id)} className="flex items-center gap-2">
             <Select name="songId" defaultValue={beat.songId ?? ""} aria-label="Attach beat to song" onChange={(event) => event.currentTarget.form?.requestSubmit()} className="max-w-48 text-xs">
@@ -977,7 +959,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
         </div>
       </Card>
 
-      <Card className="p-4">
+      <Card className="order-2 p-4">
         <div className="flex flex-wrap items-center gap-2">
           {data.patterns.map((pattern) => (
             <button
@@ -1165,7 +1147,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
         </div>
       </Card>
 
-      <Card className="p-4">
+      <Card className="order-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-zinc-900">Arrangement</span>
           <Select
@@ -1269,22 +1251,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
         </datalist>
       </Card>
 
-      <VocalsPanel
-        beatId={beat.id}
-        title={title}
-        song={songs.find((song) => song.id === beat.songId) ?? null}
-        songs={songs}
-        engine={engine}
-        getDocument={() => docRef.current}
-        getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}
-        onStep={onPlaybackStep}
-        playing={playing}
-        setPlaying={setPlaying}
-        startBeat={startBeat}
-        stopBeat={stopBeat}
-        initialTakes={takes}
-      />
-
+      <div className="order-3">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold text-zinc-900">Tracks</span>
         <div className="flex overflow-hidden rounded-md border border-zinc-300">
@@ -1603,6 +1570,44 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
           </Card>
         );
       })}
+      </div>
+
+      <div className="order-5">
+        <VocalsPanel
+          beatId={beat.id}
+          title={title}
+          song={songs.find((song) => song.id === beat.songId) ?? null}
+          songs={songs}
+          engine={engine}
+          getDocument={() => docRef.current}
+          getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}
+          onStep={onPlaybackStep}
+          playing={playing}
+          setPlaying={setPlaying}
+          startBeat={startBeat}
+          stopBeat={stopBeat}
+          initialTakes={takes}
+        />
+      </div>
+
+      <div className="order-6 fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
+        <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()} disabled={loading}>
+          {loading ? "Loading…" : playing ? "Stop" : "Play"}
+        </Button>
+        <div className="flex overflow-hidden rounded-md border border-zinc-300">
+          {(["pattern", "song"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setMode(item)}
+              className={`min-h-11 px-2 text-xs font-medium ${mode === item ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
+            >
+              {item === "pattern" ? "Loop" : "Song"}
+            </button>
+          ))}
+        </div>
+        <Button type="button" className="min-h-11" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
+      </div>
     </div>
   );
 }
