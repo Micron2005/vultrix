@@ -106,6 +106,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
   );
   const [mode, setMode] = useState<BeatPlaybackMode>("pattern");
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
   const [activeSequenceIndex, setActiveSequenceIndex] = useState(-1);
   const [dirty, setDirty] = useState(false);
@@ -745,6 +746,7 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
       () => docRef.current,
       () => ({ mode: modeRef.current, patternId: selectedRef.current }),
       onPlaybackStep,
+      setLoading,
     );
     setPlaying(true);
   }
@@ -884,8 +886,8 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
             </label>
           </div>
           <div className="hidden items-center gap-1 rounded-lg bg-zinc-50 p-2 sm:flex">
-            <Button type="button" size="sm" onClick={() => void togglePlayback()}>
-              {playing ? "Stop" : "Play"}
+            <Button type="button" size="sm" onClick={() => void togglePlayback()} disabled={loading}>
+              {loading ? "Loading…" : playing ? "Stop" : "Play"}
             </Button>
             <div className="flex overflow-hidden rounded-md border border-zinc-300">
               {(["pattern", "song"] as const).map((item) => (
@@ -930,9 +932,21 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
             </button>
           </div>
         )}
+        <p className="mt-3 text-xs text-zinc-500">
+          Instrument sounds: FluidR3 GM soundfont by Frank Wen (
+          <a
+            href="https://creativecommons.org/licenses/by/3.0/us/"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-zinc-700"
+          >
+            CC BY 3.0
+          </a>
+          )
+        </p>
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-zinc-200 bg-white/90 px-3 py-2 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur sm:hidden">
-          <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()}>
-            {playing ? "Stop" : "Play"}
+          <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()} disabled={loading}>
+            {loading ? "Loading…" : playing ? "Stop" : "Play"}
           </Button>
           <div className="flex overflow-hidden rounded-md border border-zinc-300">
             {(["pattern", "song"] as const).map((item) => (

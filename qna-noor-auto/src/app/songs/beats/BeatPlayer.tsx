@@ -24,6 +24,7 @@ function downloadWav(blob: Blob, title: string) {
 export function BeatPlayer({ beat }: BeatPlayerProps) {
   const [engine] = useState(() => new BeatEngine());
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<BeatPlaybackMode>(
     beat.data.sections.length ? "song" : "pattern",
   );
@@ -73,6 +74,7 @@ export function BeatPlayer({ beat }: BeatPlayerProps) {
           setSelectedPatternId(item.pattern.id);
         }
       },
+      setLoading,
     );
     setPlaying(true);
   }
@@ -96,9 +98,10 @@ export function BeatPlayer({ beat }: BeatPlayerProps) {
       <button
         type="button"
         onClick={() => void togglePlayback()}
+        disabled={loading}
         className="h-12 w-full rounded-lg bg-[var(--vx-accent-600)] px-4 text-sm font-semibold text-[var(--vx-accent-fg)] shadow-sm hover:bg-[var(--vx-accent-700)]"
       >
-        {playing ? "Stop" : "Play"}
+        {loading ? "Loading…" : playing ? "Stop" : "Play"}
       </button>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -214,6 +217,18 @@ export function BeatPlayer({ beat }: BeatPlayerProps) {
           No sound? Turn up the volume and flip the ringer switch off silent.
         </p>
       )}
+      <p className="text-xs text-zinc-500">
+        Instrument sounds: FluidR3 GM soundfont by Frank Wen (
+        <a
+          href="https://creativecommons.org/licenses/by/3.0/us/"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-zinc-300"
+        >
+          CC BY 3.0
+        </a>
+        )
+      </p>
     </div>
   );
 }
