@@ -59,7 +59,12 @@ type BeatMakerProps = {
     songId: string | null;
     shareToken: string | null;
   };
-  songs: Array<{ id: string; title: string }>;
+  songs: Array<{
+    id: string;
+    title: string;
+    lyrics: string | null;
+    lyricsMeta: string | null;
+  }>;
   takes: Take[];
 };
 
@@ -1253,6 +1258,9 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
       <VocalsPanel
         beatId={beat.id}
         title={title}
+        song={songs.find((song) => song.id === beat.songId) ?? null}
+        songs={songs}
+        activeStep={activeStep}
         engine={engine}
         getDocument={() => docRef.current}
         getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}

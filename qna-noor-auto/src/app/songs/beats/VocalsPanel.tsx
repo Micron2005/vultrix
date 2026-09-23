@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, LinkButton, Select } from "@/components/ui";
 import {
+  attachBeatToSong,
   deleteBeatTake,
   saveBeatTake,
   updateBeatTake,
 } from "./actions";
+import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
   type BeatDocument,
@@ -29,6 +31,19 @@ export type Take = {
 type VocalsPanelProps = {
   beatId: string;
   title: string;
+  song: {
+    id: string;
+    title: string;
+    lyrics: string | null;
+    lyricsMeta: string | null;
+  } | null;
+  songs: Array<{
+    id: string;
+    title: string;
+    lyrics: string | null;
+    lyricsMeta: string | null;
+  }>;
+  activeStep: number;
   engine: BeatEngine;
   getDocument: () => BeatDocument;
   getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
@@ -59,6 +74,9 @@ function audioDataUrl(blob: Blob) {
 export function VocalsPanel({
   beatId,
   title,
+  song,
+  songs,
+  activeStep,
   engine,
   getDocument,
   getPlayback,
@@ -339,70 +357,106 @@ export function VocalsPanel({
         )}
       </div>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-      {takes.length === 0 ? (
-        <p className="mt-4 text-xs text-zinc-500">
-          No takes yet. Put headphones on, hit Record, and the beat starts playing while you sing or rap.
-        </p>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {takes.map((take) => (
-            <div key={take.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
-              {editingId === take.id ? (
-                <Input
-                  autoFocus
-                  value={editingName}
-                  onChange={(event) => setEditingName(event.target.value)}
-                  onBlur={() => void finishRename(take.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  className="h-8 min-w-32 flex-1 text-xs"
-                />
-              ) : (
-                <button type="button" className="min-w-24 flex-1 truncate text-left text-xs font-medium text-zinc-900 hover:underline" onClick={() => beginRename(take)}>
-                  {take.name}
-                </button>
-              )}
-              <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
-              <Button type="button" size="sm" variant={take.muted ? "secondary" : "ghost"} onClick={() => void updateTake(take.id, { muted: !take.muted })}>
-                M
-              </Button>
-              <label className="flex items-center gap-1 text-[10px] text-zinc-500">
-                Vol
-                <input
-                  type="range"
-                  min="0"
-                  max="150"
-                  value={take.gain}
-                  onChange={(event) => updateTakeLocal(take.id, { gain: Number(event.target.value) })}
-                  onMouseUp={(event) => void updateTake(take.id, { gain: Number(event.currentTarget.value) })}
-                  onTouchEnd={(event) => void updateTake(take.id, { gain: Number(event.currentTarget.value) })}
-                  aria-label={`${take.name} volume`}
-                />
-                <span className="w-7 tabular-nums">{take.gain}</span>
-              </label>
-              <Button type="button" size="sm" variant="ghost" onClick={() => nudgeTake(take, -10)}>
-                ◂ 10ms
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => nudgeTake(take, 10)}>
-                10ms ▸
-              </Button>
-              <span className="text-[10px] tabular-nums text-zinc-500">
-                offset {take.offsetMs < 0 ? "−" : ""}{Math.abs(take.offsetMs)} ms
-              </span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => soloTake(take)}>
-                ▶
-              </Button>
-              <Button type="button" size="sm" variant="danger" onClick={() => void removeTake(take)}>
-                Delete
-              </Button>
+      <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-6">
+        <div className="order-2 lg:order-1">
+          {takes.length === 0 ? (
+            <p className="text-xs text-zinc-500">
+              No takes yet. Put headphones on, hit Record, and the beat starts playing while you sing or rap.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {takes.map((take) => (
+                <div key={take.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
+                  {editingId === take.id ? (
+                    <Input
+                      autoFocus
+                      value={editingName}
+                      onChange={(event) => setEditingName(event.target.value)}
+                      onBlur={() => void finishRename(take.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      className="h-8 min-w-32 flex-1 text-xs"
+                    />
+                  ) : (
+                    <button type="button" className="min-w-24 flex-1 truncate text-left text-xs font-medium text-zinc-900 hover:underline" onClick={() => beginRename(take)}>
+                      {take.name}
+                    </button>
+                  )}
+                  <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
+                  <Button type="button" size="sm" variant={take.muted ? "secondary" : "ghost"} onClick={() => void updateTake(take.id, { muted: !take.muted })}>
+                    M
+                  </Button>
+                  <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                    Vol
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      value={take.gain}
+                      onChange={(event) => updateTakeLocal(take.id, { gain: Number(event.target.value) })}
+                      onMouseUp={(event) => void updateTake(take.id, { gain: Number(event.currentTarget.value) })}
+                      onTouchEnd={(event) => void updateTake(take.id, { gain: Number(event.currentTarget.value) })}
+                      aria-label={`${take.name} volume`}
+                    />
+                    <span className="w-7 tabular-nums">{take.gain}</span>
+                  </label>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => nudgeTake(take, -10)}>
+                    ◂ 10ms
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => nudgeTake(take, 10)}>
+                    10ms ▸
+                  </Button>
+                  <span className="text-[10px] tabular-nums text-zinc-500">
+                    offset {take.offsetMs < 0 ? "−" : ""}{Math.abs(take.offsetMs)} ms
+                  </span>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => soloTake(take)}>
+                    ▶
+                  </Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => void removeTake(take)}>
+                    Delete
+                  </Button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
+        <div className="order-1 mt-6 lg:order-2 lg:mt-0">
+          {song?.lyrics?.trim() ? (
+            <>
+              <h3 className="mb-3 text-sm font-semibold text-zinc-900">Lyrics — {song.title}</h3>
+              <LyricFollowAlong
+                songId={song.id}
+                lyrics={song.lyrics}
+                lyricsMeta={song.lyricsMeta}
+                beatsPerBar={4}
+                running={playing || recording}
+                currentBeat={activeStep >= 0 ? Math.floor(activeStep / 4) % 4 : -1}
+                maxHeightClass="max-h-[28rem] lg:max-h-[40rem]"
+                storageKey="vx_lyric_vocals_v1"
+              />
+            </>
+          ) : song ? (
+            <>
+              <p className="text-sm text-zinc-500">No lyrics yet for {song.title}</p>
+              <LinkButton href={`/songs/${song.id}`} size="sm" className="mt-3">Write lyrics</LinkButton>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-zinc-500">Pick the song this beat is for to see its lyrics here</p>
+              <form action={attachBeatToSong.bind(null, beatId)} className="mt-3">
+                <Select name="songId" defaultValue="" aria-label="Attach beat to song" onChange={(event) => event.currentTarget.form?.requestSubmit()} className="max-w-56 text-xs">
+                  <option value="">Pick a song</option>
+                  {songs.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                </Select>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
       <audio ref={soloAudioRef} className="hidden" />
     </Card>
   );
