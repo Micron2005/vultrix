@@ -1274,7 +1274,6 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
         title={title}
         song={songs.find((song) => song.id === beat.songId) ?? null}
         songs={songs}
-        activeStep={activeStep}
         engine={engine}
         getDocument={() => docRef.current}
         getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}

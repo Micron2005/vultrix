@@ -43,7 +43,6 @@ type VocalsPanelProps = {
     lyrics: string | null;
     lyricsMeta: string | null;
   }>;
-  activeStep: number;
   engine: BeatEngine;
   getDocument: () => BeatDocument;
   getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
@@ -76,7 +75,6 @@ export function VocalsPanel({
   title,
   song,
   songs,
-  activeStep,
   engine,
   getDocument,
   getPlayback,
@@ -432,9 +430,6 @@ export function VocalsPanel({
                 songId={song.id}
                 lyrics={song.lyrics}
                 lyricsMeta={song.lyricsMeta}
-                beatsPerBar={4}
-                running={playing || recording}
-                currentBeat={activeStep >= 0 ? Math.floor(activeStep / 4) % 4 : -1}
                 maxHeightClass="max-h-[28rem] lg:max-h-[40rem]"
                 storageKey="vx_lyric_vocals_v1"
               />
