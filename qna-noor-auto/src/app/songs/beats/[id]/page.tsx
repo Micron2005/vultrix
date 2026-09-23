@@ -30,7 +30,12 @@ export default async function BeatDetailPage({
       <SongsTabs active="beats" />
       <BeatMaker
         beat={{ ...beat, data: JSON.stringify(data), shareToken: beat.shareToken }}
-        songs={songs.map((song) => ({ id: song.id, title: song.title }))}
+        songs={songs.map((song) => ({
+          id: song.id,
+          title: song.title,
+          lyrics: song.lyrics,
+          lyricsMeta: song.lyricsMeta,
+        }))}
         takes={takes.map((take) => ({
           ...take,
           createdAt: take.createdAt.toISOString(),
