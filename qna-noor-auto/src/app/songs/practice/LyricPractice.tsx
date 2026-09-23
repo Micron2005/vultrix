@@ -17,16 +17,12 @@ export function LyricPractice({
   selectedSong,
   bpm,
   beatsPerBar,
-  metronomeRunning,
-  currentBeat,
   onSongChange,
 }: {
   songs: PracticeSong[];
   selectedSong: PracticeSong | null;
   bpm: number;
   beatsPerBar: number;
-  metronomeRunning: boolean;
-  currentBeat: number;
   onSongChange: (id: string) => void;
 }) {
   if (!selectedSong || !selectedSong.lyrics?.trim()) {
@@ -63,9 +59,6 @@ export function LyricPractice({
         songId={selectedSong.id}
         lyrics={selectedSong.lyrics}
         lyricsMeta={selectedSong.lyricsMeta}
-        beatsPerBar={beatsPerBar}
-        running={metronomeRunning}
-        currentBeat={currentBeat}
       />
     </div>
   );

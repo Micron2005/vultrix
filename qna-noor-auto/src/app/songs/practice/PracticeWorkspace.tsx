@@ -80,8 +80,6 @@ export function PracticeWorkspace({ songs }: { songs: PracticeSong[] }) {
           selectedSong={selectedSong}
           bpm={bpm}
           beatsPerBar={beatsPerBar}
-          metronomeRunning={metronomeRunning}
-          currentBeat={currentBeat}
           onSongChange={changeSong}
         />
       </div>
