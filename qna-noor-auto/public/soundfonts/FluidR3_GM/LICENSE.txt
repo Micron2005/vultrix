@@ -1,0 +1,6 @@
+Soundfont: FluidR3_GM by Frank Wen
+License: CC BY 3.0
+https://creativecommons.org/licenses/by/3.0/us/
+
+These MP3 renders are from:
+https://github.com/gleitz/midi-js-soundfonts

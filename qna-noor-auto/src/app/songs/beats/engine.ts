@@ -2,6 +2,13 @@ import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
 import { overdriveCurve, stringBuffer } from "./strings";
 import { scheduleRealDrum } from "./realKit";
 import {
+  isSampled,
+  sampledNotesIn,
+  sampledPlayback,
+  Sampler,
+  type SampledInstrument,
+} from "./sampler";
+import {
   BEAT_TRACKS,
   KIT_CONFIG,
   sectionSequence,
@@ -59,6 +66,14 @@ function trackStepTimes(
   });
 }
 
+function alignTrackStepAtBoundary(
+  trackStep: number,
+  currentPattern: BeatPattern,
+  nextPattern: BeatPattern | undefined,
+) {
+  return nextPattern && stepsFor(nextPattern) !== stepsFor(currentPattern) ? 0 : trackStep;
+}
+
 function patternSequence(
   data: BeatData,
   mode: BeatPlaybackMode,
@@ -87,8 +102,10 @@ export class BeatEngine {
   private takeSources: AudioBufferSourceNode[] = [];
   private sequenceIndex = 0;
   private step = 0;
+  private trackStep = 0;
   private mutedTracks = new Set<string>();
   private mutedVoices = new Set<BeatTrack>();
+  private sampler = new Sampler();
   private noiseBuffers = new WeakMap<AudioContextLike, AudioBuffer>();
   private reverbBuffers = new WeakMap<AudioContextLike, AudioBuffer>();
   private trackRoutes = new WeakMap<
@@ -123,6 +140,7 @@ export class BeatEngine {
     getDocument: () => BeatDocument,
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string },
     onStep?: (patternIndex: number, step: number) => void,
+    onLoading?: (loading: boolean) => void,
   ) {
     this.stop();
     unlockMediaRoute();
@@ -133,8 +151,15 @@ export class BeatEngine {
     this.ensureRealtimeMaster(context);
     await ensureRunning(context);
     this.playback = { getDocument, getPlayback, onStep };
+    onLoading?.(true);
+    try {
+      await this.sampler.preload(context, sampledNotesIn(getDocument().data));
+    } finally {
+      onLoading?.(false);
+    }
     this.sequenceIndex = 0;
     this.step = 0;
+    this.trackStep = 0;
     this.nextNoteTime = context.currentTime + 0.05;
     this.playStartTime = this.nextNoteTime;
     this.schedule();
@@ -227,6 +252,9 @@ export class BeatEngine {
     this.master = this.master ?? context.createGain();
     this.ensureRealtimeMaster(context);
     await ensureRunning(context);
+    if (isSampled(instrument)) {
+      await this.sampler.load(context, instrument, note);
+    }
     this.scheduleInstrument(
       context,
       this.master,
@@ -269,14 +297,21 @@ export class BeatEngine {
         sequenceItem,
         this.sequenceIndex,
         this.step,
+        this.trackStep,
         stepDuration,
         this.nextNoteTime + delay,
       );
       this.nextNoteTime += stepDuration;
       this.step += 1;
+      this.trackStep += 1;
       if (this.step >= stepsFor(pattern)) {
         this.step = 0;
         this.sequenceIndex += 1;
+        this.trackStep = alignTrackStepAtBoundary(
+          this.trackStep,
+          pattern,
+          patterns[this.sequenceIndex % patterns.length]?.pattern,
+        );
       }
     }
   }
@@ -288,6 +323,7 @@ export class BeatEngine {
     sequenceItem: PlaybackSequenceItem,
     patternIndex: number,
     step: number,
+    trackStep: number,
     stepDuration: number,
     time: number,
   ) {
@@ -295,8 +331,8 @@ export class BeatEngine {
     const patternSteps = stepsFor(pattern);
     for (const track of beat.data.tracks) {
       if (mutedTracks.has(track.id)) continue;
-      for (const { step: trackStep, time: trackTime } of trackStepTimes(step, track.speed, stepDuration, time)) {
-        const cell = trackStep % patternSteps;
+      for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
+        const cell = scheduledTrackStep % patternSteps;
         const route = this.trackRoute(context, destination, track, trackTime);
         if (track.kind === "drums") {
           for (const voice of BEAT_TRACKS) {
@@ -446,6 +482,13 @@ export class BeatEngine {
     time: number,
   ) {
     const duration = Math.min(64, length) * (60 / beat.bpm / 4) / speed;
+    if (isSampled(instrument)) {
+      const buffer = this.sampler.get(context, instrument, note);
+      if (buffer) {
+        this.scheduleSampled(context, destination, instrument, note, duration, velocity, time, buffer);
+        return;
+      }
+    }
     if (instrument === "bass") {
       this.scheduleBass(context, destination, note, duration, velocity, beat, time);
       return;
@@ -475,6 +518,47 @@ export class BeatEngine {
       return;
     }
     this.schedulePluck(context, destination, note, duration, velocity, time);
+  }
+
+  private scheduleSampled(
+    context: AudioContextLike,
+    destination: AudioNode,
+    instrument: SampledInstrument,
+    note: number,
+    duration: number,
+    velocity: number,
+    time: number,
+    buffer: AudioBuffer,
+  ) {
+    const levels: Record<SampledInstrument, number> = {
+      piano: 0.9,
+      aguitar: 0.8,
+      eguitar: 0.85,
+      bass: 1,
+    };
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = sampledPlayback(note).playbackRate;
+    const gain = context.createGain();
+    const level = levels[instrument] * velocity;
+    const release = instrument === "bass" ? 0.06 : 0.12;
+    const end = time + Math.max(0, duration);
+    gain.gain.setValueAtTime(level, time);
+    gain.gain.setValueAtTime(level, end);
+    gain.gain.linearRampToValueAtTime(0, end + release);
+
+    if (instrument === "bass" || instrument === "eguitar") {
+      const filter = context.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = instrument === "bass" ? 2500 : 5000;
+      source.connect(filter);
+      filter.connect(gain);
+    } else {
+      source.connect(gain);
+    }
+    gain.connect(destination);
+    source.start(time);
+    source.stop(end + release + 0.02);
   }
 
   private scheduleBass(
@@ -879,6 +963,7 @@ export class BeatEngine {
     }, 0);
     const seconds = Math.max(beatSeconds, takeSeconds) + 1;
     const context = new OfflineAudioContext(2, Math.ceil(seconds * 44100), 44100);
+    await this.sampler.preload(context, sampledNotesIn(beat.data));
     const destination = context.createGain();
     destination.gain.value = 0.8;
     const compressor = context.createDynamicsCompressor();
@@ -889,15 +974,16 @@ export class BeatEngine {
     destination.connect(compressor);
     compressor.connect(context.destination);
     let patternOffset = 0;
-    renderPatterns.forEach((sequenceItem) => {
+    let trackStep = 0;
+    renderPatterns.forEach((sequenceItem, sequenceIndex) => {
       const { pattern, mutedTracks } = sequenceItem;
       for (let step = 0; step < stepsFor(pattern); step += 1) {
         const baseTime = (patternOffset + step) * stepDuration;
         const time = baseTime + (step % 2 === 1 ? (beat.swing / 100) * stepDuration * 0.5 : 0);
         for (const track of beat.data.tracks) {
           if (mutedTracks.has(track.id)) continue;
-          for (const { step: trackStep, time: trackTime } of trackStepTimes(step, track.speed, stepDuration, time)) {
-            const cell = trackStep % stepsFor(pattern);
+          for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
+            const cell = scheduledTrackStep % stepsFor(pattern);
             const route = this.trackRoute(context, destination, track, trackTime);
             if (track.kind === "drums") {
               for (const voice of BEAT_TRACKS) {
@@ -932,7 +1018,13 @@ export class BeatEngine {
             }
           }
         }
+        trackStep += 1;
       }
+      trackStep = alignTrackStepAtBoundary(
+        trackStep,
+        pattern,
+        renderPatterns[sequenceIndex + 1]?.pattern,
+      );
       patternOffset += stepsFor(pattern);
     });
     for (const take of takes ?? []) {
