@@ -31,6 +31,7 @@ export default async function LyricsPage({
       <SongsTabs active="lyrics" />
       {selectedSong ? (
         <LyricsWorkspace
+          key={selectedSong.id}
           songs={songs.map((song) => ({
             id: song.id,
             title: song.title,

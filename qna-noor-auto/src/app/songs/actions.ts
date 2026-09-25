@@ -132,7 +132,6 @@ export async function saveLyricsText(id: string, text: string) {
     where: { id, orgId },
     data: { lyrics },
   });
-  revalidatePath("/songs/lyrics");
   revalidatePath(`/songs/${id}`);
   revalidatePath("/songs/practice");
   revalidatePath("/songs/beats");

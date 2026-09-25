@@ -71,17 +71,6 @@ export function LyricsWorkspace({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
   const initializedRef = useRef(false);
-  const skipAutosaveRef = useRef(false);
-
-  useEffect(() => {
-    if (initializedRef.current) skipAutosaveRef.current = true;
-    const timer = window.setTimeout(() => {
-      setLyrics(selectedSong.lyrics ?? "");
-      setTakes(selectedSong.vocalTakes);
-      setSaveState("saved");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [selectedSong.id, selectedSong.lyrics, selectedSong.vocalTakes]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -102,10 +91,6 @@ export function LyricsWorkspace({
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true;
-      return;
-    }
-    if (skipAutosaveRef.current) {
-      skipAutosaveRef.current = false;
       return;
     }
     setSaveState("saving");
@@ -299,7 +284,7 @@ export function LyricsWorkspace({
               </div>
               <audio controls preload="none" src={`/songs/audio/song/${take.id}`} className="mt-2 h-8 w-full" />
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Select defaultValue="closed" onChange={(event) => { const beat = beats.find((item) => item.id === event.target.value); if (beat) void addToBeat(take.id, beat); }} aria-label={`Use ${take.name} in beat`}>
+                <Select value="closed" onChange={(event) => { const beat = beats.find((item) => item.id === event.target.value); if (beat) void addToBeat(take.id, beat); }} aria-label={`Use ${take.name} in beat`}>
                   <option value="closed">Use in beat…</option>
                   {orderedBeats.map((beat) => <option key={beat.id} value={beat.id}>{beat.title}</option>)}
                 </Select>
