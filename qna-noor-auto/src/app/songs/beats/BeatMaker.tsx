@@ -30,7 +30,6 @@ import {
 } from "./theory";
 import {
   BEAT_TRACKS,
-  BeatDataSchema,
   emptyPattern,
   KITS,
   MELODIC_INSTRUMENTS,
@@ -46,6 +45,7 @@ import {
   type BeatTrack,
   type BeatTrackInstance,
   type MelodicInstrument,
+  safeParseBeatData,
 } from "./kits";
 
 type BeatMakerProps = {
@@ -77,7 +77,7 @@ type BeatMakerProps = {
 };
 
 function parseBeatData(raw: string): BeatData {
-  return BeatDataSchema.parse(JSON.parse(raw));
+  return safeParseBeatData(raw);
 }
 
 function cloneData<T>(data: T): T {

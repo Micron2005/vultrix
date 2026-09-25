@@ -286,6 +286,18 @@ export const BeatDataSchema = z
   .transform(migrateBeatData)
   .transform(normalizeBeatData);
 
+export function safeParseBeatData(raw: string): BeatData {
+  try {
+    const parsed = JSON.parse(raw) as { patterns?: unknown };
+    if (Array.isArray(parsed.patterns) && parsed.patterns.length === 0) {
+      return DEFAULT_BEAT_DATA;
+    }
+    return BeatDataSchema.parse(parsed);
+  } catch {
+    return DEFAULT_BEAT_DATA;
+  }
+}
+
 const defaultTracks: BeatData["tracks"] = [
   { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0, speed: 1 },
   { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0, speed: 1 },

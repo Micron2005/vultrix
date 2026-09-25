@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
 import { parseLyrics } from "@/lib/lyrics";
@@ -20,21 +20,26 @@ export function LyricFollowAlong({
 }) {
   void lyricsMeta;
   const [fontScale, setFontScale] = useState(1);
+  const fontLoadedRef = useRef(false);
   const parsed = parseLyrics(lyrics);
 
   useEffect(() => {
+    fontLoadedRef.current = false;
     const timer = window.setTimeout(() => {
       try {
         const stored = Number(localStorage.getItem(storageKey));
         if (stored >= 0.8 && stored <= 1.4) setFontScale(stored);
       } catch {
         setFontScale(1);
+      } finally {
+        fontLoadedRef.current = true;
       }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [storageKey]);
 
   useEffect(() => {
+    if (!fontLoadedRef.current) return;
     localStorage.setItem(storageKey, String(fontScale));
   }, [fontScale, storageKey]);
 

@@ -30,12 +30,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
       <SongsTabs active="board" />
       <SongForm action={updateSong.bind(null, song.id)} song={song} />
       <Card className="mt-6 max-w-2xl p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-zinc-900">Lyrics</h2>
-          <Link href={`/songs/lyrics?song=${song.id}`} className="text-xs font-medium text-zinc-700 underline">
-            Edit in Lyrics
-          </Link>
-        </div>
+        <h2 className="text-sm font-semibold text-zinc-900">Lyrics</h2>
         {song.lyrics?.trim() ? (
           <LyricFollowAlong
             songId={song.id}

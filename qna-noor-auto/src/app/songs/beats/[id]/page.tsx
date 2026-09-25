@@ -5,7 +5,7 @@ import { getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
-import { BeatDataSchema } from "../kits";
+import { safeParseBeatData } from "../kits";
 
 export default async function BeatDetailPage({
   params,
@@ -25,7 +25,7 @@ export default async function BeatDetailPage({
     }),
   ]);
   if (!beat) notFound();
-  const data = BeatDataSchema.parse(JSON.parse(beat.data));
+  const data = safeParseBeatData(beat.data);
   return (
     <>
       <PageHeader

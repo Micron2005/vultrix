@@ -71,20 +71,26 @@ export function LyricsWorkspace({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
   const initializedRef = useRef(false);
+  const cancelRenameRef = useRef(false);
+  const fontLoadedRef = useRef(false);
 
   useEffect(() => {
+    fontLoadedRef.current = false;
     const timer = window.setTimeout(() => {
       try {
         const stored = Number(localStorage.getItem(FONT_KEY));
         if (stored >= 0.8 && stored <= 1.4) setFontSize(stored);
       } catch {
         setFontSize(1);
+      } finally {
+        fontLoadedRef.current = true;
       }
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
+    if (!fontLoadedRef.current) return;
     localStorage.setItem(FONT_KEY, String(fontSize));
   }, [fontSize]);
 
@@ -195,6 +201,11 @@ export function LyricsWorkspace({
   }
 
   async function finishRename(id: string) {
+    if (cancelRenameRef.current) {
+      cancelRenameRef.current = false;
+      setEditingId(null);
+      return;
+    }
     const name = editingName.trim();
     setEditingId(null);
     if (!name) return;
@@ -273,9 +284,25 @@ export function LyricsWorkspace({
             <div key={take.id} className="rounded-lg bg-zinc-50 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 {editingId === take.id ? (
-                  <Input autoFocus value={editingName} onChange={(event) => setEditingName(event.target.value)} onBlur={() => void finishRename(take.id)} className="h-8 min-w-32 flex-1 text-xs" />
+                  <Input
+                    autoFocus
+                    value={editingName}
+                    onChange={(event) => setEditingName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelRenameRef.current = true;
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={() => void finishRename(take.id)}
+                    className="h-8 min-w-32 flex-1 text-xs"
+                  />
                 ) : (
-                  <button type="button" className="min-w-24 flex-1 truncate text-left text-xs font-medium text-zinc-900 hover:underline" onClick={() => { setEditingId(take.id); setEditingName(take.name); }}>
+                  <button type="button" className="min-w-24 flex-1 truncate text-left text-xs font-medium text-zinc-900 hover:underline" onClick={() => { cancelRenameRef.current = false; setEditingId(take.id); setEditingName(take.name); }}>
                     {take.name}
                   </button>
                 )}
