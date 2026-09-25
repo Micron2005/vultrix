@@ -290,11 +290,11 @@ export function safeParseBeatData(raw: string): BeatData {
   try {
     const parsed = JSON.parse(raw) as { patterns?: unknown };
     if (Array.isArray(parsed.patterns) && parsed.patterns.length === 0) {
-      return DEFAULT_BEAT_DATA;
+      return structuredClone(DEFAULT_BEAT_DATA);
     }
     return BeatDataSchema.parse(parsed);
   } catch {
-    return DEFAULT_BEAT_DATA;
+    return structuredClone(DEFAULT_BEAT_DATA);
   }
 }
 
