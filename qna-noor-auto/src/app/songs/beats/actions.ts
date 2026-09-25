@@ -24,20 +24,46 @@ const BeatSaveSchema = z.object({
   data: BeatDataSchema,
 });
 
-const BeatTakeSaveSchema = z.object({
+const BeginBeatTakeSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  audioDataUrl: z.string().startsWith("data:audio/").max(14_000_000),
   audioMimeType: z.string().max(60),
   durationSec: z.number().int().min(1).max(900),
   offsetMs: z.number().int().min(-2000).max(2000),
 });
 
+const UploadChunkSchema = z.string().min(1).max(3_000_000);
 const BeatTakePatchSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   offsetMs: z.number().int().min(-2000).max(2000).optional(),
   gain: z.number().int().min(0).max(150).optional(),
   muted: z.boolean().optional(),
 }).partial();
+
+async function appendBeatTakeChunkForOrg(id: string, orgId: string, chunk: string) {
+  const parsed = UploadChunkSchema.parse(chunk);
+  const rows = await db.$queryRaw<Array<{ length: number }>>`
+    SELECT LENGTH("audioDataUrl")::int AS length
+    FROM "BeatTake"
+    WHERE id = ${id} AND "orgId" = ${orgId} AND "uploadComplete" = false
+  `;
+  const current = rows[0];
+  if (!current) throw new Error("Pending take not found.");
+  if (
+    current.length === 0
+      ? !/^data:audio\/[^,]+,[A-Za-z0-9+/=]*$/.test(parsed)
+      : !/^[A-Za-z0-9+/=]*$/.test(parsed)
+  ) {
+    throw new Error("Invalid audio chunk.");
+  }
+  if (current.length + parsed.length > 14_000_000) {
+    throw new Error("Recording is too large.");
+  }
+  await db.$executeRaw`
+    UPDATE "BeatTake"
+    SET "audioDataUrl" = "audioDataUrl" || ${parsed}
+    WHERE id = ${id} AND "orgId" = ${orgId} AND "uploadComplete" = false
+  `;
+}
 
 async function validSongId(orgId: string, raw: string | null) {
   if (!raw) return null;
@@ -152,9 +178,9 @@ export async function deleteBeat(id: string) {
   redirect("/songs/beats");
 }
 
-export async function saveBeatTake(beatId: string, payload: unknown) {
+export async function beginBeatTake(beatId: string, payload: unknown) {
   const { orgId } = await requireMusicPack();
-  const parsed = BeatTakeSaveSchema.parse(payload);
+  const parsed = BeginBeatTakeSchema.parse(payload);
   const beat = await db.beat.findFirst({
     where: { id: beatId, orgId },
     select: { id: true },
@@ -167,13 +193,54 @@ export async function saveBeatTake(beatId: string, payload: unknown) {
       orgId,
       beatId,
       name: parsed.name,
-      audioDataUrl: parsed.audioDataUrl,
+      audioDataUrl: "",
       audioMimeType: parsed.audioMimeType,
       durationSec: parsed.durationSec,
       offsetMs: parsed.offsetMs,
+      uploadComplete: false,
     },
   });
-  revalidatePath(`/songs/beats/${beatId}`);
+  return { id: take.id };
+}
+
+export async function appendBeatTakeChunk(id: string, chunk: string) {
+  const { orgId } = await requireMusicPack();
+  await appendBeatTakeChunkForOrg(id, orgId, chunk);
+}
+
+export async function finishBeatTake(id: string) {
+  const { orgId } = await requireMusicPack();
+  const take = await db.beatTake.findFirst({
+    where: { id, orgId, uploadComplete: false },
+    select: {
+      id: true,
+      beatId: true,
+      name: true,
+      audioDataUrl: true,
+      audioMimeType: true,
+      durationSec: true,
+      offsetMs: true,
+      gain: true,
+      muted: true,
+      createdAt: true,
+    },
+  });
+  if (!take || !take.audioDataUrl.startsWith("data:audio/") || take.audioDataUrl.length <= 100) {
+    throw new Error("Incomplete audio upload.");
+  }
+  await db.beatTake.updateMany({
+    where: { id, orgId, uploadComplete: false },
+    data: { uploadComplete: true },
+  });
+  await db.beatTake.deleteMany({
+    where: {
+      beatId: take.beatId,
+      orgId,
+      uploadComplete: false,
+      createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
+    },
+  });
+  revalidatePath(`/songs/beats/${take.beatId}`);
   return {
     id: take.id,
     name: take.name,
@@ -184,6 +251,11 @@ export async function saveBeatTake(beatId: string, payload: unknown) {
     muted: take.muted,
     createdAt: take.createdAt,
   };
+}
+
+export async function discardBeatTake(id: string) {
+  const { orgId } = await requireMusicPack();
+  await db.beatTake.deleteMany({ where: { id, orgId, uploadComplete: false } });
 }
 
 export async function updateBeatTake(id: string, patch: unknown) {

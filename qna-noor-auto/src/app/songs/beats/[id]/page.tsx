@@ -19,7 +19,7 @@ export default async function BeatDetailPage({
     listSongs(orgId),
     listBeatTakes(orgId, id),
     db.songVocalTake.findMany({
-      where: { orgId, song: { beats: { some: { id } } } },
+      where: { orgId, uploadComplete: true, song: { beats: { some: { id } } } },
       orderBy: { createdAt: "asc" },
       select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
     }),
