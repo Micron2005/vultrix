@@ -3,12 +3,12 @@ import Link from "next/link";
 export function SongsTabs({
   active,
 }: {
-  active: "board" | "ideas" | "practice" | "beats";
+  active: "board" | "lyrics" | "ideas" | "practice" | "beats";
 }) {
   return (
     <nav
       aria-label="Songs"
-      className="mb-6 grid w-full grid-cols-4 gap-1 rounded-lg bg-zinc-100 p-1"
+      className="mb-6 grid w-full grid-cols-5 gap-1 rounded-lg bg-zinc-100 p-1"
     >
       <Link
         href="/songs"
@@ -20,6 +20,17 @@ export function SongsTabs({
         }
       >
         Board
+      </Link>
+      <Link
+        href="/songs/lyrics"
+        aria-current={active === "lyrics" ? "page" : undefined}
+        className={
+          active === "lyrics"
+            ? "inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--vx-accent-600)] px-3 py-2 text-center text-xs font-medium text-[var(--vx-accent-fg)] shadow-sm"
+            : "inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium text-zinc-700 hover:bg-white"
+        }
+      >
+        Lyrics
       </Link>
       <Link
         href="/songs/ideas"

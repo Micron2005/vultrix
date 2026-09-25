@@ -125,6 +125,18 @@ export async function saveLyrics(
   revalidatePath("/");
 }
 
+export async function saveLyricsText(id: string, text: string) {
+  const { orgId } = await requireMusicPack();
+  const lyrics = LyricsTextSchema.parse(text);
+  await db.song.updateMany({
+    where: { id, orgId },
+    data: { lyrics },
+  });
+  revalidatePath(`/songs/${id}`);
+  revalidatePath("/songs/practice");
+  revalidatePath("/songs/beats");
+}
+
 export async function moveSong(id: string, stage: string) {
   const { orgId } = await requireMusicPack();
   if (!isSongStage(stage)) return;

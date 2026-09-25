@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
-import { parseLyrics, parseLyricsMeta } from "@/lib/lyrics";
+import { parseLyrics } from "@/lib/lyrics";
 
 export function LyricFollowAlong({
   songId,
   lyrics,
   lyricsMeta,
   maxHeightClass = "max-h-[36rem]",
-  storageKey = "vx_lyric_practice_v1",
+  storageKey = "vx_lyric_sheet_v1",
 }: {
   songId: string;
   lyrics: string;
@@ -18,70 +18,35 @@ export function LyricFollowAlong({
   maxHeightClass?: string;
   storageKey?: string;
 }) {
+  void lyricsMeta;
   const [fontScale, setFontScale] = useState(1);
-  const [currentLine, setCurrentLine] = useState(0);
-  const fontLoadedRef = useRef(false);
-
-  const parsed = useMemo(() => parseLyrics(lyrics), [lyrics]);
-  const meta = useMemo(() => parseLyricsMeta(lyricsMeta), [lyricsMeta]);
-  const contentLines = useMemo(
-    () =>
-      parsed
-        .map((item, sourceIndex) => ({ item, sourceIndex }))
-        .filter(
-          (entry): entry is {
-            item: Extract<(typeof parsed)[number], { kind: "line" }>;
-            sourceIndex: number;
-          } => entry.item.kind === "line",
-        ),
-    [parsed],
-  );
+  const parsed = parseLyrics(lyrics);
 
   useEffect(() => {
-    try {
-      const stored = Number(localStorage.getItem(storageKey));
-      if (stored >= 0.8 && stored <= 1.4) {
-        window.setTimeout(() => setFontScale(stored), 0);
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = Number(localStorage.getItem(storageKey));
+        if (stored >= 0.8 && stored <= 1.4) setFontScale(stored);
+      } catch {
+        setFontScale(1);
       }
-    } catch {
-      // Ignore malformed local preferences.
-    }
-    fontLoadedRef.current = true;
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [storageKey]);
 
   useEffect(() => {
-    if (!fontLoadedRef.current) return;
     localStorage.setItem(storageKey, String(fontScale));
   }, [fontScale, storageKey]);
-
-  function moveLine(offset: number) {
-    setCurrentLine((line) =>
-      Math.min(contentLines.length - 1, Math.max(0, line + offset)),
-    );
-  }
 
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-zinc-100 py-3">
-        <Button type="button" size="sm" variant="secondary" onClick={() => setCurrentLine(0)}>
-          Start from top
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => moveLine(-1)} aria-label="Previous lyric line">
-          ◀
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => moveLine(1)} aria-label="Next lyric line">
-          ▶
-        </Button>
-        <span className="ml-auto flex items-center gap-1">
-          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.max(0.8, value - 0.1))}>
-            A−
-          </Button>
-          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.min(1.4, value + 0.1))}>
-            A+
-          </Button>
+        <span className="flex items-center gap-1">
+          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.max(0.8, value - 0.1))}>A−</Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.min(1.4, value + 0.1))}>A+</Button>
         </span>
-        <Link href={`/songs/${songId}`} className="text-xs font-medium text-[var(--vx-accent-700)] underline">
-          Edit lyrics
+        <Link href={`/songs/lyrics?song=${songId}`} className="text-xs font-medium text-[var(--vx-accent-700)] underline">
+          Edit in Lyrics
         </Link>
       </div>
       <div className={`mt-4 ${maxHeightClass} overflow-y-auto pr-2`}>
@@ -95,24 +60,14 @@ export function LyricFollowAlong({
                 </p>
               );
             }
-            const lineIndex = contentLines.findIndex((entry) => entry.sourceIndex === sourceIndex);
-            const active = lineIndex === currentLine;
             return (
-              <div
+              <p
                 key={`${sourceIndex}-${item.text}`}
-                className={`rounded-lg px-3 py-2 transition-colors ${active ? "bg-[var(--vx-accent-50)]" : ""}`}
-                onClick={() => setCurrentLine(lineIndex)}
+                className="whitespace-pre-wrap px-3 py-2 font-semibold leading-snug text-zinc-900"
+                style={{ fontSize: `${1.5 * fontScale}rem` }}
               >
-                <p
-                  className={`whitespace-pre-wrap font-semibold leading-snug ${active ? "text-[var(--vx-accent-700)]" : "text-zinc-900"}`}
-                  style={{ fontSize: `${1.5 * fontScale}rem` }}
-                >
-                  {item.text}
-                </p>
-                {meta.lines[item.text]?.note && (
-                  <p className="mt-1 text-sm italic text-zinc-500">{meta.lines[item.text].note}</p>
-                )}
-              </div>
+                {item.text}
+              </p>
             );
           })}
         </div>
