@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
+import { db } from "@/lib/db";
 import { getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../../SongsTabs";
@@ -13,10 +14,15 @@ export default async function BeatDetailPage({
 }) {
   const { id } = await params;
   const { orgId } = await requireMusicPack();
-  const [beat, songs, takes] = await Promise.all([
+  const [beat, songs, takes, songVocalTakes] = await Promise.all([
     getBeat(orgId, id),
     listSongs(orgId),
     listBeatTakes(orgId, id),
+    db.songVocalTake.findMany({
+      where: { orgId, song: { beats: { some: { id } } } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
+    }),
   ]);
   if (!beat) notFound();
   const data = BeatDataSchema.parse(JSON.parse(beat.data));
@@ -37,6 +43,10 @@ export default async function BeatDetailPage({
           lyricsMeta: song.lyricsMeta,
         }))}
         takes={takes.map((take) => ({
+          ...take,
+          createdAt: take.createdAt.toISOString(),
+        }))}
+        songVocalTakes={songVocalTakes.map((take) => ({
           ...take,
           createdAt: take.createdAt.toISOString(),
         }))}

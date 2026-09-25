@@ -1206,6 +1206,7 @@ model Organization {
   ideas             SongIdea[]
   beats             Beat[]
   beatTakes         BeatTake[]
+  vocalTakes        SongVocalTake[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
 
@@ -1233,6 +1234,7 @@ model Song {
   ideas         SongIdea[]
   practiceSessions PracticeSession[]
   beats         Beat[]
+  vocalTakes    SongVocalTake[]
 
   @@index([orgId, stage])
 }
@@ -1316,6 +1318,21 @@ model BeatTake {
   createdAt     DateTime @default(now())
 
   @@index([beatId, createdAt])
+}
+
+model SongVocalTake {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  songId        String
+  song          Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  name          String
+  audioDataUrl  String
+  audioMimeType String
+  durationSec   Int
+  createdAt     DateTime @default(now())
+
+  @@index([songId, createdAt])
 }
 
 model ActivityLog {

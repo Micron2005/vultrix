@@ -26,9 +26,9 @@ const BeatSaveSchema = z.object({
 
 const BeatTakeSaveSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  audioDataUrl: z.string().startsWith("data:audio/").max(6_000_000),
+  audioDataUrl: z.string().startsWith("data:audio/").max(14_000_000),
   audioMimeType: z.string().max(60),
-  durationSec: z.number().int().min(1).max(180),
+  durationSec: z.number().int().min(1).max(900),
   offsetMs: z.number().int().min(-2000).max(2000),
 });
 
@@ -161,7 +161,7 @@ export async function saveBeatTake(beatId: string, payload: unknown) {
   });
   if (!beat) throw new Error("Beat not found");
   const count = await db.beatTake.count({ where: { beatId, orgId } });
-  if (count >= 12) throw new Error("Up to 12 takes per beat");
+  if (count >= 30) throw new Error("Up to 30 takes per beat");
   const take = await db.beatTake.create({
     data: {
       orgId,
@@ -177,7 +177,6 @@ export async function saveBeatTake(beatId: string, payload: unknown) {
   return {
     id: take.id,
     name: take.name,
-    audioDataUrl: take.audioDataUrl,
     audioMimeType: take.audioMimeType,
     durationSec: take.durationSec,
     offsetMs: take.offsetMs,

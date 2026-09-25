@@ -10,7 +10,7 @@ export function LyricFollowAlong({
   lyrics,
   lyricsMeta,
   maxHeightClass = "max-h-[36rem]",
-  storageKey = "vx_lyric_practice_v1",
+  storageKey = "vx_lyric_sheet_v1",
 }: {
   songId: string;
   lyrics: string;
@@ -21,7 +21,6 @@ export function LyricFollowAlong({
   const [fontScale, setFontScale] = useState(1);
   const [currentLine, setCurrentLine] = useState(0);
   const fontLoadedRef = useRef(false);
-
   const parsed = useMemo(() => parseLyrics(lyrics), [lyrics]);
   const meta = useMemo(() => parseLyricsMeta(lyricsMeta), [lyricsMeta]);
   const contentLines = useMemo(
@@ -38,25 +37,25 @@ export function LyricFollowAlong({
   );
 
   useEffect(() => {
-    try {
-      const stored = Number(localStorage.getItem(storageKey));
-      if (stored >= 0.8 && stored <= 1.4) {
-        window.setTimeout(() => setFontScale(stored), 0);
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = Number(localStorage.getItem(storageKey));
+        if (stored >= 0.8 && stored <= 1.4) setFontScale(stored);
+      } catch {
+        setFontScale(1);
       }
-    } catch {
-      // Ignore malformed local preferences.
-    }
-    fontLoadedRef.current = true;
+      fontLoadedRef.current = true;
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [storageKey]);
 
   useEffect(() => {
-    if (!fontLoadedRef.current) return;
-    localStorage.setItem(storageKey, String(fontScale));
+    if (fontLoadedRef.current) localStorage.setItem(storageKey, String(fontScale));
   }, [fontScale, storageKey]);
 
   function moveLine(offset: number) {
     setCurrentLine((line) =>
-      Math.min(contentLines.length - 1, Math.max(0, line + offset)),
+      Math.min(Math.max(contentLines.length - 1, 0), Math.max(0, line + offset)),
     );
   }
 
@@ -73,15 +72,11 @@ export function LyricFollowAlong({
           ▶
         </Button>
         <span className="ml-auto flex items-center gap-1">
-          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.max(0.8, value - 0.1))}>
-            A−
-          </Button>
-          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.min(1.4, value + 0.1))}>
-            A+
-          </Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.max(0.8, value - 0.1))}>A−</Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setFontScale((value) => Math.min(1.4, value + 0.1))}>A+</Button>
         </span>
-        <Link href={`/songs/${songId}`} className="text-xs font-medium text-[var(--vx-accent-700)] underline">
-          Edit lyrics
+        <Link href={`/songs/lyrics?song=${songId}`} className="text-xs font-medium text-[var(--vx-accent-700)] underline">
+          Edit in Lyrics
         </Link>
       </div>
       <div className={`mt-4 ${maxHeightClass} overflow-y-auto pr-2`}>
@@ -98,21 +93,19 @@ export function LyricFollowAlong({
             const lineIndex = contentLines.findIndex((entry) => entry.sourceIndex === sourceIndex);
             const active = lineIndex === currentLine;
             return (
-              <div
+              <button
                 key={`${sourceIndex}-${item.text}`}
-                className={`rounded-lg px-3 py-2 transition-colors ${active ? "bg-[var(--vx-accent-50)]" : ""}`}
+                type="button"
+                className={`block w-full rounded-lg px-3 py-2 text-left transition-colors ${active ? "bg-[var(--vx-accent-50)]" : ""}`}
                 onClick={() => setCurrentLine(lineIndex)}
               >
-                <p
-                  className={`whitespace-pre-wrap font-semibold leading-snug ${active ? "text-[var(--vx-accent-700)]" : "text-zinc-900"}`}
-                  style={{ fontSize: `${1.5 * fontScale}rem` }}
-                >
+                <span className={`block whitespace-pre-wrap font-semibold leading-snug ${active ? "text-[var(--vx-accent-700)]" : "text-zinc-900"}`} style={{ fontSize: `${1.5 * fontScale}rem` }}>
                   {item.text}
-                </p>
+                </span>
                 {meta.lines[item.text]?.note && (
-                  <p className="mt-1 text-sm italic text-zinc-500">{meta.lines[item.text].note}</p>
+                  <span className="mt-1 block text-sm italic text-zinc-500">{meta.lines[item.text].note}</span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

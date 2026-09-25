@@ -19,5 +19,15 @@ export async function listBeatTakes(orgId: string, beatId: string) {
   return db.beatTake.findMany({
     where: { orgId, beatId },
     orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      audioMimeType: true,
+      durationSec: true,
+      offsetMs: true,
+      gain: true,
+      muted: true,
+      createdAt: true,
+    },
   });
 }

@@ -8,6 +8,7 @@ import {
   saveBeatTake,
   updateBeatTake,
 } from "./actions";
+import { copySongTakeToBeat } from "../lyrics/actions";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
@@ -19,12 +20,20 @@ import {
 export type Take = {
   id: string;
   name: string;
-  audioDataUrl: string;
   audioMimeType: string;
   durationSec: number;
   offsetMs: number;
   gain: number;
   muted: boolean;
+  createdAt: string;
+};
+
+type SongVocalTake = {
+  id: string;
+  songId: string;
+  name: string;
+  audioMimeType: string;
+  durationSec: number;
   createdAt: string;
 };
 
@@ -46,15 +55,15 @@ type VocalsPanelProps = {
   engine: BeatEngine;
   getDocument: () => BeatDocument;
   getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
-  onStep: (index: number, step: number) => void;
   playing: boolean;
   setPlaying: (value: boolean) => void;
   startBeat: () => Promise<void>;
   stopBeat: () => void;
   initialTakes: Take[];
+  songVocalTakes: SongVocalTake[];
 };
 
-const MAX_RECORDING_SECONDS = 180;
+const MAX_RECORDING_SECONDS = 900;
 
 function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -83,6 +92,7 @@ export function VocalsPanel({
   startBeat,
   stopBeat,
   initialTakes,
+  songVocalTakes,
 }: VocalsPanelProps) {
   const [takes, setTakes] = useState(initialTakes);
   const [recording, setRecording] = useState(false);
@@ -138,9 +148,9 @@ export function VocalsPanel({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         },
       });
       const supportedTypes = [
@@ -206,6 +216,7 @@ export function VocalsPanel({
           if (next >= MAX_RECORDING_SECONDS && recorder.state === "recording") {
             recorder.stop();
             stopBeat();
+            setError("Recording stopped at the 15 minute limit — saved as a take");
           }
           return next;
         });
@@ -262,13 +273,13 @@ export function VocalsPanel({
 
   function soloTake(take: Take) {
     soloAudioRef.current?.pause();
-    setSoloSrc(take.audioDataUrl);
+    setSoloSrc(`/songs/audio/beat/${take.id}`);
   }
 
   function decodeTake(take: Take) {
     const cached = decodedTakesRef.current.get(take.id);
     if (cached) return cached;
-    const decoded = fetch(take.audioDataUrl)
+    const decoded = fetch(`/songs/audio/beat/${take.id}`)
       .then((response) => response.arrayBuffer())
       .then((data) => engine.audioContext.decodeAudioData(data));
     decodedTakesRef.current.set(take.id, decoded);
@@ -320,6 +331,19 @@ export function VocalsPanel({
     }
   }
 
+  async function addSongTake(take: SongVocalTake) {
+    setError("");
+    try {
+      const saved = await copySongTakeToBeat(take.id, beatId);
+      setTakes((current) => [
+        ...current,
+        { ...saved, createdAt: saved.createdAt.toISOString() },
+      ]);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to add vocal take.");
+    }
+  }
+
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -340,7 +364,7 @@ export function VocalsPanel({
         )}
         {recording && (
           <span className="text-sm font-semibold text-red-600">
-            REC {formatDuration(recordingSeconds)}
+            REC {formatDuration(recordingSeconds)} / 15:00
           </span>
         )}
         {!recording && takes.length > 0 && (
@@ -421,6 +445,24 @@ export function VocalsPanel({
               ))}
             </div>
           )}
+          {songVocalTakes.length > 0 && (
+            <div className="mt-5 border-t border-zinc-200 pt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Song vocals</h3>
+              <p className="mt-1 text-xs text-zinc-500">Recorded in Lyrics — add one to hear it over this beat.</p>
+              <div className="mt-2 space-y-2">
+                {songVocalTakes.map((take) => (
+                  <div key={take.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
+                    <span className="min-w-24 flex-1 truncate text-xs font-medium text-zinc-900">{take.name}</span>
+                    <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
+                    <audio controls preload="none" src={`/songs/audio/song/${take.id}`} className="h-8 max-w-40" />
+                    <Button type="button" size="sm" variant="secondary" onClick={() => void addSongTake(take)}>
+                      Add to beat
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="order-1 mt-6 lg:order-2 lg:mt-0">
           {song?.lyrics?.trim() ? (
@@ -437,7 +479,7 @@ export function VocalsPanel({
           ) : song ? (
             <>
               <p className="text-sm text-zinc-500">No lyrics yet for {song.title}</p>
-              <LinkButton href={`/songs/${song.id}`} size="sm" className="mt-3">Write lyrics</LinkButton>
+              <LinkButton href={`/songs/lyrics?song=${song.id}`} size="sm" className="mt-3">Open Lyrics</LinkButton>
             </>
           ) : (
             <>

@@ -29,10 +29,10 @@ export function LyricPractice({
     return (
       <div className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-zinc-900">Follow along</h2>
-        <p className="mt-2 text-sm text-zinc-500">Write lyrics on the song page</p>
+        <p className="mt-2 text-sm text-zinc-500">Write lyrics in the Lyrics tab</p>
         {selectedSong && (
-          <Link href={`/songs/${selectedSong.id}`} className="mt-4 inline-flex">
-            <Button type="button" size="sm">Write lyrics on the song page</Button>
+          <Link href={`/songs/lyrics?song=${selectedSong.id}`} className="mt-4 inline-flex">
+            <Button type="button" size="sm">Open Lyrics</Button>
           </Link>
         )}
       </div>

@@ -66,6 +66,14 @@ type BeatMakerProps = {
     lyricsMeta: string | null;
   }>;
   takes: Take[];
+  songVocalTakes: Array<{
+    id: string;
+    songId: string;
+    name: string;
+    audioMimeType: string;
+    durationSec: number;
+    createdAt: string;
+  }>;
 };
 
 function parseBeatData(raw: string): BeatData {
@@ -88,7 +96,7 @@ function trackKindLabel(track: BeatTrackInstance) {
   return track.kind === "drums" ? "Drums" : MELODIC_LABELS[track.kind];
 }
 
-export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
+export function BeatMaker({ beat, songs, takes, songVocalTakes }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
@@ -1581,12 +1589,12 @@ export function BeatMaker({ beat, songs, takes }: BeatMakerProps) {
           engine={engine}
           getDocument={() => docRef.current}
           getPlayback={() => ({ mode: modeRef.current, patternId: selectedRef.current })}
-          onStep={onPlaybackStep}
           playing={playing}
           setPlaying={setPlaying}
           startBeat={startBeat}
           stopBeat={stopBeat}
           initialTakes={takes}
+          songVocalTakes={songVocalTakes}
         />
       </div>
 
