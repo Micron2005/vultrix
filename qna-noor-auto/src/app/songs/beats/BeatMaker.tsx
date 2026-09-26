@@ -150,6 +150,8 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [mp3Progress, setMp3Progress] = useState<number | null>(null);
+  const [exportError, setExportError] = useState(false);
   const [openTracks, setOpenTracks] = useState<Set<string>>(
     () =>
       new Set(
@@ -840,12 +842,39 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   });
 
   async function exportWav() {
-    if (!engine) return;
-    const blob = await engine.renderWav(docRef.current, selectedRef.current);
+    setExportError(false);
+    try {
+      const blob = await engine.renderWav(docRef.current, selectedRef.current);
+      downloadBlob(blob, `${title.trim() || "beat"}.wav`);
+    } catch {
+      setExportError(true);
+    }
+  }
+
+  async function exportMp3() {
+    if (mp3Progress !== null) return;
+    setExportError(false);
+    setMp3Progress(0);
+    try {
+      const blob = await engine.renderMp3(
+        docRef.current,
+        selectedRef.current,
+        undefined,
+        setMp3Progress,
+      );
+      downloadBlob(blob, `${title.trim() || "beat"}.mp3`);
+    } catch {
+      setExportError(true);
+    } finally {
+      setMp3Progress(null);
+    }
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${title.trim() || "beat"}.wav`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -976,12 +1005,17 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
           </div>
           <div className="flex items-center gap-1">
             <Button type="button" size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
-            <Button type="button" size="sm" variant="secondary" onClick={() => void exportWav()}>Export</Button>
+            <div className="flex overflow-hidden rounded-md border border-zinc-300">
+              <Button type="button" size="sm" variant="secondary" className="rounded-none border-0" onClick={() => void exportWav()}>WAV</Button>
+              <Button type="button" size="sm" variant="secondary" className="rounded-none border-0 border-l border-zinc-300" onClick={() => void exportMp3()} disabled={mp3Progress !== null}>
+                {mp3Progress === null ? "MP3" : `Encoding… ${Math.round(mp3Progress * 100)}%`}
+              </Button>
+            </div>
             <Button type="button" size="sm" variant="secondary" onClick={() => void shareBeat()}>Share</Button>
             <Button type="button" size="sm" variant="danger" onClick={() => void removeBeat()}>Delete</Button>
           </div>
           <span className="text-xs text-zinc-500">
-            {saveError ? "Save failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
+            {saveError ? "Save failed" : exportError ? "Export failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
           </span>
           {playing && <span className="text-xs text-zinc-500">No sound? Turn up the volume and flip the ringer switch off silent.</span>}
         </div>
@@ -1705,6 +1739,12 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
               {item === "pattern" ? "Loop" : "Song"}
             </button>
           ))}
+        </div>
+        <div className="flex overflow-hidden rounded-md border border-zinc-300">
+          <Button type="button" className="min-h-11 rounded-none border-0 px-2" variant="secondary" onClick={() => void exportWav()}>WAV</Button>
+          <Button type="button" className="min-h-11 rounded-none border-0 border-l border-zinc-300 px-2" variant="secondary" onClick={() => void exportMp3()} disabled={mp3Progress !== null}>
+            {mp3Progress === null ? "MP3" : `${Math.round(mp3Progress * 100)}%`}
+          </Button>
         </div>
         <Button type="button" className="min-h-11" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
       </div>

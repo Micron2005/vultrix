@@ -1,4 +1,5 @@
 import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
+import { floatToInt16, normalizePeak, trimTrailingSilence } from "./mixdown";
 import { overdriveCurve, stringBuffer } from "./strings";
 import { scheduleRealDrum } from "./realKit";
 import {
@@ -1124,7 +1125,7 @@ export class BeatEngine {
     return { sources, nodes };
   }
 
-  async renderWav(
+  async renderBuffer(
     beat: BeatDocument,
     patternId?: string,
     takes?: BeatTakeAudio[],
@@ -1217,8 +1218,53 @@ export class BeatEngine {
       if (bufferOffset >= take.buffer.duration) continue;
       this.buildTakeGraph(context, take, destination, Math.max(0, offset), bufferOffset);
     }
-    const rendered = await context.startRendering();
-    return this.encodeWav(rendered);
+    return context.startRendering();
+  }
+
+  async renderWav(
+    beat: BeatDocument,
+    patternId?: string,
+    takes?: BeatTakeAudio[],
+  ) {
+    return this.encodeWav(await this.renderBuffer(beat, patternId, takes));
+  }
+
+  async renderMp3(
+    beat: BeatDocument,
+    patternId?: string,
+    takes?: BeatTakeAudio[],
+    onProgress?: (fraction: number) => void,
+  ) {
+    const { Mp3Encoder } = await import("@breezystack/lamejs");
+    const buffer = await this.renderBuffer(beat, patternId, takes);
+    normalizePeak(buffer, 0.891);
+    const frameCount = trimTrailingSilence(buffer);
+    const encoder = new Mp3Encoder(2, 44100, 128);
+    const left = buffer.getChannelData(0);
+    const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+    const parts: BlobPart[] = [];
+    const addPart = (part: Uint8Array) => {
+      const copy = new ArrayBuffer(part.byteLength);
+      new Uint8Array(copy).set(part);
+      parts.push(copy);
+    };
+    const blockSize = 1152;
+    const totalBlocks = Math.ceil(frameCount / blockSize);
+    for (let block = 0; block < totalBlocks; block += 1) {
+      const start = block * blockSize;
+      const end = Math.min(frameCount, start + blockSize);
+      const encoded = encoder.encodeBuffer(
+        floatToInt16(left, start, end),
+        floatToInt16(right, start, end),
+      );
+      if (encoded.length) addPart(encoded);
+      if (block % 50 === 0 || block === totalBlocks - 1) {
+        onProgress?.(totalBlocks ? (block + 1) / totalBlocks : 1);
+      }
+    }
+    const flushed = encoder.flush();
+    if (flushed.length) addPart(flushed);
+    return new Blob(parts, { type: "audio/mpeg" });
   }
 
   private encodeWav(buffer: AudioBuffer) {

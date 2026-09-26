@@ -28,6 +28,7 @@
     ]
   },
   "dependencies": {
+    "@breezystack/lamejs": "1.2.7",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "6",
     "@tiptap/extension-color": "^3.23.4",

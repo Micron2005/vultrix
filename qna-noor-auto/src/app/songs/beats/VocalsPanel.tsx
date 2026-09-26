@@ -150,6 +150,7 @@ export function VocalsPanel({
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [mp3Progress, setMp3Progress] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -632,7 +633,7 @@ export function VocalsPanel({
     }
   }
 
-  function downloadWav(blob: Blob, filename: string) {
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -647,9 +648,30 @@ export function VocalsPanel({
       const decoded = await decodedAudioTakes();
       const playback = getPlayback();
       const blob = await engine.renderWav(getDocument(), playback.patternId, decoded);
-      downloadWav(blob, `${title.trim() || "beat"} (with vocals).wav`);
+      downloadBlob(blob, `${title.trim() || "beat"} (with vocals).wav`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to export takes.");
+    }
+  }
+
+  async function exportMp3WithVocals() {
+    if (mp3Progress !== null) return;
+    setError("");
+    setMp3Progress(0);
+    try {
+      const decoded = await decodedAudioTakes();
+      const playback = getPlayback();
+      const blob = await engine.renderMp3(
+        getDocument(),
+        playback.patternId,
+        decoded,
+        setMp3Progress,
+      );
+      downloadBlob(blob, `${title.trim() || "beat"} (with vocals).mp3`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to export takes.");
+    } finally {
+      setMp3Progress(null);
     }
   }
 
@@ -830,6 +852,9 @@ export function VocalsPanel({
             </Button>
             <Button type="button" variant="secondary" onClick={() => void exportWithVocals()}>
               Export with vocals
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => void exportMp3WithVocals()} disabled={mp3Progress !== null}>
+              {mp3Progress === null ? "Export MP3 with vocals" : `Encoding… ${Math.round(mp3Progress * 100)}%`}
             </Button>
           </>
         )}
