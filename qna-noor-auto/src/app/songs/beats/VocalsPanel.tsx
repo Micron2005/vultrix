@@ -144,6 +144,7 @@ export function VocalsPanel({
   const [expandedTrimIds, setExpandedTrimIds] = useState<Set<string>>(() => new Set());
   const [trimDrafts, setTrimDrafts] = useState<Record<string, { start: string; end: string }>>({});
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -159,6 +160,11 @@ export function VocalsPanel({
     timerRef.current = null;
   }
 
+  function clearPreviewTimer() {
+    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = null;
+  }
+
   function stopStream() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -168,6 +174,7 @@ export function VocalsPanel({
     const offsetTimers = offsetTimersRef.current;
     return () => {
       clearTimer();
+      clearPreviewTimer();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       stopStream();
       engine.stopTakes();
@@ -441,6 +448,7 @@ export function VocalsPanel({
   }
 
   async function previewTake(take: Take) {
+    clearPreviewTimer();
     if (previewingId === take.id) {
       engine.stopTakes();
       setPreviewingId(null);
@@ -471,6 +479,11 @@ export function VocalsPanel({
         },
       }], context.currentTime);
       setPreviewingId(take.id);
+      const playableMs = Math.max(0, take.durationSec * 1000 - take.trimStartMs - take.trimEndMs);
+      previewTimerRef.current = window.setTimeout(() => {
+        setPreviewingId((current) => current === take.id ? null : current);
+        previewTimerRef.current = null;
+      }, playableMs + 100);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to preview take.");
     }
@@ -638,7 +651,7 @@ export function VocalsPanel({
           Delete
         </Button>
         {expandedTrimIds.has(take.id) && (
-          <div className="basis-full flex flex-wrap items-center gap-2 rounded bg-white p-2 text-xs">
+          <div className="basis-full flex flex-wrap items-center gap-2 rounded bg-zinc-50 p-2 text-xs">
             <label className="flex items-center gap-1">
               Cut start
               <Input

@@ -958,8 +958,8 @@ export class BeatEngine {
   ) {
     const start = take.trimStartMs / 1000;
     const end = take.buffer.duration - take.trimEndMs / 1000;
-    const duration = end - start - bufferOffsetSec;
-    if (duration <= 0) return null;
+    const sourceOffset = Math.max(start, bufferOffsetSec);
+    if (end - sourceOffset <= 0) return null;
     const sources: AudioBufferSourceNode[] = [];
     const nodes: AudioNode[] = [];
     const fx = take.fx;
@@ -999,7 +999,11 @@ export class BeatEngine {
       panner.connect(destination);
       nodes.push(source, gain, low, high, ...(compressor ? [compressor] : []), ...(delay ? [delay] : []), panner);
       sources.push(source);
-      source.start(startAt, start + bufferOffsetSec, duration);
+      if (bufferOffsetSec < start) {
+        source.start(startAt + (start - bufferOffsetSec), start, end - start);
+      } else {
+        source.start(startAt, bufferOffsetSec, end - bufferOffsetSec);
+      }
       return { source, panner };
     };
 
