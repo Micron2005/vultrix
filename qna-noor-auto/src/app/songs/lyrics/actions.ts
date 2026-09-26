@@ -31,7 +31,7 @@ async function appendSongVocalTakeChunkForOrg(id: string, orgId: string, chunk: 
   ) {
     throw new Error("Invalid audio chunk.");
   }
-  if (current.length + parsed.length > 14_000_000) {
+  if (current.length + parsed.length > 20_000_000) {
     throw new Error("Recording is too large.");
   }
   await db.$executeRaw`
