@@ -37,6 +37,17 @@ export type BeatTakeAudio = {
   gain: number;
   pan: number;
   muted: boolean;
+  trimStartMs: number;
+  trimEndMs: number;
+  fx: BeatTakeFx;
+};
+
+export type BeatTakeFx = {
+  reverb: number;
+  eqLow: number;
+  eqHigh: number;
+  compress: boolean;
+  doubler: boolean;
 };
 
 type AudioContextLike = BaseAudioContext;
@@ -101,6 +112,7 @@ export class BeatEngine {
   private nextNoteTime = 0;
   private playStartTime: number | null = null;
   private takeSources: AudioBufferSourceNode[] = [];
+  private takeNodes: AudioNode[] = [];
   private sequenceIndex = 0;
   private step = 0;
   private trackStep = 0;
@@ -172,15 +184,20 @@ export class BeatEngine {
     this.timer = null;
     this.playback = null;
     this.playStartTime = null;
+    this.stopTakes();
+  }
+
+  stopTakes() {
     for (const source of this.takeSources) {
       try {
         source.stop();
       } catch {
         // The source may already have ended.
       }
-      source.disconnect();
     }
     this.takeSources = [];
+    for (const node of this.takeNodes) node.disconnect();
+    this.takeNodes = [];
   }
 
   playTakes(takes: BeatTakeAudio[], startTime: number) {
@@ -193,24 +210,10 @@ export class BeatEngine {
       const now = context.currentTime;
       const start = Math.max(startTime + offset, now);
       const bufferOffset = Math.max(0, now - (startTime + offset));
-      if (bufferOffset >= take.buffer.duration) continue;
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      const panner = context.createStereoPanner();
-      source.buffer = take.buffer;
-      gain.gain.value = take.gain / 100;
-      panner.pan.value = take.pan / 100;
-      source.connect(gain);
-      gain.connect(panner);
-      panner.connect(this.master);
-      source.onended = () => {
-        this.takeSources = this.takeSources.filter((item) => item !== source);
-        source.disconnect();
-        gain.disconnect();
-        panner.disconnect();
-      };
-      source.start(start, bufferOffset);
-      this.takeSources.push(source);
+      const graph = this.buildTakeGraph(context, take, this.master, start, bufferOffset);
+      if (!graph) continue;
+      this.takeSources.push(...graph.sources);
+      this.takeNodes.push(...graph.nodes);
     }
   }
 
@@ -946,6 +949,89 @@ export class BeatEngine {
     return buffer;
   }
 
+  private buildTakeGraph(
+    context: AudioContextLike,
+    take: BeatTakeAudio,
+    destination: AudioNode,
+    startAt: number,
+    bufferOffsetSec: number,
+  ) {
+    const start = take.trimStartMs / 1000;
+    const end = take.buffer.duration - take.trimEndMs / 1000;
+    const duration = end - start - bufferOffsetSec;
+    if (duration <= 0) return null;
+    const sources: AudioBufferSourceNode[] = [];
+    const nodes: AudioNode[] = [];
+    const fx = take.fx;
+    const clampPan = (pan: number) => Math.max(-100, Math.min(100, pan));
+
+    const buildVoice = (pan: number, gainMultiplier: number, delaySeconds?: number) => {
+      const source = context.createBufferSource();
+      source.buffer = take.buffer;
+      const gain = context.createGain();
+      gain.gain.value = (take.gain / 100) * gainMultiplier;
+      const low = context.createBiquadFilter();
+      low.type = "lowshelf";
+      low.frequency.value = 200;
+      low.gain.value = fx.eqLow;
+      const high = context.createBiquadFilter();
+      high.type = "highshelf";
+      high.frequency.value = 4000;
+      high.gain.value = fx.eqHigh;
+      const compressor = fx.compress ? context.createDynamicsCompressor() : null;
+      if (compressor) {
+        compressor.threshold.value = -18;
+        compressor.ratio.value = 4;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.15;
+        compressor.knee.value = 6;
+      }
+      const delay = delaySeconds === undefined ? null : context.createDelay();
+      if (delay) delay.delayTime.value = delaySeconds ?? 0;
+      const panner = context.createStereoPanner();
+      panner.pan.value = clampPan(pan) / 100;
+      source.connect(gain);
+      gain.connect(low);
+      low.connect(high);
+      high.connect(compressor ?? delay ?? panner);
+      if (compressor) compressor.connect(delay ?? panner);
+      if (delay) delay.connect(panner);
+      panner.connect(destination);
+      nodes.push(source, gain, low, high, ...(compressor ? [compressor] : []), ...(delay ? [delay] : []), panner);
+      sources.push(source);
+      source.start(startAt, start + bufferOffsetSec, duration);
+      return { source, panner };
+    };
+
+    const main = buildVoice(take.pan, 1);
+    if (!main) return null;
+    if (fx.reverb > 0) {
+      const reverbGain = context.createGain();
+      reverbGain.gain.value = (fx.reverb / 100) * 0.6;
+      const convolver = context.createConvolver();
+      convolver.buffer = this.reverbBuffer(context);
+      main.panner.connect(reverbGain);
+      reverbGain.connect(convolver);
+      convolver.connect(destination);
+      nodes.push(reverbGain, convolver);
+    }
+    if (fx.doubler) {
+      buildVoice(take.pan - 45, 0.5, 0.014);
+      buildVoice(take.pan + 45, 0.5, 0.022);
+    }
+    const cleanup = () => {
+      for (const source of sources) {
+        this.takeSources = this.takeSources.filter((item) => item !== source);
+      }
+      for (const node of nodes) {
+        this.takeNodes = this.takeNodes.filter((item) => item !== node);
+        node.disconnect();
+      }
+    };
+    sources[0].onended = cleanup;
+    return { sources, nodes };
+  }
+
   async renderWav(
     beat: BeatDocument,
     patternId?: string,
@@ -963,7 +1049,7 @@ export class BeatEngine {
       0,
     );
     const takeSeconds = (takes ?? []).reduce((longest, take) => {
-      const end = take.offsetMs / 1000 + take.buffer.duration;
+      const end = take.offsetMs / 1000 + take.buffer.duration - take.trimEndMs / 1000;
       return Math.max(longest, end);
     }, 0);
     const seconds = Math.max(beatSeconds, takeSeconds) + 1;
@@ -1037,16 +1123,7 @@ export class BeatEngine {
       const offset = take.offsetMs / 1000;
       const bufferOffset = Math.max(0, -offset);
       if (bufferOffset >= take.buffer.duration) continue;
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      const panner = context.createStereoPanner();
-      source.buffer = take.buffer;
-      gain.gain.value = take.gain / 100;
-      panner.pan.value = take.pan / 100;
-      source.connect(gain);
-      gain.connect(panner);
-      panner.connect(destination);
-      source.start(Math.max(0, offset), bufferOffset);
+      this.buildTakeGraph(context, take, destination, Math.max(0, offset), bufferOffset);
     }
     const rendered = await context.startRendering();
     return this.encodeWav(rendered);
