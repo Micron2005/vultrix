@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Button, Card, Input, LinkButton, Select } from "@/components/ui";
 import {
   attachBeatToSong,
@@ -19,10 +19,12 @@ import { uploadInChunks } from "../uploadTake";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
+  sequenceOffsetSeconds,
   type BeatDocument,
   type BeatPlaybackMode,
   type BeatTakeAudio,
 } from "./engine";
+import { sectionSequence } from "./kits";
 
 export type Take = {
   id: string;
@@ -84,12 +86,25 @@ type VocalsPanelProps = {
   setPlaying: (value: boolean) => void;
   startBeat: () => Promise<void>;
   stopBeat: () => void;
+  playRange: { sectionIndex: number; loop: boolean } | null;
+  onLoopRef: MutableRefObject<((originTime: number) => void) | null>;
+  sectionNames: string[];
   initialTakes: Take[];
   initialLayers: VocalLayer[];
   songVocalTakes: SongVocalTake[];
 };
 
 const MAX_RECORDING_SECONDS = 900;
+
+type RecordingSession = {
+  layerId: string;
+  stream: MediaStream;
+  loop: boolean;
+  sectionName: string;
+  sectionOffsetMs: number;
+  nextTakeNumber: number;
+  active: boolean;
+};
 
 function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -121,6 +136,9 @@ export function VocalsPanel({
   setPlaying,
   startBeat,
   stopBeat,
+  playRange,
+  onLoopRef,
+  sectionNames,
   initialTakes,
   initialLayers,
   songVocalTakes,
@@ -147,10 +165,10 @@ export function VocalsPanel({
   const previewTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordingStartedAtRef = useRef(0);
   const recordingOffsetRef = useRef(0);
+  const recordingSessionRef = useRef<RecordingSession | null>(null);
+  const decodedLoopTakesRef = useRef<BeatTakeAudio[] | null>(null);
   const offsetTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const decodedTakesRef = useRef<Map<string, Promise<AudioBuffer>>>(new Map());
   const cancelLayerBlurRef = useRef(false);
@@ -174,6 +192,7 @@ export function VocalsPanel({
     const offsetTimers = offsetTimersRef.current;
     return () => {
       clearTimer();
+      if (recordingSessionRef.current) recordingSessionRef.current.active = false;
       clearPreviewTimer();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       stopStream();
@@ -181,6 +200,121 @@ export function VocalsPanel({
       Object.values(offsetTimers).forEach((timer) => clearTimeout(timer));
     };
   }, [engine]);
+
+  useEffect(() => {
+    const handleLoop = (originTime: number) => {
+      const decoded = decodedLoopTakesRef.current;
+      if (decoded) {
+        engine.stopTakes();
+        engine.playTakes(decoded, originTime);
+      }
+      const session = recordingSessionRef.current;
+      if (session?.active && session.loop && recorderRef.current?.state === "recording") {
+        recordingOffsetRef.current = session.sectionOffsetMs;
+        recorderRef.current.stop();
+      }
+    };
+    onLoopRef.current = handleLoop;
+    return () => {
+      if (onLoopRef.current === handleLoop) onLoopRef.current = null;
+    };
+  }, [engine, onLoopRef]);
+
+  useEffect(() => {
+    if (!playing && !recording) decodedLoopTakesRef.current = null;
+  }, [playing, recording]);
+
+  function sectionOffsetMs() {
+    if (!playRange) return 0;
+    const document = getDocument();
+    const sequence = sectionSequence(document.data);
+    const sequenceIndex = sequence.findIndex((item) => item.sectionIndex === playRange.sectionIndex);
+    if (sequenceIndex < 0) return 0;
+    return Math.round(
+      sequenceOffsetSeconds(
+        document,
+        "song",
+        getPlayback().patternId,
+        sequenceIndex,
+      ) * 1000,
+    );
+  }
+
+  function startRecorder(session: RecordingSession, offsetMs: number, name: string) {
+    const supportedTypes = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+    ];
+    const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
+    const recorder = mimeType
+      ? new MediaRecorder(session.stream, { mimeType })
+      : new MediaRecorder(session.stream);
+    const chunks: Blob[] = [];
+    const startedAt = performance.now();
+    recorderRef.current = recorder;
+    recordingOffsetRef.current = offsetMs;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.onstop = async () => {
+      const elapsedSeconds = (performance.now() - startedAt) / 1000;
+      const savedOffsetMs = recordingOffsetRef.current;
+      const shouldRestart = session.active && session.loop;
+      if (shouldRestart) {
+        session.nextTakeNumber += 1;
+        startRecorder(
+          session,
+          session.sectionOffsetMs,
+          `${session.sectionName} take ${session.nextTakeNumber}`,
+        );
+      } else {
+        clearTimer();
+        setRecording(false);
+        recordingSessionRef.current = null;
+        stopStream();
+      }
+      if (elapsedSeconds < 1) return;
+      const blob = new Blob(chunks, {
+        type: recorder.mimeType || mimeType || "audio/webm",
+      });
+      try {
+        const dataUrl = await audioDataUrl(blob);
+        const durationSec = Math.min(
+          MAX_RECORDING_SECONDS,
+          Math.max(1, Math.round(elapsedSeconds)),
+        );
+        const pending = await beginBeatTake(beatId, {
+          name,
+          audioMimeType: blob.type,
+          durationSec,
+          offsetMs: savedOffsetMs,
+          layerId: session.layerId,
+        });
+        try {
+          setUploadProgress(0);
+          await uploadInChunks(
+            dataUrl,
+            (chunk) => appendBeatTakeChunk(pending.id, chunk),
+            setUploadProgress,
+          );
+          const saved = await finishBeatTake(pending.id);
+          setTakes((current) => [
+            ...current,
+            { ...saved, createdAt: saved.createdAt.toISOString() },
+          ]);
+        } catch (caught) {
+          await discardBeatTake(pending.id).catch(() => undefined);
+          throw caught;
+        } finally {
+          setUploadProgress(null);
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Unable to save take.");
+      }
+    };
+    recorder.start(250);
+  }
 
   async function startRecording(layerId = recordLayerId || layers[0]?.id) {
     setError("");
@@ -201,82 +335,41 @@ export function VocalsPanel({
           autoGainControl: false,
         },
       });
-      const supportedTypes = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ];
-      const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
       streamRef.current = stream;
-      recorderRef.current = recorder;
-      recordingStartedAtRef.current = performance.now();
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+      decodedLoopTakesRef.current = null;
+      const loop = Boolean(playRange?.loop);
+      const sectionName = sectionNames[playRange?.sectionIndex ?? -1] ?? "Section";
+      const existingCount = takes.filter((take) => take.layerId === layerId).length;
+      const session: RecordingSession = {
+        layerId,
+        stream,
+        loop,
+        sectionName,
+        sectionOffsetMs: sectionOffsetMs(),
+        nextTakeNumber: existingCount + 1,
+        active: true,
       };
-      recorder.onstop = async () => {
-        clearTimer();
-        setRecording(false);
-        stopStream();
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || mimeType || "audio/webm",
-        });
-        try {
-          const dataUrl = await audioDataUrl(blob);
-          const durationSec = Math.max(
-            1,
-            Math.min(
-              MAX_RECORDING_SECONDS,
-              Math.round((performance.now() - recordingStartedAtRef.current) / 1000),
-            ),
-          );
-          const pending = await beginBeatTake(beatId, {
-            name: `Take ${takes.length + 1}`,
-            audioMimeType: blob.type,
-            durationSec,
-            offsetMs: recordingOffsetRef.current,
-            layerId,
-          });
-          try {
-            setUploadProgress(0);
-            await uploadInChunks(
-              dataUrl,
-              (chunk) => appendBeatTakeChunk(pending.id, chunk),
-              setUploadProgress,
-            );
-            const saved = await finishBeatTake(pending.id);
-            setTakes((current) => [
-              ...current,
-              { ...saved, createdAt: saved.createdAt.toISOString() },
-            ]);
-          } catch (caught) {
-            await discardBeatTake(pending.id).catch(() => undefined);
-            throw caught;
-          } finally {
-            setUploadProgress(null);
-          }
-        } catch (caught) {
-          setError(caught instanceof Error ? caught.message : "Unable to save take.");
-        }
-      };
-      recorder.start(250);
+      recordingSessionRef.current = session;
       recordingOffsetRef.current = 0;
       const recStartAt = engine.currentTime;
       setRecording(true);
       setRecordingSeconds(0);
+      startRecorder(
+        session,
+        0,
+        loop ? `${sectionName} take ${session.nextTakeNumber}` : `Take ${session.nextTakeNumber}`,
+      );
       await startBeat();
-      const startTime = engine.startTime;
-      if (startTime !== null) {
-        recordingOffsetRef.current = Math.round((recStartAt - startTime) * 1000);
+      const originTime = engine.originTime;
+      if (originTime !== null) {
+        recordingOffsetRef.current = Math.round((recStartAt - originTime) * 1000);
       }
       timerRef.current = setInterval(() => {
         setRecordingSeconds((current) => {
           const next = current + 1;
-          if (next >= MAX_RECORDING_SECONDS && recorder.state === "recording") {
-            recorder.stop();
+          if (next >= MAX_RECORDING_SECONDS && recorderRef.current?.state === "recording") {
+            session.active = false;
+            recorderRef.current.stop();
             stopBeat();
             setError("Recording stopped at the 15 minute limit — saved as a take");
           }
@@ -284,12 +377,16 @@ export function VocalsPanel({
         });
       }, 1000);
     } catch {
+      if (recordingSessionRef.current) recordingSessionRef.current.active = false;
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      setRecording(false);
       setError("Microphone not available.");
       stopStream();
     }
   }
 
   function stopRecording() {
+    if (recordingSessionRef.current) recordingSessionRef.current.active = false;
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     stopBeat();
   }
@@ -524,9 +621,11 @@ export function VocalsPanel({
     setError("");
     try {
       const decoded = await decodedAudioTakes();
+      decodedLoopTakesRef.current = decoded;
       await startBeat();
-      if (engine.startTime !== null) engine.playTakes(decoded, engine.startTime);
+      if (engine.originTime !== null) engine.playTakes(decoded, engine.originTime);
     } catch (caught) {
+      decodedLoopTakesRef.current = null;
       setError(caught instanceof Error ? caught.message : "Unable to play takes.");
       setPlaying(false);
       stopBeat();
@@ -733,6 +832,13 @@ export function VocalsPanel({
               Export with vocals
             </Button>
           </>
+        )}
+        {!recording && playRange && (
+          <span className="text-xs text-zinc-500">
+            {playRange.loop
+              ? `Looping ${sectionNames[playRange.sectionIndex] ?? "section"} — a new take each pass`
+              : `Recording from ${sectionNames[playRange.sectionIndex] ?? "section"}`}
+          </span>
         )}
       </div>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
