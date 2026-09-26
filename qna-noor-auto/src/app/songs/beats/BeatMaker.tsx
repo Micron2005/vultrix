@@ -73,6 +73,11 @@ type BeatMakerProps = {
     pan: number;
     muted: boolean;
     solo: boolean;
+    reverb: number;
+    eqLow: number;
+    eqHigh: number;
+    compress: boolean;
+    doubler: boolean;
     sortOrder: number;
   }>;
   songVocalTakes: Array<{

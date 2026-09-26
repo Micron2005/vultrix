@@ -54,6 +54,11 @@ export default async function BeatDetailPage({
           pan: layer.pan,
           muted: layer.muted,
           solo: layer.solo,
+          reverb: layer.reverb,
+          eqLow: layer.eqLow,
+          eqHigh: layer.eqHigh,
+          compress: layer.compress,
+          doubler: layer.doubler,
           sortOrder: layer.sortOrder,
         }))}
         songVocalTakes={songVocalTakes.map((take) => ({

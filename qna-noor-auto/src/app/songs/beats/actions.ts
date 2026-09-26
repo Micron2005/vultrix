@@ -40,6 +40,8 @@ const BeatTakePatchSchema = z.object({
   gain: z.number().int().min(0).max(150).optional(),
   muted: z.boolean().optional(),
   layerId: z.string().optional(),
+  trimStartMs: z.number().int().min(0).optional(),
+  trimEndMs: z.number().int().min(0).optional(),
 }).partial();
 const BeatVocalLayerPatchSchema = z.object({
   name: z.string().trim().min(1).max(40).optional(),
@@ -47,6 +49,11 @@ const BeatVocalLayerPatchSchema = z.object({
   pan: z.number().int().min(-100).max(100).optional(),
   muted: z.boolean().optional(),
   solo: z.boolean().optional(),
+  reverb: z.number().int().min(0).max(100).optional(),
+  eqLow: z.number().int().min(-12).max(12).optional(),
+  eqHigh: z.number().int().min(-12).max(12).optional(),
+  compress: z.boolean().optional(),
+  doubler: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(7).optional(),
 }).partial();
 
@@ -240,6 +247,8 @@ export async function finishBeatTake(id: string) {
       gain: true,
       muted: true,
       layerId: true,
+      trimStartMs: true,
+      trimEndMs: true,
       createdAt: true,
     },
   });
@@ -268,6 +277,8 @@ export async function finishBeatTake(id: string) {
     gain: take.gain,
     muted: take.muted,
     layerId: take.layerId,
+    trimStartMs: take.trimStartMs,
+    trimEndMs: take.trimEndMs,
     createdAt: take.createdAt,
   };
 }
@@ -282,7 +293,12 @@ export async function updateBeatTake(id: string, patch: unknown) {
   const parsed = BeatTakePatchSchema.parse(patch);
   const take = await db.beatTake.findFirst({
     where: { id, orgId },
-    select: { beatId: true },
+    select: {
+      beatId: true,
+      durationSec: true,
+      trimStartMs: true,
+      trimEndMs: true,
+    },
   });
   if (!take) return;
   if (parsed.layerId) {
@@ -292,9 +308,14 @@ export async function updateBeatTake(id: string, patch: unknown) {
     });
     if (!layer) throw new Error("Layer not found");
   }
+  const trimStartMs = parsed.trimStartMs ?? take.trimStartMs;
+  const trimEndMs = parsed.trimEndMs ?? take.trimEndMs;
+  if (trimStartMs + trimEndMs >= take.durationSec * 1000 - 200) {
+    throw new Error("Trim leaves nothing to play");
+  }
   await db.beatTake.updateMany({
     where: { id, orgId },
-    data: parsed,
+    data: { ...parsed, trimStartMs, trimEndMs },
   });
   revalidatePath(`/songs/beats/${take.beatId}`);
 }
@@ -311,7 +332,20 @@ export async function createBeatVocalLayer(beatId: string, name: string) {
   if (count >= 8) throw new Error("Up to 8 layers per beat");
   const layer = await db.beatVocalLayer.create({
     data: { orgId, beatId, name: parsed, sortOrder: count },
-    select: { id: true, name: true, gain: true, pan: true, muted: true, solo: true, sortOrder: true },
+    select: {
+      id: true,
+      name: true,
+      gain: true,
+      pan: true,
+      muted: true,
+      solo: true,
+      reverb: true,
+      eqLow: true,
+      eqHigh: true,
+      compress: true,
+      doubler: true,
+      sortOrder: true,
+    },
   });
   revalidateBeatPaths(beatId);
   return layer;

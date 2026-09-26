@@ -33,6 +33,8 @@ export type Take = {
   gain: number;
   muted: boolean;
   layerId: string | null;
+  trimStartMs: number;
+  trimEndMs: number;
   createdAt: string;
 };
 
@@ -43,6 +45,11 @@ export type VocalLayer = {
   pan: number;
   muted: boolean;
   solo: boolean;
+  reverb: number;
+  eqLow: number;
+  eqHigh: number;
+  compress: boolean;
+  doubler: boolean;
   sortOrder: number;
 };
 
@@ -89,6 +96,10 @@ function formatDuration(seconds: number) {
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function formatSeconds(seconds: number) {
+  return formatDuration(Math.max(0, Math.round(seconds)));
+}
+
 function audioDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -129,7 +140,11 @@ export function VocalsPanel({
   const [newLayerName, setNewLayerName] = useState("");
   const [recordLayerId, setRecordLayerId] = useState(initialLayers[0]?.id ?? "");
   const [songLayerId, setSongLayerId] = useState(initialLayers[0]?.id ?? "");
-  const [soloSrc, setSoloSrc] = useState("");
+  const [expandedFxIds, setExpandedFxIds] = useState<Set<string>>(() => new Set());
+  const [expandedTrimIds, setExpandedTrimIds] = useState<Set<string>>(() => new Set());
+  const [trimDrafts, setTrimDrafts] = useState<Record<string, { start: string; end: string }>>({});
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -138,12 +153,16 @@ export function VocalsPanel({
   const recordingOffsetRef = useRef(0);
   const offsetTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const decodedTakesRef = useRef<Map<string, Promise<AudioBuffer>>>(new Map());
-  const soloAudioRef = useRef<HTMLAudioElement | null>(null);
   const cancelLayerBlurRef = useRef(false);
 
   function clearTimer() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
+  }
+
+  function clearPreviewTimer() {
+    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = null;
   }
 
   function stopStream() {
@@ -153,20 +172,15 @@ export function VocalsPanel({
 
   useEffect(() => {
     const offsetTimers = offsetTimersRef.current;
-    const soloAudio = soloAudioRef.current;
     return () => {
       clearTimer();
+      clearPreviewTimer();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       stopStream();
-      soloAudio?.pause();
+      engine.stopTakes();
       Object.values(offsetTimers).forEach((timer) => clearTimeout(timer));
     };
-  }, []);
-
-  useEffect(() => {
-    if (!soloSrc || !soloAudioRef.current) return;
-    void soloAudioRef.current.play();
-  }, [soloSrc]);
+  }, [engine]);
 
   async function startRecording(layerId = recordLayerId || layers[0]?.id) {
     setError("");
@@ -395,11 +409,6 @@ export function VocalsPanel({
     setTakes((current) => current.filter((item) => item.id !== take.id));
   }
 
-  function soloTake(take: Take) {
-    soloAudioRef.current?.pause();
-    setSoloSrc(`/songs/audio/beat/${take.id}`);
-  }
-
   function decodeTake(take: Take) {
     const cached = decodedTakesRef.current.get(take.id);
     if (cached) return cached;
@@ -420,13 +429,95 @@ export function VocalsPanel({
         || layer.muted
         || (anyLayerSolo && !layer.solo);
       return {
-      buffer: buffers[index],
-      offsetMs: take.offsetMs,
-      gain: Math.round(take.gain * (layer?.gain ?? 100) / 100),
-      pan: layer?.pan ?? 0,
-      muted,
+        buffer: buffers[index],
+        offsetMs: take.offsetMs,
+        gain: Math.round(take.gain * (layer?.gain ?? 100) / 100),
+        pan: layer?.pan ?? 0,
+        muted,
+        trimStartMs: take.trimStartMs,
+        trimEndMs: take.trimEndMs,
+        fx: {
+          reverb: layer?.reverb ?? 0,
+          eqLow: layer?.eqLow ?? 0,
+          eqHigh: layer?.eqHigh ?? 0,
+          compress: layer?.compress ?? false,
+          doubler: layer?.doubler ?? false,
+        },
       };
     });
+  }
+
+  async function previewTake(take: Take) {
+    clearPreviewTimer();
+    if (previewingId === take.id) {
+      engine.stopTakes();
+      setPreviewingId(null);
+      return;
+    }
+    setError("");
+    try {
+      const layer = layers.find((item) => item.id === take.layerId) ?? layers[0];
+      if (!layer) return;
+      const buffer = await decodeTake(take);
+      const context = engine.audioContext;
+      await context.resume();
+      engine.stopTakes();
+      engine.playTakes([{
+        buffer,
+        offsetMs: 0,
+        gain: Math.round(take.gain * layer.gain / 100),
+        pan: layer.pan,
+        muted: false,
+        trimStartMs: take.trimStartMs,
+        trimEndMs: take.trimEndMs,
+        fx: {
+          reverb: layer.reverb,
+          eqLow: layer.eqLow,
+          eqHigh: layer.eqHigh,
+          compress: layer.compress,
+          doubler: layer.doubler,
+        },
+      }], context.currentTime);
+      setPreviewingId(take.id);
+      const playableMs = Math.max(0, take.durationSec * 1000 - take.trimStartMs - take.trimEndMs);
+      previewTimerRef.current = window.setTimeout(() => {
+        setPreviewingId((current) => current === take.id ? null : current);
+        previewTimerRef.current = null;
+      }, playableMs + 100);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to preview take.");
+    }
+  }
+
+  function toggleTrim(take: Take) {
+    setExpandedTrimIds((current) => {
+      const next = new Set(current);
+      if (next.has(take.id)) next.delete(take.id);
+      else next.add(take.id);
+      return next;
+    });
+    setTrimDrafts((current) => ({
+      ...current,
+      [take.id]: current[take.id] ?? {
+        start: String(take.trimStartMs / 1000),
+        end: String(take.trimEndMs / 1000),
+      },
+    }));
+  }
+
+  async function commitTrim(take: Take) {
+    const draft = trimDrafts[take.id] ?? {
+      start: String(take.trimStartMs / 1000),
+      end: String(take.trimEndMs / 1000),
+    };
+    const trimStartMs = Math.max(0, Math.round(Number(draft.start || 0) * 1000));
+    const trimEndMs = Math.max(0, Math.round(Number(draft.end || 0) * 1000));
+    try {
+      await updateBeatTake(take.id, { trimStartMs, trimEndMs });
+      updateTakeLocal(take.id, { trimStartMs, trimEndMs });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to update trim.");
+    }
   }
 
   async function playWithVocals() {
@@ -506,7 +597,9 @@ export function VocalsPanel({
             {take.name}
           </button>
         )}
-        <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
+        <span className="text-xs tabular-nums text-zinc-500">
+          plays {formatSeconds(take.trimStartMs / 1000)} → {formatSeconds(take.durationSec - take.trimEndMs / 1000)} ({formatSeconds((take.durationSec * 1000 - take.trimStartMs - take.trimEndMs) / 1000)})
+        </span>
         <Button type="button" size="sm" variant={take.muted ? "secondary" : "ghost"} onClick={() => void updateTake(take.id, { muted: !take.muted })}>
           M
         </Button>
@@ -548,12 +641,57 @@ export function VocalsPanel({
         <span className="text-[10px] tabular-nums text-zinc-500">
           offset {take.offsetMs < 0 ? "−" : ""}{Math.abs(take.offsetMs)} ms
         </span>
-        <Button type="button" size="sm" variant="ghost" onClick={() => soloTake(take)}>
-          ▶
+        <Button type="button" size="sm" variant="ghost" onClick={() => void previewTake(take)}>
+          {previewingId === take.id ? "■" : "▶"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => toggleTrim(take)}>
+          Trim
         </Button>
         <Button type="button" size="sm" variant="danger" onClick={() => void removeTake(take)}>
           Delete
         </Button>
+        {expandedTrimIds.has(take.id) && (
+          <div className="basis-full flex flex-wrap items-center gap-2 rounded bg-zinc-50 p-2 text-xs">
+            <label className="flex items-center gap-1">
+              Cut start
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                value={trimDrafts[take.id]?.start ?? "0"}
+                onChange={(event) => setTrimDrafts((current) => ({
+                  ...current,
+                  [take.id]: { ...(current[take.id] ?? { start: "0", end: "0" }), start: event.target.value },
+                }))}
+                onBlur={() => void commitTrim(take)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+                className="h-8 w-20 text-xs"
+              />
+              s
+            </label>
+            <label className="flex items-center gap-1">
+              Cut end
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                value={trimDrafts[take.id]?.end ?? "0"}
+                onChange={(event) => setTrimDrafts((current) => ({
+                  ...current,
+                  [take.id]: { ...(current[take.id] ?? { start: "0", end: "0" }), end: event.target.value },
+                }))}
+                onBlur={() => void commitTrim(take)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+                className="h-8 w-20 text-xs"
+              />
+              s
+            </label>
+          </div>
+        )}
       </div>
     );
   }
@@ -665,11 +803,88 @@ export function VocalsPanel({
                         />
                         <span className="w-8 tabular-nums">{layer.pan === 0 ? "C" : layer.pan < 0 ? `L${Math.abs(layer.pan)}` : `R${layer.pan}`}</span>
                       </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={expandedFxIds.has(layer.id) ? "secondary" : "ghost"}
+                        onClick={() => setExpandedFxIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(layer.id)) next.delete(layer.id);
+                          else next.add(layer.id);
+                          return next;
+                        })}
+                      >
+                        FX
+                      </Button>
                       <Button type="button" size="sm" variant="ghost" disabled={index === 0} onClick={() => void moveLayer(layer, -1)}>▲</Button>
                       <Button type="button" size="sm" variant="ghost" disabled={index === layers.length - 1} onClick={() => void moveLayer(layer, 1)}>▼</Button>
                       {layers.length > 1 && <Button type="button" size="sm" variant="danger" onClick={() => void removeLayer(layer)}>Delete layer</Button>}
                       <Button type="button" size="sm" variant="secondary" onClick={() => { setRecordLayerId(layer.id); void startRecording(layer.id); }} disabled={playing || recording}>● Record here</Button>
                     </div>
+                    {expandedFxIds.has(layer.id) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-3 rounded bg-zinc-50 p-2 text-xs">
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          Reverb
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={layer.reverb}
+                            onChange={(event) => updateLayerLocal(layer.id, { reverb: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { reverb: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { reverb: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} reverb`}
+                          />
+                          <span className="w-7 tabular-nums">{layer.reverb}</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          Low
+                          <input
+                            type="range"
+                            min="-12"
+                            max="12"
+                            value={layer.eqLow}
+                            onChange={(event) => updateLayerLocal(layer.id, { eqLow: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { eqLow: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { eqLow: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} low EQ`}
+                          />
+                          <span className="w-8 tabular-nums">{layer.eqLow} dB</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          High
+                          <input
+                            type="range"
+                            min="-12"
+                            max="12"
+                            value={layer.eqHigh}
+                            onChange={(event) => updateLayerLocal(layer.id, { eqHigh: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { eqHigh: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { eqHigh: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} high EQ`}
+                          />
+                          <span className="w-8 tabular-nums">{layer.eqHigh} dB</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          <input
+                            type="checkbox"
+                            checked={layer.compress}
+                            onChange={(event) => void updateLayer(layer.id, { compress: event.target.checked })}
+                            aria-label={`${layer.name} compression`}
+                          />
+                          Compress
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          <input
+                            type="checkbox"
+                            checked={layer.doubler}
+                            onChange={(event) => void updateLayer(layer.id, { doubler: event.target.checked })}
+                            aria-label={`${layer.name} doubler`}
+                          />
+                          Doubler
+                        </label>
+                      </div>
+                    )}
                     <div className="mt-2 space-y-2">
                       {layerTakes.length ? layerTakes.map(renderTakeRow) : <p className="px-2 py-1 text-xs text-zinc-500">No takes in this layer.</p>}
                     </div>
@@ -749,7 +964,6 @@ export function VocalsPanel({
           )}
         </div>
       </div>
-      <audio ref={soloAudioRef} className="hidden" />
     </Card>
   );
 }

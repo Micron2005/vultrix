@@ -1315,6 +1315,11 @@ model BeatVocalLayer {
   pan          Int      @default(0)
   muted        Boolean  @default(false)
   solo         Boolean  @default(false)
+  reverb       Int      @default(0)
+  eqLow        Int      @default(0)
+  eqHigh       Int      @default(0)
+  compress     Boolean  @default(false)
+  doubler      Boolean  @default(false)
   sortOrder    Int      @default(0)
   takes        BeatTake[]
   createdAt    DateTime @default(now())
@@ -1336,6 +1341,8 @@ model BeatTake {
   layerId       String?
   layer         BeatVocalLayer? @relation(fields: [layerId], references: [id], onDelete: SetNull)
   offsetMs      Int      @default(0)
+  trimStartMs   Int      @default(0)
+  trimEndMs     Int      @default(0)
   gain          Int      @default(100)
   muted         Boolean  @default(false)
   createdAt     DateTime @default(now())
