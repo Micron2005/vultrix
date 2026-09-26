@@ -21,6 +21,13 @@ export default async function LyricsPage({
     }),
   ]);
   const selectedSong = songs.find((song) => song.id === params.song) ?? songs[0];
+  const drafts = selectedSong
+    ? await db.songLyricDraft.findMany({
+        where: { orgId, songId: selectedSong.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, name: true, lyrics: true, createdAt: true },
+      })
+    : [];
   return (
     <>
       <PageHeader
@@ -43,6 +50,7 @@ export default async function LyricsPage({
             title: selectedSong.title,
             lyrics: selectedSong.lyrics,
             bpm: selectedSong.bpm,
+            drafts,
             vocalTakes: await db.songVocalTake.findMany({
               where: { orgId, songId: selectedSong.id, uploadComplete: true },
               orderBy: { createdAt: "asc" },

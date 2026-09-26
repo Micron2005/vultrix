@@ -1208,6 +1208,7 @@ model Organization {
   beatTakes         BeatTake[]
   beatVocalLayers   BeatVocalLayer[]
   vocalTakes        SongVocalTake[]
+  lyricDrafts       SongLyricDraft[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
 
@@ -1236,6 +1237,7 @@ model Song {
   practiceSessions PracticeSession[]
   beats         Beat[]
   vocalTakes    SongVocalTake[]
+  lyricDrafts   SongLyricDraft[]
 
   @@index([orgId, stage])
 }
@@ -1355,6 +1357,19 @@ model SongVocalTake {
   durationSec   Int
   uploadComplete Boolean  @default(true)
   createdAt     DateTime @default(now())
+
+  @@index([songId, createdAt])
+}
+
+model SongLyricDraft {
+  id             String       @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  songId         String
+  song           Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  name           String
+  lyrics         String
+  createdAt      DateTime     @default(now())
 
   @@index([songId, createdAt])
 }
