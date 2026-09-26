@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireMusicPack } from "@/lib/songs";
 import { ensureBeatVocalLayers } from "@/lib/beats";
+import { saveLyricsText } from "../actions";
 
 const BeginSongVocalTakeSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -14,6 +15,70 @@ const BeginSongVocalTakeSchema = z.object({
 
 const TakeNameSchema = z.string().trim().min(1).max(60);
 const UploadChunkSchema = z.string().min(1).max(3_000_000);
+const RhymeWordSchema = z.string().trim().min(1).max(40);
+const DraftNameSchema = z.string().trim().min(1).max(60);
+const DraftLyricsSchema = z.string().max(20_000);
+
+export async function findRhymes(word: string) {
+  await requireMusicPack();
+  const parsed = RhymeWordSchema.parse(word);
+  try {
+    const encoded = encodeURIComponent(parsed);
+    const [perfectResponse, nearResponse] = await Promise.all([
+      fetch(`https://api.datamuse.com/words?rel_rhy=${encoded}&max=40`, {
+        signal: AbortSignal.timeout(5_000),
+      }),
+      fetch(`https://api.datamuse.com/words?rel_nry=${encoded}&max=20`, {
+        signal: AbortSignal.timeout(5_000),
+      }),
+    ]);
+    if (!perfectResponse.ok || !nearResponse.ok) throw new Error("Rhyme lookup failed");
+    const [perfect, near] = await Promise.all([perfectResponse.json(), nearResponse.json()]);
+    return {
+      perfect: Array.isArray(perfect)
+        ? perfect.map((item) => item?.word).filter((item): item is string => typeof item === "string")
+        : [],
+      near: Array.isArray(near)
+        ? near.map((item) => item?.word).filter((item): item is string => typeof item === "string")
+        : [],
+    };
+  } catch {
+    throw new Error("Rhymes unavailable right now");
+  }
+}
+
+export async function saveLyricDraft(songId: string, name: string, lyrics: string) {
+  const { orgId } = await requireMusicPack();
+  const parsedName = DraftNameSchema.parse(name);
+  const parsedLyrics = DraftLyricsSchema.parse(lyrics);
+  const song = await db.song.findFirst({ where: { id: songId, orgId }, select: { id: true } });
+  if (!song) throw new Error("Song not found.");
+  const count = await db.songLyricDraft.count({ where: { songId, orgId } });
+  if (count >= 30) throw new Error("Up to 30 drafts per song");
+  const draft = await db.songLyricDraft.create({
+    data: { orgId, songId, name: parsedName, lyrics: parsedLyrics },
+    select: { id: true, name: true, lyrics: true, createdAt: true },
+  });
+  revalidatePath("/songs/lyrics");
+  return draft;
+}
+
+export async function deleteLyricDraft(id: string) {
+  const { orgId } = await requireMusicPack();
+  await db.songLyricDraft.deleteMany({ where: { id, orgId } });
+  revalidatePath("/songs/lyrics");
+}
+
+export async function restoreLyricDraft(id: string) {
+  const { orgId } = await requireMusicPack();
+  const draft = await db.songLyricDraft.findFirst({
+    where: { id, orgId },
+    select: { songId: true, lyrics: true },
+  });
+  if (!draft) throw new Error("Draft not found");
+  await saveLyricsText(draft.songId, draft.lyrics);
+  return { lyrics: draft.lyrics };
+}
 
 async function appendSongVocalTakeChunkForOrg(id: string, orgId: string, chunk: string) {
   const parsed = UploadChunkSchema.parse(chunk);
