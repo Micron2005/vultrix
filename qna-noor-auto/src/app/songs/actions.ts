@@ -23,6 +23,12 @@ const SongSchema = z.object({
   notes: z.string().optional(),
 });
 
+const SongRatingSchema = z.number().int().min(1).max(5).nullable();
+const SongBestTakeSchema = z.object({
+  kind: z.enum(["song", "beat"]),
+  id: z.string().min(1),
+}).nullable();
+
 function songData(formData: FormData) {
   const parsed = SongSchema.parse(Object.fromEntries(formData.entries()));
   const bpm = parsed.bpm?.trim() ? Number.parseInt(parsed.bpm, 10) : null;
@@ -84,6 +90,57 @@ export async function updateSong(id: string, formData: FormData) {
   revalidatePath(`/songs/${id}`);
   revalidatePath("/");
   redirect(`/songs/${id}`);
+}
+
+export async function setSongRating(songId: string, rating: number | null) {
+  const { orgId } = await requireMusicPack();
+  const parsed = SongRatingSchema.parse(rating);
+  await db.song.updateMany({
+    where: { id: songId, orgId },
+    data: { rating: parsed },
+  });
+  revalidatePath("/songs");
+  revalidatePath(`/songs/${songId}`);
+}
+
+export async function setSongBestTake(
+  songId: string,
+  ref: { kind: "song" | "beat"; id: string } | null,
+) {
+  const { orgId } = await requireMusicPack();
+  const parsed = SongBestTakeSchema.parse(ref);
+  if (parsed) {
+    const take =
+      parsed.kind === "song"
+        ? await db.songVocalTake.findFirst({
+            where: {
+              id: parsed.id,
+              orgId,
+              songId,
+              uploadComplete: true,
+            },
+            select: { id: true },
+          })
+        : await db.beatTake.findFirst({
+            where: {
+              id: parsed.id,
+              orgId,
+              uploadComplete: true,
+              beat: { songId, orgId },
+            },
+            select: { id: true },
+          });
+    if (!take) throw new Error("Take not found");
+  }
+  await db.song.updateMany({
+    where: { id: songId, orgId },
+    data: {
+      bestTakeKind: parsed?.kind ?? null,
+      bestTakeId: parsed?.id ?? null,
+    },
+  });
+  revalidatePath("/songs");
+  revalidatePath(`/songs/${songId}`);
 }
 
 export async function saveLyrics(

@@ -1227,6 +1227,9 @@ model Song {
   notes         String?
   lyrics        String?
   lyricsMeta    String?
+  rating        Int?
+  bestTakeKind  String?
+  bestTakeId    String?
   releasedAt    DateTime?
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())

@@ -11,6 +11,12 @@ type BoardSong = {
   stage: string;
   musicalKey: string | null;
   bpm: number | null;
+  lyrics: string | null;
+  rating: number | null;
+  bestTakeId: string | null;
+  _count: { beats: number };
+  songTakeCount: number;
+  beatTakeCount: number;
   tasks: Array<{ done: boolean }>;
 };
 
@@ -58,6 +64,13 @@ export function SongsBoard({
                             {[song.musicalKey, song.bpm ? `${song.bpm} BPM` : null].filter(Boolean).join(" · ")}
                           </p>
                         )}
+                        <div className={`mt-2 flex flex-wrap items-center gap-1 text-xs ${song.rating ? "text-amber-500" : "text-zinc-300"}`}>
+                          {"★".repeat(song.rating ?? 0)}{"☆".repeat(5 - (song.rating ?? 0))}
+                          {song.lyrics?.trim() && <span className="ml-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">Lyrics</span>}
+                          {song._count.beats > 0 && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">{song._count.beats} beats</span>}
+                          {song.songTakeCount + song.beatTakeCount > 0 && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">{song.songTakeCount + song.beatTakeCount} takes</span>}
+                          {song.bestTakeId && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">Best ✓</span>}
+                        </div>
                         <p className="mt-2 text-xs text-zinc-500">{complete}/{song.tasks.length} tasks</p>
                         <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200">
                           <div className="h-full rounded-full bg-[var(--vx-accent-600)]" style={{ width: `${progress}%` }} />
