@@ -15,7 +15,7 @@ import {
   updateBeatTake,
 } from "./actions";
 import { copySongTakeToBeat } from "../lyrics/actions";
-import { uploadInChunks } from "../uploadTake";
+import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
@@ -194,8 +194,8 @@ export function VocalsPanel({
       ];
       const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
       const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(stream, { mimeType, audioBitsPerSecond: TAKE_AUDIO_BITS_PER_SECOND })
+        : new MediaRecorder(stream, { audioBitsPerSecond: TAKE_AUDIO_BITS_PER_SECOND });
       chunksRef.current = [];
       streamRef.current = stream;
       recorderRef.current = recorder;
@@ -245,7 +245,7 @@ export function VocalsPanel({
             setUploadProgress(null);
           }
         } catch (caught) {
-          setError(caught instanceof Error ? caught.message : "Unable to save take.");
+          setError(saveTakeErrorMessage(caught));
         }
       };
       recorder.start(250);
