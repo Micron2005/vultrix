@@ -5,18 +5,44 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireMusicPack } from "@/lib/songs";
 
-const SongVocalTakeSchema = z.object({
+const BeginSongVocalTakeSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  audioDataUrl: z.string().startsWith("data:audio/").max(14_000_000),
   audioMimeType: z.string().max(60),
   durationSec: z.number().int().min(1).max(900),
 });
 
 const TakeNameSchema = z.string().trim().min(1).max(60);
+const UploadChunkSchema = z.string().min(1).max(3_000_000);
 
-export async function saveSongVocalTake(songId: string, payload: unknown) {
+async function appendSongVocalTakeChunkForOrg(id: string, orgId: string, chunk: string) {
+  const parsed = UploadChunkSchema.parse(chunk);
+  const rows = await db.$queryRaw<Array<{ length: number }>>`
+    SELECT LENGTH("audioDataUrl")::int AS length
+    FROM "SongVocalTake"
+    WHERE id = ${id} AND "orgId" = ${orgId} AND "uploadComplete" = false
+  `;
+  const current = rows[0];
+  if (!current) throw new Error("Pending take not found.");
+  if (
+    current.length === 0
+      ? !/^data:audio\/[^,]+,[A-Za-z0-9+/=]*$/.test(parsed)
+      : !/^[A-Za-z0-9+/=]*$/.test(parsed)
+  ) {
+    throw new Error("Invalid audio chunk.");
+  }
+  if (current.length + parsed.length > 14_000_000) {
+    throw new Error("Recording is too large.");
+  }
+  await db.$executeRaw`
+    UPDATE "SongVocalTake"
+    SET "audioDataUrl" = "audioDataUrl" || ${parsed}
+    WHERE id = ${id} AND "orgId" = ${orgId} AND "uploadComplete" = false
+  `;
+}
+
+export async function beginSongVocalTake(songId: string, payload: unknown) {
   const { orgId } = await requireMusicPack();
-  const parsed = SongVocalTakeSchema.parse(payload);
+  const parsed = BeginSongVocalTakeSchema.parse(payload);
   const song = await db.song.findFirst({
     where: { id: songId, orgId },
     select: { id: true },
@@ -25,10 +51,47 @@ export async function saveSongVocalTake(songId: string, payload: unknown) {
   const count = await db.songVocalTake.count({ where: { songId, orgId } });
   if (count >= 30) throw new Error("Up to 30 takes per song.");
   const take = await db.songVocalTake.create({
-    data: { orgId, songId, ...parsed },
+    data: { orgId, songId, ...parsed, audioDataUrl: "", uploadComplete: false },
+  });
+  return { id: take.id };
+}
+
+export async function appendSongVocalTakeChunk(id: string, chunk: string) {
+  const { orgId } = await requireMusicPack();
+  await appendSongVocalTakeChunkForOrg(id, orgId, chunk);
+}
+
+export async function finishSongVocalTake(id: string) {
+  const { orgId } = await requireMusicPack();
+  const take = await db.songVocalTake.findFirst({
+    where: { id, orgId, uploadComplete: false },
+    select: {
+      id: true,
+      songId: true,
+      name: true,
+      audioDataUrl: true,
+      audioMimeType: true,
+      durationSec: true,
+      createdAt: true,
+    },
+  });
+  if (!take || !take.audioDataUrl.startsWith("data:audio/") || take.audioDataUrl.length <= 100) {
+    throw new Error("Incomplete audio upload.");
+  }
+  await db.songVocalTake.updateMany({
+    where: { id, orgId, uploadComplete: false },
+    data: { uploadComplete: true },
+  });
+  await db.songVocalTake.deleteMany({
+    where: {
+      songId: take.songId,
+      orgId,
+      uploadComplete: false,
+      createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
+    },
   });
   revalidatePath("/songs/lyrics");
-  revalidatePath(`/songs/${songId}`);
+  revalidatePath(`/songs/${take.songId}`);
   return {
     id: take.id,
     songId: take.songId,
@@ -39,11 +102,16 @@ export async function saveSongVocalTake(songId: string, payload: unknown) {
   };
 }
 
+export async function discardSongVocalTake(id: string) {
+  const { orgId } = await requireMusicPack();
+  await db.songVocalTake.deleteMany({ where: { id, orgId, uploadComplete: false } });
+}
+
 export async function renameSongVocalTake(id: string, name: string) {
   const { orgId } = await requireMusicPack();
   const parsed = TakeNameSchema.parse(name);
   const take = await db.songVocalTake.findFirst({
-    where: { id, orgId },
+    where: { id, orgId, uploadComplete: true },
     select: { songId: true },
   });
   if (!take) throw new Error("Take not found.");
@@ -55,7 +123,7 @@ export async function renameSongVocalTake(id: string, name: string) {
 export async function deleteSongVocalTake(id: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
-    where: { id, orgId },
+    where: { id, orgId, uploadComplete: true },
     select: { songId: true },
   });
   if (!take) return;
@@ -67,7 +135,7 @@ export async function deleteSongVocalTake(id: string) {
 export async function copySongTakeToBeat(takeId: string, beatId: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
-    where: { id: takeId, orgId },
+    where: { id: takeId, orgId, uploadComplete: true },
     select: { name: true, audioDataUrl: true, audioMimeType: true, durationSec: true },
   });
   const beat = await db.beat.findFirst({
@@ -86,6 +154,7 @@ export async function copySongTakeToBeat(takeId: string, beatId: string) {
       audioMimeType: take.audioMimeType,
       durationSec: take.durationSec,
       offsetMs: 0,
+      uploadComplete: true,
     },
   });
   revalidatePath(`/songs/beats/${beatId}`);

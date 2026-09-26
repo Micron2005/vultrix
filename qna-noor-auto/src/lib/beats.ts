@@ -17,7 +17,7 @@ export async function getBeat(orgId: string, id: string) {
 
 export async function listBeatTakes(orgId: string, beatId: string) {
   return db.beatTake.findMany({
-    where: { orgId, beatId },
+    where: { orgId, beatId, uploadComplete: true },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,

@@ -1312,6 +1312,7 @@ model BeatTake {
   audioDataUrl  String
   audioMimeType String
   durationSec   Int
+  uploadComplete Boolean  @default(true)
   offsetMs      Int      @default(0)
   gain          Int      @default(100)
   muted         Boolean  @default(false)
@@ -1330,6 +1331,7 @@ model SongVocalTake {
   audioDataUrl  String
   audioMimeType String
   durationSec   Int
+  uploadComplete Boolean  @default(true)
   createdAt     DateTime @default(now())
 
   @@index([songId, createdAt])

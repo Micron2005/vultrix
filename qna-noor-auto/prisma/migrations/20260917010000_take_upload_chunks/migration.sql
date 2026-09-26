@@ -1,0 +1,5 @@
+ALTER TABLE "BeatTake"
+ADD COLUMN "uploadComplete" BOOLEAN NOT NULL DEFAULT true;
+
+ALTER TABLE "SongVocalTake"
+ADD COLUMN "uploadComplete" BOOLEAN NOT NULL DEFAULT true;

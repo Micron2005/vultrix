@@ -22,11 +22,11 @@ export async function GET(
   const take =
     kind === "beat"
       ? await db.beatTake.findFirst({
-          where: { id, orgId },
+          where: { id, orgId, uploadComplete: true },
           select: { audioDataUrl: true, audioMimeType: true },
         })
       : await db.songVocalTake.findFirst({
-          where: { id, orgId },
+          where: { id, orgId, uploadComplete: true },
           select: { audioDataUrl: true, audioMimeType: true },
         });
   if (!take) return new Response("Not found", { status: 404 });

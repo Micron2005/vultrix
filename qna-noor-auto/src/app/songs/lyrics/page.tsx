@@ -44,7 +44,7 @@ export default async function LyricsPage({
             lyrics: selectedSong.lyrics,
             bpm: selectedSong.bpm,
             vocalTakes: await db.songVocalTake.findMany({
-              where: { orgId, songId: selectedSong.id },
+              where: { orgId, songId: selectedSong.id, uploadComplete: true },
               orderBy: { createdAt: "asc" },
               select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
             }),

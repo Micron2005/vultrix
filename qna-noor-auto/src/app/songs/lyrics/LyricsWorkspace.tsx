@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { saveLyricsText } from "../actions";
 import {
+  appendSongVocalTakeChunk,
+  beginSongVocalTake,
   copySongTakeToBeat,
+  discardSongVocalTake,
   deleteSongVocalTake,
+  finishSongVocalTake,
   renameSongVocalTake,
-  saveSongVocalTake,
 } from "./actions";
+import { uploadInChunks } from "../uploadTake";
 
 const MAX_RECORDING_SECONDS = 900;
 const FONT_KEY = "lyrics-font";
@@ -60,6 +64,7 @@ export function LyricsWorkspace({
   const [fontSize, setFontSize] = useState(1);
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [takes, setTakes] = useState(selectedSong.vocalTakes);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -166,13 +171,27 @@ export function LyricsWorkspace({
             1,
             Math.min(MAX_RECORDING_SECONDS, Math.round((performance.now() - startedAtRef.current) / 1000)),
           );
-          const saved = await saveSongVocalTake(selectedSong.id, {
+          const dataUrl = await readAudioData(blob);
+          const pending = await beginSongVocalTake(selectedSong.id, {
             name: `Take ${takes.length + 1}`,
-            audioDataUrl: await readAudioData(blob),
             audioMimeType: blob.type,
             durationSec,
           });
-          setTakes((current) => [...current, saved]);
+          try {
+            setUploadProgress(0);
+            await uploadInChunks(
+              dataUrl,
+              (chunk) => appendSongVocalTakeChunk(pending.id, chunk),
+              setUploadProgress,
+            );
+            const saved = await finishSongVocalTake(pending.id);
+            setTakes((current) => [...current, saved]);
+          } catch (caught) {
+            await discardSongVocalTake(pending.id).catch(() => undefined);
+            throw caught;
+          } finally {
+            setUploadProgress(null);
+          }
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : "Unable to save take.");
         }
@@ -275,6 +294,7 @@ export function LyricsWorkspace({
           )}
         </div>
         {recording && <p className="mt-3 text-sm font-semibold text-red-600">REC {formatDuration(recordingSeconds)} / 15:00</p>}
+        {uploadProgress !== null && <p className="mt-3 text-sm font-semibold text-[var(--vx-accent-700)]">Saving… {Math.round(uploadProgress * 100)}%</p>}
         {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
         {addedBeat && <p className="mt-3 text-xs text-[var(--vx-accent-700)]">Added to {addedBeat}</p>}
         <div className="mt-4 space-y-2">

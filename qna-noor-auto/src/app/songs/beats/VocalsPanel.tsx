@@ -4,11 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, LinkButton, Select } from "@/components/ui";
 import {
   attachBeatToSong,
+  appendBeatTakeChunk,
+  beginBeatTake,
+  discardBeatTake,
   deleteBeatTake,
-  saveBeatTake,
+  finishBeatTake,
   updateBeatTake,
 } from "./actions";
 import { copySongTakeToBeat } from "../lyrics/actions";
+import { uploadInChunks } from "../uploadTake";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
@@ -97,6 +101,7 @@ export function VocalsPanel({
   const [takes, setTakes] = useState(initialTakes);
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -185,17 +190,30 @@ export function VocalsPanel({
               Math.round((performance.now() - recordingStartedAtRef.current) / 1000),
             ),
           );
-          const saved = await saveBeatTake(beatId, {
+          const pending = await beginBeatTake(beatId, {
             name: `Take ${takes.length + 1}`,
-            audioDataUrl: dataUrl,
             audioMimeType: blob.type,
             durationSec,
             offsetMs: recordingOffsetRef.current,
           });
-          setTakes((current) => [
-            ...current,
-            { ...saved, createdAt: saved.createdAt.toISOString() },
-          ]);
+          try {
+            setUploadProgress(0);
+            await uploadInChunks(
+              dataUrl,
+              (chunk) => appendBeatTakeChunk(pending.id, chunk),
+              setUploadProgress,
+            );
+            const saved = await finishBeatTake(pending.id);
+            setTakes((current) => [
+              ...current,
+              { ...saved, createdAt: saved.createdAt.toISOString() },
+            ]);
+          } catch (caught) {
+            await discardBeatTake(pending.id).catch(() => undefined);
+            throw caught;
+          } finally {
+            setUploadProgress(null);
+          }
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : "Unable to save take.");
         }
@@ -365,6 +383,11 @@ export function VocalsPanel({
         {recording && (
           <span className="text-sm font-semibold text-red-600">
             REC {formatDuration(recordingSeconds)} / 15:00
+          </span>
+        )}
+        {uploadProgress !== null && (
+          <span className="text-sm font-semibold text-[var(--vx-accent-700)]">
+            Saving… {Math.round(uploadProgress * 100)}%
           </span>
         )}
         {!recording && takes.length > 0 && (
