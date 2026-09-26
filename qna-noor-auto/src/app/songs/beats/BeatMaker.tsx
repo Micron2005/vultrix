@@ -11,7 +11,12 @@ import {
   saveBeat,
 } from "./actions";
 import { BpmInput } from "../BpmInput";
-import { BeatEngine, type BeatDocument, type BeatPlaybackMode } from "./engine";
+import {
+  BeatEngine,
+  type BeatDocument,
+  type BeatPlaybackMode,
+  type PlayRange,
+} from "./engine";
 import { VocalsPanel, type Take } from "./VocalsPanel";
 import {
   chordNotes,
@@ -90,6 +95,11 @@ type BeatMakerProps = {
   }>;
 };
 
+type SectionPlayRange = {
+  sectionIndex: number;
+  loop: boolean;
+};
+
 function parseBeatData(raw: string): BeatData {
   return safeParseBeatData(raw);
 }
@@ -132,6 +142,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     initialData.patterns[0]?.id ?? "",
   );
   const [mode, setMode] = useState<BeatPlaybackMode>("pattern");
+  const [playRange, setPlayRange] = useState<SectionPlayRange | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
@@ -199,6 +210,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   });
   const modeRef = useRef(mode);
   const selectedRef = useRef(selectedPatternId);
+  const onLoopRef = useRef<((originTime: number) => void) | null>(null);
 
   useEffect(() => {
     return () => {
@@ -703,6 +715,13 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   }
 
   function removeSection(sectionId: string) {
+    const removedIndex = data.sections.findIndex((section) => section.id === sectionId);
+    if (playRange && removedIndex >= 0) {
+      if (playRange.sectionIndex === removedIndex) setPlayRange(null);
+      else if (playRange.sectionIndex > removedIndex) {
+        setPlayRange({ ...playRange, sectionIndex: playRange.sectionIndex - 1 });
+      }
+    }
     updateData((current) => ({
       ...current,
       sections: current.sections.filter((section) => section.id !== sectionId),
@@ -767,13 +786,30 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     }
   }
 
-  async function startBeat() {
+  function engineRangeFor(selection: SectionPlayRange | null): PlayRange | undefined {
+    if (!selection) return undefined;
+    const sequence = sectionSequence(docRef.current.data);
+    const indices = sequence
+      .map((item, index) => (item.sectionIndex === selection.sectionIndex ? index : -1))
+      .filter((index) => index >= 0);
+    if (!indices.length) return undefined;
+    return { from: indices[0], to: indices[indices.length - 1], loop: selection.loop };
+  }
+
+  async function startBeat(rangeSelection = playRange) {
     if (!engine) return;
+    if (rangeSelection) {
+      modeRef.current = "song";
+      setMode("song");
+    }
     await engine.play(
       () => docRef.current,
       () => ({ mode: modeRef.current, patternId: selectedRef.current }),
       onPlaybackStep,
       setLoading,
+      engineRangeFor(rangeSelection),
+      (origin) => onLoopRef.current?.(origin),
+      () => stopBeat(),
     );
     setPlaying(true);
   }
@@ -928,6 +964,15 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                 </button>
               ))}
             </div>
+            {playRange && (
+              <button
+                type="button"
+                onClick={() => setPlayRange(null)}
+                className="rounded-md bg-zinc-100 px-2 py-1.5 text-xs text-zinc-700"
+              >
+                {playRange.loop ? "Looping" : "From"}: {data.sections[playRange.sectionIndex]?.name} ×
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Button type="button" size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
@@ -1262,6 +1307,35 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                         </button>
                       );
                     })}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = { sectionIndex, loop: false };
+                        setPlayRange(next);
+                        void startBeat(next);
+                      }}
+                      className="rounded bg-white px-2 py-1 text-[10px] text-zinc-700"
+                    >
+                      ▶ from here
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = playRange?.sectionIndex === sectionIndex && playRange.loop
+                          ? null
+                          : { sectionIndex, loop: true };
+                        setPlayRange(next);
+                        if (playing) {
+                          stopBeat();
+                          if (next) void startBeat(next);
+                        }
+                      }}
+                      className={`rounded px-2 py-1 text-[10px] ${playRange?.sectionIndex === sectionIndex && playRange.loop ? "bg-[var(--vx-accent-600)] text-[var(--vx-accent-fg)]" : "bg-white text-zinc-700"}`}
+                    >
+                      ↻ loop
+                    </button>
                   </div>
                 </div>
               );
@@ -1607,6 +1681,9 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
           setPlaying={setPlaying}
           startBeat={startBeat}
           stopBeat={stopBeat}
+          playRange={playRange}
+          onLoopRef={onLoopRef}
+          sectionNames={data.sections.map((section) => section.name)}
           initialTakes={takes}
           initialLayers={layers}
           songVocalTakes={songVocalTakes}
