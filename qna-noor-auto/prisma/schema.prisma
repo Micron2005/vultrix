@@ -1206,6 +1206,7 @@ model Organization {
   ideas             SongIdea[]
   beats             Beat[]
   beatTakes         BeatTake[]
+  beatVocalLayers   BeatVocalLayer[]
   vocalTakes        SongVocalTake[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
@@ -1298,8 +1299,27 @@ model Beat {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   takes        BeatTake[]
+  vocalLayers  BeatVocalLayer[]
 
   @@index([orgId, updatedAt])
+}
+
+model BeatVocalLayer {
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  beatId       String
+  beat         Beat     @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  name         String
+  gain         Int      @default(100)
+  pan          Int      @default(0)
+  muted        Boolean  @default(false)
+  solo         Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  takes        BeatTake[]
+  createdAt    DateTime @default(now())
+
+  @@index([beatId, sortOrder])
 }
 
 model BeatTake {
@@ -1313,6 +1333,8 @@ model BeatTake {
   audioMimeType String
   durationSec   Int
   uploadComplete Boolean  @default(true)
+  layerId       String?
+  layer         BeatVocalLayer? @relation(fields: [layerId], references: [id], onDelete: SetNull)
   offsetMs      Int      @default(0)
   gain          Int      @default(100)
   muted         Boolean  @default(false)

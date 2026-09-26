@@ -11,6 +11,7 @@ import {
   DEFAULT_BEAT_DATA,
   KITS,
 } from "./kits";
+import { ensureBeatVocalLayers } from "@/lib/beats";
 
 const BeatCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -29,6 +30,7 @@ const BeginBeatTakeSchema = z.object({
   audioMimeType: z.string().max(60),
   durationSec: z.number().int().min(1).max(900),
   offsetMs: z.number().int().min(-2000).max(2000),
+  layerId: z.string().optional(),
 });
 
 const UploadChunkSchema = z.string().min(1).max(3_000_000);
@@ -37,6 +39,15 @@ const BeatTakePatchSchema = z.object({
   offsetMs: z.number().int().min(-2000).max(2000).optional(),
   gain: z.number().int().min(0).max(150).optional(),
   muted: z.boolean().optional(),
+  layerId: z.string().optional(),
+}).partial();
+const BeatVocalLayerPatchSchema = z.object({
+  name: z.string().trim().min(1).max(40).optional(),
+  gain: z.number().int().min(0).max(150).optional(),
+  pan: z.number().int().min(-100).max(100).optional(),
+  muted: z.boolean().optional(),
+  solo: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(7).optional(),
 }).partial();
 
 async function appendBeatTakeChunkForOrg(id: string, orgId: string, chunk: string) {
@@ -186,6 +197,11 @@ export async function beginBeatTake(beatId: string, payload: unknown) {
     select: { id: true },
   });
   if (!beat) throw new Error("Beat not found");
+  const layers = await ensureBeatVocalLayers(orgId, beatId);
+  const layer = parsed.layerId
+    ? layers.find((item) => item.id === parsed.layerId)
+    : layers[0];
+  if (!layer) throw new Error("Layer not found");
   const count = await db.beatTake.count({ where: { beatId, orgId } });
   if (count >= 30) throw new Error("Up to 30 takes per beat");
   const take = await db.beatTake.create({
@@ -197,6 +213,7 @@ export async function beginBeatTake(beatId: string, payload: unknown) {
       audioMimeType: parsed.audioMimeType,
       durationSec: parsed.durationSec,
       offsetMs: parsed.offsetMs,
+      layerId: layer.id,
       uploadComplete: false,
     },
   });
@@ -222,6 +239,7 @@ export async function finishBeatTake(id: string) {
       offsetMs: true,
       gain: true,
       muted: true,
+      layerId: true,
       createdAt: true,
     },
   });
@@ -249,6 +267,7 @@ export async function finishBeatTake(id: string) {
     offsetMs: take.offsetMs,
     gain: take.gain,
     muted: take.muted,
+    layerId: take.layerId,
     createdAt: take.createdAt,
   };
 }
@@ -266,11 +285,70 @@ export async function updateBeatTake(id: string, patch: unknown) {
     select: { beatId: true },
   });
   if (!take) return;
+  if (parsed.layerId) {
+    const layer = await db.beatVocalLayer.findFirst({
+      where: { id: parsed.layerId, orgId, beatId: take.beatId },
+      select: { id: true },
+    });
+    if (!layer) throw new Error("Layer not found");
+  }
   await db.beatTake.updateMany({
     where: { id, orgId },
     data: parsed,
   });
   revalidatePath(`/songs/beats/${take.beatId}`);
+}
+
+export async function createBeatVocalLayer(beatId: string, name: string) {
+  const { orgId } = await requireMusicPack();
+  const parsed = z.string().trim().min(1).max(40).parse(name);
+  const beat = await db.beat.findFirst({
+    where: { id: beatId, orgId },
+    select: { id: true },
+  });
+  if (!beat) throw new Error("Beat not found");
+  const count = await db.beatVocalLayer.count({ where: { beatId, orgId } });
+  if (count >= 8) throw new Error("Up to 8 layers per beat");
+  const layer = await db.beatVocalLayer.create({
+    data: { orgId, beatId, name: parsed, sortOrder: count },
+    select: { id: true, name: true, gain: true, pan: true, muted: true, solo: true, sortOrder: true },
+  });
+  revalidateBeatPaths(beatId);
+  return layer;
+}
+
+export async function updateBeatVocalLayer(id: string, patch: unknown) {
+  const { orgId } = await requireMusicPack();
+  const parsed = BeatVocalLayerPatchSchema.parse(patch);
+  const layer = await db.beatVocalLayer.findFirst({
+    where: { id, orgId },
+    select: { beatId: true },
+  });
+  if (!layer) return;
+  await db.beatVocalLayer.updateMany({ where: { id, orgId }, data: parsed });
+  revalidateBeatPaths(layer.beatId);
+}
+
+export async function deleteBeatVocalLayer(id: string) {
+  const { orgId } = await requireMusicPack();
+  const layer = await db.beatVocalLayer.findFirst({
+    where: { id, orgId },
+    select: { beatId: true },
+  });
+  if (!layer) return;
+  const layers = await db.beatVocalLayer.findMany({
+    where: { beatId: layer.beatId, orgId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  if (layers.length <= 1) throw new Error("Keep at least one layer");
+  const target = layers.find((item) => item.id !== id);
+  if (!target) throw new Error("Keep at least one layer");
+  await db.$transaction([
+    db.beatTake.updateMany({ where: { beatId: layer.beatId, orgId, layerId: id }, data: { layerId: target.id } }),
+    db.beatVocalLayer.deleteMany({ where: { id, orgId } }),
+  ]);
+  revalidateBeatPaths(layer.beatId);
 }
 
 export async function deleteBeatTake(id: string) {

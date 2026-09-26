@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
-import { getBeat, listBeatTakes } from "@/lib/beats";
+import { ensureBeatVocalLayers, getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
@@ -14,6 +14,7 @@ export default async function BeatDetailPage({
 }) {
   const { id } = await params;
   const { orgId } = await requireMusicPack();
+  const layers = await ensureBeatVocalLayers(orgId, id);
   const [beat, songs, takes, songVocalTakes] = await Promise.all([
     getBeat(orgId, id),
     listSongs(orgId),
@@ -45,6 +46,15 @@ export default async function BeatDetailPage({
         takes={takes.map((take) => ({
           ...take,
           createdAt: take.createdAt.toISOString(),
+        }))}
+        layers={layers.map((layer) => ({
+          id: layer.id,
+          name: layer.name,
+          gain: layer.gain,
+          pan: layer.pan,
+          muted: layer.muted,
+          solo: layer.solo,
+          sortOrder: layer.sortOrder,
         }))}
         songVocalTakes={songVocalTakes.map((take) => ({
           ...take,
