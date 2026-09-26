@@ -66,6 +66,15 @@ type BeatMakerProps = {
     lyricsMeta: string | null;
   }>;
   takes: Take[];
+  layers: Array<{
+    id: string;
+    name: string;
+    gain: number;
+    pan: number;
+    muted: boolean;
+    solo: boolean;
+    sortOrder: number;
+  }>;
   songVocalTakes: Array<{
     id: string;
     songId: string;
@@ -96,7 +105,7 @@ function trackKindLabel(track: BeatTrackInstance) {
   return track.kind === "drums" ? "Drums" : MELODIC_LABELS[track.kind];
 }
 
-export function BeatMaker({ beat, songs, takes, songVocalTakes }: BeatMakerProps) {
+export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMakerProps) {
   const initialData = parseBeatData(beat.data);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
@@ -1594,6 +1603,7 @@ export function BeatMaker({ beat, songs, takes, songVocalTakes }: BeatMakerProps
           startBeat={startBeat}
           stopBeat={stopBeat}
           initialTakes={takes}
+          initialLayers={layers}
           songVocalTakes={songVocalTakes}
         />
       </div>

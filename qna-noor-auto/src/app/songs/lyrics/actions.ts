@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireMusicPack } from "@/lib/songs";
+import { ensureBeatVocalLayers } from "@/lib/beats";
 
 const BeginSongVocalTakeSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -132,7 +133,7 @@ export async function deleteSongVocalTake(id: string) {
   revalidatePath(`/songs/${take.songId}`);
 }
 
-export async function copySongTakeToBeat(takeId: string, beatId: string) {
+export async function copySongTakeToBeat(takeId: string, beatId: string, layerId?: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
     where: { id: takeId, orgId, uploadComplete: true },
@@ -143,6 +144,9 @@ export async function copySongTakeToBeat(takeId: string, beatId: string) {
     select: { id: true },
   });
   if (!take || !beat) throw new Error("Take or beat not found.");
+  const layers = await ensureBeatVocalLayers(orgId, beatId);
+  const layer = layerId ? layers.find((item) => item.id === layerId) : layers[0];
+  if (!layer) throw new Error("Layer not found");
   const count = await db.beatTake.count({ where: { beatId, orgId } });
   if (count >= 30) throw new Error("Up to 30 takes per beat.");
   const saved = await db.beatTake.create({
@@ -154,6 +158,7 @@ export async function copySongTakeToBeat(takeId: string, beatId: string) {
       audioMimeType: take.audioMimeType,
       durationSec: take.durationSec,
       offsetMs: 0,
+      layerId: layer.id,
       uploadComplete: true,
     },
   });
@@ -166,6 +171,7 @@ export async function copySongTakeToBeat(takeId: string, beatId: string) {
     offsetMs: saved.offsetMs,
     gain: saved.gain,
     muted: saved.muted,
+    layerId: saved.layerId,
     createdAt: saved.createdAt,
   };
 }

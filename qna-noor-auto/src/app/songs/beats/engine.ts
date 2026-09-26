@@ -35,6 +35,7 @@ export type BeatTakeAudio = {
   buffer: AudioBuffer;
   offsetMs: number;
   gain: number;
+  pan: number;
   muted: boolean;
 };
 
@@ -195,14 +196,18 @@ export class BeatEngine {
       if (bufferOffset >= take.buffer.duration) continue;
       const source = context.createBufferSource();
       const gain = context.createGain();
+      const panner = context.createStereoPanner();
       source.buffer = take.buffer;
       gain.gain.value = take.gain / 100;
+      panner.pan.value = take.pan / 100;
       source.connect(gain);
-      gain.connect(this.master);
+      gain.connect(panner);
+      panner.connect(this.master);
       source.onended = () => {
         this.takeSources = this.takeSources.filter((item) => item !== source);
         source.disconnect();
         gain.disconnect();
+        panner.disconnect();
       };
       source.start(start, bufferOffset);
       this.takeSources.push(source);
@@ -1034,10 +1039,13 @@ export class BeatEngine {
       if (bufferOffset >= take.buffer.duration) continue;
       const source = context.createBufferSource();
       const gain = context.createGain();
+      const panner = context.createStereoPanner();
       source.buffer = take.buffer;
       gain.gain.value = take.gain / 100;
+      panner.pan.value = take.pan / 100;
       source.connect(gain);
-      gain.connect(destination);
+      gain.connect(panner);
+      panner.connect(destination);
       source.start(Math.max(0, offset), bufferOffset);
     }
     const rendered = await context.startRendering();
