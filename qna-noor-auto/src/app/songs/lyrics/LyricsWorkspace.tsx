@@ -17,7 +17,7 @@ import {
   saveLyricDraft,
   renameSongVocalTake,
 } from "./actions";
-import { uploadInChunks } from "../uploadTake";
+import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
 import { countSyllables } from "@/lib/lyrics";
 
 const MAX_RECORDING_SECONDS = 900;
@@ -303,7 +303,9 @@ export function LyricsWorkspace({
       });
       const supported = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
       const mimeType = supported.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType, audioBitsPerSecond: TAKE_AUDIO_BITS_PER_SECOND })
+        : new MediaRecorder(stream, { audioBitsPerSecond: TAKE_AUDIO_BITS_PER_SECOND });
       chunksRef.current = [];
       streamRef.current = stream;
       recorderRef.current = recorder;
@@ -343,7 +345,7 @@ export function LyricsWorkspace({
             setUploadProgress(null);
           }
         } catch (caught) {
-          setError(caught instanceof Error ? caught.message : "Unable to save take.");
+          setError(saveTakeErrorMessage(caught));
         }
       };
       recorder.start(250);
