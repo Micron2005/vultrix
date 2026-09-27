@@ -733,7 +733,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   function removeTrack(trackId: string) {
     const track = data.tracks.find((item) => item.id === trackId);
     if (!track) return;
-    if (track.kind === "drums" && data.tracks.filter((item) => item.kind === "drums").length <= 1) {
+    if (isDrumKind(track.kind) && data.tracks.filter((item) => isDrumKind(item.kind)).length <= 1) {
       return;
     }
     if (!window.confirm(`Remove ${track.name}?`)) return;
@@ -1766,7 +1766,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                 )}
                 <button type="button" onClick={() => shiftTrack(track.id, -1)} disabled={trackIndex === 0} className="rounded bg-zinc-100 px-1.5 py-1 text-xs disabled:opacity-40" aria-label={`Move ${track.name} up`}>▲</button>
                 <button type="button" onClick={() => shiftTrack(track.id, 1)} disabled={trackIndex === data.tracks.length - 1} className="rounded bg-zinc-100 px-1.5 py-1 text-xs disabled:opacity-40" aria-label={`Move ${track.name} down`}>▼</button>
-                <button type="button" onClick={() => removeTrack(track.id)} disabled={track.kind === "drums" && data.tracks.filter((item) => item.kind === "drums").length <= 1} className="rounded px-2 py-1 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40">Remove</button>
+                <button type="button" onClick={() => removeTrack(track.id)} disabled={isDrumKind(track.kind) && data.tracks.filter((item) => isDrumKind(item.kind)).length <= 1} className="rounded px-2 py-1 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40">Remove</button>
                 {!isDrumKind(track.kind) && (
                   <>
                     <span className="text-[10px] text-zinc-500">Top {noteName(top)}</span>
