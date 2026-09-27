@@ -1,4 +1,5 @@
 import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
+import { floatToInt16, normalizePeak, trimTrailingSilence } from "./mixdown";
 import { overdriveCurve, stringBuffer } from "./strings";
 import { scheduleRealDrum } from "./realKit";
 import {
@@ -30,6 +31,12 @@ export type BeatDocument = {
 };
 
 export type BeatPlaybackMode = "pattern" | "song";
+
+export type PlayRange = {
+  from: number;
+  to: number;
+  loop: boolean;
+};
 
 export type BeatTakeAudio = {
   buffer: AudioBuffer;
@@ -103,6 +110,29 @@ function patternSequence(
   return selected ? [{ pattern: selected, mutedTracks: new Set() }] : [];
 }
 
+export function sequenceItemSeconds(document: BeatDocument, index: number) {
+  const sequence = patternSequence(
+    document.data,
+    "song",
+    document.data.patterns[0]?.id ?? "",
+  );
+  const item = sequence[index];
+  return item ? stepsFor(item.pattern) * (60 / document.bpm / 4) : 0;
+}
+
+export function sequenceOffsetSeconds(
+  document: BeatDocument,
+  mode: BeatPlaybackMode,
+  patternId: string,
+  index: number,
+) {
+  const sequence = patternSequence(document.data, mode, patternId);
+  const stepDuration = 60 / document.bpm / 4;
+  return sequence
+    .slice(0, Math.max(0, index))
+    .reduce((total, item) => total + stepsFor(item.pattern) * stepDuration, 0);
+}
+
 export class BeatEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -116,6 +146,8 @@ export class BeatEngine {
   private sequenceIndex = 0;
   private step = 0;
   private trackStep = 0;
+  private playRange: PlayRange | null = null;
+  private loopOriginTime: number | null = null;
   private mutedTracks = new Set<string>();
   private mutedVoices = new Set<BeatTrack>();
   private sampler = new Sampler();
@@ -130,14 +162,41 @@ export class BeatEngine {
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
     /** First argument is the index into the expanded playback sequence. */
     onStep?: (patternIndex: number, step: number) => void;
+    onLoop?: (originTime: number) => void;
+    onEnded?: () => void;
   } | null = null;
 
   get startTime() {
     return this.playStartTime;
   }
 
+  get originTime() {
+    if (this.playStartTime === null) return null;
+    if (this.loopOriginTime !== null) return this.loopOriginTime;
+    const playback = this.playback;
+    if (!playback || !this.playRange) return this.playStartTime;
+    return this.playStartTime
+      - sequenceOffsetSeconds(
+        playback.getDocument(),
+        playback.getPlayback().mode,
+        playback.getPlayback().patternId,
+        this.playRange.from,
+      );
+  }
+
   get currentTime() {
     return this.context?.currentTime ?? 0;
+  }
+
+  setRange(range: PlayRange | null) {
+    this.playRange = range;
+    if (!range || !this.playback) return;
+    const document = this.playback.getDocument();
+    const { mode, patternId } = this.playback.getPlayback();
+    this.sequenceIndex = range.from;
+    this.loopOriginTime = this.nextNoteTime
+      - sequenceOffsetSeconds(document, mode, patternId, range.from);
+    this.trackStep = 0;
   }
 
   get audioContext() {
@@ -154,6 +213,9 @@ export class BeatEngine {
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string },
     onStep?: (patternIndex: number, step: number) => void,
     onLoading?: (loading: boolean) => void,
+    range?: PlayRange,
+    onLoop?: (originTime: number) => void,
+    onEnded?: () => void,
   ) {
     this.stop();
     unlockMediaRoute();
@@ -163,14 +225,31 @@ export class BeatEngine {
     this.master.gain.value = 0.8;
     this.ensureRealtimeMaster(context);
     await ensureRunning(context);
-    this.playback = { getDocument, getPlayback, onStep };
+    this.playback = { getDocument, getPlayback, onStep, onLoop, onEnded };
     onLoading?.(true);
     try {
       await this.sampler.preload(context, sampledNotesIn(getDocument().data));
     } finally {
       onLoading?.(false);
     }
-    this.sequenceIndex = 0;
+    const sequence = patternSequence(
+      getDocument().data,
+      getPlayback().mode,
+      getPlayback().patternId,
+    );
+    const effectiveRange = getPlayback().mode === "song" && sequence.length && range
+      ? {
+          from: Math.max(0, Math.min(sequence.length - 1, range.from)),
+          to: Math.max(0, Math.min(sequence.length - 1, range.to)),
+          loop: range.loop,
+        }
+      : null;
+    if (effectiveRange && effectiveRange.to < effectiveRange.from) {
+      effectiveRange.to = effectiveRange.from;
+    }
+    this.playRange = effectiveRange;
+    this.loopOriginTime = null;
+    this.sequenceIndex = effectiveRange?.from ?? 0;
     this.step = 0;
     this.trackStep = 0;
     this.nextNoteTime = context.currentTime + 0.05;
@@ -184,6 +263,8 @@ export class BeatEngine {
     this.timer = null;
     this.playback = null;
     this.playStartTime = null;
+    this.playRange = null;
+    this.loopOriginTime = null;
     this.stopTakes();
   }
 
@@ -320,6 +401,25 @@ export class BeatEngine {
           pattern,
           patterns[this.sequenceIndex % patterns.length]?.pattern,
         );
+        if (this.playRange && this.sequenceIndex > this.playRange.to) {
+          if (this.playRange.loop) {
+            this.sequenceIndex = this.playRange.from;
+            this.loopOriginTime = this.nextNoteTime
+              - sequenceOffsetSeconds(
+                document,
+                mode,
+                patternId,
+                this.playRange.from,
+              );
+            this.trackStep = 0;
+            playback.onLoop?.(this.loopOriginTime);
+          } else {
+            const onEnded = playback.onEnded;
+            this.stop();
+            onEnded?.();
+            return;
+          }
+        }
       }
     }
   }
@@ -1036,7 +1136,7 @@ export class BeatEngine {
     return { sources, nodes };
   }
 
-  async renderWav(
+  async renderBuffer(
     beat: BeatDocument,
     patternId?: string,
     takes?: BeatTakeAudio[],
@@ -1129,8 +1229,53 @@ export class BeatEngine {
       if (bufferOffset >= take.buffer.duration) continue;
       this.buildTakeGraph(context, take, destination, Math.max(0, offset), bufferOffset);
     }
-    const rendered = await context.startRendering();
-    return this.encodeWav(rendered);
+    return context.startRendering();
+  }
+
+  async renderWav(
+    beat: BeatDocument,
+    patternId?: string,
+    takes?: BeatTakeAudio[],
+  ) {
+    return this.encodeWav(await this.renderBuffer(beat, patternId, takes));
+  }
+
+  async renderMp3(
+    beat: BeatDocument,
+    patternId?: string,
+    takes?: BeatTakeAudio[],
+    onProgress?: (fraction: number) => void,
+  ) {
+    const { Mp3Encoder } = await import("@breezystack/lamejs");
+    const buffer = await this.renderBuffer(beat, patternId, takes);
+    normalizePeak(buffer, 0.891);
+    const frameCount = trimTrailingSilence(buffer);
+    const encoder = new Mp3Encoder(2, 44100, 128);
+    const left = buffer.getChannelData(0);
+    const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+    const parts: BlobPart[] = [];
+    const addPart = (part: Uint8Array) => {
+      const copy = new ArrayBuffer(part.byteLength);
+      new Uint8Array(copy).set(part);
+      parts.push(copy);
+    };
+    const blockSize = 1152;
+    const totalBlocks = Math.ceil(frameCount / blockSize);
+    for (let block = 0; block < totalBlocks; block += 1) {
+      const start = block * blockSize;
+      const end = Math.min(frameCount, start + blockSize);
+      const encoded = encoder.encodeBuffer(
+        floatToInt16(left, start, end),
+        floatToInt16(right, start, end),
+      );
+      if (encoded.length) addPart(encoded);
+      if (block % 50 === 0 || block === totalBlocks - 1) {
+        onProgress?.(totalBlocks ? (block + 1) / totalBlocks : 1);
+      }
+    }
+    const flushed = encoder.flush();
+    if (flushed.length) addPart(flushed);
+    return new Blob(parts, { type: "audio/mpeg" });
   }
 
   private encodeWav(buffer: AudioBuffer) {

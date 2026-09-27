@@ -5,6 +5,7 @@ import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { logPractice } from "./actions";
 import { BpmInput } from "../BpmInput";
 import { ensureRunning, unlockMediaRoute } from "../audioUnlock";
+import { scheduleMetronomeClick } from "./metronomeClick";
 
 type SongOption = {
   id: string;
@@ -89,19 +90,7 @@ export function Metronome({
       Math.max(0, (time - context.currentTime) * 1000),
     );
     if (mutedRef.current) return;
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.frequency.value = beat === 0 ? 1000 : 800;
-    gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(
-      Math.max(0.0001, volumeRef.current * 0.15),
-      time + 0.005,
-    );
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(time);
-    oscillator.stop(time + 0.035);
+    scheduleMetronomeClick(context, time, beat === 0, volumeRef.current * 0.15);
   }
 
   function schedule() {

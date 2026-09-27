@@ -29,14 +29,14 @@ const BeginBeatTakeSchema = z.object({
   name: z.string().trim().min(1).max(60),
   audioMimeType: z.string().max(60),
   durationSec: z.number().int().min(1).max(900),
-  offsetMs: z.number().int().min(-2000).max(2000),
+  offsetMs: z.number().int().min(-2000).max(3_600_000),
   layerId: z.string().optional(),
 });
 
 const UploadChunkSchema = z.string().min(1).max(3_000_000);
 const BeatTakePatchSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
-  offsetMs: z.number().int().min(-2000).max(2000).optional(),
+  offsetMs: z.number().int().min(-2000).max(3_600_000).optional(),
   gain: z.number().int().min(0).max(150).optional(),
   muted: z.boolean().optional(),
   layerId: z.string().optional(),
