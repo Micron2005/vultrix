@@ -149,6 +149,7 @@ export async function createBeat(formData: FormData) {
       orgId,
       songId,
       title: parsed.title,
+      kit: "Drums",
       data: JSON.stringify(DEFAULT_BEAT_DATA),
     },
   });

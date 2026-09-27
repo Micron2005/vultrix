@@ -1,4 +1,5 @@
 import {
+  isDrumKind,
   type BeatData,
   type MelodicInstrument,
 } from "./kits";
@@ -145,7 +146,7 @@ export function sampledNotesIn(data: BeatData) {
   const notes = new Map<string, { instrument: SampledInstrument; note: number }>();
   for (const pattern of data.patterns) {
     for (const track of data.tracks) {
-      if (track.kind === "drums" || !isSampled(track.kind)) continue;
+      if (isDrumKind(track.kind) || !isSampled(track.kind)) continue;
       for (const note of pattern.notes[track.id] ?? []) {
         const key = `${track.kind}:${note.note}`;
         if (!notes.has(key)) notes.set(key, { instrument: track.kind, note: note.note });

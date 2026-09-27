@@ -14,6 +14,8 @@ export const BEAT_TRACKS = [
 export const DRUM_VOICES = BEAT_TRACKS;
 export type BeatTrack = (typeof BEAT_TRACKS)[number];
 export type BeatKit = "Drums" | "808" | "Acoustic" | "Lo-fi";
+export const MACHINE_KITS = ["808", "Acoustic", "Lo-fi"] as const;
+export type MachineKit = (typeof MACHINE_KITS)[number];
 export const MELODIC_INSTRUMENTS = [
   "bass",
   "piano",
@@ -25,7 +27,7 @@ export const MELODIC_INSTRUMENTS = [
   "pluck",
 ] as const;
 export type MelodicInstrument = (typeof MELODIC_INSTRUMENTS)[number];
-export type TrackKind = "drums" | MelodicInstrument;
+export type TrackKind = "drums" | "machine" | MelodicInstrument;
 export type BeatScale =
   | "major"
   | "minor"
@@ -48,6 +50,7 @@ export const MELODIC_LABELS: Record<MelodicInstrument, string> = {
 
 export const TRACK_KIND_COLORS: Record<TrackKind, string> = {
   drums: "bg-violet-500",
+  machine: "bg-rose-500",
   bass: "bg-cyan-500",
   piano: "bg-amber-500",
   eguitar: "bg-emerald-500",
@@ -79,8 +82,9 @@ const noteSchema = z.object({
 });
 const trackSchema = z.object({
   id: z.string().min(1).max(32),
-  kind: z.enum(["drums", ...MELODIC_INSTRUMENTS]),
+  kind: z.enum(["drums", "machine", ...MELODIC_INSTRUMENTS]),
   name: z.string().min(1).max(40),
+  kit: z.enum(MACHINE_KITS).default("808"),
   volume: z.number().min(0).max(1.5).default(1),
   pan: z.number().min(-1).max(1).default(0),
   reverb: z.number().min(0).max(1).default(0),
@@ -170,6 +174,10 @@ export type BeatNote = BeatPattern["notes"][string][number];
 export type BeatTrackInstance = BeatData["tracks"][number];
 export type BeatSection = z.infer<typeof sectionSchema>;
 
+export function isDrumKind(kind: TrackKind): kind is "drums" | "machine" {
+  return kind === "drums" || kind === "machine";
+}
+
 export function stepsFor(pattern: BeatPattern) {
   return pattern.bars * 16;
 }
@@ -190,7 +198,7 @@ export function emptyPattern(
     bars,
     drums: Object.fromEntries(
       tracks
-        .filter((track) => track.kind === "drums")
+        .filter((track) => isDrumKind(track.kind))
         .map((track) => [
           track.id,
           Object.fromEntries(
@@ -200,7 +208,7 @@ export function emptyPattern(
     ),
     notes: Object.fromEntries(
       tracks
-        .filter((track) => track.kind !== "drums")
+        .filter((track) => !isDrumKind(track.kind))
         .map((track) => [track.id, []]),
     ),
   };
@@ -215,14 +223,15 @@ export function migrateBeatData(data: BeatDataV1 | BeatData): BeatData {
       id: kind,
       kind,
       name: MELODIC_LABELS[kind],
+      kit: "808" as const,
       volume: 1,
       pan: 0,
       reverb: 0,
       speed: 1,
     }));
   const tracks: BeatData["tracks"] = [
-    { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0, speed: 1 },
-    { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0, speed: 1 },
+    { id: "drums", kind: "drums", name: "Drums", kit: "808", volume: 1, pan: 0, reverb: 0, speed: 1 },
+    { id: "bass", kind: "bass", name: "Bass", kit: "808", volume: 1, pan: 0, reverb: 0, speed: 1 },
     ...melodicTracks,
   ];
   return {
@@ -267,6 +276,18 @@ export function normalizeBeatData(data: BeatData): BeatData {
   return { ...data, sections, chain: [] };
 }
 
+export function applyLegacyKit(data: BeatData, kit: string): BeatData {
+  if (!MACHINE_KITS.includes(kit as MachineKit)) return data;
+  return {
+    ...data,
+    tracks: data.tracks.map((track) =>
+      track.kind === "drums"
+        ? { ...track, kind: "machine", kit: kit as MachineKit }
+        : track,
+    ),
+  };
+}
+
 export function sectionSequence(data: BeatData) {
   const byId = new Map(data.patterns.map((pattern) => [pattern.id, pattern]));
   return data.sections.flatMap((section, sectionIndex) => {
@@ -299,8 +320,8 @@ export function safeParseBeatData(raw: string): BeatData {
 }
 
 const defaultTracks: BeatData["tracks"] = [
-  { id: "drums", kind: "drums", name: "Drums", volume: 1, pan: 0, reverb: 0, speed: 1 },
-  { id: "bass", kind: "bass", name: "Bass", volume: 1, pan: 0, reverb: 0, speed: 1 },
+  { id: "drums", kind: "drums", name: "Drums", kit: "808", volume: 1, pan: 0, reverb: 0, speed: 1 },
+  { id: "bass", kind: "bass", name: "Bass", kit: "808", volume: 1, pan: 0, reverb: 0, speed: 1 },
 ];
 const defaultPattern = emptyPattern(defaultTracks, "A");
 defaultPattern.drums.drums.kick[0] = 1;

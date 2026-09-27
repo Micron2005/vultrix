@@ -36,8 +36,10 @@ import {
 } from "./theory";
 import {
   BEAT_TRACKS,
+  applyLegacyKit,
   emptyPattern,
-  KITS,
+  isDrumKind,
+  MACHINE_KITS,
   MELODIC_INSTRUMENTS,
   MELODIC_LABELS,
   noteName,
@@ -45,11 +47,12 @@ import {
   sectionSequence,
   stepsFor,
   type BeatData,
-  type BeatKit,
   type BeatPattern,
   type BeatScale,
   type BeatTrack,
   type BeatTrackInstance,
+  type MachineKit,
+  type TrackKind,
   type MelodicInstrument,
   safeParseBeatData,
 } from "./kits";
@@ -118,18 +121,67 @@ function defaultTop(kind: MelodicInstrument) {
 }
 
 function trackKindLabel(track: BeatTrackInstance) {
-  return track.kind === "drums" ? "Drums" : MELODIC_LABELS[track.kind];
+  if (track.kind === "drums") return "Drums";
+  if (track.kind === "machine") return "Drum machine";
+  return MELODIC_LABELS[track.kind];
+}
+
+type MachinePadsProps = {
+  kit: MachineKit;
+  onPad: (voice: BeatTrack) => void;
+  recording: boolean;
+  onRecordingChange: (recording: boolean) => void;
+};
+
+function MachinePads({ kit, onPad, recording, onRecordingChange }: MachinePadsProps) {
+  const [activeVoice, setActiveVoice] = useState<BeatTrack | null>(null);
+
+  function press(voice: BeatTrack) {
+    setActiveVoice(voice);
+    window.setTimeout(() => setActiveVoice((current) => (current === voice ? null : current)), 120);
+    onPad(voice);
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-rose-800">Pads · {kit}</span>
+        <button
+          type="button"
+          onClick={() => onRecordingChange(!recording)}
+          className={`rounded px-2 py-1 text-[10px] font-medium ${recording ? "bg-red-600 text-white" : "bg-white text-zinc-600"}`}
+        >
+          {recording ? "● Record pads" : "Record pads"}
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {BEAT_TRACKS.map((voice) => (
+          <button
+            key={voice}
+            type="button"
+            onClick={() => press(voice)}
+            aria-label={voice}
+            className={`flex min-h-[4.5rem] flex-col items-center justify-center rounded-lg border text-xs font-semibold capitalize transition ${
+              activeVoice === voice
+                ? "border-rose-600 bg-rose-500 text-white"
+                : "border-rose-200 bg-white text-rose-900 hover:bg-rose-100 active:bg-rose-500 active:text-white"
+            }`}
+          >
+            {voice}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMakerProps) {
-  const initialData = parseBeatData(beat.data);
+  const initialData = applyLegacyKit(parseBeatData(beat.data), beat.kit);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
   const [bpm] = useState(beat.bpm);
   const [swing, setSwing] = useState(beat.swing);
-  const [kit, setKit] = useState<BeatKit>(
-    KITS.includes(beat.kit as BeatKit) ? (beat.kit as BeatKit) : "808",
-  );
+  const kit = "Drums";
   const [shareToken, setShareToken] = useState(beat.shareToken);
   const [shareCopied, setShareCopied] = useState(false);
   const shareUrl = shareToken
@@ -158,10 +210,12 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     () =>
       new Set(
         initialData.tracks
-          .filter((track) => track.kind === "drums" || track.kind === "bass")
+          .filter((track) => isDrumKind(track.kind) || track.kind === "bass")
           .map((track) => track.id),
       ),
   );
+  const [openPads, setOpenPads] = useState<Set<string>>(() => new Set());
+  const [recordPads, setRecordPads] = useState<Set<string>>(() => new Set());
   const [mutedTracks, setMutedTracks] = useState<Set<string>>(() => new Set());
   const [mutedVoices, setMutedVoices] = useState<Set<BeatTrack>>(() => new Set());
   const [velocityModes, setVelocityModes] = useState<Set<string>>(() => new Set());
@@ -172,18 +226,18 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   const [topNotes, setTopNotes] = useState<Record<string, number>>(() =>
     Object.fromEntries(
       initialData.tracks
-        .filter((track): track is BeatTrackInstance & { kind: MelodicInstrument } => track.kind !== "drums")
+        .filter((track): track is BeatTrackInstance & { kind: MelodicInstrument } => !isDrumKind(track.kind))
         .map((track) => [track.id, defaultTop(track.kind)]),
     ),
   );
-  const [newTrackKind, setNewTrackKind] = useState<MelodicInstrument>("piano");
+  const [newTrackKind, setNewTrackKind] = useState<TrackKind>("piano");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [progressionId, setProgressionId] = useState("major-pop");
   const [customDegrees, setCustomDegrees] = useState([0, 4, 5, 3]);
   const [voicing, setVoicing] = useState<Voicing>("triads");
   const [rhythm, setRhythm] = useState<Rhythm>("bar");
   const [chordTrackId, setChordTrackId] = useState(
-    initialData.tracks.find((track) => !["drums", "bass", "lead"].includes(track.kind))?.id ?? "",
+    initialData.tracks.find((track) => !isDrumKind(track.kind) && !["bass", "lead"].includes(track.kind))?.id ?? "",
   );
   const [melodyTrackId, setMelodyTrackId] = useState(
     initialData.tracks.find((track) => ["lead", "pluck", "piano", "eguitar", "aguitar", "strings"].includes(track.kind))?.id ?? "",
@@ -282,7 +336,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     ? customDegrees
     : selectedProgression?.degrees ?? progressionOptions[0]?.degrees ?? [0, 4, 5, 3];
   const chordTargets = data.tracks.filter(
-    (track) => track.kind !== "drums" && track.kind !== "bass" && track.kind !== "lead",
+    (track) => !isDrumKind(track.kind) && track.kind !== "bass" && track.kind !== "lead",
   );
   const melodyTargets = data.tracks.filter((track) =>
     ["lead", "pluck", "piano", "eguitar", "aguitar", "strings"].includes(track.kind),
@@ -571,6 +625,48 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     engine?.setVoiceMuted(voice, !muted);
   }
 
+  function togglePads(trackId: string) {
+    setOpenPads((current) => {
+      const next = new Set(current);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  }
+
+  function setPadsRecording(trackId: string, recording: boolean) {
+    setRecordPads((current) => {
+      const next = new Set(current);
+      if (recording) next.add(trackId);
+      else next.delete(trackId);
+      return next;
+    });
+  }
+
+  function handleMachinePad(track: BeatTrackInstance, voice: BeatTrack) {
+    const previewKit = track.kind === "drums" ? "Drums" : track.kit;
+    void engine.preview(currentDocument, voice, false, previewKit);
+    if (!playing || !recordPads.has(track.id) || activeStep < 0) return;
+    const patternId = mode === "song" && activeSequenceIndex >= 0
+      ? arrangementSequence[activeSequenceIndex]?.pattern.id
+      : selectedPattern?.id;
+    if (!patternId) return;
+    updatePattern(patternId, (pattern) => {
+      const steps = [...(pattern.drums[track.id]?.[voice] ?? Array(stepsFor(pattern)).fill(0))];
+      steps[activeStep] = 1;
+      return {
+        ...pattern,
+        drums: {
+          ...pattern.drums,
+          [track.id]: {
+            ...pattern.drums[track.id],
+            [voice]: steps,
+          },
+        },
+      };
+    });
+  }
+
   function updateTrack(trackId: string, updater: (track: BeatTrackInstance) => BeatTrackInstance) {
     updateData((current) => ({
       ...current,
@@ -595,36 +691,49 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     });
   }
 
-  function addTrack(kind = newTrackKind) {
+  function addTrack(kind: TrackKind = newTrackKind) {
     if (data.tracks.length >= 16) return;
-    const label = MELODIC_LABELS[kind];
+    const label = kind === "machine" ? "Drum machine" : kind === "drums" ? "Drums" : MELODIC_LABELS[kind];
     const count = data.tracks.filter((track) => track.kind === kind).length;
     const track = {
       id: trackId(),
       kind,
       name: count === 0 ? label : `${label} ${count + 1}`,
+      kit: "808",
       volume: 1,
       pan: 0,
       reverb: 0,
       speed: 1,
-    } as const;
+    } as BeatTrackInstance;
     updateData((current) => ({
       ...current,
       tracks: [...current.tracks, track],
       patterns: current.patterns.map((pattern) => ({
         ...pattern,
-        notes: { ...pattern.notes, [track.id]: [] },
+        drums: isDrumKind(kind)
+          ? {
+              ...pattern.drums,
+              [track.id]: Object.fromEntries(
+                BEAT_TRACKS.map((voice) => [voice, Array(stepsFor(pattern)).fill(0)]),
+              ) as BeatPattern["drums"][string],
+            }
+          : pattern.drums,
+        notes: isDrumKind(kind)
+          ? pattern.notes
+          : { ...pattern.notes, [track.id]: [] },
       })),
     }));
     setOpenTracks((current) => new Set(current).add(track.id));
-    setTopNotes((current) => ({ ...current, [track.id]: defaultTop(kind) }));
+    if (!isDrumKind(kind)) {
+      setTopNotes((current) => ({ ...current, [track.id]: defaultTop(kind) }));
+    }
     return track.id;
   }
 
   function removeTrack(trackId: string) {
     const track = data.tracks.find((item) => item.id === trackId);
     if (!track) return;
-    if (track.kind === "drums" && data.tracks.filter((item) => item.kind === "drums").length <= 1) {
+    if (isDrumKind(track.kind) && data.tracks.filter((item) => isDrumKind(item.kind)).length <= 1) {
       return;
     }
     if (!window.confirm(`Remove ${track.name}?`)) return;
@@ -995,19 +1104,6 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
               />
               <span className="w-10 tabular-nums">{swing}%</span>
             </label>
-            <label className="flex items-center gap-2 text-xs text-zinc-600">
-              Kit
-              <Select
-                value={kit}
-                onChange={(event) => {
-                  setKit(event.target.value as BeatKit);
-                  markDirty();
-                }}
-                className="w-28"
-              >
-                {KITS.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-            </label>
           </div>
           <div className="hidden items-center gap-1 rounded-lg bg-zinc-50 p-2 sm:flex">
             <Button type="button" size="sm" onClick={() => void togglePlayback()} disabled={loading}>
@@ -1275,7 +1371,9 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
         )}
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4">
           <span className="text-xs font-medium text-zinc-600">Add track</span>
-          <Select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as MelodicInstrument)} className="w-44 text-xs">
+          <Select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as TrackKind)} className="w-44 text-xs">
+            <option value="drums">Drums</option>
+            <option value="machine">Drum machine</option>
             {MELODIC_INSTRUMENTS.map((kind) => <option key={kind} value={kind}>{MELODIC_LABELS[kind]}</option>)}
           </Select>
           <Button type="button" size="sm" variant="secondary" onClick={() => { addTrack(); }} disabled={data.tracks.length >= 16}>+ Add track</Button>
@@ -1546,13 +1644,13 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
       {trackView === "grid" && selectedPattern && data.tracks.map((track, trackIndex) => {
         const isOpen = isPhone ? focusTrackId === track.id && openTracks.has(track.id) : openTracks.has(track.id);
         const stepCount = stepsFor(selectedPattern);
-        const hitCount = track.kind === "drums"
+        const hitCount = isDrumKind(track.kind)
           ? Object.values(selectedPattern.drums[track.id] ?? {}).reduce(
               (count, steps) => count + steps.filter((value) => value > 0).length,
               0,
             )
           : (selectedPattern.notes[track.id] ?? []).length;
-        const top = track.kind === "drums" ? 0 : topNotes[track.id] ?? defaultTop(track.kind);
+        const top = isDrumKind(track.kind) ? 0 : topNotes[track.id] ?? defaultTop(track.kind);
         return (
           <Card key={track.id} className="overflow-hidden p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1589,7 +1687,26 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                   </button>
                 )}
                 <span className="text-xs text-zinc-500">{trackKindLabel(track)}</span>
-                <span className="text-xs text-zinc-500">{hitCount} {track.kind === "drums" ? "hits" : "notes"}</span>
+                <span className="text-xs text-zinc-500">{hitCount} {isDrumKind(track.kind) ? "hits" : "notes"}</span>
+                {track.kind === "machine" && (
+                  <>
+                    <Select
+                      value={track.kit}
+                      onChange={(event) => updateTrack(track.id, (current) => ({ ...current, kit: event.target.value as MachineKit }))}
+                      className="h-7 w-24 text-[10px]"
+                      aria-label={`${track.name} kit`}
+                    >
+                      {MACHINE_KITS.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => togglePads(track.id)}
+                      className={`rounded px-2 py-1 text-[10px] ${openPads.has(track.id) ? "bg-rose-500 text-white" : "bg-zinc-100 text-zinc-500"}`}
+                    >
+                      Pads
+                    </button>
+                  </>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={() => toggleTrackMute(track.id)} className={`rounded px-2 py-1 text-[10px] ${mutedTracks.has(track.id) ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>
@@ -1631,7 +1748,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                     </button>
                   )}
                 </label>
-                {track.kind !== "drums" && (
+                {!isDrumKind(track.kind) && (
                   <>
                     <button type="button" onClick={() => setVelocityModes((current) => {
                       const next = new Set(current);
@@ -1649,8 +1766,8 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                 )}
                 <button type="button" onClick={() => shiftTrack(track.id, -1)} disabled={trackIndex === 0} className="rounded bg-zinc-100 px-1.5 py-1 text-xs disabled:opacity-40" aria-label={`Move ${track.name} up`}>▲</button>
                 <button type="button" onClick={() => shiftTrack(track.id, 1)} disabled={trackIndex === data.tracks.length - 1} className="rounded bg-zinc-100 px-1.5 py-1 text-xs disabled:opacity-40" aria-label={`Move ${track.name} down`}>▼</button>
-                <button type="button" onClick={() => removeTrack(track.id)} disabled={track.kind === "drums" && data.tracks.filter((item) => item.kind === "drums").length <= 1} className="rounded px-2 py-1 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40">Remove</button>
-                {track.kind !== "drums" && (
+                <button type="button" onClick={() => removeTrack(track.id)} disabled={isDrumKind(track.kind) && data.tracks.filter((item) => isDrumKind(item.kind)).length <= 1} className="rounded px-2 py-1 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40">Remove</button>
+                {!isDrumKind(track.kind) && (
                   <>
                     <span className="text-[10px] text-zinc-500">Top {noteName(top)}</span>
                     <button type="button" onClick={() => shiftTopNote(track.id, -12)} className="rounded bg-zinc-100 px-1.5 py-1 text-xs" aria-label={`Lower ${track.name} octave`}>−</button>
@@ -1662,24 +1779,32 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
             </div>
             {isOpen && (
               <div className="mt-4 overflow-x-auto">
+                {track.kind === "machine" && openPads.has(track.id) && (
+                  <MachinePads
+                    kit={track.kit}
+                    recording={recordPads.has(track.id)}
+                    onRecordingChange={(recording) => setPadsRecording(track.id, recording)}
+                    onPad={(voice) => handleMachinePad(track, voice)}
+                  />
+                )}
                 <div style={{ minWidth: `${stepCount * 2.75 + 8}rem` }} className="space-y-1">
-                  <div className={`grid gap-1 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
+                  <div className={`grid gap-1 ${isDrumKind(track.kind) ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
                     <span className="text-right text-[10px] text-zinc-400">Bars</span>
                     <div className="grid grid-cols-[repeat(var(--bars),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--bars),minmax(2.2rem,1fr))]" style={{ "--bars": selectedPattern.bars } as CSSProperties}>
                       {Array.from({ length: selectedPattern.bars }, (_, bar) => <span key={bar} className="text-center text-[10px] text-zinc-400">{bar + 1}</span>)}
                     </div>
                   </div>
-                  <div className={`grid gap-1 pb-2 ${track.kind === "drums" ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
+                  <div className={`grid gap-1 pb-2 ${isDrumKind(track.kind) ? "grid-cols-[8rem_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[8rem_repeat(1,minmax(2.2rem,1fr))]" : "grid-cols-[minmax(3rem,4.5rem)_repeat(1,minmax(2.25rem,1fr))] sm:grid-cols-[4.5rem_repeat(1,minmax(2.2rem,1fr))]"}`}>
                     <span />
                     <div className="grid grid-cols-[repeat(var(--steps),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))]" style={{ "--steps": stepCount } as CSSProperties}>
                       {Array.from({ length: stepCount }, (_, step) => <span key={step} className={`text-center text-[10px] text-zinc-400 ${step % 4 === 0 ? "border-l border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""}`}>{step + 1}</span>)}
                     </div>
                   </div>
-                  {track.kind === "drums" ? (
+                  {isDrumKind(track.kind) ? (
                     BEAT_TRACKS.map((voice) => (
                       <div key={voice} className="grid grid-cols-[8rem_1fr] gap-1 py-1">
                         <div className="sticky left-0 z-10 flex min-w-12 items-center gap-1 bg-white pr-2">
-                          <button type="button" onClick={() => void engine.preview(currentDocument, voice)} className="min-w-12 flex-1 truncate text-left text-xs font-medium capitalize text-zinc-700 hover:text-zinc-950">{voice}</button>
+                          <button type="button" onClick={() => void engine.preview(currentDocument, voice, false, track.kind === "drums" ? "Drums" : track.kit)} className="min-w-12 flex-1 truncate text-left text-xs font-medium capitalize text-zinc-700 hover:text-zinc-950">{voice}</button>
                           <button type="button" onClick={() => toggleVoiceMute(voice)} className={`rounded px-1.5 py-1 text-[10px] ${mutedVoices.has(voice) ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>{mutedVoices.has(voice) ? "M" : "mute"}</button>
                         </div>
                         <div className="grid grid-cols-[repeat(var(--steps),minmax(2.25rem,1fr))] gap-1 sm:grid-cols-[repeat(var(--steps),minmax(2.2rem,1fr))]" style={{ "--steps": stepCount } as CSSProperties}>

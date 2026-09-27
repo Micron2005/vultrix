@@ -5,7 +5,12 @@ import { VultrixMark } from "@/components/VultrixMark";
 import { APP_NAME } from "@/lib/branding";
 import { db } from "@/lib/db";
 import { BeatPlayer } from "@/app/songs/beats/BeatPlayer";
-import { BeatDataSchema, KITS, type BeatKit } from "@/app/songs/beats/kits";
+import {
+  applyLegacyKit,
+  KITS,
+  safeParseBeatData,
+  type BeatKit,
+} from "@/app/songs/beats/kits";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +41,7 @@ export default async function SharedBeatPage({ params }: { params: Params }) {
   const beat = await getSharedBeat(token);
   if (!beat) notFound();
 
-  const data = BeatDataSchema.parse(JSON.parse(beat.data));
+  const data = applyLegacyKit(safeParseBeatData(beat.data), beat.kit);
   const kit = KITS.includes(beat.kit as BeatKit)
     ? (beat.kit as BeatKit)
     : "808";
@@ -61,7 +66,7 @@ export default async function SharedBeatPage({ params }: { params: Params }) {
             by {beat.organization.name}
           </p>
           <p className="mt-4 text-xs text-zinc-500">
-            {beat.bpm} BPM · {kit} kit · {data.patterns.length} patterns ·{" "}
+            {beat.bpm} BPM · {data.patterns.length} patterns ·{" "}
             {data.sections.length} sections
           </p>
           <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl sm:p-6">
