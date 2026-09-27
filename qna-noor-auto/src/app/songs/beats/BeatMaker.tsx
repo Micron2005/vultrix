@@ -1372,6 +1372,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4">
           <span className="text-xs font-medium text-zinc-600">Add track</span>
           <Select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as TrackKind)} className="w-44 text-xs">
+            <option value="drums">Drums</option>
             <option value="machine">Drum machine</option>
             {MELODIC_INSTRUMENTS.map((kind) => <option key={kind} value={kind}>{MELODIC_LABELS[kind]}</option>)}
           </Select>
