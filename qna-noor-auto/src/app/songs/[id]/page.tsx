@@ -8,7 +8,12 @@ import { DeleteSongButton } from "../DeleteSongButton";
 import { SongsTabs } from "../SongsTabs";
 import { IdeaBody } from "../ideas/IdeaBody";
 import { LyricFollowAlong } from "../LyricFollowAlong";
-import { addSongTask, deleteSong, moveSong, removeSongTask, toggleSongTask, updateSong } from "../actions";
+import { addSongTask, deleteSong, moveSong, removeSongTask, setSongBestTake, toggleSongTask, updateSong } from "../actions";
+import { StarRating } from "../StarRating";
+
+function formatTakeDuration(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
 export default async function SongDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,10 +32,27 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
         description={[SONG_STAGES.find((stage) => stage.id === song.stage)?.label, song.musicalKey, song.bpm ? `${song.bpm} BPM` : null].filter(Boolean).join(" · ")}
         actions={<LinkButton href="/songs" variant="secondary">Back to songs</LinkButton>}
       />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-zinc-500">
+          <span className="font-medium text-zinc-700">Stage</span>
+          <span className="rounded-full bg-zinc-100 px-2 py-1">
+            {SONG_STAGES.find((stage) => stage.id === song.stage)?.label ?? song.stage}
+          </span>
+        </div>
+        <StarRating songId={song.id} rating={song.rating} />
+      </div>
       <SongsTabs active="board" />
       <SongForm action={updateSong.bind(null, song.id)} song={song} />
       <Card className="mt-6 max-w-2xl p-5">
-        <h2 className="text-sm font-semibold text-zinc-900">Lyrics</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900">Lyrics</h2>
+          <Link
+            href={`/songs/lyrics?song=${song.id}`}
+            className="text-xs font-medium text-zinc-700 underline"
+          >
+            Edit in Lyrics →
+          </Link>
+        </div>
         {song.lyrics?.trim() ? (
           <LyricFollowAlong
             songId={song.id}
@@ -40,6 +62,71 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
         ) : (
           <p className="mt-3 text-sm text-zinc-500">No lyrics yet.</p>
         )}
+      </Card>
+      <Card className="mt-6 max-w-2xl p-5">
+        <h2 className="text-sm font-semibold text-zinc-900">Takes</h2>
+        {(() => {
+          const takes = [
+            ...song.vocalTakes.map((take) => ({
+              id: take.id,
+              kind: "song" as const,
+              name: take.name,
+              source: "Lyrics",
+              durationSec: take.durationSec,
+            })),
+            ...song.beats.flatMap((beat) =>
+              beat.takes.map((take) => ({
+                id: take.id,
+                kind: "beat" as const,
+                name: take.name,
+                source: `${beat.title}${take.layer?.name ? ` · ${take.layer.name}` : ""}`,
+                durationSec: take.durationSec,
+              })),
+            ),
+          ].sort((left, right) => {
+            const leftBest = song.bestTakeKind === left.kind && song.bestTakeId === left.id;
+            const rightBest = song.bestTakeKind === right.kind && song.bestTakeId === right.id;
+            return Number(rightBest) - Number(leftBest);
+          });
+          return takes.length ? (
+            <div className="mt-4 space-y-2">
+              {takes.map((take) => {
+                const isBest = song.bestTakeKind === take.kind && song.bestTakeId === take.id;
+                return (
+                  <div
+                    key={`${take.kind}-${take.id}`}
+                    className={`rounded-lg border p-3 ${isBest ? "border-amber-400 bg-amber-50/50" : "border-zinc-200"}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-medium text-zinc-900">{take.name}</p>
+                          {isBest && <span className="text-[11px] font-medium text-amber-700">Best take</span>}
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500">{take.source} · {formatTakeDuration(take.durationSec)}</p>
+                      </div>
+                      <form action={setSongBestTake.bind(null, song.id, isBest ? null : { kind: take.kind, id: take.id })}>
+                        <button type="submit" className={`text-xs font-medium ${isBest ? "text-amber-700" : "text-zinc-500 hover:text-amber-600"}`}>
+                          {isBest ? "★ Best" : "☆ Best"}
+                        </button>
+                      </form>
+                    </div>
+                    <audio
+                      controls
+                      preload="none"
+                      src={`/songs/audio/${take.kind}/${take.id}`}
+                      className="mt-2 h-8 w-full"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">
+              No takes yet — record one in Lyrics → Sing it or on a beat.
+            </p>
+          );
+        })()}
       </Card>
       <Card className="mt-6 max-w-2xl p-5">
         <h2 className="mb-3 text-sm font-semibold text-zinc-900">Stage</h2>

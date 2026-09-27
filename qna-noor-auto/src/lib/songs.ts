@@ -33,7 +33,10 @@ export async function listSongs(orgId: string) {
   return db.song.findMany({
     where: { orgId },
     orderBy: [{ updatedAt: "desc" }, { sortOrder: "asc" }],
-    include: { tasks: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      tasks: { orderBy: { sortOrder: "asc" } },
+      _count: { select: { beats: true } },
+    },
   });
 }
 
@@ -51,7 +54,27 @@ export async function getSong(orgId: string, id: string) {
     include: {
       tasks: { orderBy: { sortOrder: "asc" } },
       ideas: { orderBy: { createdAt: "desc" } },
-      beats: { orderBy: { updatedAt: "desc" } },
+      vocalTakes: {
+        where: { uploadComplete: true },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          name: true,
+          durationSec: true,
+        },
+      },
+      beats: {
+        orderBy: { updatedAt: "desc" },
+        include: {
+          takes: {
+            where: { uploadComplete: true },
+            orderBy: { createdAt: "asc" },
+            include: {
+              layer: { select: { name: true } },
+            },
+          },
+        },
+      },
     },
   });
 }
