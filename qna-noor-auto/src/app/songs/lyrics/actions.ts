@@ -172,6 +172,8 @@ export async function copySongTakeToBeat(takeId: string, beatId: string, layerId
     gain: saved.gain,
     muted: saved.muted,
     layerId: saved.layerId,
+    trimStartMs: saved.trimStartMs,
+    trimEndMs: saved.trimEndMs,
     createdAt: saved.createdAt,
   };
 }

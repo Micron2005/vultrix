@@ -50,6 +50,8 @@ export async function listBeatTakes(orgId: string, beatId: string) {
       gain: true,
       muted: true,
       layerId: true,
+      trimStartMs: true,
+      trimEndMs: true,
       createdAt: true,
     },
   });
@@ -66,6 +68,11 @@ export async function listBeatVocalLayers(orgId: string, beatId: string) {
       pan: true,
       muted: true,
       solo: true,
+      reverb: true,
+      eqLow: true,
+      eqHigh: true,
+      compress: true,
+      doubler: true,
       sortOrder: true,
     },
   });

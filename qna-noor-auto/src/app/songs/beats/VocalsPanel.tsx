@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Button, Card, Input, LinkButton, Select } from "@/components/ui";
 import {
   attachBeatToSong,
@@ -19,10 +19,12 @@ import { uploadInChunks } from "../uploadTake";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import {
   BeatEngine,
+  sequenceOffsetSeconds,
   type BeatDocument,
   type BeatPlaybackMode,
   type BeatTakeAudio,
 } from "./engine";
+import { sectionSequence } from "./kits";
 
 export type Take = {
   id: string;
@@ -33,6 +35,8 @@ export type Take = {
   gain: number;
   muted: boolean;
   layerId: string | null;
+  trimStartMs: number;
+  trimEndMs: number;
   createdAt: string;
 };
 
@@ -43,6 +47,11 @@ export type VocalLayer = {
   pan: number;
   muted: boolean;
   solo: boolean;
+  reverb: number;
+  eqLow: number;
+  eqHigh: number;
+  compress: boolean;
+  doubler: boolean;
   sortOrder: number;
 };
 
@@ -77,6 +86,9 @@ type VocalsPanelProps = {
   setPlaying: (value: boolean) => void;
   startBeat: () => Promise<void>;
   stopBeat: () => void;
+  playRange: { sectionIndex: number; loop: boolean } | null;
+  onLoopRef: MutableRefObject<((originTime: number) => void) | null>;
+  sectionNames: string[];
   initialTakes: Take[];
   initialLayers: VocalLayer[];
   songVocalTakes: SongVocalTake[];
@@ -84,9 +96,23 @@ type VocalsPanelProps = {
 
 const MAX_RECORDING_SECONDS = 900;
 
+type RecordingSession = {
+  layerId: string;
+  stream: MediaStream;
+  loop: boolean;
+  sectionName: string;
+  sectionOffsetMs: number;
+  nextTakeNumber: number;
+  active: boolean;
+};
+
 function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function formatSeconds(seconds: number) {
+  return formatDuration(Math.max(0, Math.round(seconds)));
 }
 
 function audioDataUrl(blob: Blob) {
@@ -110,6 +136,9 @@ export function VocalsPanel({
   setPlaying,
   startBeat,
   stopBeat,
+  playRange,
+  onLoopRef,
+  sectionNames,
   initialTakes,
   initialLayers,
   songVocalTakes,
@@ -121,6 +150,7 @@ export function VocalsPanel({
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [mp3Progress, setMp3Progress] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -129,21 +159,29 @@ export function VocalsPanel({
   const [newLayerName, setNewLayerName] = useState("");
   const [recordLayerId, setRecordLayerId] = useState(initialLayers[0]?.id ?? "");
   const [songLayerId, setSongLayerId] = useState(initialLayers[0]?.id ?? "");
-  const [soloSrc, setSoloSrc] = useState("");
+  const [expandedFxIds, setExpandedFxIds] = useState<Set<string>>(() => new Set());
+  const [expandedTrimIds, setExpandedTrimIds] = useState<Set<string>>(() => new Set());
+  const [trimDrafts, setTrimDrafts] = useState<Record<string, { start: string; end: string }>>({});
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordingStartedAtRef = useRef(0);
   const recordingOffsetRef = useRef(0);
+  const recordingSessionRef = useRef<RecordingSession | null>(null);
+  const decodedLoopTakesRef = useRef<BeatTakeAudio[] | null>(null);
   const offsetTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const decodedTakesRef = useRef<Map<string, Promise<AudioBuffer>>>(new Map());
-  const soloAudioRef = useRef<HTMLAudioElement | null>(null);
   const cancelLayerBlurRef = useRef(false);
 
   function clearTimer() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
+  }
+
+  function clearPreviewTimer() {
+    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = null;
   }
 
   function stopStream() {
@@ -153,20 +191,131 @@ export function VocalsPanel({
 
   useEffect(() => {
     const offsetTimers = offsetTimersRef.current;
-    const soloAudio = soloAudioRef.current;
     return () => {
       clearTimer();
+      if (recordingSessionRef.current) recordingSessionRef.current.active = false;
+      clearPreviewTimer();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       stopStream();
-      soloAudio?.pause();
+      engine.stopTakes();
       Object.values(offsetTimers).forEach((timer) => clearTimeout(timer));
     };
-  }, []);
+  }, [engine]);
 
   useEffect(() => {
-    if (!soloSrc || !soloAudioRef.current) return;
-    void soloAudioRef.current.play();
-  }, [soloSrc]);
+    const handleLoop = (originTime: number) => {
+      const decoded = decodedLoopTakesRef.current;
+      if (decoded) {
+        engine.stopTakes();
+        engine.playTakes(decoded, originTime);
+      }
+      const session = recordingSessionRef.current;
+      if (session?.active && session.loop && recorderRef.current?.state === "recording") {
+        recordingOffsetRef.current = session.sectionOffsetMs;
+        recorderRef.current.stop();
+      }
+    };
+    onLoopRef.current = handleLoop;
+    return () => {
+      if (onLoopRef.current === handleLoop) onLoopRef.current = null;
+    };
+  }, [engine, onLoopRef]);
+
+  useEffect(() => {
+    if (!playing && !recording) decodedLoopTakesRef.current = null;
+  }, [playing, recording]);
+
+  function sectionOffsetMs() {
+    if (!playRange) return 0;
+    const document = getDocument();
+    const sequence = sectionSequence(document.data);
+    const sequenceIndex = sequence.findIndex((item) => item.sectionIndex === playRange.sectionIndex);
+    if (sequenceIndex < 0) return 0;
+    return Math.round(
+      sequenceOffsetSeconds(
+        document,
+        "song",
+        getPlayback().patternId,
+        sequenceIndex,
+      ) * 1000,
+    );
+  }
+
+  function startRecorder(session: RecordingSession, offsetMs: number, name: string) {
+    const supportedTypes = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+    ];
+    const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
+    const recorder = mimeType
+      ? new MediaRecorder(session.stream, { mimeType })
+      : new MediaRecorder(session.stream);
+    const chunks: Blob[] = [];
+    const startedAt = performance.now();
+    recorderRef.current = recorder;
+    recordingOffsetRef.current = offsetMs;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.onstop = async () => {
+      const elapsedSeconds = (performance.now() - startedAt) / 1000;
+      const savedOffsetMs = recordingOffsetRef.current;
+      const shouldRestart = session.active && session.loop;
+      if (shouldRestart) {
+        session.nextTakeNumber += 1;
+        startRecorder(
+          session,
+          session.sectionOffsetMs,
+          `${session.sectionName} take ${session.nextTakeNumber}`,
+        );
+      } else {
+        clearTimer();
+        setRecording(false);
+        recordingSessionRef.current = null;
+        stopStream();
+      }
+      if (elapsedSeconds < 1) return;
+      const blob = new Blob(chunks, {
+        type: recorder.mimeType || mimeType || "audio/webm",
+      });
+      try {
+        const dataUrl = await audioDataUrl(blob);
+        const durationSec = Math.min(
+          MAX_RECORDING_SECONDS,
+          Math.max(1, Math.round(elapsedSeconds)),
+        );
+        const pending = await beginBeatTake(beatId, {
+          name,
+          audioMimeType: blob.type,
+          durationSec,
+          offsetMs: savedOffsetMs,
+          layerId: session.layerId,
+        });
+        try {
+          setUploadProgress(0);
+          await uploadInChunks(
+            dataUrl,
+            (chunk) => appendBeatTakeChunk(pending.id, chunk),
+            setUploadProgress,
+          );
+          const saved = await finishBeatTake(pending.id);
+          setTakes((current) => [
+            ...current,
+            { ...saved, createdAt: saved.createdAt.toISOString() },
+          ]);
+        } catch (caught) {
+          await discardBeatTake(pending.id).catch(() => undefined);
+          throw caught;
+        } finally {
+          setUploadProgress(null);
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Unable to save take.");
+      }
+    };
+    recorder.start(250);
+  }
 
   async function startRecording(layerId = recordLayerId || layers[0]?.id) {
     setError("");
@@ -187,82 +336,41 @@ export function VocalsPanel({
           autoGainControl: false,
         },
       });
-      const supportedTypes = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ];
-      const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
       streamRef.current = stream;
-      recorderRef.current = recorder;
-      recordingStartedAtRef.current = performance.now();
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+      decodedLoopTakesRef.current = null;
+      const loop = Boolean(playRange?.loop);
+      const sectionName = sectionNames[playRange?.sectionIndex ?? -1] ?? "Section";
+      const existingCount = takes.filter((take) => take.layerId === layerId).length;
+      const session: RecordingSession = {
+        layerId,
+        stream,
+        loop,
+        sectionName,
+        sectionOffsetMs: sectionOffsetMs(),
+        nextTakeNumber: existingCount + 1,
+        active: true,
       };
-      recorder.onstop = async () => {
-        clearTimer();
-        setRecording(false);
-        stopStream();
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || mimeType || "audio/webm",
-        });
-        try {
-          const dataUrl = await audioDataUrl(blob);
-          const durationSec = Math.max(
-            1,
-            Math.min(
-              MAX_RECORDING_SECONDS,
-              Math.round((performance.now() - recordingStartedAtRef.current) / 1000),
-            ),
-          );
-          const pending = await beginBeatTake(beatId, {
-            name: `Take ${takes.length + 1}`,
-            audioMimeType: blob.type,
-            durationSec,
-            offsetMs: recordingOffsetRef.current,
-            layerId,
-          });
-          try {
-            setUploadProgress(0);
-            await uploadInChunks(
-              dataUrl,
-              (chunk) => appendBeatTakeChunk(pending.id, chunk),
-              setUploadProgress,
-            );
-            const saved = await finishBeatTake(pending.id);
-            setTakes((current) => [
-              ...current,
-              { ...saved, createdAt: saved.createdAt.toISOString() },
-            ]);
-          } catch (caught) {
-            await discardBeatTake(pending.id).catch(() => undefined);
-            throw caught;
-          } finally {
-            setUploadProgress(null);
-          }
-        } catch (caught) {
-          setError(caught instanceof Error ? caught.message : "Unable to save take.");
-        }
-      };
-      recorder.start(250);
+      recordingSessionRef.current = session;
       recordingOffsetRef.current = 0;
       const recStartAt = engine.currentTime;
       setRecording(true);
       setRecordingSeconds(0);
+      startRecorder(
+        session,
+        0,
+        loop ? `${sectionName} take ${session.nextTakeNumber}` : `Take ${session.nextTakeNumber}`,
+      );
       await startBeat();
-      const startTime = engine.startTime;
-      if (startTime !== null) {
-        recordingOffsetRef.current = Math.round((recStartAt - startTime) * 1000);
+      const originTime = engine.originTime;
+      if (originTime !== null) {
+        recordingOffsetRef.current = Math.round((recStartAt - originTime) * 1000);
       }
       timerRef.current = setInterval(() => {
         setRecordingSeconds((current) => {
           const next = current + 1;
-          if (next >= MAX_RECORDING_SECONDS && recorder.state === "recording") {
-            recorder.stop();
+          if (next >= MAX_RECORDING_SECONDS && recorderRef.current?.state === "recording") {
+            session.active = false;
+            recorderRef.current.stop();
             stopBeat();
             setError("Recording stopped at the 15 minute limit — saved as a take");
           }
@@ -270,12 +378,16 @@ export function VocalsPanel({
         });
       }, 1000);
     } catch {
+      if (recordingSessionRef.current) recordingSessionRef.current.active = false;
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      setRecording(false);
       setError("Microphone not available.");
       stopStream();
     }
   }
 
   function stopRecording() {
+    if (recordingSessionRef.current) recordingSessionRef.current.active = false;
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     stopBeat();
   }
@@ -395,11 +507,6 @@ export function VocalsPanel({
     setTakes((current) => current.filter((item) => item.id !== take.id));
   }
 
-  function soloTake(take: Take) {
-    soloAudioRef.current?.pause();
-    setSoloSrc(`/songs/audio/beat/${take.id}`);
-  }
-
   function decodeTake(take: Take) {
     const cached = decodedTakesRef.current.get(take.id);
     if (cached) return cached;
@@ -420,29 +527,113 @@ export function VocalsPanel({
         || layer.muted
         || (anyLayerSolo && !layer.solo);
       return {
-      buffer: buffers[index],
-      offsetMs: take.offsetMs,
-      gain: Math.round(take.gain * (layer?.gain ?? 100) / 100),
-      pan: layer?.pan ?? 0,
-      muted,
+        buffer: buffers[index],
+        offsetMs: take.offsetMs,
+        gain: Math.round(take.gain * (layer?.gain ?? 100) / 100),
+        pan: layer?.pan ?? 0,
+        muted,
+        trimStartMs: take.trimStartMs,
+        trimEndMs: take.trimEndMs,
+        fx: {
+          reverb: layer?.reverb ?? 0,
+          eqLow: layer?.eqLow ?? 0,
+          eqHigh: layer?.eqHigh ?? 0,
+          compress: layer?.compress ?? false,
+          doubler: layer?.doubler ?? false,
+        },
       };
     });
+  }
+
+  async function previewTake(take: Take) {
+    clearPreviewTimer();
+    if (previewingId === take.id) {
+      engine.stopTakes();
+      setPreviewingId(null);
+      return;
+    }
+    setError("");
+    try {
+      const layer = layers.find((item) => item.id === take.layerId) ?? layers[0];
+      if (!layer) return;
+      const buffer = await decodeTake(take);
+      const context = engine.audioContext;
+      await context.resume();
+      engine.stopTakes();
+      engine.playTakes([{
+        buffer,
+        offsetMs: 0,
+        gain: Math.round(take.gain * layer.gain / 100),
+        pan: layer.pan,
+        muted: false,
+        trimStartMs: take.trimStartMs,
+        trimEndMs: take.trimEndMs,
+        fx: {
+          reverb: layer.reverb,
+          eqLow: layer.eqLow,
+          eqHigh: layer.eqHigh,
+          compress: layer.compress,
+          doubler: layer.doubler,
+        },
+      }], context.currentTime);
+      setPreviewingId(take.id);
+      const playableMs = Math.max(0, take.durationSec * 1000 - take.trimStartMs - take.trimEndMs);
+      previewTimerRef.current = window.setTimeout(() => {
+        setPreviewingId((current) => current === take.id ? null : current);
+        previewTimerRef.current = null;
+      }, playableMs + 100);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to preview take.");
+    }
+  }
+
+  function toggleTrim(take: Take) {
+    setExpandedTrimIds((current) => {
+      const next = new Set(current);
+      if (next.has(take.id)) next.delete(take.id);
+      else next.add(take.id);
+      return next;
+    });
+    setTrimDrafts((current) => ({
+      ...current,
+      [take.id]: current[take.id] ?? {
+        start: String(take.trimStartMs / 1000),
+        end: String(take.trimEndMs / 1000),
+      },
+    }));
+  }
+
+  async function commitTrim(take: Take) {
+    const draft = trimDrafts[take.id] ?? {
+      start: String(take.trimStartMs / 1000),
+      end: String(take.trimEndMs / 1000),
+    };
+    const trimStartMs = Math.max(0, Math.round(Number(draft.start || 0) * 1000));
+    const trimEndMs = Math.max(0, Math.round(Number(draft.end || 0) * 1000));
+    try {
+      await updateBeatTake(take.id, { trimStartMs, trimEndMs });
+      updateTakeLocal(take.id, { trimStartMs, trimEndMs });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to update trim.");
+    }
   }
 
   async function playWithVocals() {
     setError("");
     try {
       const decoded = await decodedAudioTakes();
+      decodedLoopTakesRef.current = decoded;
       await startBeat();
-      if (engine.startTime !== null) engine.playTakes(decoded, engine.startTime);
+      if (engine.originTime !== null) engine.playTakes(decoded, engine.originTime);
     } catch (caught) {
+      decodedLoopTakesRef.current = null;
       setError(caught instanceof Error ? caught.message : "Unable to play takes.");
       setPlaying(false);
       stopBeat();
     }
   }
 
-  function downloadWav(blob: Blob, filename: string) {
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -457,9 +648,30 @@ export function VocalsPanel({
       const decoded = await decodedAudioTakes();
       const playback = getPlayback();
       const blob = await engine.renderWav(getDocument(), playback.patternId, decoded);
-      downloadWav(blob, `${title.trim() || "beat"} (with vocals).wav`);
+      downloadBlob(blob, `${title.trim() || "beat"} (with vocals).wav`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to export takes.");
+    }
+  }
+
+  async function exportMp3WithVocals() {
+    if (mp3Progress !== null) return;
+    setError("");
+    setMp3Progress(0);
+    try {
+      const decoded = await decodedAudioTakes();
+      const playback = getPlayback();
+      const blob = await engine.renderMp3(
+        getDocument(),
+        playback.patternId,
+        decoded,
+        setMp3Progress,
+      );
+      downloadBlob(blob, `${title.trim() || "beat"} (with vocals).mp3`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to export takes.");
+    } finally {
+      setMp3Progress(null);
     }
   }
 
@@ -506,7 +718,9 @@ export function VocalsPanel({
             {take.name}
           </button>
         )}
-        <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
+        <span className="text-xs tabular-nums text-zinc-500">
+          plays {formatSeconds(take.trimStartMs / 1000)} → {formatSeconds(take.durationSec - take.trimEndMs / 1000)} ({formatSeconds((take.durationSec * 1000 - take.trimStartMs - take.trimEndMs) / 1000)})
+        </span>
         <Button type="button" size="sm" variant={take.muted ? "secondary" : "ghost"} onClick={() => void updateTake(take.id, { muted: !take.muted })}>
           M
         </Button>
@@ -548,12 +762,57 @@ export function VocalsPanel({
         <span className="text-[10px] tabular-nums text-zinc-500">
           offset {take.offsetMs < 0 ? "−" : ""}{Math.abs(take.offsetMs)} ms
         </span>
-        <Button type="button" size="sm" variant="ghost" onClick={() => soloTake(take)}>
-          ▶
+        <Button type="button" size="sm" variant="ghost" onClick={() => void previewTake(take)}>
+          {previewingId === take.id ? "■" : "▶"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => toggleTrim(take)}>
+          Trim
         </Button>
         <Button type="button" size="sm" variant="danger" onClick={() => void removeTake(take)}>
           Delete
         </Button>
+        {expandedTrimIds.has(take.id) && (
+          <div className="basis-full flex flex-wrap items-center gap-2 rounded bg-zinc-50 p-2 text-xs">
+            <label className="flex items-center gap-1">
+              Cut start
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                value={trimDrafts[take.id]?.start ?? "0"}
+                onChange={(event) => setTrimDrafts((current) => ({
+                  ...current,
+                  [take.id]: { ...(current[take.id] ?? { start: "0", end: "0" }), start: event.target.value },
+                }))}
+                onBlur={() => void commitTrim(take)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+                className="h-8 w-20 text-xs"
+              />
+              s
+            </label>
+            <label className="flex items-center gap-1">
+              Cut end
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                value={trimDrafts[take.id]?.end ?? "0"}
+                onChange={(event) => setTrimDrafts((current) => ({
+                  ...current,
+                  [take.id]: { ...(current[take.id] ?? { start: "0", end: "0" }), end: event.target.value },
+                }))}
+                onBlur={() => void commitTrim(take)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+                className="h-8 w-20 text-xs"
+              />
+              s
+            </label>
+          </div>
+        )}
       </div>
     );
   }
@@ -594,7 +853,17 @@ export function VocalsPanel({
             <Button type="button" variant="secondary" onClick={() => void exportWithVocals()}>
               Export with vocals
             </Button>
+            <Button type="button" variant="secondary" onClick={() => void exportMp3WithVocals()} disabled={mp3Progress !== null}>
+              {mp3Progress === null ? "Export MP3 with vocals" : `Encoding… ${Math.round(mp3Progress * 100)}%`}
+            </Button>
           </>
+        )}
+        {!recording && playRange && (
+          <span className="text-xs text-zinc-500">
+            {playRange.loop
+              ? `Looping ${sectionNames[playRange.sectionIndex] ?? "section"} — a new take each pass`
+              : `Recording from ${sectionNames[playRange.sectionIndex] ?? "section"}`}
+          </span>
         )}
       </div>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
@@ -665,11 +934,88 @@ export function VocalsPanel({
                         />
                         <span className="w-8 tabular-nums">{layer.pan === 0 ? "C" : layer.pan < 0 ? `L${Math.abs(layer.pan)}` : `R${layer.pan}`}</span>
                       </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={expandedFxIds.has(layer.id) ? "secondary" : "ghost"}
+                        onClick={() => setExpandedFxIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(layer.id)) next.delete(layer.id);
+                          else next.add(layer.id);
+                          return next;
+                        })}
+                      >
+                        FX
+                      </Button>
                       <Button type="button" size="sm" variant="ghost" disabled={index === 0} onClick={() => void moveLayer(layer, -1)}>▲</Button>
                       <Button type="button" size="sm" variant="ghost" disabled={index === layers.length - 1} onClick={() => void moveLayer(layer, 1)}>▼</Button>
                       {layers.length > 1 && <Button type="button" size="sm" variant="danger" onClick={() => void removeLayer(layer)}>Delete layer</Button>}
                       <Button type="button" size="sm" variant="secondary" onClick={() => { setRecordLayerId(layer.id); void startRecording(layer.id); }} disabled={playing || recording}>● Record here</Button>
                     </div>
+                    {expandedFxIds.has(layer.id) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-3 rounded bg-zinc-50 p-2 text-xs">
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          Reverb
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={layer.reverb}
+                            onChange={(event) => updateLayerLocal(layer.id, { reverb: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { reverb: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { reverb: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} reverb`}
+                          />
+                          <span className="w-7 tabular-nums">{layer.reverb}</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          Low
+                          <input
+                            type="range"
+                            min="-12"
+                            max="12"
+                            value={layer.eqLow}
+                            onChange={(event) => updateLayerLocal(layer.id, { eqLow: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { eqLow: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { eqLow: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} low EQ`}
+                          />
+                          <span className="w-8 tabular-nums">{layer.eqLow} dB</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          High
+                          <input
+                            type="range"
+                            min="-12"
+                            max="12"
+                            value={layer.eqHigh}
+                            onChange={(event) => updateLayerLocal(layer.id, { eqHigh: Number(event.target.value) })}
+                            onMouseUp={(event) => void updateLayer(layer.id, { eqHigh: Number(event.currentTarget.value) })}
+                            onTouchEnd={(event) => void updateLayer(layer.id, { eqHigh: Number(event.currentTarget.value) })}
+                            aria-label={`${layer.name} high EQ`}
+                          />
+                          <span className="w-8 tabular-nums">{layer.eqHigh} dB</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          <input
+                            type="checkbox"
+                            checked={layer.compress}
+                            onChange={(event) => void updateLayer(layer.id, { compress: event.target.checked })}
+                            aria-label={`${layer.name} compression`}
+                          />
+                          Compress
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          <input
+                            type="checkbox"
+                            checked={layer.doubler}
+                            onChange={(event) => void updateLayer(layer.id, { doubler: event.target.checked })}
+                            aria-label={`${layer.name} doubler`}
+                          />
+                          Doubler
+                        </label>
+                      </div>
+                    )}
                     <div className="mt-2 space-y-2">
                       {layerTakes.length ? layerTakes.map(renderTakeRow) : <p className="px-2 py-1 text-xs text-zinc-500">No takes in this layer.</p>}
                     </div>
@@ -749,7 +1095,6 @@ export function VocalsPanel({
           )}
         </div>
       </div>
-      <audio ref={soloAudioRef} className="hidden" />
     </Card>
   );
 }
