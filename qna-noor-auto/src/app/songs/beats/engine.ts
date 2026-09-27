@@ -11,6 +11,7 @@ import {
 } from "./sampler";
 import {
   BEAT_TRACKS,
+  isDrumKind,
   KIT_CONFIG,
   sectionSequence,
   stepsFor,
@@ -320,14 +321,26 @@ export class BeatEngine {
     else this.mutedVoices.delete(voice);
   }
 
-  async preview(beat: BeatDocument, track: BeatTrack, accent = false) {
+  async preview(
+    beat: BeatDocument,
+    track: BeatTrack,
+    accent = false,
+    kit: BeatKit = "Drums",
+  ) {
     unlockMediaRoute();
     const context = this.context ?? new AudioContext();
     this.context = context;
     this.master = this.master ?? context.createGain();
     this.ensureRealtimeMaster(context);
     await ensureRunning(context);
-    this.scheduleTrackVoice(context, this.master, track, accent ? 1.5 : 1, context.currentTime + 0.01, beat.kit);
+    this.scheduleTrackVoice(
+      context,
+      this.master,
+      track,
+      accent ? 1.5 : 1,
+      context.currentTime + 0.01,
+      kit,
+    );
   }
 
   async previewNote(
@@ -442,7 +455,7 @@ export class BeatEngine {
       for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
         const cell = scheduledTrackStep % patternSteps;
         const route = this.trackRoute(context, destination, track, trackTime);
-        if (track.kind === "drums") {
+        if (isDrumKind(track.kind)) {
           for (const voice of BEAT_TRACKS) {
             const value = pattern.drums[track.id]?.[voice]?.[cell] ?? 0;
             if (value && !this.mutedVoices.has(voice)) {
@@ -452,7 +465,7 @@ export class BeatEngine {
                 voice,
                 value === 2 ? 1.5 : 1,
                 trackTime,
-                beat.kit,
+                track.kind === "drums" ? "Drums" : track.kit,
               );
             }
           }
@@ -681,7 +694,7 @@ export class BeatEngine {
     const gain = context.createGain();
     const filter = context.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = beat.kit === "Lo-fi" ? 900 : 1800;
+    filter.frequency.value = 1800;
     gain.gain.setValueAtTime(0.0001, time);
     gain.gain.exponentialRampToValueAtTime(0.25 * velocity, time + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
@@ -1180,7 +1193,7 @@ export class BeatEngine {
           for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
             const cell = scheduledTrackStep % stepsFor(pattern);
             const route = this.trackRoute(context, destination, track, trackTime);
-            if (track.kind === "drums") {
+            if (isDrumKind(track.kind)) {
               for (const voice of BEAT_TRACKS) {
                 const value = pattern.drums[track.id]?.[voice]?.[cell] ?? 0;
                 if (value && !this.mutedVoices.has(voice)) {
@@ -1190,7 +1203,7 @@ export class BeatEngine {
                     voice,
                     value === 2 ? 1.5 : 1,
                     trackTime,
-                    beat.kit,
+                    track.kind === "drums" ? "Drums" : track.kit,
                   );
                 }
               }

@@ -69,7 +69,7 @@ export default async function BeatsPage({
               <Card key={beat.id} className="p-4">
                 <Link href={`/songs/beats/${beat.id}`} className="block">
                   <h2 className="font-medium text-zinc-900">{beat.title}</h2>
-                  <p className="mt-1 text-xs text-zinc-500">{beat.bpm} BPM · {beat.kit} · {patternCount(beat.data)} patterns</p>
+                  <p className="mt-1 text-xs text-zinc-500">{beat.bpm} BPM · {patternCount(beat.data)} patterns</p>
                   {beat.song && <p className="mt-3 inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-700">{beat.song.title}</p>}
                   <p className="mt-3 text-xs text-zinc-500">Updated {formatDateTime(beat.updatedAt)}</p>
                 </Link>
