@@ -18,6 +18,7 @@ import {
   type PlayRange,
 } from "./engine";
 import { VocalsPanel, type Take } from "./VocalsPanel";
+import { RehearsalMode } from "./RehearsalMode";
 import {
   chordNotes,
   chordEvents,
@@ -144,6 +145,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   const [mode, setMode] = useState<BeatPlaybackMode>("pattern");
   const [playRange, setPlayRange] = useState<SectionPlayRange | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [rehearsalOpen, setRehearsalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
   const [activeSequenceIndex, setActiveSequenceIndex] = useState(-1);
@@ -213,6 +215,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   const modeRef = useRef(mode);
   const selectedRef = useRef(selectedPatternId);
   const onLoopRef = useRef<((originTime: number) => void) | null>(null);
+  const pendingRehearsalSectionRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -810,13 +813,24 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
       onPlaybackStep,
       setLoading,
       engineRangeFor(rangeSelection),
-      (origin) => onLoopRef.current?.(origin),
+      (origin) => {
+        onLoopRef.current?.(origin);
+        const pendingSection = pendingRehearsalSectionRef.current;
+        if (pendingSection === null) return;
+        const nextRange = { sectionIndex: pendingSection, loop: true };
+        const engineRange = engineRangeFor(nextRange);
+        if (!engineRange) return;
+        pendingRehearsalSectionRef.current = null;
+        setPlayRange(nextRange);
+        engine.setRange(engineRange);
+      },
       () => stopBeat(),
     );
     setPlaying(true);
   }
 
   function stopBeat() {
+    pendingRehearsalSectionRef.current = null;
     engine.stop();
     setPlaying(false);
     setActiveStep(-1);
@@ -831,9 +845,27 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     await startBeat();
   }
 
+  async function startRehearsal(sectionIndex: number) {
+    pendingRehearsalSectionRef.current = null;
+    const nextRange = { sectionIndex, loop: true };
+    setPlayRange(nextRange);
+    await startBeat(nextRange);
+  }
+
+  function queueRehearsalSection(sectionIndex: number) {
+    pendingRehearsalSectionRef.current = sectionIndex;
+  }
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.code !== "Space" || event.target instanceof HTMLInputElement) return;
+      if (
+        rehearsalOpen
+        || event.code !== "Space"
+        || event.target instanceof HTMLInputElement
+        || event.target instanceof HTMLTextAreaElement
+        || event.target instanceof HTMLSelectElement
+        || event.target instanceof HTMLButtonElement
+      ) return;
       event.preventDefault();
       void togglePlayback();
     }
@@ -981,6 +1013,9 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
             <Button type="button" size="sm" onClick={() => void togglePlayback()} disabled={loading}>
               {loading ? "Loading…" : playing ? "Stop" : "Play"}
             </Button>
+            {data.sections.length > 0 && (
+              <Button type="button" size="sm" variant="secondary" onClick={() => setRehearsalOpen(true)}>Rehearse</Button>
+            )}
             <div className="flex overflow-hidden rounded-md border border-zinc-300">
               {(["pattern", "song"] as const).map((item) => (
                 <button
@@ -1728,6 +1763,9 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
         <Button type="button" className="min-h-11 flex-1" onClick={() => void togglePlayback()} disabled={loading}>
           {loading ? "Loading…" : playing ? "Stop" : "Play"}
         </Button>
+        {data.sections.length > 0 && (
+          <Button type="button" className="min-h-11" variant="secondary" onClick={() => setRehearsalOpen(true)}>Rehearse</Button>
+        )}
         <div className="flex overflow-hidden rounded-md border border-zinc-300">
           {(["pattern", "song"] as const).map((item) => (
             <button
@@ -1748,6 +1786,21 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
         </div>
         <Button type="button" className="min-h-11" variant="secondary" onClick={() => void saveCurrent()} disabled={!dirty || saving}>Save</Button>
       </div>
+      {rehearsalOpen && (
+        <RehearsalMode
+          sections={data.sections.map((section, index) => ({ name: section.name, index }))}
+          lyrics={songs.find((song) => song.id === beat.songId)?.lyrics ?? null}
+          songId={beat.songId}
+          bpm={bpm}
+          beatsPerBar={4}
+          playing={playing}
+          activeSectionIndex={arrangementSequence[activeSequenceIndex]?.sectionIndex ?? -1}
+          onStart={startRehearsal}
+          onQueueSection={queueRehearsalSection}
+          onStop={stopBeat}
+          onClose={() => setRehearsalOpen(false)}
+        />
+      )}
     </div>
   );
 }

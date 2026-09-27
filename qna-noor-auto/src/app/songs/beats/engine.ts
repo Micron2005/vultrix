@@ -188,6 +188,17 @@ export class BeatEngine {
     return this.context?.currentTime ?? 0;
   }
 
+  setRange(range: PlayRange | null) {
+    this.playRange = range;
+    if (!range || !this.playback) return;
+    const document = this.playback.getDocument();
+    const { mode, patternId } = this.playback.getPlayback();
+    this.sequenceIndex = range.from;
+    this.loopOriginTime = this.nextNoteTime
+      - sequenceOffsetSeconds(document, mode, patternId, range.from);
+    this.trackStep = 0;
+  }
+
   get audioContext() {
     const context = this.context ?? new AudioContext();
     this.context = context;
