@@ -229,8 +229,14 @@ export async function addSongTask(songId: string, stage: string, formData: FormD
 
 export async function removeSongTask(id: string) {
   const { orgId } = await requireMusicPack();
+  const task = await db.songTask.findFirst({
+    where: { id, song: { orgId } },
+    select: { songId: true },
+  });
+  if (!task) return;
   await db.songTask.deleteMany({ where: { id, song: { orgId } } });
   revalidatePath("/songs");
+  revalidatePath(`/songs/${task.songId}`);
 }
 
 export async function deleteSong(id: string) {
