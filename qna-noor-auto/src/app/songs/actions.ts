@@ -205,11 +205,17 @@ export async function moveSong(id: string, stage: string) {
 
 export async function toggleSongTask(id: string, done: boolean) {
   const { orgId } = await requireMusicPack();
+  const task = await db.songTask.findFirst({
+    where: { id, song: { orgId } },
+    select: { songId: true },
+  });
+  if (!task) return;
   await db.songTask.updateMany({
     where: { id, song: { orgId } },
     data: { done },
   });
   revalidatePath("/songs");
+  revalidatePath(`/songs/${task.songId}`);
 }
 
 export async function addSongTask(songId: string, stage: string, formData: FormData) {
