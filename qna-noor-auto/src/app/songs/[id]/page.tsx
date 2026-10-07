@@ -10,6 +10,7 @@ import { IdeaBody } from "../ideas/IdeaBody";
 import { LyricFollowAlong } from "../LyricFollowAlong";
 import { addSongTask, deleteSong, moveSong, removeSongTask, setSongBestTake, toggleSongTask, updateSong } from "../actions";
 import { StarRating } from "../StarRating";
+import { SongTaskRow } from "../SongTaskRow";
 
 function formatTakeDuration(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -140,13 +141,13 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
         <h2 className="mt-5 text-sm font-semibold text-zinc-900">Checklist</h2>
         <div className="mt-2 space-y-2">
           {currentTasks.map((task) => (
-            <form key={task.id} action={toggleSongTask.bind(null, task.id, !task.done)} className="flex items-center justify-between gap-2">
-              <button type="submit" className="flex min-w-0 items-center gap-2 text-left text-sm">
-                <input type="checkbox" checked={task.done} readOnly />
-                <span className={task.done ? "text-zinc-400 line-through" : "text-zinc-700"}>{task.label}</span>
-              </button>
-              <button formAction={removeSongTask.bind(null, task.id)} className="text-xs text-red-600">Remove</button>
-            </form>
+            <SongTaskRow
+              key={task.id}
+              label={task.label}
+              done={task.done}
+              onToggle={toggleSongTask.bind(null, task.id)}
+              onRemove={removeSongTask.bind(null, task.id)}
+            />
           ))}
         </div>
         <form action={addSongTask.bind(null, song.id, song.stage)} className="mt-4 flex gap-2">
@@ -161,33 +162,13 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
               </summary>
               <div className="mt-2 space-y-2">
                 {stage.tasks.map((task) => (
-                  <form
+                  <SongTaskRow
                     key={task.id}
-                    action={toggleSongTask.bind(null, task.id, !task.done)}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <button
-                      type="submit"
-                      className="flex min-w-0 items-center gap-2 text-left text-sm"
-                    >
-                      <input type="checkbox" checked={task.done} readOnly />
-                      <span
-                        className={
-                          task.done
-                            ? "text-zinc-400 line-through"
-                            : "text-zinc-700"
-                        }
-                      >
-                        {task.label}
-                      </span>
-                    </button>
-                    <button
-                      formAction={removeSongTask.bind(null, task.id)}
-                      className="text-xs text-red-600"
-                    >
-                      Remove
-                    </button>
-                  </form>
+                    label={task.label}
+                    done={task.done}
+                    onToggle={toggleSongTask.bind(null, task.id)}
+                    onRemove={removeSongTask.bind(null, task.id)}
+                  />
                 ))}
               </div>
             </details>
