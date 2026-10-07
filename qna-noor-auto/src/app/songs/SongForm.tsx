@@ -16,6 +16,18 @@ export function SongForm({
     notes: string | null;
   }>;
 }) {
+  if (!song) {
+    return (
+      <form action={action} className="max-w-2xl space-y-4">
+        <input type="hidden" name="stage" value="IDEA" />
+        <Field label="Title"><Input name="title" required /></Field>
+        <Field label="Genre"><Input name="genre" /></Field>
+        <Field label="Notes"><Textarea name="notes" rows={5} /></Field>
+        <Button type="submit">Save song</Button>
+      </form>
+    );
+  }
+
   return (
     <form action={action} className="max-w-2xl space-y-4">
       <Field label="Title"><Input name="title" required defaultValue={song?.title ?? ""} /></Field>
