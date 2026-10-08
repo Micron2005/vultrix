@@ -200,6 +200,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
   const [rehearsalOpen, setRehearsalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
+  const [activeTrackCells, setActiveTrackCells] = useState<Record<string, number>>({});
   const [activeSequenceIndex, setActiveSequenceIndex] = useState(-1);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -645,15 +646,16 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
 
   function handleMachinePad(track: BeatTrackInstance, voice: BeatTrack) {
     const previewKit = track.kind === "drums" ? "Drums" : track.kit;
+    const activeTrackCell = activeTrackCells[track.id] ?? activeStep;
     void engine.preview(currentDocument, voice, false, previewKit);
-    if (!playing || !recordPads.has(track.id) || activeStep < 0) return;
+    if (!playing || !recordPads.has(track.id) || activeTrackCell < 0) return;
     const patternId = mode === "song" && activeSequenceIndex >= 0
       ? arrangementSequence[activeSequenceIndex]?.pattern.id
       : selectedPattern?.id;
     if (!patternId) return;
     updatePattern(patternId, (pattern) => {
       const steps = [...(pattern.drums[track.id]?.[voice] ?? Array(stepsFor(pattern)).fill(0))];
-      steps[activeStep] = 1;
+      steps[activeTrackCell] = 1;
       return {
         ...pattern,
         drums: {
@@ -885,8 +887,13 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     }, 0);
   }
 
-  function onPlaybackStep(sequenceIndex: number, step: number) {
+  function onPlaybackStep(
+    sequenceIndex: number,
+    step: number,
+    trackCells: Record<string, number>,
+  ) {
     setActiveStep(step);
+    setActiveTrackCells(trackCells);
     if (modeRef.current !== "song") {
       setActiveSequenceIndex(-1);
       return;
@@ -943,6 +950,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
     engine.stop();
     setPlaying(false);
     setActiveStep(-1);
+    setActiveTrackCells({});
     setActiveSequenceIndex(-1);
   }
 
@@ -1811,7 +1819,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                           {Array.from({ length: stepCount }, (_, step) => {
                             const value = selectedPattern.drums[track.id]?.[voice]?.[step] ?? 0;
                             return (
-                              <button key={step} type="button" onClick={() => toggleDrum(track.id, voice, step)} className={`relative h-9 min-w-9 rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)] ring-2 ring-[var(--vx-accent-700)] ring-inset" : value === 1 ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track.name} ${voice} step ${step + 1}`}>
+                              <button key={step} type="button" onClick={() => toggleDrum(track.id, voice, step)} className={`relative h-9 min-w-9 rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${(activeTrackCells[track.id] ?? activeStep) === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${value === 2 ? "bg-[var(--vx-accent-700)] ring-2 ring-[var(--vx-accent-700)] ring-inset" : value === 1 ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"}`} aria-label={`${track.name} ${voice} step ${step + 1}`}>
                                 {value === 2 && <span aria-hidden="true" className="absolute inset-1 rounded-full border border-[var(--vx-accent-fg)]/70" />}
                               </button>
                             );
@@ -1844,7 +1852,7 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                                   if (velocityModes.has(track.id) && noteItem) updateNote(track.id, track.kind as MelodicInstrument, note, step, "velocity");
                                   else toggleNote(track.id, track.kind as MelodicInstrument, note, step);
                                 }}
-                                className={`relative h-9 min-w-9 touch-none rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${activeStep === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
+                                className={`relative h-9 min-w-9 touch-none rounded sm:h-7 sm:min-w-0 ${step % 4 === 0 ? "border-l-2 border-zinc-300" : ""} ${step % 4 === 3 ? "mr-1.5" : ""} ${(activeTrackCells[track.id] ?? activeStep) === step ? "ring-2 ring-[var(--vx-accent-600)] ring-offset-1" : ""} ${active ? "bg-[var(--vx-accent-600)]" : "bg-zinc-100 hover:bg-zinc-200"} ${snapToKey && !noteInKey(note, data.key) ? "opacity-40" : ""}`}
                                 style={active ? { opacity: (0.45 + velocity / 2) * (snapToKey && !noteInKey(note, data.key) ? 0.55 : 1) } : undefined}
                                 aria-label={`${track.name} ${noteName(note)} step ${step + 1}${noteItem ? ` length ${noteItem.len}` : ""}`}
                               />
