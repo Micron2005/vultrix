@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, makeToken, verifyPassword } from "@/lib/auth";
+import { SESSION_COOKIE, verifyPassword } from "@/lib/auth";
 import {
   clearFailedLogins,
   isLocked,
   recordFailedLogin,
 } from "@/lib/adminAuth";
 import { db } from "@/lib/db";
+import { issueSessionToken } from "@/lib/session";
 
 function safeNext(next: string | null | undefined): string {
   if (!next) return "/";
@@ -59,9 +60,10 @@ export async function POST(req: Request) {
     }
   }
 
+  const token = await issueSessionToken(user);
   const res = NextResponse.redirect(new URL(next, url), { status: 303 });
   await clearFailedLogins(user.id);
-  res.cookies.set(SESSION_COOKIE, makeToken(user.id), {
+  res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

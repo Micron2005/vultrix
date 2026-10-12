@@ -1464,6 +1464,7 @@ model User {
   // SUPERADMIN | OWNER | ADMIN | STAFF
   role         String  @default("STAFF")
   isActive     Boolean @default(true)
+  sessionNonce String?
   uiPalette    String?
   uiAccent     String?
   uiScale      String?

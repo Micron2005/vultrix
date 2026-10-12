@@ -78,9 +78,9 @@ export function getEligibleNavItems({
   const features = new Set(enabledFeatures);
 
   return NAV_ITEMS.filter((item) => {
-    if (item.href === "/settings/users" || item.href === "/billing") {
-      return canManageUsers;
-    }
+    if (item.href === "/settings/users")
+      return canManageUsers && accountType !== "PERSONAL";
+    if (item.href === "/billing") return canManageUsers;
     if (item.href === "/assistant") return aiAssistantEnabled;
     if (item.pack) {
       return accountType === "PERSONAL" && focusPacks.includes(item.pack);
@@ -106,9 +106,6 @@ export function navItemLabel(
 ): string {
   if (item.href === "/appointments") {
     return accountType === "PERSONAL" ? "Calendar" : "Schedule";
-  }
-  if (item.href === "/settings/users") {
-    return accountType === "PERSONAL" ? "Shared access" : item.label;
   }
   if (item.href !== "/repair-orders") return item.label;
   const features = new Set(enabledFeatures);

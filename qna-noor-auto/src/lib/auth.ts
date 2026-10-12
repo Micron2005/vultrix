@@ -60,8 +60,9 @@ export function makeToken(userId: string): string {
   return makeSignedValue(body);
 }
 
-/** Verify a token's signature and return the userId it carries, else null. */
-export function userIdFromToken(token: string | undefined | null): string | null {
+function verifiedTokenParts(
+  token: string | undefined | null,
+): { userId: string; nonce: string } | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 4) return null;
@@ -74,10 +75,20 @@ export function userIdFromToken(token: string | undefined | null): string | null
       Buffer.from(expected, "hex"),
       Buffer.from(sig, "hex"),
     );
-    return ok ? userId : null;
+    return ok ? { userId, nonce } : null;
   } catch {
     return null;
   }
+}
+
+/** Verify a token's signature and return the userId it carries, else null. */
+export function userIdFromToken(token: string | undefined | null): string | null {
+  return verifiedTokenParts(token)?.userId ?? null;
+}
+
+/** Verify a token's signature and return its nonce, else null. */
+export function tokenNonce(token: string | undefined | null): string | null {
+  return verifiedTokenParts(token)?.nonce ?? null;
 }
 
 // ---------------------------------------------------------------------------

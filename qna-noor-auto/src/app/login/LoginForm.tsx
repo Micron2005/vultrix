@@ -13,12 +13,14 @@ export function LoginForm({
   next,
   error,
   suspended,
+  elsewhere,
   pending,
   reset,
 }: {
   next: string;
   error?: boolean;
   suspended?: boolean;
+  elsewhere?: boolean;
   pending?: boolean;
   reset?: boolean;
 }) {
@@ -129,6 +131,11 @@ export function LoginForm({
       {suspended && (
         <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
           This account is on hold. Please contact your manager.
+        </div>
+      )}
+      {elsewhere && (
+        <div className="rounded-md bg-zinc-50 border border-zinc-200 px-3 py-2 text-xs text-zinc-700">
+          You were signed out because this account signed in on another device.
         </div>
       )}
       {pending && (

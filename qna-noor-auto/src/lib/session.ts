@@ -1,7 +1,12 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
-import { SESSION_COOKIE, userIdFromToken } from "./auth";
+import {
+  makeToken,
+  SESSION_COOKIE,
+  tokenNonce,
+  userIdFromToken,
+} from "./auth";
 import { normalizeFocusPacks, type FocusPackId } from "./focusPacks";
 
 export type Role = "SUPERADMIN" | "OWNER" | "ADMIN" | "STAFF";
@@ -39,53 +44,89 @@ export type CurrentUser = {
   totpEnrolled: boolean;
 };
 
+export async function issueSessionToken(user: {
+  id: string;
+  organization: { accountType: string } | null;
+}): Promise<string> {
+  const token = makeToken(user.id);
+  if (user.organization?.accountType === "PERSONAL") {
+    const nonce = tokenNonce(token);
+    if (!nonce) throw new Error("Could not read the issued session token nonce.");
+    await db.user.update({
+      where: { id: user.id },
+      data: { sessionNonce: nonce },
+    });
+  }
+  return token;
+}
+
+type CurrentUserResolution =
+  | { user: CurrentUser }
+  | { reason: "none" | "replaced" };
+
 /**
  * Resolve the logged-in user from the session cookie. Returns null when the
  * cookie is missing/invalid, the user is deactivated, or the user's
  * organization is suspended (platform SUPERADMINs have no org and bypass that).
  */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+async function resolveCurrentUser(): Promise<CurrentUserResolution> {
   const store = await cookies();
-  const userId = userIdFromToken(store.get(SESSION_COOKIE)?.value);
-  if (!userId) return null;
+  const token = store.get(SESSION_COOKIE)?.value;
+  const userId = userIdFromToken(token);
+  if (!userId) return { reason: "none" };
 
   const user = await db.user.findUnique({
     where: { id: userId },
     include: { organization: true },
   });
-  if (!user || !user.isActive) return null;
+  if (!user || !user.isActive) return { reason: "none" };
 
   if (user.role !== "SUPERADMIN") {
-    if (!user.organization) return null;
-    if (user.organization.status !== "ACTIVE") return null;
+    if (!user.organization) return { reason: "none" };
+    if (user.organization.status !== "ACTIVE") return { reason: "none" };
+  }
+
+  if (
+    user.organization?.accountType === "PERSONAL" &&
+    user.sessionNonce !== null &&
+    tokenNonce(token) !== user.sessionNonce
+  ) {
+    return { reason: "replaced" };
   }
 
   return {
-    id: user.id,
-    username: user.username,
-    role: user.role as Role,
-    orgId: user.orgId,
-    orgName: user.organization?.name ?? null,
-    orgStatus: user.organization?.status ?? null,
-    accountType: user.organization?.accountType ?? null,
-    features: user.organization?.features ?? [],
-    focusPacks:
-      user.organization?.accountType === "PERSONAL"
-        ? normalizeFocusPacks(user.organization.focusPacks)
-        : [],
-    aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
-    aiMemoryEnabled: user.aiMemoryEnabled,
-    aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
-    aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,
-    totpEnrolled: Boolean(user.totpSecret),
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role as Role,
+      orgId: user.orgId,
+      orgName: user.organization?.name ?? null,
+      orgStatus: user.organization?.status ?? null,
+      accountType: user.organization?.accountType ?? null,
+      features: user.organization?.features ?? [],
+      focusPacks:
+        user.organization?.accountType === "PERSONAL"
+          ? normalizeFocusPacks(user.organization.focusPacks)
+          : [],
+      aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
+      aiMemoryEnabled: user.aiMemoryEnabled,
+      aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",
+      aiAssistantVoice: user.organization?.aiAssistantVoice ?? null,
+      totpEnrolled: Boolean(user.totpSecret),
+    },
   };
 }
 
-/** Like getCurrentUser but redirects to /login when there's no valid session. */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const resolution = await resolveCurrentUser();
+  return "user" in resolution ? resolution.user : null;
+}
+
+/** Like getCurrentUser but redirects when there is no valid session. */
 export async function requireUser(): Promise<CurrentUser> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return user;
+  const resolution = await resolveCurrentUser();
+  if ("user" in resolution) return resolution.user;
+  redirect(resolution.reason === "replaced" ? "/login?elsewhere=1" : "/login");
 }
 
 export function canManageUsers(role: Role): boolean {
