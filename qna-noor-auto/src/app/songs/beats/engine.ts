@@ -60,6 +60,15 @@ export type BeatTakeFx = {
 
 type AudioContextLike = BaseAudioContext;
 
+const SCHEDULE_AHEAD = 0.25;
+
+function outputDelay(context: AudioContext) {
+  return Math.max(
+    0,
+    Math.min(0.5, (context.outputLatency || 0) + (context.baseLatency || 0)),
+  );
+}
+
 function midiFrequency(note: number) {
   return 440 * 2 ** ((note - 69) / 12);
 }
@@ -69,7 +78,7 @@ type PlaybackSequenceItem = {
   mutedTracks: ReadonlySet<string>;
 };
 
-function trackStepTimes(
+export function trackStepTimes(
   globalStep: number,
   speed: number,
   stepDuration: number,
@@ -84,6 +93,19 @@ function trackStepTimes(
       time: time + (step / speed - globalStep) * stepDuration,
     };
   });
+}
+
+export function trackCellsAt(
+  tracks: BeatTrackInstance[],
+  trackStep: number,
+  patternSteps: number,
+): Record<string, number> {
+  return Object.fromEntries(
+    tracks.map((track) => [
+      track.id,
+      Math.floor(trackStep * track.speed + 1e-9) % patternSteps,
+    ]),
+  );
 }
 
 function alignTrackStepAtBoundary(
@@ -162,7 +184,11 @@ export class BeatEngine {
     getDocument: () => BeatDocument;
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string };
     /** First argument is the index into the expanded playback sequence. */
-    onStep?: (patternIndex: number, step: number) => void;
+    onStep?: (
+      patternIndex: number,
+      step: number,
+      trackCells: Record<string, number>,
+    ) => void;
     onLoop?: (originTime: number) => void;
     onEnded?: () => void;
   } | null = null;
@@ -212,7 +238,11 @@ export class BeatEngine {
   async play(
     getDocument: () => BeatDocument,
     getPlayback: () => { mode: BeatPlaybackMode; patternId: string },
-    onStep?: (patternIndex: number, step: number) => void,
+    onStep?: (
+      patternIndex: number,
+      step: number,
+      trackCells: Record<string, number>,
+    ) => void,
     onLoading?: (loading: boolean) => void,
     range?: PlayRange,
     onLoop?: (originTime: number) => void,
@@ -383,26 +413,26 @@ export class BeatEngine {
     const patterns = patternSequence(document.data, mode, patternId);
     if (!patterns.length) return;
     const stepDuration = 60 / document.bpm / 4;
-    if (this.nextNoteTime < context.currentTime - 0.2) {
-      this.nextNoteTime = context.currentTime + 0.05;
-    }
-    while (this.nextNoteTime < context.currentTime + 0.1) {
+    while (this.nextNoteTime < context.currentTime + SCHEDULE_AHEAD) {
       const sequenceItem = patterns[this.sequenceIndex % patterns.length];
       const pattern = sequenceItem.pattern;
       const delay = this.step % 2 === 1
         ? (document.swing / 100) * stepDuration * 0.5
         : 0;
-      this.scheduleStep(
-        context,
-        this.master!,
-        document,
-        sequenceItem,
-        this.sequenceIndex,
-        this.step,
-        this.trackStep,
-        stepDuration,
-        this.nextNoteTime + delay,
-      );
+      const time = this.nextNoteTime + delay;
+      if (time >= context.currentTime - 0.01) {
+        this.scheduleStep(
+          context,
+          this.master!,
+          document,
+          sequenceItem,
+          this.sequenceIndex,
+          this.step,
+          this.trackStep,
+          stepDuration,
+          time,
+        );
+      }
       this.nextNoteTime += stepDuration;
       this.step += 1;
       this.trackStep += 1;
@@ -438,7 +468,7 @@ export class BeatEngine {
   }
 
   private scheduleStep(
-    context: AudioContextLike,
+    context: AudioContext,
     destination: AudioNode,
     beat: BeatDocument,
     sequenceItem: PlaybackSequenceItem,
@@ -450,6 +480,7 @@ export class BeatEngine {
   ) {
     const { pattern, mutedTracks } = sequenceItem;
     const patternSteps = stepsFor(pattern);
+    const trackCells = trackCellsAt(beat.data.tracks, trackStep, patternSteps);
     for (const track of beat.data.tracks) {
       if (mutedTracks.has(track.id)) continue;
       for (const { step: scheduledTrackStep, time: trackTime } of trackStepTimes(trackStep, track.speed, stepDuration, time)) {
@@ -490,8 +521,12 @@ export class BeatEngine {
     }
     if (this.playback?.onStep) {
       window.setTimeout(() => {
-        if (this.playback) window.requestAnimationFrame(() => this.playback?.onStep?.(patternIndex, step));
-      }, Math.max(0, (time - context.currentTime) * 1000));
+        if (this.playback) {
+          window.requestAnimationFrame(() =>
+            this.playback?.onStep?.(patternIndex, step, trackCells),
+          );
+        }
+      }, Math.max(0, (time + outputDelay(context) - context.currentTime) * 1000));
     }
   }
 
