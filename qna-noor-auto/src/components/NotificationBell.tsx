@@ -68,6 +68,8 @@ export function NotificationBell() {
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const pollingStoppedRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
 
   const updatePanelPosition = useCallback(() => {
@@ -91,10 +93,19 @@ export function NotificationBell() {
   }, []);
 
   async function refresh() {
+    if (pollingStoppedRef.current) return;
     try {
       const response = await fetch("/api/notifications", {
         cache: "no-store",
       });
+      if (response.status === 401) {
+        pollingStoppedRef.current = true;
+        if (timerRef.current !== null) {
+          window.clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        return;
+      }
       if (!response.ok) return;
       const next = (await response.json()) as NotificationResponse;
       setData(next);
@@ -105,11 +116,14 @@ export function NotificationBell() {
 
   useEffect(() => {
     const initialRefresh = window.setTimeout(() => void refresh(), 0);
-    const timer = window.setInterval(() => void refresh(), 60_000);
+    timerRef.current = window.setInterval(() => void refresh(), 60_000);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
-      window.clearInterval(timer);
+      if (timerRef.current !== null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       window.clearTimeout(initialRefresh);
       window.removeEventListener("focus", onFocus);
     };

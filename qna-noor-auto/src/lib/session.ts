@@ -1,7 +1,8 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
 import {
+  isPublicPath,
   makeToken,
   SESSION_COOKIE,
   tokenNonce,
@@ -119,7 +120,14 @@ async function resolveCurrentUser(): Promise<CurrentUserResolution> {
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const resolution = await resolveCurrentUser();
-  return "user" in resolution ? resolution.user : null;
+  if ("user" in resolution) return resolution.user;
+  if (resolution.reason === "replaced") {
+    const pathname = (await headers()).get("x-pathname");
+    if (pathname && (pathname === "/" || !isPublicPath(pathname))) {
+      redirect("/login?elsewhere=1");
+    }
+  }
+  return null;
 }
 
 /** Like getCurrentUser but redirects when there is no valid session. */
