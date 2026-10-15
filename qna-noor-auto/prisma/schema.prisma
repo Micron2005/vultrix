@@ -1215,6 +1215,7 @@ model Organization {
   vocalTakes        SongVocalTake[]
   lyricDrafts       SongLyricDraft[]
   songMemberships   SongMember[]
+  takeNotes         TakeNote[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
 
@@ -1400,6 +1401,7 @@ model BeatTake {
   gain          Int      @default(100)
   muted         Boolean  @default(false)
   createdAt     DateTime @default(now())
+  takeNotes     TakeNote[]
 
   @@index([beatId, createdAt])
 }
@@ -1416,8 +1418,28 @@ model SongVocalTake {
   durationSec   Int
   uploadComplete Boolean  @default(true)
   createdAt     DateTime @default(now())
+  takeNotes     TakeNote[]
 
   @@index([songId, createdAt])
+}
+
+model TakeNote {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  songTakeId  String?
+  songTake    SongVocalTake? @relation(fields: [songTakeId], references: [id], onDelete: Cascade)
+  beatTakeId  String?
+  beatTake    BeatTake? @relation(fields: [beatTakeId], references: [id], onDelete: Cascade)
+  authorOrgId String
+  authorName  String
+  atMs        Int
+  text        String
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([songTakeId, atMs])
+  @@index([beatTakeId, atMs])
 }
 
 model SongLyricDraft {

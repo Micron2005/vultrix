@@ -25,6 +25,7 @@ import {
   type BeatTakeAudio,
 } from "./engine";
 import { sectionSequence } from "./kits";
+import { TakeNotes } from "../TakeNotes";
 
 export type Take = {
   id: string;
@@ -38,6 +39,7 @@ export type Take = {
   trimStartMs: number;
   trimEndMs: number;
   createdAt: string;
+  _count?: { takeNotes: number };
 };
 
 export type VocalLayer = {
@@ -62,6 +64,7 @@ type SongVocalTake = {
   audioMimeType: string;
   durationSec: number;
   createdAt: string;
+  _count?: { takeNotes: number };
 };
 
 type VocalsPanelProps = {
@@ -813,6 +816,13 @@ export function VocalsPanel({
             </label>
           </div>
         )}
+        <TakeNotes
+          kind="beat"
+          takeId={take.id}
+          src={`/songs/audio/beat/${take.id}?v=shared-songs-v1`}
+          durationSec={take.durationSec}
+          initialCount={take._count?.takeNotes ?? 0}
+        />
       </div>
     );
   }
@@ -1047,7 +1057,13 @@ export function VocalsPanel({
                   <div key={take.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
                     <span className="min-w-24 flex-1 truncate text-xs font-medium text-zinc-900">{take.name}</span>
                     <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
-                    <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="h-8 max-w-40" />
+                    <TakeNotes
+                      kind="song"
+                      takeId={take.id}
+                      src={`/songs/audio/song/${take.id}?v=shared-songs-v1`}
+                      durationSec={take.durationSec}
+                      initialCount={take._count?.takeNotes ?? 0}
+                    />
                     <Select
                       value={songLayerId}
                       aria-label={`Layer for ${take.name}`}

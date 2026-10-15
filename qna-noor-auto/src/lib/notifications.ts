@@ -12,7 +12,8 @@ export type NotificationKind =
   | "task_assigned"
   | "new_follower"
   | "song_shared"
-  | "song_left";
+  | "song_left"
+  | "take_note";
 
 type NotificationUser = Pick<CurrentUser, "id" | "orgId" | "role">;
 

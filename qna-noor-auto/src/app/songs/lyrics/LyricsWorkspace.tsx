@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
 import { countSyllables } from "@/lib/lyrics";
+import { TakeNotes } from "../TakeNotes";
 
 const MAX_RECORDING_SECONDS = 900;
 const FONT_KEY = "lyrics-font";
@@ -38,6 +39,7 @@ type VocalTake = {
   audioMimeType: string;
   durationSec: number;
   createdAt: Date | string;
+  _count?: { takeNotes: number };
 };
 
 type Beat = { id: string; title: string; songId: string | null };
@@ -577,7 +579,13 @@ export function LyricsWorkspace({
                 <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
                 <Button type="button" size="xs" variant="danger" onClick={() => void removeTake(take)}>Delete</Button>
               </div>
-              <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="mt-2 h-8 w-full" />
+              <TakeNotes
+                kind="song"
+                takeId={take.id}
+                src={`/songs/audio/song/${take.id}?v=shared-songs-v1`}
+                durationSec={take.durationSec}
+                initialCount={take._count?.takeNotes ?? 0}
+              />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Select value="closed" onChange={(event) => { const beat = beats.find((item) => item.id === event.target.value); if (beat) void addToBeat(take.id, beat); }} aria-label={`Use ${take.name} in beat`}>
                   <option value="closed">Use in beat…</option>
