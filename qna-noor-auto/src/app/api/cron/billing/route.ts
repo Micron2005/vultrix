@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   const overdue = await db.organization.findMany({
     where: {
       status: "ACTIVE",
+      billingExempt: false,
       pastDueSince: { not: null, lt: cutoff },
     },
     select: { id: true, name: true },

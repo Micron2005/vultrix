@@ -57,15 +57,20 @@ export default async function BillingPage({
   const featureSet = enabledFeatureSet(org);
   const hasInvoices = featureSet.has("invoices");
   const monthlyPrice = priceForAccount(org.accountType, hasInvoices);
+  const hasFutureTrial = Boolean(
+    org.trialEndsAt && org.trialEndsAt > new Date(),
+  );
 
   return (
     <div>
       <PageHeader
         title="Billing"
         description={
-          hasSubscription
-            ? `Your ${org.name} subscription — $${monthlyPrice}/month.`
-            : `Your ${org.name} account.`
+          org.billingExempt
+            ? `Your ${org.name} account — free, never billed.`
+            : hasSubscription
+              ? `Your ${org.name} subscription — $${monthlyPrice}/month.`
+              : `Your ${org.name} account.`
         }
       />
 
@@ -93,7 +98,11 @@ export default async function BillingPage({
             </div>
           </div>
 
-          {!billingConfigured() ? (
+          {org.billingExempt ? (
+            <p className="text-sm text-zinc-500">
+              This is a free account. You&apos;ll never be charged.
+            </p>
+          ) : !billingConfigured() ? (
             <p className="text-sm text-zinc-500">
               Billing isn&apos;t set up on this server yet.
             </p>
@@ -111,14 +120,18 @@ export default async function BillingPage({
               self-serve subscription. Contact support to make changes.
             </p>
           )}
-          {subscriptionIsDead(org.subscriptionStatus) && org.stripeCustomerId && (
-            <form action={restartOwnSubscription}>
-              <Button type="submit">Restart subscription</Button>
-              <p className="mt-2 text-xs text-zinc-500">
-                Starts a new subscription on the saved card.
-              </p>
-            </form>
-          )}
+          {!org.billingExempt &&
+            subscriptionIsDead(org.subscriptionStatus) &&
+            org.stripeCustomerId && (
+              <form action={restartOwnSubscription}>
+                <Button type="submit">Restart subscription</Button>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {hasFutureTrial
+                    ? "Starts a new subscription on the saved card."
+                    : `Starts a new $${monthlyPrice}/month subscription on the saved card, charged today.`}
+                </p>
+              </form>
+            )}
           <p className="text-sm text-zinc-500">
             Subscription or payment questions?{" "}
             <a
