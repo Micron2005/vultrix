@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Metronome } from "./Metronome";
 import { LyricPractice } from "./LyricPractice";
+import { Tuner } from "./Tuner";
 
 const STORAGE_KEY = "vx_metronome_v1";
 
@@ -61,6 +62,7 @@ export function PracticeWorkspace({ songs }: { songs: PracticeSong[] }) {
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
       <div className="order-2 space-y-6 lg:order-1">
+        <Tuner />
         <Metronome
           songs={songs}
           bpm={bpm}

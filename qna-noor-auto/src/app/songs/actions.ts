@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { LyricsMetaSchema, LyricsTextSchema } from "@/lib/lyrics";
 import { notify } from "@/lib/notifications";
 import { relationship } from "@/lib/people";
+import { NOTE_NAMES } from "@/lib/pitch";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import {
   DEFAULT_STAGE_TASKS,
@@ -31,6 +32,9 @@ const SongBestTakeSchema = z.object({
   kind: z.enum(["song", "beat"]),
   id: z.string().min(1),
 }).nullable();
+const MUSICAL_KEY_LABELS = new Set(
+  NOTE_NAMES.flatMap((name) => [`${name} major`, `${name} minor`]),
+);
 
 function isUniqueConflict(error: unknown) {
   return (
@@ -110,6 +114,17 @@ export async function setSongRating(songId: string, rating: number | null) {
   await db.song.updateMany({
     where: { id: songId, ...songAccessWhere(orgId) },
     data: { rating: parsed },
+  });
+  revalidatePath("/songs");
+  revalidatePath(`/songs/${songId}`);
+}
+
+export async function setSongKey(songId: string, label: string) {
+  const { orgId } = await requireMusicPack();
+  if (!MUSICAL_KEY_LABELS.has(label)) throw new Error("Invalid song key.");
+  await db.song.updateMany({
+    where: { id: songId, ...songAccessWhere(orgId) },
+    data: { musicalKey: label },
   });
   revalidatePath("/songs");
   revalidatePath(`/songs/${songId}`);

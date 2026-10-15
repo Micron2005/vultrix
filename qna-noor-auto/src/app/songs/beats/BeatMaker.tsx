@@ -16,6 +16,7 @@ import {
 } from "./actions";
 import { BpmInput } from "../BpmInput";
 import { VersionsPanel, type BeatVersionSummary } from "./VersionsPanel";
+import { detectKey } from "@/lib/pitch";
 import {
   BeatEngine,
   type BeatDocument,
@@ -61,6 +62,7 @@ import {
   type MelodicInstrument,
   safeParseBeatData,
 } from "./kits";
+import { beatChroma } from "./keyDetect";
 
 type BeatMakerProps = {
   versions: BeatVersionSummary[];
@@ -229,6 +231,7 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
   const [velocityModes, setVelocityModes] = useState<Set<string>>(() => new Set());
   const [chordModes, setChordModes] = useState<Set<string>>(() => new Set());
   const [snapToKey, setSnapToKey] = useState(false);
+  const [keyDetectionMessage, setKeyDetectionMessage] = useState("");
   const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
   const [editingTrackName, setEditingTrackName] = useState("");
   const [topNotes, setTopNotes] = useState<Record<string, number>>(() =>
@@ -592,6 +595,18 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
 
   function updateKey(root: number, scale: BeatScale) {
     updateData((current) => ({ ...current, key: { root, scale } }));
+  }
+
+  function detectKeyFromNotes() {
+    const detected = detectKey(beatChroma(data));
+    if (!detected) {
+      setKeyDetectionMessage("Add some notes first.");
+      return;
+    }
+    updateKey(detected.root, detected.mode);
+    setKeyDetectionMessage(
+      `Detected ${detected.label} · ${Math.round(detected.confidence * 100)}%`,
+    );
   }
 
   function toggleTrack(trackId: string) {
@@ -1273,6 +1288,12 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
             <input type="checkbox" checked={snapToKey} disabled={!data.key} onChange={(event) => setSnapToKey(event.target.checked)} />
             Snap to key
           </label>
+          <Button type="button" size="sm" variant="secondary" onClick={detectKeyFromNotes}>
+            Detect from notes
+          </Button>
+          {keyDetectionMessage && (
+            <span className="text-xs text-zinc-500">{keyDetectionMessage}</span>
+          )}
         </div>
         {data.key ? (
           <div className="mt-4 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
