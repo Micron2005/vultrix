@@ -26,6 +26,14 @@ type ProfileLinkItem = {
   headline: string | null;
 };
 
+type ProfileFormValues = {
+  displayName: string;
+  handle: string;
+  headline: string;
+  bio: string;
+  discoverable: boolean;
+};
+
 function firstValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
@@ -33,6 +41,7 @@ function firstValue(value: string | string[] | undefined): string {
 function ProfileForm({
   displayName,
   profile,
+  values,
 }: {
   displayName: string;
   profile: {
@@ -42,14 +51,23 @@ function ProfileForm({
     bio: string | null;
     discoverable: boolean;
   } | null;
+  values?: ProfileFormValues;
 }) {
+  const defaultValues = values ?? {
+    displayName: profile?.displayName ?? displayName,
+    handle: profile?.handle ?? "",
+    headline: profile?.headline ?? "",
+    bio: profile?.bio ?? "",
+    discoverable: profile?.discoverable ?? false,
+  };
+
   return (
     <form action={saveProfile} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Display name">
           <Input
             name="displayName"
-            defaultValue={profile?.displayName ?? displayName}
+            defaultValue={defaultValues.displayName}
             maxLength={60}
             required
           />
@@ -57,7 +75,7 @@ function ProfileForm({
         <Field label="@username" hint="3–30 letters, numbers, or underscores.">
           <Input
             name="handle"
-            defaultValue={profile?.handle ?? ""}
+            defaultValue={defaultValues.handle}
             placeholder="yourname"
             maxLength={30}
             autoCapitalize="none"
@@ -70,7 +88,7 @@ function ProfileForm({
       <Field label="What you do">
         <Input
           name="headline"
-          defaultValue={profile?.headline ?? ""}
+          defaultValue={defaultValues.headline}
           maxLength={80}
           placeholder="Musician, owner, or something else"
         />
@@ -78,7 +96,7 @@ function ProfileForm({
       <Field label="Bio">
         <Textarea
           name="bio"
-          defaultValue={profile?.bio ?? ""}
+          defaultValue={defaultValues.bio}
           maxLength={500}
           rows={4}
           placeholder="A little about you"
@@ -88,7 +106,7 @@ function ProfileForm({
         <input
           type="checkbox"
           name="discoverable"
-          defaultChecked={profile?.discoverable ?? false}
+          defaultChecked={defaultValues.discoverable}
           className="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-[var(--vx-accent-600)]"
         />
         <span>Let people find me by my name or @username</span>
@@ -108,10 +126,18 @@ function ProfileRow({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+    <div
+      className={`flex gap-3 py-3 first:pt-0 last:pb-0 ${
+        action
+          ? "flex-col items-stretch sm:flex-row sm:items-center sm:justify-between"
+          : "items-center justify-between"
+      }`}
+    >
       <Link
         href={`/people/${profile.handle}`}
-        className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)]"
+        className={`min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)] ${
+          action ? "w-full sm:w-auto" : ""
+        }`}
       >
         <p className="truncate text-sm font-medium text-zinc-900">
           {profile.displayName}
@@ -123,7 +149,11 @@ function ProfileRow({
           </p>
         )}
       </Link>
-      {action}
+      {action && (
+        <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
+          {action}
+        </div>
+      )}
     </div>
   );
 }
@@ -190,7 +220,17 @@ export default async function PeoplePage({
   );
   const editProfile =
     canManage && (!profile || firstValue(params.edit) === "1");
+  const hasError = Boolean(firstValue(params.error));
   const error = profileErrors[firstValue(params.error)];
+  const formValues: ProfileFormValues | undefined = hasError
+    ? {
+        displayName: firstValue(params.displayName),
+        handle: firstValue(params.handle),
+        headline: firstValue(params.headline),
+        bio: firstValue(params.bio).slice(0, 500),
+        discoverable: firstValue(params.discoverable) === "on",
+      }
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -249,6 +289,7 @@ export default async function PeoplePage({
             <ProfileForm
               displayName={user.orgName ?? ""}
               profile={profile}
+              values={formValues}
             />
           ) : profile ? (
             <div className="space-y-2">
