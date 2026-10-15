@@ -189,6 +189,13 @@ export async function materializeAccount(
         accountType: pending.accountType,
         features: pending.features,
         focusPacks: pending.focusPacks,
+        musicAddonGraceUntil: pending.focusPacks.includes("music")
+          ? new Date(
+              subscription.trial_end
+                ? subscription.trial_end * 1000
+                : Date.now() + Math.max(TRIAL_DAYS, 0) * 86400000,
+            )
+          : null,
         subscriptionStatus: subscription.status,
         billingEmail: pending.email,
         stripeCustomerId: customerId,

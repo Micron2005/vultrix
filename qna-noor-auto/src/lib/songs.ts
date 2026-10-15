@@ -23,9 +23,10 @@ export async function requireMusicPack(): Promise<{
   orgId: string;
 }> {
   const user = await requireUser();
-  if (user.accountType !== "PERSONAL" || !user.orgId || !user.focusPacks.includes("music")) {
+  if (!user.orgId || !user.focusPacks.includes("music")) {
     redirect("/");
   }
+  if (!user.musicAccess.allowed) redirect("/songs/locked");
   return { user, orgId: user.orgId };
 }
 

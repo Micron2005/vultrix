@@ -1,15 +1,29 @@
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/session";
 
-export function SongsTabs({
+export async function SongsTabs({
   active,
 }: {
   active: "board" | "lyrics" | "ideas" | "practice" | "beats";
 }) {
+  const user = await getCurrentUser();
   return (
-    <nav
-      aria-label="Songs"
-      className="mb-6 grid w-full grid-cols-5 gap-1 rounded-lg bg-zinc-100 p-1"
-    >
+    <>
+      {user?.musicAccess.reason === "grace" && user.musicAccess.graceUntil && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Music is free until{" "}
+          {user.musicAccess.graceUntil.toLocaleDateString()}. Add the Music
+          add-on in{" "}
+          <Link href="/billing#music" className="font-medium underline">
+            Billing
+          </Link>{" "}
+          to keep it.
+        </div>
+      )}
+      <nav
+        aria-label="Songs"
+        className="mb-6 grid w-full grid-cols-5 gap-1 rounded-lg bg-zinc-100 p-1"
+      >
       <Link
         href="/songs"
         aria-current={active === "board" ? "page" : undefined}
@@ -65,6 +79,7 @@ export function SongsTabs({
       >
         Beats
       </Link>
-    </nav>
+      </nav>
+    </>
   );
 }

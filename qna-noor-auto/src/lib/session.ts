@@ -9,6 +9,7 @@ import {
   userIdFromToken,
 } from "./auth";
 import { normalizeFocusPacks, type FocusPackId } from "./focusPacks";
+import { musicAccess, type MusicAccess } from "./musicAddon";
 
 export type Role = "SUPERADMIN" | "OWNER" | "ADMIN" | "STAFF";
 
@@ -38,6 +39,7 @@ export type CurrentUser = {
   accountType: string | null;
   features: string[];
   focusPacks: FocusPackId[];
+  musicAccess: MusicAccess;
   aiAssistantEnabled: boolean;
   aiMemoryEnabled: boolean;
   aiAssistantName: string;
@@ -108,7 +110,15 @@ async function resolveCurrentUser(): Promise<CurrentUserResolution> {
       focusPacks:
         user.organization?.accountType === "PERSONAL"
           ? normalizeFocusPacks(user.organization.focusPacks)
-          : [],
+          : normalizeFocusPacks(user.organization?.focusPacks).filter(
+              (pack) => pack === "music",
+            ),
+      musicAccess: musicAccess({
+        billingExempt: user.organization?.billingExempt ?? false,
+        musicAddon: user.organization?.musicAddon ?? false,
+        musicAddonGraceUntil:
+          user.organization?.musicAddonGraceUntil ?? null,
+      }),
       aiAssistantEnabled: user.organization?.aiAssistantEnabled ?? false,
       aiMemoryEnabled: user.aiMemoryEnabled,
       aiAssistantName: user.organization?.aiAssistantName ?? "Assistant",

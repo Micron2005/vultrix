@@ -84,7 +84,7 @@ export function getEligibleNavItems({
     if (item.href === "/billing") return canManageUsers;
     if (item.href === "/assistant") return aiAssistantEnabled;
     if (item.pack) {
-      return accountType === "PERSONAL" && focusPacks.includes(item.pack);
+      return focusPacks.includes(item.pack);
     }
     if (item.href === "/notes" && accountType === "AUTO_SHOP") return false;
     if (

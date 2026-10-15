@@ -1,5 +1,6 @@
 "use server";
 
+import type Stripe from "stripe";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,10 +11,13 @@ import { getStripe, billingConfigured } from "@/lib/stripe";
 import {
   applySubscriptionPriceToSubscription,
   priceForAccount,
+  resolveMusicAddonPriceId,
   restartSubscription,
   subscriptionIsDead,
 } from "@/lib/billing";
+import { normalizeFocusPacks } from "@/lib/focusPacks";
 import { sanitizeFeatureKeys } from "@/lib/features";
+import { isMusicAddonItem, MUSIC_ADDON_PRICE_USD } from "@/lib/musicAddon";
 import {
   getOrCreateConnectAccount,
   createOnboardingLink,
@@ -148,6 +152,122 @@ export async function updatePlan(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/");
   redirect(`/billing?plan_saved=${encodeURIComponent(confirmation)}`);
+}
+
+export async function enableMusicAddon() {
+  const user = await requireUser();
+  if (user.role !== "OWNER" && user.role !== "ADMIN") {
+    back({ error: "Not allowed." });
+  }
+  if (!user.orgId) back({ error: "No business on this account." });
+
+  const org = await db.organization.findUnique({ where: { id: user.orgId } });
+  if (!org) back({ error: "Business not found." });
+
+  const focusPacks = normalizeFocusPacks([...org.focusPacks, "music"]);
+  if (org.billingExempt) {
+    await db.organization.update({
+      where: { id: org.id },
+      data: { musicAddon: true, focusPacks },
+    });
+    revalidatePath("/billing");
+    revalidatePath("/settings");
+    revalidatePath("/", "layout");
+    revalidatePath("/songs");
+    back({ music_saved: "Music is included with your free account." });
+  }
+
+  if (!org.stripeCustomerId) {
+    back({ error: "Contact support to set up billing for this account." });
+  }
+  if (!org.stripeSubscriptionId) {
+    back({ error: "Start a subscription first." });
+  }
+  if (!billingConfigured()) {
+    back({ error: "Billing isn't configured on this server." });
+  }
+
+  const stripe = getStripe();
+  let subscription: Stripe.Subscription;
+  try {
+    subscription = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    back({ error: `Couldn't load the subscription: ${message}` });
+  }
+  if (subscription.status !== "active" && subscription.status !== "trialing") {
+    back({ error: "Start or restart a subscription first." });
+  }
+
+  try {
+    if (!subscription.items.data.some(isMusicAddonItem)) {
+      const price = await resolveMusicAddonPriceId();
+      await stripe.subscriptionItems.create({
+        subscription: subscription.id,
+        price,
+        proration_behavior: "none",
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    back({ error: `Couldn't add the Music add-on: ${message}` });
+  }
+
+  await db.organization.update({
+    where: { id: org.id },
+    data: { musicAddon: true, focusPacks },
+  });
+  revalidatePath("/billing");
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+  revalidatePath("/songs");
+  back({
+    music_saved:
+      subscription.status === "trialing"
+        ? `Music add-on enabled — free during your trial, then $${MUSIC_ADDON_PRICE_USD}/month.`
+        : `Music add-on enabled — $${MUSIC_ADDON_PRICE_USD}/month on your subscription.`,
+  });
+}
+
+export async function disableMusicAddon() {
+  const user = await requireUser();
+  if (user.role !== "OWNER" && user.role !== "ADMIN") {
+    back({ error: "Not allowed." });
+  }
+  if (!user.orgId) back({ error: "No business on this account." });
+
+  const org = await db.organization.findUnique({ where: { id: user.orgId } });
+  if (!org) back({ error: "Business not found." });
+
+  if (!org.billingExempt && org.stripeSubscriptionId) {
+    if (!billingConfigured()) {
+      back({ error: "Billing isn't configured on this server." });
+    }
+    try {
+      const stripe = getStripe();
+      const subscription = await stripe.subscriptions.retrieve(
+        org.stripeSubscriptionId,
+      );
+      const addonItem = subscription.items.data.find(isMusicAddonItem);
+      if (addonItem && !subscriptionIsDead(subscription.status)) {
+        await stripe.subscriptionItems.del(addonItem.id, {
+          proration_behavior: "none",
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      back({ error: `Couldn't remove the Music add-on: ${message}` });
+    }
+  }
+
+  await db.organization.update({
+    where: { id: org.id },
+    data: { musicAddon: false },
+  });
+  revalidatePath("/billing");
+  revalidatePath("/", "layout");
+  revalidatePath("/songs");
+  back({ music_saved: "Music add-on removed. Your Songs data is unchanged." });
 }
 
 export async function restartOwnSubscription() {

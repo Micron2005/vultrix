@@ -9,6 +9,7 @@ import {
   priceForAccount,
   subscriptionIsDead,
 } from "@/lib/billing";
+import { MUSIC_ADDON_PRICE_USD } from "@/lib/musicAddon";
 import { enabledFeatureSet } from "@/lib/features";
 import { refreshConnectStatus } from "@/lib/connect";
 import { SALES_EMAIL } from "@/lib/branding";
@@ -18,6 +19,8 @@ import {
   startConnectOnboarding,
   openConnectDashboard,
   updatePlan,
+  enableMusicAddon,
+  disableMusicAddon,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,7 @@ export default async function BillingPage({
     error?: string;
     connect?: string;
     plan_saved?: string;
+    music_saved?: string;
   }>;
 }) {
   const user = await requireUser();
@@ -74,7 +78,7 @@ export default async function BillingPage({
         }
       />
 
-      {(sp.error || sp.plan_saved) && (
+      {(sp.error || sp.plan_saved || sp.music_saved) && (
         <div
           className={
             sp.error
@@ -82,7 +86,7 @@ export default async function BillingPage({
               : "mb-4 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800"
           }
         >
-          {sp.error ?? sp.plan_saved}
+          {sp.error ?? sp.plan_saved ?? sp.music_saved}
         </div>
       )}
 
@@ -191,6 +195,51 @@ export default async function BillingPage({
           <SaveButton>Save plan</SaveButton>
         </form>
       </Card>
+
+      <div id="music">
+        <Card className="mt-6">
+          <CardHeader title="Music add-on" />
+          <div className="space-y-4 p-4">
+            <p className="text-sm text-zinc-600">
+              Add Songs, lyrics, beats and practice tools to this account.
+            </p>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">
+                Status
+              </div>
+              <div className="text-sm font-medium text-zinc-900">
+                {org.billingExempt
+                  ? "Included with your free account"
+                  : org.musicAddon
+                    ? `On — $${MUSIC_ADDON_PRICE_USD}/month`
+                    : user.musicAccess.reason === "grace" &&
+                        user.musicAccess.graceUntil
+                      ? `Free until ${user.musicAccess.graceUntil.toLocaleDateString()}`
+                      : "Off"}
+              </div>
+            </div>
+            {!org.billingExempt && (
+              <p className="text-sm text-zinc-600">
+                Monthly total:{" "}
+                {org.musicAddon
+                  ? `$${monthlyPrice} base + $${MUSIC_ADDON_PRICE_USD} Music = $${monthlyPrice + MUSIC_ADDON_PRICE_USD}/month`
+                  : `$${monthlyPrice}/month`}
+              </p>
+            )}
+            {org.musicAddon ? (
+              <form action={disableMusicAddon}>
+                <Button type="submit" variant="secondary">
+                  Remove Music add-on
+                </Button>
+              </form>
+            ) : (
+              <form action={enableMusicAddon}>
+                <Button type="submit">Add Music add-on</Button>
+              </form>
+            )}
+          </div>
+        </Card>
+      </div>
 
       {hasInvoices && (
         <Card className="mt-6">

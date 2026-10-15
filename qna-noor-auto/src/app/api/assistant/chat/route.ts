@@ -610,8 +610,7 @@ export async function POST(request: Request) {
   ];
 
   const memoryEnabled = user.aiMemoryEnabled;
-  const musicEnabled =
-    org.accountType === "PERSONAL" && user.focusPacks.includes("music");
+  const musicEnabled = user.musicAccess.allowed && user.focusPacks.includes("music");
   const memories = memoryEnabled
     ? await listMemories(user.orgId, user.id)
     : [];
