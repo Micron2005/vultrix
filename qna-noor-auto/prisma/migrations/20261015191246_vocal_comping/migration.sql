@@ -1,0 +1,2 @@
+ALTER TABLE "BeatVocalLayer" ADD COLUMN "compOn" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "BeatVocalLayer" ADD COLUMN "comp" TEXT;
