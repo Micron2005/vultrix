@@ -1,3 +1,5 @@
+import { db } from "./db";
+
 const HANDLE_PATTERN = /^[a-z0-9_]{3,30}$/;
 
 export function normalizeHandle(raw: string): string | null {
@@ -23,7 +25,6 @@ export async function findPeople(
     { displayNameLower },
     ...(handleQuery && normalizedHandle ? [{ handle: normalizedHandle }] : []),
   ];
-  const { db } = await import("./db");
 
   return db.profile.findMany({
     where: {
@@ -50,7 +51,6 @@ export async function relationship(
     return { following: false, followsYou: false, connected: false };
   }
 
-  const { db } = await import("./db");
   const [following, followsYou] = await Promise.all([
     db.follow.findUnique({
       where: {
