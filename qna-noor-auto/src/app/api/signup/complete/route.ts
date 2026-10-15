@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
-import { SESSION_COOKIE, makeToken } from "@/lib/auth";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { issueSessionToken } from "@/lib/session";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import { ensureAccountFromCheckout } from "@/lib/signup";
 
@@ -37,11 +38,15 @@ export async function GET(req: Request) {
   if (result) {
     const org = await db.organization.findUnique({
       where: { id: result.orgId },
-      select: { status: true },
+      select: { status: true, accountType: true },
     });
     if (org && org.status === "ACTIVE") {
+      const token = await issueSessionToken({
+        id: result.ownerId,
+        organization: org,
+      });
       const res = NextResponse.redirect(new URL("/", url), { status: 303 });
-      res.cookies.set(SESSION_COOKIE, makeToken(result.ownerId), {
+      res.cookies.set(SESSION_COOKIE, token, {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { limitPersonalLogins } from "@/lib/personalLogins";
 import { getStripe, billingConfigured } from "@/lib/stripe";
 import {
   applySubscriptionPriceToSubscription,
@@ -120,6 +121,9 @@ export async function updatePlan(formData: FormData) {
       features: nextFeatures,
     },
   });
+  if (accountTypeChanged && accountType === "PERSONAL") {
+    await limitPersonalLogins(org.id);
+  }
 
   const price = priceForAccount(accountType, nextHasInvoices);
   const planLabel =

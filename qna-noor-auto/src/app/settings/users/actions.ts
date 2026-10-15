@@ -31,6 +31,9 @@ async function requireManagerOrg() {
 
 export async function createUser(formData: FormData) {
   const me = await requireManagerOrg();
+  if (me.accountType === "PERSONAL") {
+    back({ error: "Personal accounts have one login." });
+  }
 
   const username = String(formData.get("username") ?? "").trim();
   const usernameLower = username.toLowerCase();
@@ -87,6 +90,9 @@ export async function setUserActive(formData: FormData) {
   const userId = String(formData.get("userId") ?? "");
   const active = String(formData.get("active") ?? "") === "1";
 
+  if (active && me.accountType === "PERSONAL") {
+    back({ error: "Personal accounts have one login." });
+  }
   if (userId === me.id) back({ error: "You can't change your own access." });
 
   const target = await db.user.findUnique({ where: { id: userId } });

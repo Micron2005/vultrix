@@ -11,6 +11,7 @@ type SearchParams = Promise<{
   next?: string;
   error?: string;
   suspended?: string;
+  elsewhere?: string;
   pending?: string;
   reset?: string;
 }>;
@@ -20,7 +21,7 @@ export default async function LoginPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { next, error, suspended, pending, reset } = await searchParams;
+  const { next, error, suspended, elsewhere, pending, reset } = await searchParams;
 
   if (await getCurrentUser()) {
     redirect(safeNext(next));
@@ -41,6 +42,7 @@ export default async function LoginPage({
             next={safeNext(next)}
             error={!!error}
             suspended={!!suspended}
+            elsewhere={!!elsewhere}
             pending={!!pending}
             reset={!!reset}
           />
