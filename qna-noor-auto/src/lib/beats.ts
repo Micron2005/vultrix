@@ -84,6 +84,8 @@ export async function listBeatVocalLayers(orgId: string, beatId: string) {
       eqHigh: true,
       compress: true,
       doubler: true,
+      compOn: true,
+      comp: true,
       sortOrder: true,
     },
   });
