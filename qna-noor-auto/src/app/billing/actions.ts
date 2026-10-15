@@ -42,9 +42,12 @@ export async function openBillingPortal() {
   const user = await requireUser();
   if (user.role !== "OWNER" && user.role !== "ADMIN") back({ error: "Not allowed." });
   if (!user.orgId) back({ error: "No business on this account." });
-  if (!billingConfigured()) back({ error: "Billing isn't configured." });
 
   const org = await db.organization.findUnique({ where: { id: user.orgId } });
+  if (org?.billingExempt) {
+    back({ error: "This is a free account — there's nothing to bill." });
+  }
+  if (!billingConfigured()) back({ error: "Billing isn't configured." });
   if (!org?.stripeCustomerId) {
     back({ error: "No subscription on file for this business." });
   }
@@ -92,6 +95,7 @@ export async function updatePlan(formData: FormData) {
 
   let subscriptionStatus = org.subscriptionStatus;
   if (
+    !org.billingExempt &&
     org.stripeCustomerId &&
     org.stripeSubscriptionId &&
     billingConfigured()
@@ -132,8 +136,9 @@ export async function updatePlan(formData: FormData) {
       : accountType === "BUSINESS"
         ? "Business"
         : "Personal";
-  const confirmation =
-    !planChanged
+  const confirmation = org.billingExempt
+    ? `${planLabel} plan updated — free account, never billed.`
+    : !planChanged
       ? "Billing plan saved."
       : subscriptionStatus === "trialing"
         ? `${planLabel} plan updated — free during your trial, then $${price}/month.`
@@ -154,6 +159,9 @@ export async function restartOwnSubscription() {
 
   const org = await db.organization.findUnique({ where: { id: user.orgId } });
   if (!org) back({ error: "Business not found." });
+  if (org.billingExempt) {
+    back({ error: "This is a free account — there's nothing to bill." });
+  }
   if (!org.stripeCustomerId || !subscriptionIsDead(org.subscriptionStatus)) {
     back({ error: "There is no canceled subscription to restart." });
   }

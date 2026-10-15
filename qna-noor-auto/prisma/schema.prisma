@@ -1143,6 +1143,8 @@ model Organization {
 
   // --- Billing (Stripe subscription) ---------------------------------------
   // Contact email used for the Stripe customer / receipts.
+  // Free account, never billed.
+  billingExempt        Boolean @default(false)
   billingEmail         String?
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique

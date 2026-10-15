@@ -7,9 +7,11 @@ import { hashPassword } from "@/lib/auth";
 import { requireSuperadmin } from "@/lib/session";
 import { billingConfigured, getStripe } from "@/lib/stripe";
 import {
+  cancelSubscriptionForFreeAccount,
   restartSubscription,
   subscriptionIsDead,
   syncSubscriptionToOrg,
+  TRIAL_DAYS,
 } from "@/lib/billing";
 import { sanitizeFeatureKeys } from "@/lib/features";
 
@@ -166,11 +168,26 @@ export async function setBusinessStatus(formData: FormData) {
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) back({ error: "Business not found." });
 
+  const deadSubscription = subscriptionIsDead(org.subscriptionStatus);
+  const hasFutureTrial = Boolean(
+    org.trialEndsAt && org.trialEndsAt > new Date(),
+  );
   await db.organization.update({ where: { id: orgId }, data: { status } });
   if (
     status === "ACTIVE" &&
+    !org.billingExempt &&
+    deadSubscription &&
+    !hasFutureTrial
+  ) {
+    revalidatePath("/admin");
+    back({ saved: "reactivated-no-sub" });
+  }
+  if (
+    status === "ACTIVE" &&
+    !org.billingExempt &&
     org.stripeCustomerId &&
-    subscriptionIsDead(org.subscriptionStatus) &&
+    deadSubscription &&
+    hasFutureTrial &&
     billingConfigured()
   ) {
     try {
@@ -187,6 +204,77 @@ export async function setBusinessStatus(formData: FormData) {
   }
   revalidatePath("/admin");
   back({ saved: status === "SUSPENDED" ? "suspended" : "reactivated" });
+}
+
+export async function setFreeAccount(formData: FormData) {
+  await requireSuperadmin();
+
+  const orgId = String(formData.get("orgId") ?? "");
+  const free = String(formData.get("free") ?? "");
+  if (free !== "on" && free !== "off") {
+    back({ error: "Unknown free-account setting." });
+  }
+
+  const org = await db.organization.findUnique({ where: { id: orgId } });
+  if (!org) back({ error: "Business not found." });
+
+  if (free === "on") {
+    await db.organization.update({
+      where: { id: orgId },
+      data: { billingExempt: true, status: "ACTIVE", pastDueSince: null },
+    });
+
+    if (org.stripeSubscriptionId && billingConfigured()) {
+      try {
+        await cancelSubscriptionForFreeAccount(org.stripeSubscriptionId);
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "Stripe error";
+        await db.organization.update({
+          where: { id: orgId },
+          data: {
+            billingExempt: false,
+            status: org.status,
+            pastDueSince: org.pastDueSince,
+          },
+        });
+        back({
+          error: `Couldn't cancel the Stripe subscription: ${msg}`,
+        });
+      }
+    }
+
+    await db.organization.update({
+      where: { id: orgId },
+      data: {
+        stripeSubscriptionId: null,
+        subscriptionStatus: null,
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+      },
+    });
+  } else {
+    await db.organization.update({
+      where: { id: orgId },
+      data: { billingExempt: false },
+    });
+
+    if (org.billingExempt && org.stripeCustomerId && billingConfigured()) {
+      try {
+        await restartSubscription(
+          orgId,
+          new Date(Date.now() + TRIAL_DAYS * DAY_MS),
+        );
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "Stripe error";
+        back({ error: `Couldn't restart the Stripe subscription: ${msg}` });
+      }
+    }
+  }
+
+  revalidatePath("/admin");
+  back({ saved: free === "on" ? "free-on" : "free-off" });
 }
 
 /** Rename a business (its on-screen shop name). */
@@ -259,6 +347,12 @@ export async function extendTrial(formData: FormData) {
 
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) back({ error: "Business not found." });
+  if (org.billingExempt) {
+    back({
+      error:
+        "This is a free account — it isn't billed, so there's no trial to extend.",
+    });
+  }
 
   const base = from === "today" ? Date.now() : org.createdAt.getTime();
   let endMs = base + days * DAY_MS;

@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       );
       if (orgId) {
         const org = await db.organization.findUnique({ where: { id: orgId } });
-        if (org && !org.pastDueSince) {
+        if (org && !org.billingExempt && !org.pastDueSince) {
           await db.organization.update({
             where: { id: orgId },
             data: { pastDueSince: new Date(), subscriptionStatus: "past_due" },

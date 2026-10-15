@@ -10,11 +10,16 @@ import {
 import { ACTIVE_RO_WHERE, db } from "@/lib/db";
 import { requireSuperadmin, roleLabel } from "@/lib/session";
 import { APP_NAME } from "@/lib/branding";
-import { describeBilling, subscriptionIsDead } from "@/lib/billing";
+import {
+  describeBilling,
+  subscriptionIsDead,
+  TRIAL_DAYS,
+} from "@/lib/billing";
 import {
   createBusiness,
   extendTrial,
   renameBusiness,
+  setFreeAccount,
   setBusinessStatus,
   adminResetUserPassword,
 } from "./actions";
@@ -26,9 +31,13 @@ const NOTICES: Record<string, string> = {
   created: "Account created.",
   suspended: "Account put on hold.",
   reactivated: "Account reactivated.",
+  "reactivated-no-sub":
+    "Reactivated. No subscription was started because its trial date had passed — use Extend free trial or Free account.",
   renamed: "Account renamed.",
   deleted: "Account deleted.",
   "trial-extended": "Free trial extended.",
+  "free-on": "Free account on — Stripe subscription canceled, never billed.",
+  "free-off": "Free account off — normal billing with a fresh free trial.",
   "password-reset": "Password updated. Share the new password with the owner.",
 };
 
@@ -176,6 +185,11 @@ export default async function AdminPage({
                           <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">
                             {accountTypeLabel(org.accountType)}
                           </span>
+                          {org.billingExempt && (
+                            <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800">
+                              Free account
+                            </span>
+                          )}
                           {suspended && (
                             <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
                               On hold
@@ -189,11 +203,13 @@ export default async function AdminPage({
                         <div className="text-xs text-zinc-400">
                           {describeBilling(org)}
                         </div>
-                        {subscriptionIsDead(org.subscriptionStatus) &&
+                        {!org.billingExempt &&
+                          subscriptionIsDead(org.subscriptionStatus) &&
                           org.stripeCustomerId && (
                             <div className="text-xs text-zinc-500">
-                              Subscription canceled in Stripe — Reactivate or
-                              Extend trial starts a new one on the saved card.
+                              Subscription canceled in Stripe — Reactivate
+                              restarts it only if its trial date is still in the
+                              future; otherwise use Extend free trial.
                             </div>
                           )}
                       </div>
@@ -238,38 +254,70 @@ export default async function AdminPage({
                     </form>
 
                     <form
-                      action={extendTrial}
-                      className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50/60 p-2"
+                      action={setFreeAccount}
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 p-2"
                     >
                       <input type="hidden" name="orgId" value={org.id} />
-                      <span className="text-xs font-medium text-amber-800">
-                        Extend free trial
-                      </span>
                       <input
-                        name="days"
-                        type="number"
-                        min={1}
-                        defaultValue={60}
-                        aria-label="Trial days"
-                        className="w-16 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        type="hidden"
+                        name="free"
+                        value={org.billingExempt ? "off" : "on"}
                       />
-                      <span className="text-xs text-amber-800">days from</span>
-                      <select
-                        name="from"
-                        defaultValue="signup"
-                        aria-label="Extend trial from"
-                        className="rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      >
-                        <option value="signup">signup date</option>
-                        <option value="today">today</option>
-                      </select>
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                        className={
+                          "inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm " +
+                          (org.billingExempt
+                            ? "bg-white text-zinc-900 border border-zinc-300 hover:bg-zinc-50"
+                            : "bg-white text-green-800 border border-green-300 hover:bg-green-50")
+                        }
                       >
-                        Apply
+                        {org.billingExempt
+                          ? "Turn off free account"
+                          : "Make free account (no billing)"}
                       </button>
+                      <p className="text-xs text-zinc-500">
+                        {org.billingExempt
+                          ? `Starts a normal subscription with a fresh ${TRIAL_DAYS}-day trial${org.stripeCustomerId ? " on the saved card." : "."}`
+                          : "Cancels the Stripe subscription. Access stays on forever, never charged."}
+                      </p>
                     </form>
+
+                    {!org.billingExempt && (
+                      <form
+                        action={extendTrial}
+                        className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50/60 p-2"
+                      >
+                        <input type="hidden" name="orgId" value={org.id} />
+                        <span className="text-xs font-medium text-amber-800">
+                          Extend free trial
+                        </span>
+                        <input
+                          name="days"
+                          type="number"
+                          min={1}
+                          defaultValue={60}
+                          aria-label="Trial days"
+                          className="w-16 rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                        <span className="text-xs text-amber-800">days from</span>
+                        <select
+                          name="from"
+                          defaultValue="signup"
+                          aria-label="Extend trial from"
+                          className="rounded-md border border-amber-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="signup">signup date</option>
+                          <option value="today">today</option>
+                        </select>
+                        <button
+                          type="submit"
+                          className="inline-flex items-center justify-center rounded-md font-medium h-8 px-3 text-sm bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                        >
+                          Apply
+                        </button>
+                      </form>
+                    )}
 
                     <div className="rounded-md border border-zinc-200 p-2 space-y-2">
                       <div className="text-xs font-medium text-zinc-600">

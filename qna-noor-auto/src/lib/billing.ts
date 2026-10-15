@@ -131,6 +131,31 @@ export function subscriptionIsDead(status: string | null): boolean {
   return status === "canceled" || status === "incomplete_expired";
 }
 
+export async function cancelSubscriptionForFreeAccount(
+  subscriptionId: string,
+): Promise<void> {
+  const stripe = getStripe();
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  if (!subscriptionIsDead(subscription.status)) {
+    await stripe.subscriptions.cancel(subscriptionId, {
+      invoice_now: false,
+      prorate: false,
+    });
+  }
+
+  const invoices = await stripe.invoices.list({
+    subscription: subscriptionId,
+    limit: 100,
+  });
+  for (const invoice of invoices.data) {
+    if (invoice.status === "open") {
+      await stripe.invoices.voidInvoice(invoice.id);
+    } else if (invoice.status === "draft") {
+      await stripe.invoices.del(invoice.id);
+    }
+  }
+}
+
 /**
  * Swap a subscription to the price for its account type and invoice choice.
  * Stripe preserves the current trial and billing cycle because only the
@@ -178,11 +203,14 @@ export function subscriptionGrantsAccess(status: string | null): boolean {
  * and the owner billing page.
  */
 export function describeBilling(org: {
+  billingExempt?: boolean;
   subscriptionStatus: string | null;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
   pastDueSince: Date | null;
 }): string {
+  if (org.billingExempt) return "Free account — never billed";
+
   switch (org.subscriptionStatus) {
     case "trialing":
       return org.trialEndsAt
@@ -229,6 +257,7 @@ export async function syncSubscriptionToOrg(
 
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) return;
+  if (org.billingExempt) return;
   // A superseded subscription (e.g. the canceled one replaced by a restart)
   // must not overwrite the org's current one.
   if (
