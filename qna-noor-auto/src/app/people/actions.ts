@@ -36,6 +36,23 @@ function isUniqueConflict(error: unknown): boolean {
   );
 }
 
+function redirectProfileError(formData: FormData, error: string): never {
+  const value = (name: string, maxLength: number) =>
+    String(formData.get(name) ?? "").slice(0, maxLength);
+  const params = new URLSearchParams({
+    edit: "1",
+    error,
+    displayName: value("displayName", 60),
+    handle: value("handle", 30),
+    headline: value("headline", 80),
+    bio: value("bio", 500),
+  });
+  if (formData.get("discoverable") === "on") {
+    params.set("discoverable", "on");
+  }
+  redirect(`/people?${params}`);
+}
+
 export async function saveProfile(formData: FormData): Promise<void> {
   const orgId = await requirePeopleManager();
   const value = (name: string) => String(formData.get(name) ?? "");
@@ -45,11 +62,13 @@ export async function saveProfile(formData: FormData): Promise<void> {
   const bio = value("bio").trim();
 
   if (!displayName || displayName.length > 60) {
-    redirect("/people?edit=1&error=display_name");
+    redirectProfileError(formData, "display_name");
   }
-  if (!handle) redirect("/people?edit=1&error=handle_invalid");
-  if (headline.length > 80) redirect("/people?edit=1&error=headline_too_long");
-  if (bio.length > 500) redirect("/people?edit=1&error=bio_too_long");
+  if (!handle) redirectProfileError(formData, "handle_invalid");
+  if (headline.length > 80) {
+    redirectProfileError(formData, "headline_too_long");
+  }
+  if (bio.length > 500) redirectProfileError(formData, "bio_too_long");
 
   const previous = await db.profile.findUnique({
     where: { orgId },
@@ -60,7 +79,7 @@ export async function saveProfile(formData: FormData): Promise<void> {
     select: { orgId: true },
   });
   if (existingHandle && existingHandle.orgId !== orgId) {
-    redirect("/people?edit=1&error=handle_taken");
+    redirectProfileError(formData, "handle_taken");
   }
 
   try {
@@ -86,7 +105,7 @@ export async function saveProfile(formData: FormData): Promise<void> {
     });
   } catch (error) {
     if (isUniqueConflict(error)) {
-      redirect("/people?edit=1&error=handle_taken");
+      redirectProfileError(formData, "handle_taken");
     }
     throw error;
   }
@@ -130,13 +149,15 @@ export async function follow(profileId: string): Promise<void> {
     skipDuplicates: true,
   });
   if (created.count > 0) {
+    const title = followsYou
+      ? `${viewer.displayName} followed you back — you're connected`
+      : `${viewer.displayName} (@${viewer.handle}) followed you`;
     await notify({
       orgId: target.orgId,
       kind: "new_follower",
-      title: followsYou
-        ? `${viewer.displayName} followed you back — you're connected`
-        : `${viewer.displayName} (@${viewer.handle}) followed you`,
+      title,
       href: `/people/${viewer.handle}`,
+      dedupeKey: title,
     });
   }
 
