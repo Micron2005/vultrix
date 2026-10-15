@@ -147,7 +147,7 @@ export function TakeNotes({
               {visibleNotes.length ? (
                 <ul className="space-y-2">
                   {visibleNotes.map((note) => (
-                    <li key={note.id} className={`flex min-w-0 items-start gap-2 rounded-md border border-zinc-200 bg-white p-2 ${note.resolved ? "opacity-60" : ""}`}>
+                    <li key={note.id} className={`flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-white p-2 ${note.resolved ? "opacity-60" : ""}`}>
                       <button
                         type="button"
                         onClick={() => seek(note.atMs)}
@@ -156,7 +156,7 @@ export function TakeNotes({
                       >
                         {formatClock(note.atMs)}
                       </button>
-                      <div className="min-w-0 flex-1">
+                      <div className="order-last min-w-0 basis-full">
                         <p className={`break-words text-sm text-zinc-900 ${note.resolved ? "line-through" : ""}`}>{note.text}</p>
                         <p className="mt-1 text-xs text-zinc-500">{note.authorName}</p>
                       </div>
@@ -166,7 +166,7 @@ export function TakeNotes({
                         aria-checked={note.resolved}
                         aria-label={note.resolved ? "Reopen note" : "Resolve note"}
                         onClick={() => void toggleResolved(note)}
-                        className="min-h-10 min-w-10 rounded-md text-sm text-zinc-600 hover:bg-zinc-100"
+                        className="ml-auto min-h-10 min-w-10 rounded-md text-sm text-zinc-600 hover:bg-zinc-100"
                       >
                         {note.resolved ? "☑" : "□"}
                       </button>
