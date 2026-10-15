@@ -1170,6 +1170,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   users             User[]
+  profile           Profile?
   customers         Customer[]
   customerContacts  CustomerContact[]
   vehicles          Vehicle[]
@@ -1215,6 +1216,36 @@ model Organization {
   inspections       Inspection[]
 
   @@index([status])
+}
+
+model Profile {
+  id               String       @id @default(cuid())
+  orgId            String       @unique
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  handle           String       @unique // lowercase a-z 0-9 _, 3–30 chars
+  displayName      String
+  displayNameLower String // trimmed, lowercased, inner whitespace collapsed
+  headline         String? // what you do, ≤80
+  bio              String? // ≤500
+  discoverable     Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  following        Follow[]     @relation("FollowFollower")
+  followers        Follow[]     @relation("FollowFollowing")
+
+  @@index([displayNameLower])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    Profile  @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   Profile  @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
 }
 
 model Song {

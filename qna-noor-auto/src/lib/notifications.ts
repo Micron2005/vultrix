@@ -9,7 +9,8 @@ export type NotificationKind =
   | "goals_today"
   | "goal_behind"
   | "low_stock"
-  | "task_assigned";
+  | "task_assigned"
+  | "new_follower";
 
 type NotificationUser = Pick<CurrentUser, "id" | "orgId" | "role">;
 
