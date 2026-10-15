@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
 import { countSyllables } from "@/lib/lyrics";
+import { DetectKeyButton } from "../DetectKeyButton";
 
 const MAX_RECORDING_SECONDS = 900;
 const FONT_KEY = "lyrics-font";
@@ -578,6 +579,11 @@ export function LyricsWorkspace({
                 <Button type="button" size="xs" variant="danger" onClick={() => void removeTake(take)}>Delete</Button>
               </div>
               <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="mt-2 h-8 w-full" />
+              <DetectKeyButton
+                src={`/songs/audio/song/${take.id}?v=shared-songs-v1`}
+                songId={selectedSong.id}
+                canSet
+              />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Select value="closed" onChange={(event) => { const beat = beats.find((item) => item.id === event.target.value); if (beat) void addToBeat(take.id, beat); }} aria-label={`Use ${take.name} in beat`}>
                   <option value="closed">Use in beat…</option>

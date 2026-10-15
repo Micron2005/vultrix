@@ -14,6 +14,7 @@ import { StarRating } from "../StarRating";
 import { SongTaskRow } from "../SongTaskRow";
 import { SongInviteForm } from "../SongInviteForm";
 import { LeaveSongButton } from "../LeaveSongButton";
+import { DetectKeyButton } from "../DetectKeyButton";
 
 function formatTakeDuration(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -232,6 +233,11 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
                       preload="none"
                       src={`/songs/audio/${take.kind}/${take.id}?v=shared-songs-v1`}
                       className="mt-2 h-8 w-full"
+                    />
+                    <DetectKeyButton
+                      src={`/songs/audio/${take.kind}/${take.id}?v=shared-songs-v1`}
+                      songId={song.id}
+                      canSet
                     />
                   </div>
                 );
