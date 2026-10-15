@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/lyrics.test.ts src/lib/assistant/memory.test.ts src/lib/assistant/prompt.test.ts src/lib/auth.test.ts",
+    "test": "node --import tsx --test src/lib/lyrics.test.ts src/lib/assistant/memory.test.ts src/lib/assistant/prompt.test.ts src/lib/auth.test.ts src/lib/people.test.ts",
     "test:lyrics": "node --import tsx --test src/lib/lyrics.test.ts",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",

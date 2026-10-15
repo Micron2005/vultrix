@@ -39,6 +39,7 @@ export const NAV_ITEMS: NavCatalogItem[] = [
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
   { href: "/goals", label: "Goals" },
+  { href: "/people", label: "People" },
   { href: "/songs", label: "Songs", pack: "music" },
   { href: "/sales", label: "Sales", feature: "financials" },
   { href: "/reports", label: "Reports", feature: "reports" },
