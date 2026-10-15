@@ -1375,6 +1375,8 @@ model BeatVocalLayer {
   eqHigh       Int      @default(0)
   compress     Boolean  @default(false)
   doubler      Boolean  @default(false)
+  compOn       Boolean  @default(false)
+  comp         String?
   sortOrder    Int      @default(0)
   takes        BeatTake[]
   createdAt    DateTime @default(now())

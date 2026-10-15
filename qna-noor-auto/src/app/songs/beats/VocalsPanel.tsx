@@ -24,6 +24,14 @@ import {
   type BeatPlaybackMode,
   type BeatTakeAudio,
 } from "./engine";
+import {
+  autoFillComp,
+  compSegments,
+  compSlots,
+  type Comp,
+  MAX_COMP_SLOTS,
+  windowTake,
+} from "./comp";
 import { sectionSequence } from "./kits";
 import { TakeNotes } from "../TakeNotes";
 
@@ -54,6 +62,8 @@ export type VocalLayer = {
   eqHigh: number;
   compress: boolean;
   doubler: boolean;
+  compOn: boolean;
+  comp: Comp;
   sortOrder: number;
 };
 
@@ -150,6 +160,7 @@ export function VocalsPanel({
   const [layers, setLayers] = useState(
     [...initialLayers].sort((a, b) => a.sortOrder - b.sortOrder),
   );
+  const arrangementCompSlots = compSlots(getDocument());
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -439,6 +450,53 @@ export function VocalsPanel({
     await updateBeatVocalLayer(id, patch);
   }
 
+  function takesForLayer(layer: VocalLayer) {
+    return takes.filter(
+      (take) => (take.layerId ?? layers[0]?.id) === layer.id,
+    );
+  }
+
+  function toggleComp(layer: VocalLayer) {
+    const assignedTakeIds = new Set(
+      takesForLayer(layer).map((take) => take.id),
+    );
+    const slotKeys = new Set(
+      arrangementCompSlots
+        .slice(0, MAX_COMP_SLOTS)
+        .map((slot) => slot.key),
+    );
+    const hasCurrentAssignment = Object.entries(layer.comp.slots).some(
+      ([key, takeId]) =>
+        slotKeys.has(key) && takeId !== null && assignedTakeIds.has(takeId),
+    );
+    const comp =
+      !layer.compOn && !hasCurrentAssignment
+        ? autoFillComp(arrangementCompSlots, takesForLayer(layer))
+        : layer.comp;
+    void updateLayer(layer.id, { compOn: !layer.compOn, comp });
+  }
+
+  function autoFillLayerComp(layer: VocalLayer) {
+    void updateLayer(layer.id, {
+      comp: autoFillComp(arrangementCompSlots, takesForLayer(layer)),
+    });
+  }
+
+  function assignCompTake(layer: VocalLayer, slotKey: string, takeId: string) {
+    const slots = Object.fromEntries(
+      arrangementCompSlots.slice(0, MAX_COMP_SLOTS).map((slot) => [
+        slot.key,
+        layer.comp.slots[slot.key] ?? null,
+      ]),
+    );
+    void updateLayer(layer.id, {
+      comp: {
+        v: 1,
+        slots: { ...slots, [slotKey]: takeId || null },
+      },
+    });
+  }
+
   function beginLayerRename(layer: VocalLayer) {
     setEditingLayerId(layer.id);
     setEditingLayerName(layer.name);
@@ -523,13 +581,14 @@ export function VocalsPanel({
   async function decodedAudioTakes(): Promise<BeatTakeAudio[]> {
     const anyLayerSolo = layers.some((layer) => layer.solo);
     const buffers = await Promise.all(takes.map((take) => decodeTake(take)));
-    return takes.map((take, index) => {
+    const slots = compSlots(getDocument());
+    return takes.flatMap((take, index) => {
       const layer = layers.find((item) => item.id === take.layerId) ?? layers[0];
       const muted = take.muted
         || !layer
         || layer.muted
         || (anyLayerSolo && !layer.solo);
-      return {
+      const audio: BeatTakeAudio = {
         buffer: buffers[index],
         offsetMs: take.offsetMs,
         gain: Math.round(take.gain * (layer?.gain ?? 100) / 100),
@@ -545,6 +604,10 @@ export function VocalsPanel({
           doubler: layer?.doubler ?? false,
         },
       };
+      if (!layer?.compOn) return [audio];
+      return compSegments(slots, layer.comp, take.id)
+        .map((segment) => windowTake(audio, segment.startMs, segment.endMs))
+        .filter((window): window is BeatTakeAudio => window !== null);
     });
   }
 
@@ -916,6 +979,7 @@ export function VocalsPanel({
                       )}
                       <Button type="button" size="sm" variant={layer.muted ? "secondary" : "ghost"} onClick={() => void updateLayer(layer.id, { muted: !layer.muted })}>M</Button>
                       <Button type="button" size="sm" variant={layer.solo ? "secondary" : "ghost"} onClick={() => void updateLayer(layer.id, { solo: !layer.solo })}>S</Button>
+                      <Button type="button" size="sm" variant={layer.compOn ? "secondary" : "ghost"} onClick={() => toggleComp(layer)}>Comp</Button>
                       <label className="flex items-center gap-1 text-[10px] text-zinc-500">
                         Vol
                         <input
@@ -962,6 +1026,46 @@ export function VocalsPanel({
                       {layers.length > 1 && <Button type="button" size="sm" variant="danger" onClick={() => void removeLayer(layer)}>Delete layer</Button>}
                       <Button type="button" size="sm" variant="secondary" onClick={() => { setRecordLayerId(layer.id); void startRecording(layer.id); }} disabled={playing || recording}>● Record here</Button>
                     </div>
+                    {layer.compOn && (
+                      <div className="mt-2 space-y-2 rounded-lg bg-zinc-50 p-2">
+                        {arrangementCompSlots.length === 0 ? (
+                          <p className="text-xs text-zinc-500">Add sections in Arrangement to comp.</p>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-zinc-700">Vocal comp</span>
+                              <Button type="button" size="sm" variant="ghost" onClick={() => autoFillLayerComp(layer)}>Auto-fill</Button>
+                            </div>
+                            {arrangementCompSlots.slice(0, MAX_COMP_SLOTS).map((slot) => (
+                              <div key={slot.key} className="grid grid-cols-1 items-center gap-1 text-xs sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                                <span className="text-zinc-700">
+                                  {slot.name}{" "}
+                                  <span className="tabular-nums text-zinc-500">
+                                    {formatSeconds(slot.startMs / 1000)}–{formatSeconds(slot.endMs / 1000)}
+                                  </span>
+                                </span>
+                                <Select
+                                  value={layer.comp.slots[slot.key] ?? ""}
+                                  aria-label={`${layer.name} comp for ${slot.name}`}
+                                  onChange={(event) => assignCompTake(layer, slot.key, event.currentTarget.value)}
+                                  className="min-h-11 w-full text-xs"
+                                >
+                                  <option value="">— silent —</option>
+                                  {takesForLayer(layer).map((take) => (
+                                    <option key={take.id} value={take.id}>{take.name}</option>
+                                  ))}
+                                </Select>
+                              </div>
+                            ))}
+                            {arrangementCompSlots.length > MAX_COMP_SLOTS && (
+                              <p className="text-xs text-zinc-500">
+                                Comp is limited to the first {MAX_COMP_SLOTS} arrangement slots.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                     {expandedFxIds.has(layer.id) && (
                       <div className="mt-2 flex flex-wrap items-center gap-3 rounded bg-zinc-50 p-2 text-xs">
                         <label className="flex items-center gap-1 text-[10px] text-zinc-500">

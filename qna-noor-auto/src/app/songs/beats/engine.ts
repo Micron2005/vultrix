@@ -48,6 +48,7 @@ export type BeatTakeAudio = {
   trimStartMs: number;
   trimEndMs: number;
   fx: BeatTakeFx;
+  fadeMs?: number;
 };
 
 export type BeatTakeFx = {
@@ -1117,7 +1118,29 @@ export class BeatEngine {
       const source = context.createBufferSource();
       source.buffer = take.buffer;
       const gain = context.createGain();
-      gain.gain.value = (take.gain / 100) * gainMultiplier;
+      const targetGain = (take.gain / 100) * gainMultiplier;
+      const sourceStart = Math.max(start, bufferOffsetSec);
+      const sourceDuration = end - sourceStart;
+      const playAt =
+        bufferOffsetSec < start
+          ? startAt + (start - bufferOffsetSec)
+          : startAt;
+      if (take.fadeMs === undefined) {
+        gain.gain.value = targetGain;
+      } else {
+        const fadeSeconds = Math.max(0, take.fadeMs / 1000);
+        const rampSeconds = Math.min(fadeSeconds, sourceDuration / 2);
+        gain.gain.setValueAtTime(0, playAt);
+        gain.gain.linearRampToValueAtTime(
+          targetGain,
+          playAt + rampSeconds,
+        );
+        gain.gain.setValueAtTime(
+          targetGain,
+          playAt + sourceDuration - rampSeconds,
+        );
+        gain.gain.linearRampToValueAtTime(0, playAt + sourceDuration);
+      }
       const low = context.createBiquadFilter();
       low.type = "lowshelf";
       low.frequency.value = 200;
@@ -1147,11 +1170,7 @@ export class BeatEngine {
       panner.connect(destination);
       nodes.push(source, gain, low, high, ...(compressor ? [compressor] : []), ...(delay ? [delay] : []), panner);
       sources.push(source);
-      if (bufferOffsetSec < start) {
-        source.start(startAt + (start - bufferOffsetSec), start, end - start);
-      } else {
-        source.start(startAt, bufferOffsetSec, end - bufferOffsetSec);
-      }
+      source.start(playAt, sourceStart, sourceDuration);
       return { source, panner };
     };
 
