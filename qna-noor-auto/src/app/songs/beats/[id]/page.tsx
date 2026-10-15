@@ -6,6 +6,7 @@ import { listSongs, requireMusicPack } from "@/lib/songs";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
+import { parseComp } from "../comp";
 import { safeParseBeatData } from "../kits";
 
 export default async function BeatDetailPage({
@@ -79,6 +80,8 @@ export default async function BeatDetailPage({
           eqHigh: layer.eqHigh,
           compress: layer.compress,
           doubler: layer.doubler,
+          compOn: layer.compOn,
+          comp: parseComp(layer.comp),
           sortOrder: layer.sortOrder,
         }))}
         songVocalTakes={songVocalTakes.map((take) => ({

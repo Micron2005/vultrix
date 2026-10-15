@@ -15,6 +15,7 @@ import {
 import { ensureBeatVocalLayers } from "@/lib/beats";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { autoVersionsToPrune, nextVersionName } from "./versions";
+import { CompSchema, parseComp } from "./comp";
 
 const BeatCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -57,6 +58,8 @@ const BeatVocalLayerPatchSchema = z.object({
   eqHigh: z.number().int().min(-12).max(12).optional(),
   compress: z.boolean().optional(),
   doubler: z.boolean().optional(),
+  compOn: z.boolean().optional(),
+  comp: CompSchema.optional(),
   sortOrder: z.number().int().min(0).max(7).optional(),
 }).partial();
 
@@ -474,24 +477,48 @@ export async function createBeatVocalLayer(beatId: string, name: string) {
       eqHigh: true,
       compress: true,
       doubler: true,
+      compOn: true,
+      comp: true,
       sortOrder: true,
     },
   });
   revalidateBeatPaths(beatId);
-  return layer;
+  return { ...layer, comp: parseComp(layer.comp) };
 }
 
 export async function updateBeatVocalLayer(id: string, patch: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeatVocalLayerPatchSchema.parse(patch);
+  const { comp, ...layerPatch } = parsed;
   const layer = await db.beatVocalLayer.findFirst({
     where: { id, beat: beatAccessWhere(orgId) },
     select: { beatId: true, beat: { select: { orgId: true } } },
   });
   if (!layer) return;
+  let serializedComp: string | undefined;
+  if (comp) {
+    const takes = await db.beatTake.findMany({
+      where: { beatId: layer.beatId, orgId: layer.beat.orgId },
+      select: { id: true },
+    });
+    const takeIds = new Set(takes.map((take) => take.id));
+    serializedComp = JSON.stringify({
+      ...comp,
+      slots: Object.fromEntries(
+        Object.entries(comp.slots).map(([key, takeId]) => [
+          key,
+          takeId && !takeIds.has(takeId) ? null : takeId,
+        ]),
+      ),
+    });
+  }
+  const data = {
+    ...layerPatch,
+    ...(serializedComp === undefined ? {} : { comp: serializedComp }),
+  };
   await db.beatVocalLayer.updateMany({
     where: { id, beat: beatAccessWhere(orgId) },
-    data: parsed,
+    data,
   });
   revalidateBeatPaths(layer.beatId);
 }

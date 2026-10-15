@@ -24,6 +24,7 @@ import {
   type PlayRange,
 } from "./engine";
 import { VocalsPanel, type Take } from "./VocalsPanel";
+import type { Comp } from "./comp";
 import { RehearsalMode } from "./RehearsalMode";
 import {
   chordNotes,
@@ -96,6 +97,8 @@ type BeatMakerProps = {
     eqHigh: number;
     compress: boolean;
     doubler: boolean;
+    compOn: boolean;
+    comp: Comp;
     sortOrder: number;
   }>;
   songVocalTakes: Array<{
