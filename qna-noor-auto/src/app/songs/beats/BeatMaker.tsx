@@ -52,7 +52,6 @@ import {
   sectionSequence,
   stepsFor,
   type BeatData,
-  type BeatKit,
   type BeatPattern,
   type BeatScale,
   type BeatTrack,
@@ -189,7 +188,7 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
   const [title, setTitle] = useState(beat.title);
   const [bpm, setBpm] = useState(beat.bpm);
   const [swing, setSwing] = useState(beat.swing);
-  const [kit, setKit] = useState<BeatKit>(beat.kit as BeatKit);
+  const kit = "Drums";
   const [shareToken, setShareToken] = useState(beat.shareToken);
   const [shareCopied, setShareCopied] = useState(false);
   const shareUrl = shareToken
@@ -1545,8 +1544,7 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
             stopBeat();
             setBpm(restored.bpm);
             setSwing(restored.swing);
-            setKit(restored.kit as BeatKit);
-            const next = restored.data;
+            const next = applyLegacyKit(restored.data, restored.kit);
             setData(next);
             const first = next.patterns[0]?.id ?? "";
             setSelectedPatternId(first);
