@@ -9,8 +9,13 @@ import {
   enableBeatShare,
   renameBeat,
   saveBeat,
+  saveBeatVersion,
+  restoreBeatVersion,
+  renameBeatVersion,
+  deleteBeatVersion,
 } from "./actions";
 import { BpmInput } from "../BpmInput";
+import { VersionsPanel, type BeatVersionSummary } from "./VersionsPanel";
 import {
   BeatEngine,
   type BeatDocument,
@@ -47,6 +52,7 @@ import {
   sectionSequence,
   stepsFor,
   type BeatData,
+  type BeatKit,
   type BeatPattern,
   type BeatScale,
   type BeatTrack,
@@ -58,6 +64,7 @@ import {
 } from "./kits";
 
 type BeatMakerProps = {
+  versions: BeatVersionSummary[];
   canManage: boolean;
   beat: {
     id: string;
@@ -176,13 +183,13 @@ function MachinePads({ kit, onPad, recording, onRecordingChange }: MachinePadsPr
   );
 }
 
-export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTakes }: BeatMakerProps) {
+export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTakes, versions }: BeatMakerProps) {
   const initialData = applyLegacyKit(parseBeatData(beat.data), beat.kit);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
-  const [bpm] = useState(beat.bpm);
+  const [bpm, setBpm] = useState(beat.bpm);
   const [swing, setSwing] = useState(beat.swing);
-  const kit = "Drums";
+  const [kit, setKit] = useState<BeatKit>(beat.kit as BeatKit);
   const [shareToken, setShareToken] = useState(beat.shareToken);
   const [shareCopied, setShareCopied] = useState(false);
   const shareUrl = shareToken
@@ -1029,14 +1036,16 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
     URL.revokeObjectURL(url);
   }
 
-  async function saveCurrent() {
+  async function saveCurrent(): Promise<boolean> {
     setSaving(true);
     try {
       await saveBeat(beat.id, { bpm, swing, kit, data });
       setDirty(false);
       setSaveError(false);
+      return true;
     } catch {
       setSaveError(true);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1524,6 +1533,38 @@ export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTake
           {SECTION_LABELS.map((label) => <option key={label} value={label} />)}
         </datalist>
       </Card>
+
+      <div className="order-5">
+        <VersionsPanel
+          key={versions.map((version) => version.id).join("|")}
+          beatId={beat.id}
+          versions={versions}
+          saveBeforeSnapshot={async () => !dirty || await saveCurrent()}
+          onRestore={async (versionId) => {
+            const restored = await restoreBeatVersion(versionId);
+            stopBeat();
+            setBpm(restored.bpm);
+            setSwing(restored.swing);
+            setKit(restored.kit as BeatKit);
+            const next = restored.data;
+            setData(next);
+            const first = next.patterns[0]?.id ?? "";
+            setSelectedPatternId(first);
+            setArrangementPatternId(first);
+            setFocusTrackId(next.tracks[0]?.id ?? "");
+            setOpenTracks(new Set(next.tracks.filter((track) => isDrumKind(track.kind) || track.kind === "bass").map((track) => track.id)));
+            setTopNotes(Object.fromEntries(next.tracks.filter((track): track is BeatTrackInstance & { kind: MelodicInstrument } => !isDrumKind(track.kind)).map((track) => [track.id, defaultTop(track.kind)])));
+            setChordTrackId(next.tracks.find((track) => !isDrumKind(track.kind) && track.kind !== "bass" && track.kind !== "lead")?.id ?? "");
+            setMelodyTrackId(next.tracks.find((track) => ["lead", "pluck", "piano", "eguitar", "aguitar", "strings"].includes(track.kind))?.id ?? "");
+            setAlsoWriteBass(next.tracks.some((track) => track.kind === "bass"));
+            setDirty(false);
+            setSaveError(false);
+          }}
+          onRename={renameBeatVersion}
+          onDelete={deleteBeatVersion}
+          onSave={saveBeatVersion}
+        />
+      </div>
 
       <div className="order-3">
       <div className="flex items-center justify-between gap-3">

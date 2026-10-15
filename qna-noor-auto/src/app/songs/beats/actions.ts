@@ -10,9 +10,11 @@ import {
   BeatDataSchema,
   DEFAULT_BEAT_DATA,
   KITS,
+  safeParseBeatData,
 } from "./kits";
 import { ensureBeatVocalLayers } from "@/lib/beats";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
+import { autoVersionsToPrune, nextVersionName } from "./versions";
 
 const BeatCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -171,6 +173,112 @@ export async function saveBeat(id: string, payload: unknown) {
     },
   });
   revalidateBeatPaths(id);
+}
+
+async function beatVersionAuthor(orgId: string) {
+  const organization = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true, profile: { select: { displayName: true } } },
+  });
+  if (!organization) throw new Error("Organization not found.");
+  return {
+    authorOrgId: orgId,
+    authorName: organization.profile?.displayName ?? organization.name,
+  };
+}
+
+export async function saveBeatVersion(beatId: string, name?: string) {
+  const { orgId } = await requireMusicPack();
+  const beat = await db.beat.findFirst({
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { id: true, orgId: true, bpm: true, swing: true, kit: true, data: true },
+  });
+  if (!beat) throw new Error("Beat not found.");
+  const manualCount = await db.beatVersion.count({
+    where: { beatId, auto: false },
+  });
+  if (manualCount >= 50) throw new Error("Delete an old version first.");
+  const trimmed = name?.trim();
+  if (trimmed && trimmed.length > 60) throw new Error("Version names must be 60 characters or fewer.");
+  const author = await beatVersionAuthor(orgId);
+  const version = await db.beatVersion.create({
+    data: {
+      ...author,
+      orgId: beat.orgId,
+      beatId,
+      name: trimmed || nextVersionName(manualCount),
+      bpm: beat.bpm,
+      swing: beat.swing,
+      kit: beat.kit,
+      data: beat.data,
+    },
+  });
+  revalidateBeatPaths(beatId);
+  return { ...version, createdAt: version.createdAt.toISOString() };
+}
+
+export async function restoreBeatVersion(versionId: string) {
+  const { orgId } = await requireMusicPack();
+  const version = await db.beatVersion.findFirst({
+    where: { id: versionId, beat: beatAccessWhere(orgId) },
+    select: {
+      id: true, beatId: true, orgId: true, bpm: true, swing: true, kit: true,
+      data: true, beat: { select: { bpm: true, swing: true, kit: true, data: true } },
+    },
+  });
+  if (!version) throw new Error("Version not found.");
+  const data = safeParseBeatData(version.data);
+  const author = await beatVersionAuthor(orgId);
+  await db.$transaction(async (tx) => {
+    await tx.beatVersion.create({
+      data: {
+        ...author,
+        orgId: version.orgId,
+        beatId: version.beatId,
+        name: "Before restore",
+        auto: true,
+        ...version.beat,
+      },
+    });
+    await tx.beat.update({
+      where: { id: version.beatId },
+      data: { bpm: version.bpm, swing: version.swing, kit: version.kit, data: version.data },
+    });
+    const autos = await tx.beatVersion.findMany({
+      where: { beatId: version.beatId, auto: true },
+      select: { id: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const pruneIds = autoVersionsToPrune(autos);
+    if (pruneIds.length) await tx.beatVersion.deleteMany({ where: { id: { in: pruneIds } } });
+  });
+  revalidateBeatPaths(version.beatId);
+  return { bpm: version.bpm, swing: version.swing, kit: version.kit, data };
+}
+
+export async function renameBeatVersion(id: string, name: string) {
+  const { orgId } = await requireMusicPack();
+  const parsed = z.string().trim().min(1).max(60).parse(name);
+  const access = { OR: [{ orgId }, { authorOrgId: orgId }] };
+  const version = await db.beatVersion.findFirst({
+    where: { id, ...access },
+    select: { beatId: true },
+  });
+  if (!version) throw new Error("Version not found.");
+  await db.beatVersion.updateMany({ where: { id, ...access }, data: { name: parsed } });
+  revalidateBeatPaths(version.beatId);
+}
+
+export async function deleteBeatVersion(id: string) {
+  const { orgId } = await requireMusicPack();
+  const access = { OR: [{ orgId }, { authorOrgId: orgId }] };
+  const version = await db.beatVersion.findFirst({
+    where: { id, ...access },
+    select: { beatId: true },
+  });
+  if (!version) throw new Error("Version not found.");
+  await db.beatVersion.deleteMany({ where: { id, ...access } });
+  revalidateBeatPaths(version.beatId);
 }
 
 export async function renameBeat(id: string, title: string) {

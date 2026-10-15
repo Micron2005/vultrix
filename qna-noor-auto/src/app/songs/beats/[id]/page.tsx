@@ -3,7 +3,7 @@ import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ensureBeatVocalLayers, getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
-import { songAccessWhere } from "@/lib/songAccess";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
 import { safeParseBeatData } from "../kits";
@@ -16,7 +16,7 @@ export default async function BeatDetailPage({
   const { id } = await params;
   const { orgId } = await requireMusicPack();
   const layers = await ensureBeatVocalLayers(orgId, id);
-  const [beat, songs, takes, songVocalTakes] = await Promise.all([
+  const [beat, songs, takes, songVocalTakes, versions] = await Promise.all([
     getBeat(orgId, id),
     listSongs(orgId),
     listBeatTakes(orgId, id),
@@ -33,6 +33,15 @@ export default async function BeatDetailPage({
       orderBy: { createdAt: "asc" },
       select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
     }),
+    db.beatVersion.findMany({
+      where: { beatId: id, beat: { AND: [beatAccessWhere(orgId)] } },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      select: {
+        id: true, name: true, auto: true, authorOrgId: true, authorName: true,
+        createdAt: true, bpm: true, swing: true, kit: true,
+      },
+    }),
   ]);
   if (!beat) notFound();
   const data = safeParseBeatData(beat.data);
@@ -45,6 +54,7 @@ export default async function BeatDetailPage({
       />
       <SongsTabs active="beats" />
       <BeatMaker
+        versions={versions.map((version) => ({ ...version, createdAt: version.createdAt.toISOString() }))}
         beat={{ ...beat, data: JSON.stringify(data), shareToken: beat.shareToken }}
         canManage={beat.orgId === orgId}
         songs={songs.map((song) => ({
