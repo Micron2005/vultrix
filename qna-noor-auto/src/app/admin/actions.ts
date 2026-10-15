@@ -219,12 +219,15 @@ export async function setFreeAccount(formData: FormData) {
   if (!org) back({ error: "Business not found." });
 
   if (free === "on") {
+    if (org.stripeSubscriptionId && !billingConfigured()) {
+      back({ error: "Billing isn't configured, so the Stripe subscription can't be canceled." });
+    }
     await db.organization.update({
       where: { id: orgId },
       data: { billingExempt: true, status: "ACTIVE", pastDueSince: null },
     });
 
-    if (org.stripeSubscriptionId && billingConfigured()) {
+    if (org.stripeSubscriptionId) {
       try {
         await cancelSubscriptionForFreeAccount(org.stripeSubscriptionId);
       } catch (e: unknown) {

@@ -1142,9 +1142,9 @@ model Organization {
   onboardingDismissedAt       DateTime?
 
   // --- Billing (Stripe subscription) ---------------------------------------
-  // Contact email used for the Stripe customer / receipts.
   // Free account, never billed.
   billingExempt        Boolean @default(false)
+  // Contact email used for the Stripe customer / receipts.
   billingEmail         String?
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
