@@ -58,6 +58,7 @@ import {
 } from "./kits";
 
 type BeatMakerProps = {
+  canManage: boolean;
   beat: {
     id: string;
     title: string;
@@ -175,7 +176,7 @@ function MachinePads({ kit, onPad, recording, onRecordingChange }: MachinePadsPr
   );
 }
 
-export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMakerProps) {
+export function BeatMaker({ beat, canManage, songs, takes, layers, songVocalTakes }: BeatMakerProps) {
   const initialData = applyLegacyKit(parseBeatData(beat.data), beat.kit);
   const initialFirstTrackId = initialData.tracks[0]?.id ?? "";
   const [title, setTitle] = useState(beat.title);
@@ -1150,15 +1151,15 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
                 {mp3Progress === null ? "MP3" : `Encoding… ${Math.round(mp3Progress * 100)}%`}
               </Button>
             </div>
-            <Button type="button" size="sm" variant="secondary" onClick={() => void shareBeat()}>Share</Button>
-            <Button type="button" size="sm" variant="danger" onClick={() => void removeBeat()}>Delete</Button>
+            {canManage && <Button type="button" size="sm" variant="secondary" onClick={() => void shareBeat()}>Share</Button>}
+            {canManage && <Button type="button" size="sm" variant="danger" onClick={() => void removeBeat()}>Delete</Button>}
           </div>
           <span className="text-xs text-zinc-500">
             {saveError ? "Save failed" : exportError ? "Export failed" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}
           </span>
           {playing && <span className="text-xs text-zinc-500">No sound? Turn up the volume and flip the ringer switch off silent.</span>}
         </div>
-        {shareToken && (
+        {canManage && shareToken && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input readOnly value={shareUrl} aria-label="Beat share link" className="min-w-0 flex-1 text-xs" />
             <Button type="button" size="sm" variant="secondary" onClick={() => void copyShareLink()}>
@@ -1189,14 +1190,16 @@ export function BeatMaker({ beat, songs, takes, layers, songVocalTakes }: BeatMa
           </a>
           )
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <form action={attachBeatToSong.bind(null, beat.id)} className="flex items-center gap-2">
-            <Select name="songId" defaultValue={beat.songId ?? ""} aria-label="Attach beat to song" onChange={(event) => event.currentTarget.form?.requestSubmit()} className="max-w-48 text-xs">
-              <option value="">No song</option>
-              {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-            </Select>
-          </form>
-        </div>
+        {canManage && (
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <form action={attachBeatToSong.bind(null, beat.id)} className="flex items-center gap-2">
+              <Select name="songId" defaultValue={beat.songId ?? ""} aria-label="Attach beat to song" onChange={(event) => event.currentTarget.form?.requestSubmit()} className="max-w-48 text-xs">
+                <option value="">No song</option>
+                {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+              </Select>
+            </form>
+          </div>
+        )}
       </Card>
 
       <Card className="order-2 p-4">

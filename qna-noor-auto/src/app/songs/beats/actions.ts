@@ -12,6 +12,7 @@ import {
   KITS,
 } from "./kits";
 import { ensureBeatVocalLayers } from "@/lib/beats";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 
 const BeatCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -86,7 +87,7 @@ async function appendBeatTakeChunkForOrg(id: string, orgId: string, chunk: strin
 async function validSongId(orgId: string, raw: string | null) {
   if (!raw) return null;
   const song = await db.song.findFirst({
-    where: { id: raw, orgId },
+    where: { id: raw, ...songAccessWhere(orgId) },
     select: { id: true },
   });
   return song?.id ?? null;
@@ -161,7 +162,7 @@ export async function saveBeat(id: string, payload: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeatSaveSchema.parse(payload);
   await db.beat.updateMany({
-    where: { id, orgId },
+    where: { id, ...beatAccessWhere(orgId) },
     data: {
       bpm: parsed.bpm,
       swing: parsed.swing,
@@ -175,7 +176,10 @@ export async function saveBeat(id: string, payload: unknown) {
 export async function renameBeat(id: string, title: string) {
   const { orgId } = await requireMusicPack();
   const parsed = z.string().trim().min(1).max(120).parse(title);
-  await db.beat.updateMany({ where: { id, orgId }, data: { title: parsed } });
+  await db.beat.updateMany({
+    where: { id, ...beatAccessWhere(orgId) },
+    data: { title: parsed },
+  });
   revalidateBeatPaths(id);
 }
 
@@ -201,8 +205,8 @@ export async function beginBeatTake(beatId: string, payload: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeginBeatTakeSchema.parse(payload);
   const beat = await db.beat.findFirst({
-    where: { id: beatId, orgId },
-    select: { id: true },
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { id: true, orgId: true },
   });
   if (!beat) throw new Error("Beat not found");
   const layers = await ensureBeatVocalLayers(orgId, beatId);
@@ -210,11 +214,13 @@ export async function beginBeatTake(beatId: string, payload: unknown) {
     ? layers.find((item) => item.id === parsed.layerId)
     : layers[0];
   if (!layer) throw new Error("Layer not found");
-  const count = await db.beatTake.count({ where: { beatId, orgId } });
+  const count = await db.beatTake.count({
+    where: { beatId, orgId: beat.orgId },
+  });
   if (count >= 30) throw new Error("Up to 30 takes per beat");
   const take = await db.beatTake.create({
     data: {
-      orgId,
+      orgId: beat.orgId,
       beatId,
       name: parsed.name,
       audioDataUrl: "",
@@ -230,16 +236,22 @@ export async function beginBeatTake(beatId: string, payload: unknown) {
 
 export async function appendBeatTakeChunk(id: string, chunk: string) {
   const { orgId } = await requireMusicPack();
-  await appendBeatTakeChunkForOrg(id, orgId, chunk);
+  const take = await db.beatTake.findFirst({
+    where: { id, uploadComplete: false, beat: beatAccessWhere(orgId) },
+    select: { beat: { select: { orgId: true } } },
+  });
+  if (!take) throw new Error("Pending take not found.");
+  await appendBeatTakeChunkForOrg(id, take.beat.orgId, chunk);
 }
 
 export async function finishBeatTake(id: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.beatTake.findFirst({
-    where: { id, orgId, uploadComplete: false },
+    where: { id, uploadComplete: false, beat: beatAccessWhere(orgId) },
     select: {
       id: true,
       beatId: true,
+      beat: { select: { orgId: true } },
       name: true,
       audioDataUrl: true,
       audioMimeType: true,
@@ -257,13 +269,13 @@ export async function finishBeatTake(id: string) {
     throw new Error("Incomplete audio upload.");
   }
   await db.beatTake.updateMany({
-    where: { id, orgId, uploadComplete: false },
+    where: { id, uploadComplete: false, beat: beatAccessWhere(orgId) },
     data: { uploadComplete: true },
   });
   await db.beatTake.deleteMany({
     where: {
       beatId: take.beatId,
-      orgId,
+      orgId: take.beat.orgId,
       uploadComplete: false,
       createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
     },
@@ -286,16 +298,19 @@ export async function finishBeatTake(id: string) {
 
 export async function discardBeatTake(id: string) {
   const { orgId } = await requireMusicPack();
-  await db.beatTake.deleteMany({ where: { id, orgId, uploadComplete: false } });
+  await db.beatTake.deleteMany({
+    where: { id, uploadComplete: false, beat: beatAccessWhere(orgId) },
+  });
 }
 
 export async function updateBeatTake(id: string, patch: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeatTakePatchSchema.parse(patch);
   const take = await db.beatTake.findFirst({
-    where: { id, orgId },
+    where: { id, beat: beatAccessWhere(orgId) },
     select: {
       beatId: true,
+      beat: { select: { orgId: true } },
       durationSec: true,
       trimStartMs: true,
       trimEndMs: true,
@@ -304,7 +319,11 @@ export async function updateBeatTake(id: string, patch: unknown) {
   if (!take) return;
   if (parsed.layerId) {
     const layer = await db.beatVocalLayer.findFirst({
-      where: { id: parsed.layerId, orgId, beatId: take.beatId },
+      where: {
+        id: parsed.layerId,
+        orgId: take.beat.orgId,
+        beatId: take.beatId,
+      },
       select: { id: true },
     });
     if (!layer) throw new Error("Layer not found");
@@ -315,7 +334,7 @@ export async function updateBeatTake(id: string, patch: unknown) {
     throw new Error("Trim leaves nothing to play");
   }
   await db.beatTake.updateMany({
-    where: { id, orgId },
+    where: { id, beat: beatAccessWhere(orgId) },
     data: { ...parsed, trimStartMs, trimEndMs },
   });
   revalidatePath(`/songs/beats/${take.beatId}`);
@@ -325,14 +344,16 @@ export async function createBeatVocalLayer(beatId: string, name: string) {
   const { orgId } = await requireMusicPack();
   const parsed = z.string().trim().min(1).max(40).parse(name);
   const beat = await db.beat.findFirst({
-    where: { id: beatId, orgId },
-    select: { id: true },
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { id: true, orgId: true },
   });
   if (!beat) throw new Error("Beat not found");
-  const count = await db.beatVocalLayer.count({ where: { beatId, orgId } });
+  const count = await db.beatVocalLayer.count({
+    where: { beatId, orgId: beat.orgId },
+  });
   if (count >= 8) throw new Error("Up to 8 layers per beat");
   const layer = await db.beatVocalLayer.create({
-    data: { orgId, beatId, name: parsed, sortOrder: count },
+    data: { orgId: beat.orgId, beatId, name: parsed, sortOrder: count },
     select: {
       id: true,
       name: true,
@@ -356,23 +377,26 @@ export async function updateBeatVocalLayer(id: string, patch: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeatVocalLayerPatchSchema.parse(patch);
   const layer = await db.beatVocalLayer.findFirst({
-    where: { id, orgId },
-    select: { beatId: true },
+    where: { id, beat: beatAccessWhere(orgId) },
+    select: { beatId: true, beat: { select: { orgId: true } } },
   });
   if (!layer) return;
-  await db.beatVocalLayer.updateMany({ where: { id, orgId }, data: parsed });
+  await db.beatVocalLayer.updateMany({
+    where: { id, beat: beatAccessWhere(orgId) },
+    data: parsed,
+  });
   revalidateBeatPaths(layer.beatId);
 }
 
 export async function deleteBeatVocalLayer(id: string) {
   const { orgId } = await requireMusicPack();
   const layer = await db.beatVocalLayer.findFirst({
-    where: { id, orgId },
-    select: { beatId: true },
+    where: { id, beat: beatAccessWhere(orgId) },
+    select: { beatId: true, beat: { select: { orgId: true } } },
   });
   if (!layer) return;
   const layers = await db.beatVocalLayer.findMany({
-    where: { beatId: layer.beatId, orgId },
+    where: { beatId: layer.beatId, orgId: layer.beat.orgId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: { id: true },
   });
@@ -380,8 +404,8 @@ export async function deleteBeatVocalLayer(id: string) {
   const target = layers.find((item) => item.id !== id);
   if (!target) throw new Error("Keep at least one layer");
   await db.$transaction([
-    db.beatTake.updateMany({ where: { beatId: layer.beatId, orgId, layerId: id }, data: { layerId: target.id } }),
-    db.beatVocalLayer.deleteMany({ where: { id, orgId } }),
+    db.beatTake.updateMany({ where: { beatId: layer.beatId, orgId: layer.beat.orgId, layerId: id }, data: { layerId: target.id } }),
+    db.beatVocalLayer.deleteMany({ where: { id, beat: beatAccessWhere(orgId) } }),
   ]);
   revalidateBeatPaths(layer.beatId);
 }
@@ -389,10 +413,12 @@ export async function deleteBeatVocalLayer(id: string) {
 export async function deleteBeatTake(id: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.beatTake.findFirst({
-    where: { id, orgId },
+    where: { id, beat: beatAccessWhere(orgId) },
     select: { beatId: true },
   });
   if (!take) return;
-  await db.beatTake.deleteMany({ where: { id, orgId } });
+  await db.beatTake.deleteMany({
+    where: { id, beat: beatAccessWhere(orgId) },
+  });
   revalidatePath(`/songs/beats/${take.beatId}`);
 }

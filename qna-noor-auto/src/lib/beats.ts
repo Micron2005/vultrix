@@ -1,21 +1,22 @@
 import { db } from "@/lib/db";
+import { beatAccessWhere } from "@/lib/songAccess";
 
 export async function ensureBeatVocalLayers(orgId: string, beatId: string) {
   const beat = await db.beat.findFirst({
-    where: { id: beatId, orgId },
-    select: { id: true },
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { id: true, orgId: true },
   });
   if (!beat) return [];
   let layers = await db.beatVocalLayer.findMany({
-    where: { orgId, beatId },
+    where: { orgId: beat.orgId, beatId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   if (layers.length > 0) return layers;
   const layer = await db.beatVocalLayer.create({
-    data: { orgId, beatId, name: "Lead", sortOrder: 0 },
+    data: { orgId: beat.orgId, beatId, name: "Lead", sortOrder: 0 },
   });
   await db.beatTake.updateMany({
-    where: { orgId, beatId, layerId: null },
+    where: { orgId: beat.orgId, beatId, layerId: null },
     data: { layerId: layer.id },
   });
   layers = [layer];
@@ -24,7 +25,7 @@ export async function ensureBeatVocalLayers(orgId: string, beatId: string) {
 
 export async function listBeats(orgId: string) {
   return db.beat.findMany({
-    where: { orgId },
+    where: beatAccessWhere(orgId),
     orderBy: { updatedAt: "desc" },
     include: { song: { select: { id: true, title: true } } },
   });
@@ -32,14 +33,19 @@ export async function listBeats(orgId: string) {
 
 export async function getBeat(orgId: string, id: string) {
   return db.beat.findFirst({
-    where: { id, orgId },
+    where: { id, ...beatAccessWhere(orgId) },
     include: { song: { select: { id: true, title: true } } },
   });
 }
 
 export async function listBeatTakes(orgId: string, beatId: string) {
+  const beat = await db.beat.findFirst({
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { orgId: true },
+  });
+  if (!beat) return [];
   return db.beatTake.findMany({
-    where: { orgId, beatId, uploadComplete: true },
+    where: { orgId: beat.orgId, beatId, uploadComplete: true },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -58,8 +64,13 @@ export async function listBeatTakes(orgId: string, beatId: string) {
 }
 
 export async function listBeatVocalLayers(orgId: string, beatId: string) {
+  const beat = await db.beat.findFirst({
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { orgId: true },
+  });
+  if (!beat) return [];
   return db.beatVocalLayer.findMany({
-    where: { orgId, beatId },
+    where: { orgId: beat.orgId, beatId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,

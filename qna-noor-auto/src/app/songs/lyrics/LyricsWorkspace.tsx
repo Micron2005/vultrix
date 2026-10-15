@@ -577,7 +577,7 @@ export function LyricsWorkspace({
                 <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
                 <Button type="button" size="xs" variant="danger" onClick={() => void removeTake(take)}>Delete</Button>
               </div>
-              <audio controls preload="none" src={`/songs/audio/song/${take.id}`} className="mt-2 h-8 w-full" />
+              <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="mt-2 h-8 w-full" />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Select value="closed" onChange={(event) => { const beat = beats.find((item) => item.id === event.target.value); if (beat) void addToBeat(take.id, beat); }} aria-label={`Use ${take.name} in beat`}>
                   <option value="closed">Use in beat…</option>

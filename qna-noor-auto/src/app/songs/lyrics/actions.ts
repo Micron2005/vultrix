@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireMusicPack } from "@/lib/songs";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { ensureBeatVocalLayers } from "@/lib/beats";
 import { saveLyricsText } from "../actions";
 
@@ -51,12 +52,17 @@ export async function saveLyricDraft(songId: string, name: string, lyrics: strin
   const { orgId } = await requireMusicPack();
   const parsedName = DraftNameSchema.parse(name);
   const parsedLyrics = DraftLyricsSchema.parse(lyrics);
-  const song = await db.song.findFirst({ where: { id: songId, orgId }, select: { id: true } });
+  const song = await db.song.findFirst({
+    where: { id: songId, ...songAccessWhere(orgId) },
+    select: { id: true, orgId: true },
+  });
   if (!song) throw new Error("Song not found.");
-  const count = await db.songLyricDraft.count({ where: { songId, orgId } });
+  const count = await db.songLyricDraft.count({
+    where: { songId, song: songAccessWhere(orgId) },
+  });
   if (count >= 30) throw new Error("Up to 30 drafts per song");
   const draft = await db.songLyricDraft.create({
-    data: { orgId, songId, name: parsedName, lyrics: parsedLyrics },
+    data: { orgId: song.orgId, songId, name: parsedName, lyrics: parsedLyrics },
     select: { id: true, name: true, lyrics: true, createdAt: true },
   });
   revalidatePath("/songs/lyrics");
@@ -65,14 +71,16 @@ export async function saveLyricDraft(songId: string, name: string, lyrics: strin
 
 export async function deleteLyricDraft(id: string) {
   const { orgId } = await requireMusicPack();
-  await db.songLyricDraft.deleteMany({ where: { id, orgId } });
+  await db.songLyricDraft.deleteMany({
+    where: { id, song: songAccessWhere(orgId) },
+  });
   revalidatePath("/songs/lyrics");
 }
 
 export async function restoreLyricDraft(id: string) {
   const { orgId } = await requireMusicPack();
   const draft = await db.songLyricDraft.findFirst({
-    where: { id, orgId },
+    where: { id, song: songAccessWhere(orgId) },
     select: { songId: true, lyrics: true },
   });
   if (!draft) throw new Error("Draft not found");
@@ -110,29 +118,43 @@ export async function beginSongVocalTake(songId: string, payload: unknown) {
   const { orgId } = await requireMusicPack();
   const parsed = BeginSongVocalTakeSchema.parse(payload);
   const song = await db.song.findFirst({
-    where: { id: songId, orgId },
-    select: { id: true },
+    where: { id: songId, ...songAccessWhere(orgId) },
+    select: { id: true, orgId: true },
   });
   if (!song) throw new Error("Song not found.");
-  const count = await db.songVocalTake.count({ where: { songId, orgId } });
+  const count = await db.songVocalTake.count({
+    where: { songId, song: songAccessWhere(orgId) },
+  });
   if (count >= 30) throw new Error("Up to 30 takes per song.");
   const take = await db.songVocalTake.create({
-    data: { orgId, songId, ...parsed, audioDataUrl: "", uploadComplete: false },
+    data: {
+      orgId: song.orgId,
+      songId,
+      ...parsed,
+      audioDataUrl: "",
+      uploadComplete: false,
+    },
   });
   return { id: take.id };
 }
 
 export async function appendSongVocalTakeChunk(id: string, chunk: string) {
   const { orgId } = await requireMusicPack();
-  await appendSongVocalTakeChunkForOrg(id, orgId, chunk);
+  const take = await db.songVocalTake.findFirst({
+    where: { id, uploadComplete: false, song: songAccessWhere(orgId) },
+    select: { orgId: true },
+  });
+  if (!take) throw new Error("Pending take not found.");
+  await appendSongVocalTakeChunkForOrg(id, take.orgId, chunk);
 }
 
 export async function finishSongVocalTake(id: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
-    where: { id, orgId, uploadComplete: false },
+    where: { id, uploadComplete: false, song: songAccessWhere(orgId) },
     select: {
       id: true,
+      orgId: true,
       songId: true,
       name: true,
       audioDataUrl: true,
@@ -145,13 +167,13 @@ export async function finishSongVocalTake(id: string) {
     throw new Error("Incomplete audio upload.");
   }
   await db.songVocalTake.updateMany({
-    where: { id, orgId, uploadComplete: false },
+    where: { id, uploadComplete: false, song: songAccessWhere(orgId) },
     data: { uploadComplete: true },
   });
   await db.songVocalTake.deleteMany({
     where: {
       songId: take.songId,
-      orgId,
+      orgId: take.orgId,
       uploadComplete: false,
       createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
     },
@@ -170,18 +192,23 @@ export async function finishSongVocalTake(id: string) {
 
 export async function discardSongVocalTake(id: string) {
   const { orgId } = await requireMusicPack();
-  await db.songVocalTake.deleteMany({ where: { id, orgId, uploadComplete: false } });
+  await db.songVocalTake.deleteMany({
+    where: { id, uploadComplete: false, song: songAccessWhere(orgId) },
+  });
 }
 
 export async function renameSongVocalTake(id: string, name: string) {
   const { orgId } = await requireMusicPack();
   const parsed = TakeNameSchema.parse(name);
   const take = await db.songVocalTake.findFirst({
-    where: { id, orgId, uploadComplete: true },
+    where: { id, uploadComplete: true, song: songAccessWhere(orgId) },
     select: { songId: true },
   });
   if (!take) throw new Error("Take not found.");
-  await db.songVocalTake.updateMany({ where: { id, orgId }, data: { name: parsed } });
+  await db.songVocalTake.updateMany({
+    where: { id, song: songAccessWhere(orgId) },
+    data: { name: parsed },
+  });
   revalidatePath("/songs/lyrics");
   revalidatePath(`/songs/${take.songId}`);
 }
@@ -189,11 +216,13 @@ export async function renameSongVocalTake(id: string, name: string) {
 export async function deleteSongVocalTake(id: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
-    where: { id, orgId, uploadComplete: true },
+    where: { id, uploadComplete: true, song: songAccessWhere(orgId) },
     select: { songId: true },
   });
   if (!take) return;
-  await db.songVocalTake.deleteMany({ where: { id, orgId } });
+  await db.songVocalTake.deleteMany({
+    where: { id, song: songAccessWhere(orgId) },
+  });
   revalidatePath("/songs/lyrics");
   revalidatePath(`/songs/${take.songId}`);
 }
@@ -201,22 +230,24 @@ export async function deleteSongVocalTake(id: string) {
 export async function copySongTakeToBeat(takeId: string, beatId: string, layerId?: string) {
   const { orgId } = await requireMusicPack();
   const take = await db.songVocalTake.findFirst({
-    where: { id: takeId, orgId, uploadComplete: true },
+    where: { id: takeId, uploadComplete: true, song: songAccessWhere(orgId) },
     select: { name: true, audioDataUrl: true, audioMimeType: true, durationSec: true },
   });
   const beat = await db.beat.findFirst({
-    where: { id: beatId, orgId },
-    select: { id: true },
+    where: { id: beatId, ...beatAccessWhere(orgId) },
+    select: { id: true, orgId: true },
   });
   if (!take || !beat) throw new Error("Take or beat not found.");
   const layers = await ensureBeatVocalLayers(orgId, beatId);
   const layer = layerId ? layers.find((item) => item.id === layerId) : layers[0];
   if (!layer) throw new Error("Layer not found");
-  const count = await db.beatTake.count({ where: { beatId, orgId } });
+  const count = await db.beatTake.count({
+    where: { beatId, orgId: beat.orgId },
+  });
   if (count >= 30) throw new Error("Up to 30 takes per beat.");
   const saved = await db.beatTake.create({
     data: {
-      orgId,
+      orgId: beat.orgId,
       beatId,
       name: take.name,
       audioDataUrl: take.audioDataUrl,

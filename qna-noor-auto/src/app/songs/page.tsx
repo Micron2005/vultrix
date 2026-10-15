@@ -1,6 +1,7 @@
 import { LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireMusicPack, listSongs } from "@/lib/songs";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { moveSong } from "./actions";
 import { SongsBoard } from "./SongsBoard";
 import { SongsTabs } from "./SongsTabs";
@@ -10,17 +11,17 @@ export default async function SongsPage() {
   const [songs, beats, beatTakeGroups, songTakeGroups] = await Promise.all([
     listSongs(orgId),
     db.beat.findMany({
-      where: { orgId, songId: { not: null } },
+      where: { songId: { not: null }, song: songAccessWhere(orgId) },
       select: { id: true, songId: true },
     }),
     db.beatTake.groupBy({
       by: ["beatId"],
-      where: { orgId, uploadComplete: true },
+      where: { uploadComplete: true, beat: beatAccessWhere(orgId) },
       _count: { _all: true },
     }),
     db.songVocalTake.groupBy({
       by: ["songId"],
-      where: { orgId, uploadComplete: true },
+      where: { uploadComplete: true, song: songAccessWhere(orgId) },
       _count: { _all: true },
     }),
   ]);
@@ -35,6 +36,8 @@ export default async function SongsPage() {
   );
   const boardSongs = songs.map((song) => ({
     ...song,
+    isOwner: song.orgId === orgId,
+    ownerHandle: song.organization.profile?.handle ?? null,
     songTakeCount: songTakeCountBySong.get(song.id) ?? 0,
     beatTakeCount: beatTakeCountBySong.get(song.id) ?? 0,
   }));
