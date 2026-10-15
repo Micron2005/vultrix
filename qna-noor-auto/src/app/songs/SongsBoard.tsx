@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button, Card, LinkButton } from "@/components/ui";
+import { Badge, Button, Card, LinkButton } from "@/components/ui";
 import { SONG_STAGES } from "@/lib/songStages";
 
 type BoardSong = {
@@ -14,7 +14,9 @@ type BoardSong = {
   lyrics: string | null;
   rating: number | null;
   bestTakeId: string | null;
-  _count: { beats: number };
+  _count: { beats: number; members: number };
+  isOwner: boolean;
+  ownerHandle: string | null;
   songTakeCount: number;
   beatTakeCount: number;
   tasks: Array<{ done: boolean }>;
@@ -70,6 +72,8 @@ export function SongsBoard({
                           {song._count.beats > 0 && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">{song._count.beats} beats</span>}
                           {song.songTakeCount + song.beatTakeCount > 0 && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">{song.songTakeCount + song.beatTakeCount} takes</span>}
                           {song.bestTakeId && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">Best ✓</span>}
+                          {song.isOwner && song._count.members > 0 && <Badge tone="accent">Shared with {song._count.members}</Badge>}
+                          {!song.isOwner && <Badge tone="accent">{song.ownerHandle ? `From @${song.ownerHandle}` : "From song owner"}</Badge>}
                         </div>
                         <p className="mt-2 text-xs text-zinc-500">{complete}/{song.tasks.length} tasks</p>
                         <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200">

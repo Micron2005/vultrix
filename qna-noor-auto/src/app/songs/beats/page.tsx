@@ -73,12 +73,14 @@ export default async function BeatsPage({
                   {beat.song && <p className="mt-3 inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-700">{beat.song.title}</p>}
                   <p className="mt-3 text-xs text-zinc-500">Updated {formatDateTime(beat.updatedAt)}</p>
                 </Link>
-                <form
-                  action={deleteBeat.bind(null, beat.id)}
-                  className="mt-4"
-                >
-                  <Button type="submit" size="sm" variant="danger">Delete</Button>
-                </form>
+                {beat.orgId === orgId && (
+                  <form
+                    action={deleteBeat.bind(null, beat.id)}
+                    className="mt-4"
+                  >
+                    <Button type="submit" size="sm" variant="danger">Delete</Button>
+                  </form>
+                )}
               </Card>
             ))}
           </div>

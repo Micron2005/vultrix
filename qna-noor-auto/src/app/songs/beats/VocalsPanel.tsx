@@ -510,7 +510,7 @@ export function VocalsPanel({
   function decodeTake(take: Take) {
     const cached = decodedTakesRef.current.get(take.id);
     if (cached) return cached;
-    const decoded = fetch(`/songs/audio/beat/${take.id}`)
+    const decoded = fetch(`/songs/audio/beat/${take.id}?v=shared-songs-v1`)
       .then((response) => response.arrayBuffer())
       .then((data) => engine.audioContext.decodeAudioData(data));
     decodedTakesRef.current.set(take.id, decoded);
@@ -1047,7 +1047,7 @@ export function VocalsPanel({
                   <div key={take.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 p-2">
                     <span className="min-w-24 flex-1 truncate text-xs font-medium text-zinc-900">{take.name}</span>
                     <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
-                    <audio controls preload="none" src={`/songs/audio/song/${take.id}`} className="h-8 max-w-40" />
+                    <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="h-8 max-w-40" />
                     <Select
                       value={songLayerId}
                       aria-label={`Layer for ${take.name}`}

@@ -1214,6 +1214,7 @@ model Organization {
   beatVocalLayers   BeatVocalLayer[]
   vocalTakes        SongVocalTake[]
   lyricDrafts       SongLyricDraft[]
+  songMemberships   SongMember[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
 
@@ -1276,8 +1277,21 @@ model Song {
   beats         Beat[]
   vocalTakes    SongVocalTake[]
   lyricDrafts   SongLyricDraft[]
+  members       SongMember[]
 
   @@index([orgId, stage])
+}
+
+model SongMember {
+  id        String       @id @default(cuid())
+  songId    String
+  song      Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([songId, orgId])
+  @@index([orgId])
 }
 
 model SongTask {

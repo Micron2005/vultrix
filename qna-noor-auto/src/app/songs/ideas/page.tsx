@@ -17,7 +17,7 @@ export default async function SongIdeasPage({
   const { orgId } = await requireMusicPack();
   const params = (await searchParams) ?? {};
   const [songs, ideas] = await Promise.all([
-    listSongs(orgId),
+    listSongs(orgId, { includeShared: false }),
     listSongIdeas(orgId),
   ]);
   const selectedSongId = songs.some((song) => song.id === params.song)

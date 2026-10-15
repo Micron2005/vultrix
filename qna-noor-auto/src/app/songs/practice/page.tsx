@@ -31,7 +31,7 @@ export default async function PracticePage() {
   const { orgId } = await requireMusicPack();
   const timezone = await orgTimeZone(orgId);
   const [songs, sessions, summary] = await Promise.all([
-    listSongs(orgId),
+    listSongs(orgId, { includeShared: false }),
     listPracticeSessions(orgId),
     loadPracticeWeekSummary(orgId, timezone),
   ]);

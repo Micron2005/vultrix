@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, Input, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, Input, LinkButton, PageHeader } from "@/components/ui";
+import { db } from "@/lib/db";
 import { requireMusicPack, getSong, SONG_STAGES } from "@/lib/songs";
 import { formatDateTime } from "@/lib/utils";
 import { SongForm } from "../SongForm";
@@ -8,9 +9,11 @@ import { DeleteSongButton } from "../DeleteSongButton";
 import { SongsTabs } from "../SongsTabs";
 import { IdeaBody } from "../ideas/IdeaBody";
 import { LyricFollowAlong } from "../LyricFollowAlong";
-import { addSongTask, deleteSong, moveSong, removeSongTask, setSongBestTake, toggleSongTask, updateSong } from "../actions";
+import { addSongTask, deleteSong, moveSong, removeSongMember, removeSongTask, setSongBestTake, toggleSongTask, updateSong } from "../actions";
 import { StarRating } from "../StarRating";
 import { SongTaskRow } from "../SongTaskRow";
+import { SongInviteForm } from "../SongInviteForm";
+import { LeaveSongButton } from "../LeaveSongButton";
 
 function formatTakeDuration(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -21,6 +24,40 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
   const { orgId } = await requireMusicPack();
   const song = await getSong(orgId, id);
   if (!song) notFound();
+  const isOwner = song.orgId === orgId;
+  const memberOrgIds = new Set(song.members.map((member) => member.orgId));
+  const ownerProfileId = song.organization.profile?.id;
+  const mutualConnections =
+    isOwner && ownerProfileId
+      ? await (async () => {
+          const [following, followers] = await Promise.all([
+            db.follow.findMany({
+              where: { followerId: ownerProfileId },
+              select: {
+                following: {
+                  select: {
+                    id: true,
+                    orgId: true,
+                    handle: true,
+                    displayName: true,
+                  },
+                },
+              },
+            }),
+            db.follow.findMany({
+              where: { followingId: ownerProfileId },
+              select: { followerId: true },
+            }),
+          ]);
+          const followerIds = new Set(followers.map((row) => row.followerId));
+          return following
+            .map((row) => row.following)
+            .filter(
+              (profile) =>
+                followerIds.has(profile.id) && !memberOrgIds.has(profile.orgId),
+            );
+        })()
+      : [];
   const currentTasks = song.tasks.filter((task) => task.stage === song.stage);
   const otherTasks = SONG_STAGES.filter((stage) => stage.id !== song.stage).map((stage) => ({
     ...stage,
@@ -44,6 +81,84 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
       </div>
       <SongsTabs active="board" />
       <SongForm action={updateSong.bind(null, song.id)} song={song} />
+      <Card className="mt-6 max-w-2xl p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">People on this song</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              {isOwner ? "Share this song with mutual connections." : "Song details and linked music are shared with these organizations."}
+            </p>
+          </div>
+          <Badge tone="accent">{isOwner ? "Owner" : "Shared"}</Badge>
+        </div>
+        <div className="mt-4 divide-y divide-zinc-100">
+          <div className="flex items-center justify-between gap-3 py-3 first:pt-0">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-zinc-900">
+                {song.organization.profile?.displayName ?? song.organization.name}
+              </p>
+              <p className="truncate text-xs text-zinc-500">
+                {song.organization.profile?.handle
+                  ? `@${song.organization.profile.handle}`
+                  : song.organization.name}
+              </p>
+            </div>
+            <span className="shrink-0 text-xs text-zinc-500">Owner</span>
+          </div>
+          {song.members.map((member) => (
+            <div key={member.orgId} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-zinc-900">
+                  {member.organization.profile?.displayName ?? member.organization.name}
+                </p>
+                <p className="truncate text-xs text-zinc-500">
+                  {member.organization.profile?.handle
+                    ? `@${member.organization.profile.handle}`
+                    : member.organization.name}
+                </p>
+              </div>
+              {isOwner ? (
+                <form action={removeSongMember.bind(null, song.id, member.orgId)}>
+                  <Button type="submit" size="xs" variant="danger">Remove</Button>
+                </form>
+              ) : member.orgId === orgId ? (
+                <span className="shrink-0 text-xs text-zinc-500">You</span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        {isOwner ? (
+          <div className="mt-4 border-t border-zinc-200 pt-4">
+            {song.members.length >= 10 ? (
+              <p className="text-sm text-zinc-500">This song has reached the 10-member limit.</p>
+            ) : !song.organization.profile ? (
+              <p className="text-sm text-zinc-600">
+                <Link href="/people" className="font-medium text-[var(--vx-accent-700)] underline">
+                  Create a profile on People
+                </Link>{" "}
+                to invite mutual connections.
+              </p>
+            ) : mutualConnections.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                There are no mutual connections available to invite. Mutual connections on People are required to share a song.
+              </p>
+            ) : (
+              <SongInviteForm
+                songId={song.id}
+                connections={mutualConnections.map(({ id, handle, displayName }) => ({
+                  id,
+                  handle,
+                  displayName,
+                }))}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 border-t border-zinc-200 pt-4">
+            <LeaveSongButton songId={song.id} />
+          </div>
+        )}
+      </Card>
       <Card className="mt-6 max-w-2xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-zinc-900">Lyrics</h2>
@@ -115,7 +230,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
                     <audio
                       controls
                       preload="none"
-                      src={`/songs/audio/${take.kind}/${take.id}`}
+                      src={`/songs/audio/${take.kind}/${take.id}?v=shared-songs-v1`}
                       className="mt-2 h-8 w-full"
                     />
                   </div>
@@ -258,9 +373,11 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
           </div>
         )}
       </Card>
-      <div className="mt-6">
-        <DeleteSongButton action={deleteSong.bind(null, song.id)} />
-      </div>
+      {isOwner && (
+        <div className="mt-6">
+          <DeleteSongButton action={deleteSong.bind(null, song.id)} />
+        </div>
+      )}
     </>
   );
 }

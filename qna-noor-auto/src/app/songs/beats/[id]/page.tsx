@@ -3,6 +3,7 @@ import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ensureBeatVocalLayers, getBeat, listBeatTakes } from "@/lib/beats";
 import { listSongs, requireMusicPack } from "@/lib/songs";
+import { songAccessWhere } from "@/lib/songAccess";
 import { SongsTabs } from "../../SongsTabs";
 import { BeatMaker } from "../BeatMaker";
 import { safeParseBeatData } from "../kits";
@@ -20,7 +21,15 @@ export default async function BeatDetailPage({
     listSongs(orgId),
     listBeatTakes(orgId, id),
     db.songVocalTake.findMany({
-      where: { orgId, uploadComplete: true, song: { beats: { some: { id } } } },
+      where: {
+        uploadComplete: true,
+        song: {
+          AND: [
+            songAccessWhere(orgId),
+            { beats: { some: { id } } },
+          ],
+        },
+      },
       orderBy: { createdAt: "asc" },
       select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
     }),
@@ -37,6 +46,7 @@ export default async function BeatDetailPage({
       <SongsTabs active="beats" />
       <BeatMaker
         beat={{ ...beat, data: JSON.stringify(data), shareToken: beat.shareToken }}
+        canManage={beat.orgId === orgId}
         songs={songs.map((song) => ({
           id: song.id,
           title: song.title,

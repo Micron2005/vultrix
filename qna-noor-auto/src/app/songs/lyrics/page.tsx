@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { listSongs, requireMusicPack } from "@/lib/songs";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { SongsTabs } from "../SongsTabs";
 import { LyricsWorkspace } from "./LyricsWorkspace";
 
@@ -15,7 +16,7 @@ export default async function LyricsPage({
   const [songs, beats] = await Promise.all([
     listSongs(orgId),
     db.beat.findMany({
-      where: { orgId },
+      where: beatAccessWhere(orgId),
       orderBy: { updatedAt: "desc" },
       select: { id: true, title: true, songId: true },
     }),
@@ -23,7 +24,7 @@ export default async function LyricsPage({
   const selectedSong = songs.find((song) => song.id === params.song) ?? songs[0];
   const drafts = selectedSong
     ? await db.songLyricDraft.findMany({
-        where: { orgId, songId: selectedSong.id },
+        where: { songId: selectedSong.id, song: songAccessWhere(orgId) },
         orderBy: { createdAt: "desc" },
         select: { id: true, name: true, lyrics: true, createdAt: true },
       })
@@ -52,7 +53,7 @@ export default async function LyricsPage({
             bpm: selectedSong.bpm,
             drafts,
             vocalTakes: await db.songVocalTake.findMany({
-              where: { orgId, songId: selectedSong.id, uploadComplete: true },
+              where: { songId: selectedSong.id, uploadComplete: true, song: songAccessWhere(orgId) },
               orderBy: { createdAt: "asc" },
               select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
             }),

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser, type CurrentUser } from "@/lib/session";
+import { songAccessWhere } from "@/lib/songAccess";
 import { SONG_STAGES, type SongStage } from "@/lib/songStages";
 export { SONG_STAGES, type SongStage } from "@/lib/songStages";
 
@@ -30,13 +31,22 @@ export async function requireMusicPack(): Promise<{
   return { user, orgId: user.orgId };
 }
 
-export async function listSongs(orgId: string) {
+export async function listSongs(
+  orgId: string,
+  options: { includeShared?: boolean } = {},
+) {
   return db.song.findMany({
-    where: { orgId },
+    where: options.includeShared === false ? { orgId } : songAccessWhere(orgId),
     orderBy: [{ updatedAt: "desc" }, { sortOrder: "asc" }],
     include: {
       tasks: { orderBy: { sortOrder: "asc" } },
-      _count: { select: { beats: true } },
+      organization: {
+        select: {
+          name: true,
+          profile: { select: { handle: true } },
+        },
+      },
+      _count: { select: { beats: true, members: true } },
     },
   });
 }
@@ -51,10 +61,10 @@ export async function listSongIdeas(orgId: string) {
 
 export async function getSong(orgId: string, id: string) {
   return db.song.findFirst({
-    where: { id, orgId },
+    where: { id, ...songAccessWhere(orgId) },
     include: {
       tasks: { orderBy: { sortOrder: "asc" } },
-      ideas: { orderBy: { createdAt: "desc" } },
+      ideas: { where: { orgId }, orderBy: { createdAt: "desc" } },
       vocalTakes: {
         where: { uploadComplete: true },
         orderBy: { createdAt: "asc" },
@@ -76,18 +86,36 @@ export async function getSong(orgId: string, id: string) {
           },
         },
       },
+      organization: {
+        select: {
+          name: true,
+          profile: { select: { id: true, handle: true, displayName: true } },
+        },
+      },
+      members: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              profile: { select: { handle: true, displayName: true } },
+            },
+          },
+        },
+      },
     },
   });
 }
 
 export async function moveSong(orgId: string, id: string, stage: SongStage) {
   const existing = await db.song.findFirst({
-    where: { id, orgId },
+    where: { id, ...songAccessWhere(orgId) },
     select: { releasedAt: true },
   });
   if (!existing) return;
   return db.song.updateMany({
-    where: { id, orgId },
+    where: { id, ...songAccessWhere(orgId) },
     data: {
       stage,
       releasedAt:

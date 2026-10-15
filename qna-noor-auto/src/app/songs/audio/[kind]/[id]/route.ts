@@ -1,4 +1,5 @@
 import { requireMusicPack } from "@/lib/songs";
+import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { db } from "@/lib/db";
 
 function decodeAudioDataUrl(dataUrl: string) {
@@ -22,11 +23,11 @@ export async function GET(
   const take =
     kind === "beat"
       ? await db.beatTake.findFirst({
-          where: { id, orgId, uploadComplete: true },
+          where: { id, uploadComplete: true, beat: beatAccessWhere(orgId) },
           select: { audioDataUrl: true, audioMimeType: true },
         })
       : await db.songVocalTake.findFirst({
-          where: { id, orgId, uploadComplete: true },
+          where: { id, uploadComplete: true, song: songAccessWhere(orgId) },
           select: { audioDataUrl: true, audioMimeType: true },
         });
   if (!take) return new Response("Not found", { status: 404 });
@@ -35,7 +36,7 @@ export async function GET(
   return new Response(new Uint8Array(audio.bytes), {
     headers: {
       "Content-Type": take.audioMimeType || audio.mimeType,
-      "Cache-Control": "private, max-age=31536000, immutable",
+      "Cache-Control": "private, no-store",
     },
   });
 }
