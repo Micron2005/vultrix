@@ -13,6 +13,7 @@ type SignupWizardProps = {
   autoPrice: number;
   generalPrice: number;
   personalBasicPrice: number;
+  musicAddonPrice: number;
   trialDays: number;
   error?: string;
   canceled?: string;
@@ -51,6 +52,7 @@ export function SignupWizard({
   autoPrice,
   generalPrice,
   personalBasicPrice,
+  musicAddonPrice,
   trialDays,
   error,
   canceled,
@@ -501,7 +503,11 @@ export function SignupWizard({
                             onChange={() => toggleFocusPack(pack.id)}
                             className="mt-0.5 h-4 w-4 rounded border-zinc-300"
                           />
-                          <span className="font-medium text-zinc-900">{pack.label}</span>
+                          <span className="font-medium text-zinc-900">
+                            {pack.label}
+                            {pack.id === "music" &&
+                              ` · + Music add-on $${musicAddonPrice}/month after trial`}
+                          </span>
                         </span>
                         <div className="mt-1 text-xs text-zinc-500">{pack.blurb}</div>
                       </label>

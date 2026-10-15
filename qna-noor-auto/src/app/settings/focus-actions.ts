@@ -13,16 +13,30 @@ export async function saveFocusPacks(formData: FormData) {
   if (user.role !== "OWNER" && user.role !== "ADMIN") {
     redirect("/settings");
   }
-  if (user.accountType !== "PERSONAL" || !user.orgId) {
-    redirect("/settings");
+  if (!user.orgId) redirect("/settings");
+  const submittedPacks = normalizeFocusPacks(formData.getAll("packs"));
+  let packs = submittedPacks;
+  if (user.accountType !== "PERSONAL") {
+    const organization = await db.organization.findUnique({
+      where: { id: user.orgId },
+      select: { focusPacks: true },
+    });
+    if (!organization) redirect("/settings");
+    const existingPersonalPacks = normalizeFocusPacks(
+      organization.focusPacks,
+    ).filter((pack) => pack !== "music");
+    packs = normalizeFocusPacks([
+      ...existingPersonalPacks,
+      ...(submittedPacks.includes("music") ? ["music"] : []),
+    ]);
   }
-  const packs = normalizeFocusPacks(formData.getAll("packs"));
   await db.organization.update({
     where: { id: user.orgId },
     data: { focusPacks: packs },
   });
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/songs");
   revalidatePath("/goals");
   revalidatePath("/notes");
   redirect("/settings");

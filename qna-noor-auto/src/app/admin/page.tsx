@@ -190,6 +190,11 @@ export default async function AdminPage({
                               Free account
                             </span>
                           )}
+                          {org.musicAddon && (
+                            <span className="ml-2 rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-800">
+                              Music
+                            </span>
+                          )}
                           {suspended && (
                             <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
                               On hold
@@ -203,6 +208,15 @@ export default async function AdminPage({
                         <div className="text-xs text-zinc-400">
                           {describeBilling(org)}
                         </div>
+                        {!org.billingExempt &&
+                          !org.musicAddon &&
+                          org.musicAddonGraceUntil &&
+                          org.musicAddonGraceUntil > new Date() && (
+                            <div className="text-xs text-zinc-500">
+                              Music free until{" "}
+                              {org.musicAddonGraceUntil.toLocaleDateString()}
+                            </div>
+                          )}
                         {!org.billingExempt &&
                           subscriptionIsDead(org.subscriptionStatus) &&
                           org.stripeCustomerId && (

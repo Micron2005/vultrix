@@ -1,6 +1,12 @@
 import type Stripe from "stripe";
 import { db } from "./db";
 import { getStripe } from "./stripe";
+import {
+  isMusicAddonItem,
+  musicAddonLookupKey,
+  MUSIC_ADDON_PRICE_USD,
+  pickBaseSubscriptionItem,
+} from "./musicAddon";
 
 // ---------------------------------------------------------------------------
 // Billing configuration. Every account type is billed monthly on the same free
@@ -84,6 +90,31 @@ export async function resolvePriceId(
   return price.id;
 }
 
+export async function resolveMusicAddonPriceId(): Promise<string> {
+  const stripe = getStripe();
+  const lookupKey = musicAddonLookupKey();
+  const found = await stripe.prices.list({
+    lookup_keys: [lookupKey],
+    active: true,
+    limit: 1,
+  });
+  if (found.data[0]) return found.data[0].id;
+
+  const product = await stripe.products.create({
+    name: "Vultrix Music add-on",
+    description: "Monthly access to Vultrix Music tools.",
+  });
+  const price = await stripe.prices.create({
+    product: product.id,
+    unit_amount: Math.round(MUSIC_ADDON_PRICE_USD * 100),
+    currency: "usd",
+    recurring: { interval: "month" },
+    lookup_key: lookupKey,
+    transfer_lookup_key: true,
+  });
+  return price.id;
+}
+
 /**
  * Start a fresh Stripe subscription for an organization whose previous
  * subscription is canceled or missing, using the customer's saved payment
@@ -108,9 +139,13 @@ export async function restartSubscription(
     trialEnd && trialEnd > now
       ? Math.floor(trialEnd.getTime() / 1000)
       : null;
+  const items = [{ price: priceId }];
+  if (org.musicAddon) {
+    items.push({ price: await resolveMusicAddonPriceId() });
+  }
   const subscription = await getStripe().subscriptions.create({
     customer,
-    items: [{ price: priceId }],
+    items,
     metadata: { orgId },
     proration_behavior: "none",
     ...(activeTrialEnd
@@ -171,7 +206,7 @@ export async function applySubscriptionPriceToSubscription(opts: {
   const subscription = await stripe.subscriptions.retrieve(
     opts.subscriptionId,
   );
-  const item = subscription.items.data[0];
+  const item = pickBaseSubscriptionItem(subscription.items.data);
   if (!item) throw new Error("Subscription has no recurring item.");
 
   const priceId = await resolvePriceId(
@@ -273,6 +308,7 @@ export async function syncSubscriptionToOrg(
     subscriptionStatus: string;
     currentPeriodEnd: Date | null;
     trialEndsAt: Date | null;
+    musicAddon: boolean;
     pastDueSince?: Date | null;
     status?: string;
   } = {
@@ -280,6 +316,9 @@ export async function syncSubscriptionToOrg(
     subscriptionStatus: status,
     currentPeriodEnd: periodEnd,
     trialEndsAt: trialEnd,
+    musicAddon:
+      !subscriptionIsDead(status) &&
+      (sub.items?.data ?? []).some(isMusicAddonItem),
   };
 
   if (grantsAccess) {
@@ -297,7 +336,9 @@ export async function syncSubscriptionToOrg(
 
 /** The current period end of a subscription, tolerant of API shape changes. */
 function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
-  const item = sub.items?.data?.[0];
+  const item = sub.items?.data
+    ? pickBaseSubscriptionItem(sub.items.data)
+    : undefined;
   const end = item?.current_period_end;
   return typeof end === "number" ? new Date(end * 1000) : null;
 }

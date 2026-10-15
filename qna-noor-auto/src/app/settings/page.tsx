@@ -140,6 +140,10 @@ export default async function SettingsPage({
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) redirect("/");
   const accountType = org.accountType ?? "AUTO_SHOP";
+  const availableFocusPacks =
+    accountType === "PERSONAL"
+      ? FOCUS_PACKS
+      : FOCUS_PACKS.filter((pack) => pack.id === "music");
   const appearanceRecord = await db.user.findUnique({
     where: { id: user.id },
     select: {
@@ -341,16 +345,23 @@ export default async function SettingsPage({
             : "Account configuration"
         }
       />
-      {accountType === "PERSONAL" && (
+      {availableFocusPacks.length > 0 && (
         <Card className="mb-6 max-w-2xl">
-          <CardHeader title="What are you using Vultrix for?" />
+          <CardHeader
+            title={
+              accountType === "PERSONAL"
+                ? "What are you using Vultrix for?"
+                : "Music"
+            }
+          />
           <form action={saveFocusPacks} className="space-y-4 p-6">
             <p className="text-sm text-zinc-600">
-              Turns on the pages, dashboard cards and goal templates for what
-              you do. Pick as many as you like.
+              {accountType === "PERSONAL"
+                ? "Turns on the pages, dashboard cards and goal templates for what you do. Pick as many as you like."
+                : "Add songwriting, lyrics, beats and practice tools to this account."}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              {FOCUS_PACKS.map((pack) => (
+              {availableFocusPacks.map((pack) => (
                 <label
                   key={pack.id}
                   className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 hover:border-zinc-400"

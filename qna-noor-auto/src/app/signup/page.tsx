@@ -5,6 +5,7 @@ import {
   PRICE_USD,
   TRIAL_DAYS,
 } from "@/lib/billing";
+import { MUSIC_ADDON_PRICE_USD } from "@/lib/musicAddon";
 import { billingConfigured } from "@/lib/stripe";
 import { SignupWizard } from "./SignupWizard";
 
@@ -46,6 +47,7 @@ export default async function SignupPage({
       autoPrice={PRICE_USD}
       generalPrice={GENERAL_PRICE_USD}
       personalBasicPrice={PERSONAL_BASIC_PRICE_USD}
+      musicAddonPrice={MUSIC_ADDON_PRICE_USD}
       trialDays={TRIAL_DAYS}
       error={error}
       canceled={canceled}

@@ -1144,6 +1144,8 @@ model Organization {
   // --- Billing (Stripe subscription) ---------------------------------------
   // Free account, never billed.
   billingExempt        Boolean @default(false)
+  musicAddon           Boolean @default(false)
+  musicAddonGraceUntil DateTime?
   // Contact email used for the Stripe customer / receipts.
   billingEmail         String?
   stripeCustomerId     String? @unique
