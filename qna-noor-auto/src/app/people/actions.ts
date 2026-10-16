@@ -114,7 +114,10 @@ export async function saveProfile(formData: FormData): Promise<void> {
   redirect("/people?saved=1");
 }
 
-export async function follow(profileId: string): Promise<void> {
+export async function follow(
+  profileId: string,
+  formData?: FormData,
+): Promise<void> {
   const orgId = await requirePeopleManager();
   const viewer = await db.profile.findUnique({
     where: { orgId },
@@ -162,6 +165,14 @@ export async function follow(profileId: string): Promise<void> {
   }
 
   revalidatePeoplePaths(viewer.handle, target.handle);
+  const songId = String(formData?.get("songId") ?? "");
+  if (songId) {
+    const song = await db.song.findFirst({
+      where: { id: songId, orgId },
+      select: { id: true },
+    });
+    if (song) revalidatePath(`/songs/${song.id}`);
+  }
 }
 
 export async function unfollow(profileId: string): Promise<void> {
