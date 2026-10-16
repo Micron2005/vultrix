@@ -32,7 +32,15 @@ export default async function BeatDetailPage({
         },
       },
       orderBy: { createdAt: "asc" },
-      select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
+      select: {
+        id: true,
+        songId: true,
+        name: true,
+        audioMimeType: true,
+        durationSec: true,
+        createdAt: true,
+        _count: { select: { takeNotes: true } },
+      },
     }),
     db.beatVersion.findMany({
       where: { beatId: id, beat: { AND: [beatAccessWhere(orgId)] } },

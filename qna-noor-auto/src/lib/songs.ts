@@ -72,6 +72,7 @@ export async function getSong(orgId: string, id: string) {
           id: true,
           name: true,
           durationSec: true,
+          _count: { select: { takeNotes: true } },
         },
       },
       beats: {
@@ -82,6 +83,7 @@ export async function getSong(orgId: string, id: string) {
             orderBy: { createdAt: "asc" },
             include: {
               layer: { select: { name: true } },
+              _count: { select: { takeNotes: true } },
             },
           },
         },

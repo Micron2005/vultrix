@@ -14,6 +14,7 @@ import { StarRating } from "../StarRating";
 import { SongTaskRow } from "../SongTaskRow";
 import { SongInviteForm } from "../SongInviteForm";
 import { LeaveSongButton } from "../LeaveSongButton";
+import { TakeNotes } from "../TakeNotes";
 import { DetectKeyButton } from "../DetectKeyButton";
 
 function formatTakeDuration(seconds: number) {
@@ -190,6 +191,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
               name: take.name,
               source: "Lyrics",
               durationSec: take.durationSec,
+              initialCount: take._count.takeNotes,
             })),
             ...song.beats.flatMap((beat) =>
               beat.takes.map((take) => ({
@@ -198,6 +200,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
                 name: take.name,
                 source: `${beat.title}${take.layer?.name ? ` · ${take.layer.name}` : ""}`,
                 durationSec: take.durationSec,
+                initialCount: take._count.takeNotes,
               })),
             ),
           ].sort((left, right) => {
@@ -228,11 +231,12 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
                         </button>
                       </form>
                     </div>
-                    <audio
-                      controls
-                      preload="none"
+                    <TakeNotes
+                      kind={take.kind}
+                      takeId={take.id}
                       src={`/songs/audio/${take.kind}/${take.id}?v=shared-songs-v1`}
-                      className="mt-2 h-8 w-full"
+                      durationSec={take.durationSec}
+                      initialCount={take.initialCount}
                     />
                     <DetectKeyButton
                       src={`/songs/audio/${take.kind}/${take.id}?v=shared-songs-v1`}

@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
 import { countSyllables } from "@/lib/lyrics";
+import { TakeNotes } from "../TakeNotes";
 import { DetectKeyButton } from "../DetectKeyButton";
 
 const MAX_RECORDING_SECONDS = 900;
@@ -39,6 +40,7 @@ type VocalTake = {
   audioMimeType: string;
   durationSec: number;
   createdAt: Date | string;
+  _count?: { takeNotes: number };
 };
 
 type Beat = { id: string; title: string; songId: string | null };
@@ -578,7 +580,13 @@ export function LyricsWorkspace({
                 <span className="text-xs tabular-nums text-zinc-500">{formatDuration(take.durationSec)}</span>
                 <Button type="button" size="xs" variant="danger" onClick={() => void removeTake(take)}>Delete</Button>
               </div>
-              <audio controls preload="none" src={`/songs/audio/song/${take.id}?v=shared-songs-v1`} className="mt-2 h-8 w-full" />
+              <TakeNotes
+                kind="song"
+                takeId={take.id}
+                src={`/songs/audio/song/${take.id}?v=shared-songs-v1`}
+                durationSec={take.durationSec}
+                initialCount={take._count?.takeNotes ?? 0}
+              />
               <DetectKeyButton
                 src={`/songs/audio/song/${take.id}?v=shared-songs-v1`}
                 songId={selectedSong.id}

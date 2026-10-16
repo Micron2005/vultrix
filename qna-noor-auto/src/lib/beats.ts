@@ -59,6 +59,7 @@ export async function listBeatTakes(orgId: string, beatId: string) {
       trimStartMs: true,
       trimEndMs: true,
       createdAt: true,
+      _count: { select: { takeNotes: true } },
     },
   });
 }

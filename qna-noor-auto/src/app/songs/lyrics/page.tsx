@@ -55,7 +55,15 @@ export default async function LyricsPage({
             vocalTakes: await db.songVocalTake.findMany({
               where: { songId: selectedSong.id, uploadComplete: true, song: songAccessWhere(orgId) },
               orderBy: { createdAt: "asc" },
-              select: { id: true, songId: true, name: true, audioMimeType: true, durationSec: true, createdAt: true },
+              select: {
+                id: true,
+                songId: true,
+                name: true,
+                audioMimeType: true,
+                durationSec: true,
+                createdAt: true,
+                _count: { select: { takeNotes: true } },
+              },
             }),
           }}
           beats={beats}
