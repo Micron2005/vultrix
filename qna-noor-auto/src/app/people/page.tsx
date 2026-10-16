@@ -34,6 +34,8 @@ type ProfileFormValues = {
   discoverable: boolean;
 };
 
+type NetworkTab = "connected" | "following" | "followers";
+
 function firstValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
@@ -218,6 +220,22 @@ export default async function PeoplePage({
   const connected = followingRows.filter((row) =>
     followerIds.has(row.following.id),
   );
+  const requestedTab = firstValue(params.tab);
+  const defaultTab =
+    connected.length === 0 && followerRows.length > 0
+      ? "followers"
+      : "connected";
+  const activeTab: NetworkTab =
+    requestedTab === "connected" ||
+    requestedTab === "following" ||
+    requestedTab === "followers"
+      ? requestedTab
+      : defaultTab;
+  const networkTabs = [
+    { id: "connected", label: "Connected", count: connected.length },
+    { id: "following", label: "Following", count: followingRows.length },
+    { id: "followers", label: "Followers", count: followerRows.length },
+  ] as const;
   const editProfile =
     canManage && (!profile || firstValue(params.edit) === "1");
   const hasError = Boolean(firstValue(params.error));
@@ -238,6 +256,91 @@ export default async function PeoplePage({
         title="People"
         description="Find someone by their exact name or @username."
       />
+
+      <Card>
+        <CardHeader title="Your network" />
+        <CardBody>
+          <nav
+            aria-label="Your network"
+            className="mb-4 grid grid-cols-3 gap-2"
+          >
+            {networkTabs.map((tab) => (
+              <Link
+                key={tab.id}
+                href={`/people?tab=${tab.id}`}
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                className={`flex min-h-11 items-center justify-between gap-1 rounded-md border px-2 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vx-accent-600)] sm:px-3 ${
+                  activeTab === tab.id
+                    ? "border-[var(--vx-accent-600)] bg-zinc-100 text-zinc-900"
+                    : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+                  {tab.count}
+                </span>
+              </Link>
+            ))}
+          </nav>
+
+          {!profile ? (
+            <p className="text-sm text-zinc-600">
+              Create your profile below to follow people and see who follows you.
+            </p>
+          ) : activeTab === "connected" ? (
+            connected.length ? (
+              <div className="divide-y divide-zinc-100">
+                {connected.map((row) => (
+                  <ProfileRow key={row.following.id} profile={row.following} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">No connections yet.</p>
+            )
+          ) : activeTab === "following" ? (
+            followingRows.length ? (
+              <div className="divide-y divide-zinc-100">
+                {followingRows.map((row) => (
+                  <ProfileRow key={row.following.id} profile={row.following} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">Not following anyone yet.</p>
+            )
+          ) : followerRows.length ? (
+            <div className="divide-y divide-zinc-100">
+              {followerRows.map((row) => (
+                <ProfileRow
+                  key={row.follower.id}
+                  profile={row.follower}
+                  action={
+                    canManage ? (
+                      <>
+                        {!followingIds.has(row.follower.id) && (
+                          <form action={follow.bind(null, row.follower.id)}>
+                            <Button type="submit" size="xs">
+                              Follow back
+                            </Button>
+                          </form>
+                        )}
+                        <form
+                          action={removeFollower.bind(null, row.follower.id)}
+                        >
+                          <Button type="submit" size="xs" variant="danger">
+                            Remove
+                          </Button>
+                        </form>
+                      </>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">No followers yet.</p>
+          )}
+        </CardBody>
+      </Card>
 
       {firstValue(params.need_profile) === "1" && (
         <p
@@ -365,78 +468,6 @@ export default async function PeoplePage({
         </CardBody>
       </Card>
 
-      {profile && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader title="Connected" />
-            <CardBody>
-              {connected.length ? (
-                <div className="divide-y divide-zinc-100">
-                  {connected.map((row) => (
-                    <ProfileRow key={row.following.id} profile={row.following} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500">No connections yet.</p>
-              )}
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader title="Following" />
-            <CardBody>
-              {followingRows.length ? (
-                <div className="divide-y divide-zinc-100">
-                  {followingRows.map((row) => (
-                    <ProfileRow key={row.following.id} profile={row.following} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500">Not following anyone yet.</p>
-              )}
-            </CardBody>
-          </Card>
-          <Card className="sm:col-span-2">
-            <CardHeader title="Followers" />
-            <CardBody>
-              {followerRows.length ? (
-                <div className="divide-y divide-zinc-100">
-                  {followerRows.map((row) => (
-                    <ProfileRow
-                      key={row.follower.id}
-                      profile={row.follower}
-                      action={
-                        canManage ? (
-                          <div className="flex shrink-0 gap-2">
-                            {!followingIds.has(row.follower.id) && (
-                              <form action={follow.bind(null, row.follower.id)}>
-                                <Button type="submit" size="xs">
-                                  Follow back
-                                </Button>
-                              </form>
-                            )}
-                            <form
-                              action={removeFollower.bind(
-                                null,
-                                row.follower.id,
-                              )}
-                            >
-                              <Button type="submit" size="xs" variant="danger">
-                                Remove
-                              </Button>
-                            </form>
-                          </div>
-                        ) : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500">No followers yet.</p>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

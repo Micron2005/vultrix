@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { follow } from "@/app/people/actions";
 import { Badge, Button, Card, Input, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
+import { groupShareCandidates } from "@/lib/people";
 import { requireMusicPack, getSong, SONG_STAGES } from "@/lib/songs";
 import { formatDateTime } from "@/lib/utils";
 import { SongForm } from "../SongForm";
@@ -29,7 +31,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
   const isOwner = song.orgId === orgId;
   const memberOrgIds = new Set(song.members.map((member) => member.orgId));
   const ownerProfileId = song.organization.profile?.id;
-  const mutualConnections =
+  const shareCandidates =
     isOwner && ownerProfileId
       ? await (async () => {
           const [following, followers] = await Promise.all([
@@ -48,18 +50,25 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
             }),
             db.follow.findMany({
               where: { followingId: ownerProfileId },
-              select: { followerId: true },
+              select: {
+                follower: {
+                  select: {
+                    id: true,
+                    orgId: true,
+                    handle: true,
+                    displayName: true,
+                  },
+                },
+              },
             }),
           ]);
-          const followerIds = new Set(followers.map((row) => row.followerId));
-          return following
-            .map((row) => row.following)
-            .filter(
-              (profile) =>
-                followerIds.has(profile.id) && !memberOrgIds.has(profile.orgId),
-            );
+          return groupShareCandidates(
+            following.map((row) => row.following),
+            followers.map((row) => row.follower),
+            memberOrgIds,
+          );
         })()
-      : [];
+      : { mutual: [], followingOnly: [], followersOnly: [] };
   const currentTasks = song.tasks.filter((task) => task.stage === song.stage);
   const otherTasks = SONG_STAGES.filter((stage) => stage.id !== song.stage).map((stage) => ({
     ...stage,
@@ -133,27 +142,76 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
           <div className="mt-4 border-t border-zinc-200 pt-4">
             {song.members.length >= 10 ? (
               <p className="text-sm text-zinc-500">This song has reached the 10-member limit.</p>
-            ) : !song.organization.profile ? (
-              <p className="text-sm text-zinc-600">
-                <Link href="/people" className="font-medium text-[var(--vx-accent-700)] underline">
-                  Create a profile on People
-                </Link>{" "}
-                to invite mutual connections.
-              </p>
-            ) : mutualConnections.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                There are no mutual connections available to invite. Mutual connections on People are required to share a song.
-              </p>
-            ) : (
-              <SongInviteForm
-                songId={song.id}
-                connections={mutualConnections.map(({ id, handle, displayName }) => ({
-                  id,
-                  handle,
-                  displayName,
-                }))}
-              />
+            ) : shareCandidates.mutual.length > 0 ? (
+              <div>
+                <SongInviteForm
+                  songId={song.id}
+                  connections={shareCandidates.mutual.map(
+                    ({ id, handle, displayName }) => ({
+                      id,
+                      handle,
+                      displayName,
+                    }),
+                  )}
+                />
+                <p className="mt-2 text-xs text-zinc-500">
+                  They need Music on their account (or a free account) to open it.
+                </p>
+              </div>
+            ) : null}
+            {shareCandidates.followingOnly.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-xs font-semibold text-zinc-700">
+                  Waiting for them to follow you back
+                </h3>
+                <ul className="space-y-2">
+                  {shareCandidates.followingOnly.map((profile) => (
+                    <li key={profile.id} className="text-sm text-zinc-600">
+                      @{profile.handle} — waiting for them to follow you back
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
+            {shareCandidates.followersOnly.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-xs font-semibold text-zinc-700">
+                  Followers you can follow back
+                </h3>
+                <ul className="divide-y divide-zinc-100">
+                  {shareCandidates.followersOnly.map((profile) => (
+                    <li
+                      key={profile.id}
+                      className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <p className="text-sm text-zinc-600">
+                        @{profile.handle} follows you
+                      </p>
+                      <form action={follow.bind(null, profile.id)}>
+                        <input type="hidden" name="songId" value={song.id} />
+                        <Button type="submit" size="xs">
+                          Follow back
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {shareCandidates.mutual.length === 0 &&
+              shareCandidates.followingOnly.length === 0 &&
+              shareCandidates.followersOnly.length === 0 && (
+                <p className="text-sm text-zinc-500">
+                  Follow someone on{" "}
+                  <Link
+                    href="/people"
+                    className="font-medium text-[var(--vx-accent-700)] underline"
+                  >
+                    People
+                  </Link>{" "}
+                  and have them follow you back to share this song.
+                </p>
+              )}
           </div>
         ) : (
           <div className="mt-4 border-t border-zinc-200 pt-4">

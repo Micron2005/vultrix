@@ -2,6 +2,36 @@ import { db } from "./db";
 
 const HANDLE_PATTERN = /^[a-z0-9_]{3,30}$/;
 
+export type ShareCandidate = {
+  id: string;
+  orgId: string;
+  handle: string;
+  displayName: string;
+};
+
+export function groupShareCandidates(
+  following: readonly ShareCandidate[],
+  followers: readonly ShareCandidate[],
+  memberOrgIds: ReadonlySet<string>,
+) {
+  const followingIds = new Set(following.map((profile) => profile.id));
+  const followerIds = new Set(followers.map((profile) => profile.id));
+  const isAvailable = (profile: ShareCandidate) =>
+    !memberOrgIds.has(profile.orgId);
+
+  return {
+    mutual: following.filter(
+      (profile) => isAvailable(profile) && followerIds.has(profile.id),
+    ),
+    followingOnly: following.filter(
+      (profile) => isAvailable(profile) && !followerIds.has(profile.id),
+    ),
+    followersOnly: followers.filter(
+      (profile) => isAvailable(profile) && !followingIds.has(profile.id),
+    ),
+  };
+}
+
 export function normalizeHandle(raw: string): string | null {
   const handle = raw.trim().replace(/^@/, "").toLowerCase();
   return HANDLE_PATTERN.test(handle) ? handle : null;
