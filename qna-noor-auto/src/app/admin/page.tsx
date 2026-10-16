@@ -24,6 +24,7 @@ import {
   adminResetUserPassword,
 } from "./actions";
 import { DeleteBusiness } from "./DeleteBusiness";
+import { accountTypeLabel } from "./labels";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,6 @@ const NOTICES: Record<string, string> = {
   "free-off": "Free account off — normal billing with a fresh free trial.",
   "password-reset": "Password updated. Share the new password with the owner.",
 };
-
-function accountTypeLabel(accountType: string): string {
-  if (accountType === "PERSONAL") return "Personal";
-  if (accountType === "BUSINESS") return "Business";
-  return "Auto shop";
-}
 
 export default async function AdminPage({
   searchParams,
@@ -200,6 +195,9 @@ export default async function AdminPage({
                               On hold
                             </span>
                           )}
+                        </div>
+                        <div className="mt-1 text-xs text-zinc-400">
+                          Joined {org.createdAt.toLocaleDateString()}
                         </div>
                         <div className="text-xs text-zinc-500">
                           {org._count.users} logins · {org._count.customers}{" "}

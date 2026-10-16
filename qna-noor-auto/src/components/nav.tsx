@@ -105,6 +105,7 @@ export function Nav({
   const baseItems: NavCatalogItem[] = (isSuperadmin
     ? [
         { href: "/admin", label: "Manage businesses" },
+        { href: "/admin/signups", label: "New signups" },
         { href: "/admin/leads", label: "Leads" },
         { href: "/admin/status", label: "Status page" },
         { href: "/admin/landing", label: "Customize site" },
