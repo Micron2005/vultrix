@@ -21,6 +21,7 @@ type ScheduledEvent = { beat: number; kind: "beat" | "hit"; slot?: number };
 type PlaybackStatus = "idle" | "count-in" | "guide" | "tap-count-in" | "tapping";
 type Playback = {
   mode: "guide" | "tap";
+  playingId: string;
   lineStart: number;
   lineDuration: number;
   beatDuration: number;
@@ -157,8 +158,10 @@ export function FlowPanel({
   }>({ lineText: null, status: "idle" });
   const [currentHitRecord, setCurrentHitRecord] = useState<{
     lineKey: number | null;
+    lineText: string | null;
+    playingId: string | null;
     slot: number | null;
-  }>({ lineKey: null, slot: null });
+  }>({ lineKey: null, lineText: null, playingId: null, slot: null });
   const [tapCount, setTapCount] = useState(0);
   const [tapResultRecord, setTapResultRecord] = useState<{
     lineText: string;
@@ -176,7 +179,7 @@ export function FlowPanel({
   const tapLineStartRef = useRef(0);
   const tapBeatDurationRef = useRef(0);
   const tapBarsRef = useRef<1 | 2>(1);
-  const currentHitRef = useRef<number | null>(null);
+  const currentHitRef = useRef<{ playingId: string; slot: number } | null>(null);
 
   const lyricItems = useMemo(() => parseLyrics(lyrics), [lyrics]);
   const lines = useMemo(
@@ -188,10 +191,20 @@ export function FlowPanel({
     [lyricItems],
   );
   const selectedLine = lines.find((line) => line.key === selectedKey) ?? lines[0] ?? null;
-  const currentHit = currentHitRecord.lineKey === selectedLine?.key ? currentHitRecord.slot : null;
-  const setCurrentHit = useCallback((slot: number | null) => {
-    setCurrentHitRecord({ lineKey: selectedLine?.key ?? null, slot });
-  }, [selectedLine?.key]);
+  const currentHitFor = (playingId: string) =>
+    currentHitRecord.lineKey === selectedLine?.key &&
+    currentHitRecord.lineText === selectedLine?.text &&
+    currentHitRecord.playingId === playingId
+      ? currentHitRecord.slot
+      : null;
+  const setCurrentHit = useCallback((playingId: string | null, slot: number | null) => {
+    setCurrentHitRecord({
+      lineKey: selectedLine?.key ?? null,
+      lineText: selectedLine?.text ?? null,
+      playingId,
+      slot,
+    });
+  }, [selectedLine?.key, selectedLine?.text]);
   const playbackState =
     playbackRecord.lineText === (selectedLine?.text ?? null) ? playbackRecord.status : "idle";
   const setPlaybackState = useCallback((status: PlaybackStatus) => {
@@ -257,7 +270,7 @@ export function FlowPanel({
     playbackRef.current = null;
     tapTimesRef.current = [];
     currentHitRef.current = null;
-    setCurrentHit(null);
+    setCurrentHit(null, null);
     setPlaybackState("idle");
   }, [setCurrentHit, setPlaybackState]);
 
@@ -288,13 +301,17 @@ export function FlowPanel({
       if (event.kind === "hit") {
         scheduleTone(context, time, 1500, 0.11);
         const slot = event.slot!;
+        const playingId = playback.playingId;
         later(() => {
-          currentHitRef.current = slot;
-          setCurrentHit(slot);
+          currentHitRef.current = { playingId, slot };
+          setCurrentHit(playingId, slot);
           later(() => {
-            if (currentHitRef.current === slot) {
+            if (
+              currentHitRef.current?.playingId === playingId &&
+              currentHitRef.current.slot === slot
+            ) {
               currentHitRef.current = null;
-              setCurrentHit(null);
+              setCurrentHit(playingId, null);
             }
           }, 90);
         }, (time + outputDelay(context) - context.currentTime) * 1000);
@@ -312,7 +329,7 @@ export function FlowPanel({
     }
   }, [later, setCurrentHit, setPlaybackState]);
 
-  const startGuide = useCallback(async (flow: LineFlow) => {
+  const startGuide = useCallback(async (flow: LineFlow, playingId: string) => {
     unlockMediaRoute();
     stopPlayback();
     setError("");
@@ -328,6 +345,7 @@ export function FlowPanel({
       const lineStart = countInStart + 4 * beatDuration;
       const playback: Playback = {
         mode: "guide",
+        playingId,
         lineStart,
         lineDuration: flow.bars * 4 * beatDuration,
         beatDuration,
@@ -358,7 +376,7 @@ export function FlowPanel({
     if (lineText) setTapResultRecord({ lineText, result: { raw, bars: capturedBars, grid } });
     setPlaybackState("idle");
     currentHitRef.current = null;
-    setCurrentHit(null);
+    setCurrentHit(null, null);
   }, [selectedLine?.text, setCurrentHit, setPlaybackState]);
 
   const startTapCapture = useCallback(async () => {
@@ -385,6 +403,7 @@ export function FlowPanel({
       const beatFlow: LineFlow = { grid: 8, bars, hits: [], source: "tap" };
       playbackRef.current = {
         mode: "tap",
+        playingId: "tap",
         lineStart,
         lineDuration: duration,
         beatDuration,
@@ -543,7 +562,7 @@ export function FlowPanel({
               const line = lines.find((candidate) => candidate.key === index);
               if (!line) return null;
               const lineFlow = localMeta.lines[line.text]?.flow;
-              const lineBars = lineFlow?.bars ?? 1;
+              const lineBars = barOverrides[line.text] ?? lineFlow?.bars ?? 1;
               const fit = fitCheck(line.syllables.length, lineBars);
               const active = line.key === selectedLine?.key;
               return (
@@ -654,7 +673,7 @@ export function FlowPanel({
                         variant="secondary"
                         className="min-h-10"
                         disabled={pending !== null || isTapping}
-                        onClick={() => void startGuide(flow)}
+                        onClick={() => void startGuide(flow, id)}
                       >
                         ▶ Try
                       </Button>
@@ -670,14 +689,16 @@ export function FlowPanel({
                     </div>
                   </div>
                   <div className="mt-2">
-                    <GridView flow={flow} syllables={selectedLine.syllables} currentHit={currentHit} />
+                    <GridView flow={flow} syllables={selectedLine.syllables} currentHit={currentHitFor(id)} />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <p className="rounded-lg bg-red-50 p-3 text-xs font-medium text-red-700">
-              Too many syllables for 1 bar — try 2 bars or split the line.
+              {bars === 1
+                ? "Too many syllables for 1 bar — try 2 bars or split the line."
+                : "Too many syllables for 2 bars — split the line."}
             </p>
           )}
 
@@ -765,7 +786,7 @@ export function FlowPanel({
                   ))}
                 </div>
               </div>
-              <GridView flow={tapFlow} syllables={selectedLine.syllables} currentHit={currentHit} />
+              <GridView flow={tapFlow} syllables={selectedLine.syllables} currentHit={currentHitFor("tap")} />
               {selectedLine.syllables.length > tapFlow.hits.length && (
                 <p className="text-xs text-zinc-600">
                   +{selectedLine.syllables.length - tapFlow.hits.length} not tapped
@@ -778,7 +799,7 @@ export function FlowPanel({
                   variant="secondary"
                   className="min-h-10"
                   disabled={pending !== null}
-                  onClick={() => void startGuide(tapFlow)}
+                  onClick={() => void startGuide(tapFlow, "tap")}
                 >
                   ▶ Try
                 </Button>
@@ -812,18 +833,30 @@ export function FlowPanel({
                   <h5 className="text-sm font-semibold text-zinc-900">Saved flow</h5>
                   <p className="text-xs text-zinc-600">{gridName(selectedFlow.grid)} · {selectedFlow.bars} bar{selectedFlow.bars === 1 ? "" : "s"}</p>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="danger"
-                  className="min-h-10"
-                  disabled={pending !== null}
-                  onClick={() => void saveFlow(selectedLine.text, null)}
-                >
-                  Remove
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-10"
+                    disabled={pending !== null || isTapping}
+                    onClick={() => void startGuide(selectedFlow, "saved")}
+                  >
+                    ▶ Try
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    className="min-h-10"
+                    disabled={pending !== null}
+                    onClick={() => void saveFlow(selectedLine.text, null)}
+                  >
+                    Remove
+                  </Button>
+                </div>
               </div>
-              <GridView flow={selectedFlow} syllables={selectedLine.syllables} currentHit={currentHit} />
+              <GridView flow={selectedFlow} syllables={selectedLine.syllables} currentHit={currentHitFor("saved")} />
               {otherLines.length > 0 && (
                 <details>
                   <summary className="cursor-pointer py-2 text-sm font-medium text-zinc-800">
