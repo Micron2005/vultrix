@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { LyricsMetaSchema, LyricsTextSchema } from "@/lib/lyrics";
+import { LyricsMetaSchema, LyricsTextSchema, type LyricMetaLine } from "@/lib/lyrics";
 import { notify } from "@/lib/notifications";
 import { relationship } from "@/lib/people";
 import { NOTE_NAMES } from "@/lib/pitch";
@@ -185,7 +185,7 @@ export async function saveLyrics(
   if (entries.length > 200) {
     throw new Error("Lyrics can have at most 200 line settings.");
   }
-  const lines: Record<string, { bars: 1 | 2 | 4 | 8; note?: string }> = {};
+  const lines: Record<string, LyricMetaLine> = {};
   for (const [rawText, value] of entries) {
     const text = rawText.trim();
     if (!text) throw new Error("Lyrics line settings need text.");
@@ -193,6 +193,7 @@ export async function saveLyrics(
     lines[text] = {
       bars: value.bars ?? 2,
       ...(value.note?.trim() ? { note: value.note.trim() } : {}),
+      ...(value.flow ? { flow: value.flow } : {}),
     };
   }
   const existing = await db.song.findFirst({

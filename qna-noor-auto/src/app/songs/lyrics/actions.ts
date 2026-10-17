@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { LineFlowSchema, parseLyricsMeta } from "@/lib/lyrics";
 import { requireMusicPack } from "@/lib/songs";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
 import { ensureBeatVocalLayers } from "@/lib/beats";
@@ -19,6 +20,66 @@ const UploadChunkSchema = z.string().min(1).max(3_000_000);
 const RhymeWordSchema = z.string().trim().min(1).max(40);
 const DraftNameSchema = z.string().trim().min(1).max(60);
 const DraftLyricsSchema = z.string().max(20_000);
+const FlowLineTextSchema = z.string().trim().min(1).max(20_000);
+const FlowLineTextsSchema = z.array(FlowLineTextSchema).max(200);
+
+function revalidateLyricsFlow(songId: string) {
+  revalidatePath(`/songs/${songId}`);
+  revalidatePath("/songs/practice");
+  revalidatePath("/songs");
+  revalidatePath("/");
+  revalidatePath("/songs/lyrics");
+}
+
+async function readSongLyricsMeta(songId: string, orgId: string) {
+  const song = await db.song.findFirst({
+    where: { id: songId, ...songAccessWhere(orgId) },
+    select: { lyricsMeta: true },
+  });
+  if (!song) throw new Error("Song not found.");
+  return parseLyricsMeta(song.lyricsMeta);
+}
+
+async function writeSongLyricsMeta(
+  songId: string,
+  orgId: string,
+  lines: ReturnType<typeof parseLyricsMeta>["lines"],
+) {
+  if (Object.keys(lines).length > 200) {
+    throw new Error("Lyrics can have at most 200 line settings.");
+  }
+  await db.song.updateMany({
+    where: { id: songId, ...songAccessWhere(orgId) },
+    data: { lyricsMeta: JSON.stringify({ v: 1, lines }) },
+  });
+  revalidateLyricsFlow(songId);
+}
+
+export async function saveLineFlow(songId: string, lineText: string, flow: unknown | null) {
+  const { orgId } = await requireMusicPack();
+  const text = FlowLineTextSchema.parse(lineText);
+  const parsedFlow = flow === null ? null : LineFlowSchema.parse(flow);
+  const meta = await readSongLyricsMeta(songId, orgId);
+  const lines = { ...meta.lines };
+  const current = { ...(lines[text] ?? {}) };
+  if (parsedFlow) current.flow = parsedFlow;
+  else delete current.flow;
+  if (Object.keys(current).length) lines[text] = current;
+  else delete lines[text];
+  await writeSongLyricsMeta(songId, orgId, lines);
+}
+
+export async function applyFlowToLines(songId: string, flow: unknown, lineTexts: string[]) {
+  const { orgId } = await requireMusicPack();
+  const parsedFlow = LineFlowSchema.parse(flow);
+  const texts = [...new Set(FlowLineTextsSchema.parse(lineTexts))];
+  const meta = await readSongLyricsMeta(songId, orgId);
+  const lines = { ...meta.lines };
+  for (const text of texts) {
+    lines[text] = { ...(lines[text] ?? {}), flow: parsedFlow };
+  }
+  await writeSongLyricsMeta(songId, orgId, lines);
+}
 
 export async function findRhymes(word: string) {
   await requireMusicPack();

@@ -3,6 +3,7 @@ import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { listSongs, requireMusicPack } from "@/lib/songs";
 import { beatAccessWhere, songAccessWhere } from "@/lib/songAccess";
+import { parseLyricsMeta } from "@/lib/lyrics";
 import { SongsTabs } from "../SongsTabs";
 import { LyricsWorkspace } from "./LyricsWorkspace";
 
@@ -66,6 +67,7 @@ export default async function LyricsPage({
               },
             }),
           }}
+          lyricsMeta={parseLyricsMeta(selectedSong.lyricsMeta)}
           beats={beats}
         />
       ) : (

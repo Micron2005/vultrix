@@ -1,16 +1,43 @@
 import { z } from "zod";
+import type { LineFlow } from "./flow";
 
 export type LyricLine =
   | { kind: "section"; label: string }
   | { kind: "line"; text: string; syllables: number }
   | { kind: "blank" };
 
-export type LyricMetaLine = { bars?: 1 | 2 | 4 | 8; note?: string };
+export type LyricMetaLine = { bars?: 1 | 2 | 4 | 8; note?: string; flow?: LineFlow };
 export type LyricsMeta = { v: 1; lines: Record<string, LyricMetaLine> };
+
+export const LineFlowSchema = z.object({
+  grid: z.union([z.literal(8), z.literal(12), z.literal(16)]),
+  bars: z.union([z.literal(1), z.literal(2)]),
+  hits: z.array(z.number().int().min(0).max(31)).max(32),
+  source: z.enum(["pattern", "tap"]),
+  label: z.string().max(40).optional(),
+}).superRefine((flow, context) => {
+  for (let index = 0; index < flow.hits.length; index += 1) {
+    if (flow.hits[index] >= flow.grid * flow.bars) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow hit is outside the selected grid.",
+        path: ["hits", index],
+      });
+    }
+    if (index > 0 && flow.hits[index] <= flow.hits[index - 1]) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow hits must be strictly increasing.",
+        path: ["hits", index],
+      });
+    }
+  }
+});
 
 export const LyricsMetaLineSchema = z.object({
   bars: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8)]).optional(),
   note: z.string().max(300).optional(),
+  flow: LineFlowSchema.optional(),
 });
 
 export const LyricsMetaSchema = z.object({
@@ -42,6 +69,7 @@ export function parseLyricsMeta(raw: string | null): LyricsMeta {
       lines: Object.fromEntries(
         Object.entries(parsed.lines).slice(0, 200).map(([text, value]) => {
           const item = value && typeof value === "object" ? (value as LyricMetaLine) : {};
+          const flow = LineFlowSchema.safeParse(item.flow);
           return [
             text.trim(),
             {
@@ -49,6 +77,7 @@ export function parseLyricsMeta(raw: string | null): LyricsMeta {
               ...(typeof item.note === "string" && item.note.trim()
                 ? { note: item.note.trim().slice(0, 300) }
                 : {}),
+              ...(flow.success ? { flow: flow.data } : {}),
             },
           ];
         }),
