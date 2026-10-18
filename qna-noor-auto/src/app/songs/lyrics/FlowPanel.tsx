@@ -82,7 +82,7 @@ function GridView({
   compact?: boolean;
 }) {
   return (
-    <div className="overflow-x-auto pb-1">
+    <div className="w-full max-w-full overflow-x-auto pb-1">
       <div className="flex w-max gap-1">
         {Array.from({ length: flow.grid * flow.bars }, (_, slot) => {
           const hitIndex = flow.hits.indexOf(slot);
@@ -514,7 +514,7 @@ export function FlowPanel({
   const bpmUnchanged = Number(bpmInput) === songBpm;
 
   return (
-    <section className="mt-3 space-y-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5" aria-label="Lyric flow">
+    <section className="mt-3 min-w-0 max-w-full space-y-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5" aria-label="Lyric flow">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900">Find your flow</h3>
@@ -578,13 +578,13 @@ export function FlowPanel({
                     }
                   }}
                   aria-pressed={active}
-                  className={`w-full rounded-lg border p-2.5 text-left transition ${
+                  className={`w-full min-w-0 max-w-full rounded-lg border p-2.5 text-left transition ${
                     active
                       ? "border-[var(--vx-accent-500)] bg-[var(--vx-accent-50)]"
                       : "border-transparent bg-zinc-50 hover:border-zinc-300"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="min-w-0 flex-1 break-words text-sm font-medium text-zinc-800">{line.text}</span>
                     <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{line.syllables.length} syl</span>
                     <span
@@ -598,11 +598,11 @@ export function FlowPanel({
                     </span>
                   </div>
                   {lineFlow && (
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex min-w-0 items-center gap-2">
                       <span className="shrink-0 text-[10px] text-zinc-500">
                         {gridName(lineFlow.grid)} · {lineFlow.bars} bar{lineFlow.bars === 1 ? "" : "s"}
                       </span>
-                      <div className="min-w-0 max-w-40">
+                      <div className="min-w-0 max-w-full flex-1">
                         <GridView flow={lineFlow} syllables={line.syllables} currentHit={null} compact />
                       </div>
                     </div>
@@ -660,7 +660,7 @@ export function FlowPanel({
           {patterns.length ? (
             <div className="space-y-2">
               {patterns.map(({ id, label, flow }) => (
-                <div key={id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <div key={id} className="min-w-0 max-w-full rounded-lg border border-zinc-200 bg-zinc-50 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-zinc-800">{label}</p>
@@ -688,7 +688,7 @@ export function FlowPanel({
                       </Button>
                     </div>
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-2 min-w-0 max-w-full">
                     <GridView flow={flow} syllables={selectedLine.syllables} currentHit={currentHitFor(id)} />
                   </div>
                 </div>
@@ -758,7 +758,7 @@ export function FlowPanel({
           )}
 
           {tapResult && tapFlow && !isTapping && (
-            <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
+            <div className="min-w-0 max-w-full space-y-3 rounded-lg border border-zinc-200 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h5 className="text-sm font-semibold text-zinc-900">Your tapped flow</h5>
@@ -827,7 +827,7 @@ export function FlowPanel({
           )}
 
           {selectedFlow && (
-            <div className="space-y-3 rounded-lg border border-[var(--vx-accent-300)] bg-[var(--vx-accent-50)] p-3">
+            <div className="min-w-0 max-w-full space-y-3 rounded-lg border border-[var(--vx-accent-300)] bg-[var(--vx-accent-50)] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h5 className="text-sm font-semibold text-zinc-900">Saved flow</h5>
@@ -866,7 +866,7 @@ export function FlowPanel({
                     {otherLines.map((line) => {
                       const needs = Math.max(0, line.syllables.length - selectedFlow.hits.length);
                       return (
-                        <label key={line.text} className="flex min-h-10 items-center gap-2 rounded-md bg-white px-2 py-2 text-xs text-zinc-700">
+                        <label key={line.text} className="flex min-h-10 min-w-0 max-w-full items-center gap-2 rounded-md bg-white px-2 py-2 text-xs text-zinc-700">
                           <input
                             type="checkbox"
                             checked={Boolean(reuseSelection[line.text])}

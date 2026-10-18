@@ -416,7 +416,7 @@ export function LyricsWorkspace({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="p-5">
+      <Card className="min-w-0 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Write</h2>
@@ -545,7 +545,7 @@ export function LyricsWorkspace({
         </details>
         <p className="mt-2 text-xs text-zinc-500">Use blank lines to separate sections. Put section labels in [Brackets].</p>
       </Card>
-      <Card className="p-5">
+      <Card className="min-w-0 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Sing it</h2>
