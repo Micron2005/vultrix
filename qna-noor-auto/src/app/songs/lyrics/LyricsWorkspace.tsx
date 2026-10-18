@@ -18,9 +18,10 @@ import {
   renameSongVocalTake,
 } from "./actions";
 import { TAKE_AUDIO_BITS_PER_SECOND, saveTakeErrorMessage, uploadInChunks } from "../uploadTake";
-import { countSyllables } from "@/lib/lyrics";
+import { countSyllables, type LyricsMeta } from "@/lib/lyrics";
 import { TakeNotes } from "../TakeNotes";
 import { DetectKeyButton } from "../DetectKeyButton";
+import { FlowPanel } from "./FlowPanel";
 
 const MAX_RECORDING_SECONDS = 900;
 const FONT_KEY = "lyrics-font";
@@ -91,10 +92,12 @@ function readAudioData(blob: Blob) {
 export function LyricsWorkspace({
   songs,
   selectedSong,
+  lyricsMeta,
   beats,
 }: {
   songs: Song[];
   selectedSong: Song & { vocalTakes: VocalTake[]; drafts: LyricDraft[] };
+  lyricsMeta: LyricsMeta;
   beats: Beat[];
 }) {
   const router = useRouter();
@@ -112,6 +115,7 @@ export function LyricsWorkspace({
   const [rhymeLoading, setRhymeLoading] = useState(false);
   const [rhymeError, setRhymeError] = useState("");
   const [syllablesOn, setSyllablesOn] = useState(false);
+  const [flowOn, setFlowOn] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftInputOpen, setDraftInputOpen] = useState(false);
   const [error, setError] = useState("");
@@ -412,7 +416,7 @@ export function LyricsWorkspace({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="p-5">
+      <Card className="min-w-0 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Write</h2>
@@ -426,6 +430,7 @@ export function LyricsWorkspace({
           <div className="flex items-center gap-1">
             <Button type="button" size="xs" variant="ghost" onClick={openRhymes}>Rhymes</Button>
             <Button type="button" size="xs" variant={syllablesOn ? "secondary" : "ghost"} onClick={() => setSyllablesOn((value) => !value)}>Syllables</Button>
+            <Button type="button" size="xs" variant={flowOn ? "secondary" : "ghost"} onClick={() => setFlowOn((value) => !value)}>Flow</Button>
             <Button type="button" size="xs" variant="ghost" onClick={openDraftInput}>Save draft</Button>
           </div>
           <div className="flex gap-1">
@@ -433,6 +438,14 @@ export function LyricsWorkspace({
             <Button type="button" size="xs" variant="ghost" onClick={() => setFontSize((value) => Math.min(1.4, value + 0.1))}>A+</Button>
           </div>
         </div>
+        {flowOn && (
+          <FlowPanel
+            songId={selectedSong.id}
+            bpm={selectedSong.bpm ?? 90}
+            lyrics={lyrics}
+            meta={lyricsMeta}
+          />
+        )}
         {showRhymes && (
           <div className="mt-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
             <div className="flex items-center gap-2">
@@ -532,7 +545,7 @@ export function LyricsWorkspace({
         </details>
         <p className="mt-2 text-xs text-zinc-500">Use blank lines to separate sections. Put section labels in [Brackets].</p>
       </Card>
-      <Card className="p-5">
+      <Card className="min-w-0 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Sing it</h2>

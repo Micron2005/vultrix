@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countSyllables, parseLyrics } from "./lyrics";
+import { countSyllables, LyricsMetaSchema, parseLyrics, parseLyricsMeta } from "./lyrics";
 
 test("counts common lyric word syllables", () => {
   assert.equal(countSyllables("fire"), 1);
@@ -20,4 +20,31 @@ test("parses sections, blank lines, and lyric lines", () => {
     { kind: "blank" },
     { kind: "section", label: "Hook" },
   ]);
+});
+
+test("lyrics metadata preserves valid flows and drops invalid flows", () => {
+  const valid = {
+    grid: 8,
+    bars: 1,
+    hits: [0, 2, 7],
+    source: "pattern",
+    label: "Straight",
+  };
+  const raw = JSON.stringify({
+    v: 1,
+    lines: {
+      "keep me": { bars: 1, note: "note", flow: valid },
+      "drop me": { note: "still here", flow: { ...valid, hits: [2, 2] } },
+    },
+  });
+  const parsed = parseLyricsMeta(raw);
+  assert.deepEqual(parsed.lines["keep me"], { bars: 1, note: "note", flow: valid });
+  assert.deepEqual(parsed.lines["drop me"], { note: "still here" });
+  assert.equal(
+    LyricsMetaSchema.safeParse({
+      v: 1,
+      lines: { invalid: { flow: { ...valid, hits: [8] } } },
+    }).success,
+    false,
+  );
 });
