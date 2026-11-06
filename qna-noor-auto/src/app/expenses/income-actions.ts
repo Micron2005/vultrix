@@ -9,6 +9,8 @@ import { createIncomeForOrg } from "@/lib/income";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
 import { assertCanViewFinancials } from "@/lib/permissions";
+import { dateInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   nthOccurrence,
   RECURRING_INTERVALS,
@@ -37,11 +39,9 @@ function cleanStr(v: FormDataEntryValue | null): string | null {
   return t === "" ? null : t;
 }
 
-function parseDate(v: FormDataEntryValue | null): Date {
+function parseDate(v: FormDataEntryValue | null, timeZone: string): Date {
   const s = String(v ?? "").trim();
-  if (!s) return new Date();
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return s ? dateInputInTimeZone(s, timeZone, new Date()) : new Date();
 }
 
 function parseFrequency(v: FormDataEntryValue | null): string {
@@ -72,8 +72,9 @@ function frequencyForInterval(interval: string): string {
 export async function createIncome(fd: FormData) {
   const orgId = await requireIncomeOrgId();
   const user = await requireUser();
+  const timeZone = await orgTimeZone(orgId);
   const amount = parseMoney(fd.get("amount"));
-  const receivedAt = parseDate(fd.get("receivedAt"));
+  const receivedAt = parseDate(fd.get("receivedAt"), timeZone);
   const source = cleanStr(fd.get("source"));
   const frequency = parseFrequency(fd.get("frequency"));
   const note = cleanStr(fd.get("note"));
@@ -137,9 +138,10 @@ export async function createIncome(fd: FormData) {
 export async function updateIncome(id: string, fd: FormData) {
   const orgId = await requireIncomeOrgId();
   const user = await requireUser();
+  const timeZone = await orgTimeZone(orgId);
   assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
-  const receivedAt = parseDate(fd.get("receivedAt"));
+  const receivedAt = parseDate(fd.get("receivedAt"), timeZone);
   const source = cleanStr(fd.get("source"));
   const frequency = parseFrequency(fd.get("frequency"));
   const note = cleanStr(fd.get("note"));

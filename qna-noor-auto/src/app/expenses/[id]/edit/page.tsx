@@ -4,6 +4,8 @@ import { getCurrentUser, requireOrgId } from "@/lib/session";
 import { Button, Card, PageHeader } from "@/components/ui";
 import { ExpenseForm } from "../../ExpenseForm";
 import { deleteExpense, updateExpense } from "../../actions";
+import { localCalendarDay } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ export default async function EditExpensePage({
     },
   });
   if (!exp) notFound();
+  const timeZone = await orgTimeZone(orgId);
 
   const upd = updateExpense.bind(null, exp.id);
   const del = deleteExpense.bind(null, exp.id);
@@ -42,6 +45,7 @@ export default async function EditExpensePage({
       <Card className="p-6">
         <ExpenseForm
           action={upd}
+          dateValue={localCalendarDay(exp.paidAt, timeZone)}
           initial={{
             amount: exp.amount,
             category: exp.category,

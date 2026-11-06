@@ -5,6 +5,8 @@ import { Button, Card, PageHeader } from "@/components/ui";
 import { IncomeForm } from "../../../IncomeForm";
 import { deleteIncome, updateIncome } from "../../../income-actions";
 import { enabledFeatureSet } from "@/lib/features";
+import { localCalendarDay } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ export default async function EditIncomePage({
     include: { recurring: true },
   });
   if (!income) notFound();
+  const timeZone = await orgTimeZone(orgId);
 
   const update = updateIncome.bind(null, income.id);
   const remove = deleteIncome.bind(null, income.id);
@@ -44,6 +47,7 @@ export default async function EditIncomePage({
       <Card className="p-6">
         <IncomeForm
           action={update}
+          dateValue={localCalendarDay(income.receivedAt, timeZone)}
           initial={{
             amount: income.amount,
             receivedAt: income.receivedAt,

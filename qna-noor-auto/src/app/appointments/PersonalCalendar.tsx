@@ -10,9 +10,7 @@ import {
   endOfMonth,
   endOfWeek,
   format,
-  isSameDay,
   isSameMonth,
-  isToday,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -27,8 +25,9 @@ import {
 export type CalendarEventItem = {
   id: string;
   title: string;
-  startsAt: string;
-  endsAt: string | null;
+  dayKey: string;
+  startTime: string;
+  endTime: string;
   allDay: boolean;
   isReminder: boolean;
   notes: string | null;
@@ -37,15 +36,22 @@ export type CalendarEventItem = {
 type Props = {
   view: "day" | "week" | "month" | "year";
   date: string;
+  todayKey: string;
   events: CalendarEventItem[];
   canDelete?: boolean;
 };
 
 const views = ["day", "week", "month", "year"] as const;
 const ymd = (date: Date) => format(date, "yyyy-MM-dd");
-const eventDate = (event: CalendarEventItem) => new Date(event.startsAt);
+const isTodayKey = (date: Date, todayKey: string) => ymd(date) === todayKey;
 
-export function PersonalCalendar({ view, date, events, canDelete = true }: Props) {
+export function PersonalCalendar({
+  view,
+  date,
+  todayKey,
+  events,
+  canDelete = true,
+}: Props) {
   const selectedDate = new Date(`${date}T00:00:00`);
   const [dialog, setDialog] = useState<{ date: string; event?: CalendarEventItem } | null>(null);
   const rangeAnchor = view === "week" ? startOfWeek(selectedDate, { weekStartsOn: 1 }) : selectedDate;
@@ -53,7 +59,7 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
   const next = view === "day" ? addDays(selectedDate, 1) : view === "week" ? addWeeks(rangeAnchor, 1) : view === "year" ? new Date(selectedDate.getFullYear() + 1, 0, 1) : addMonths(selectedDate, 1);
   const title = view === "year" ? format(selectedDate, "yyyy") : view === "day" ? format(selectedDate, "EEEE, MMMM d, yyyy") : view === "week" ? `${format(rangeAnchor, "MMM d")} – ${format(addDays(rangeAnchor, 6), "MMM d, yyyy")}` : format(selectedDate, "MMMM yyyy");
   const href = (v: string, d: Date) => `/appointments?view=${v}&date=${ymd(d)}`;
-  const eventsFor = (day: Date) => events.filter((event) => isSameDay(eventDate(event), day));
+  const eventsFor = (day: Date) => events.filter((event) => event.dayKey === ymd(day));
 
   return (
     <>
@@ -61,7 +67,7 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <LinkButton className="min-h-9" href={href(view, previous)} variant="secondary" size="sm">← Prev</LinkButton>
-            <LinkButton className="min-h-9" href={href(view, new Date())} variant="ghost" size="sm">Today</LinkButton>
+            <LinkButton className="min-h-9" href={href(view, new Date(`${todayKey}T00:00:00`))} variant="ghost" size="sm">Today</LinkButton>
             <LinkButton className="min-h-9" href={href(view, next)} variant="secondary" size="sm">Next →</LinkButton>
           </div>
           <Button className="min-h-9" type="button" size="sm" onClick={() => setDialog({ date: date })}>+ Add event</Button>
@@ -73,10 +79,10 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
           </div>
         </div>
       </div>
-      {view === "month" && <MonthView key={ymd(startOfMonth(selectedDate))} date={selectedDate} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
-      {view === "week" && <WeekView date={rangeAnchor} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: ymd(eventDate(event)), event })} />}
+      {view === "month" && <MonthView key={ymd(startOfMonth(selectedDate))} date={selectedDate} todayKey={todayKey} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: event.dayKey, event })} />}
+      {view === "week" && <WeekView date={rangeAnchor} todayKey={todayKey} eventsFor={eventsFor} onDay={(day) => setDialog({ date: ymd(day) })} onEvent={(event) => setDialog({ date: event.dayKey, event })} />}
       {view === "day" && <DayView date={selectedDate} events={eventsFor(selectedDate)} onAdd={() => setDialog({ date })} onEvent={(event) => setDialog({ date, event })} />}
-      {view === "year" && <YearView date={selectedDate} eventsFor={eventsFor} onMonth={(month) => window.location.href = href("month", month)} />}
+      {view === "year" && <YearView date={selectedDate} todayKey={todayKey} eventsFor={eventsFor} onMonth={(month) => window.location.href = href("month", month)} />}
       {dialog && <EventDialog initialDate={dialog.date} event={dialog.event} canDelete={canDelete} onClose={() => setDialog(null)} />}
     </>
   );
@@ -85,17 +91,18 @@ export function PersonalCalendar({ view, date, events, canDelete = true }: Props
 function EventCard({ event, onClick }: { event: CalendarEventItem; onClick: () => void }) {
   return <button type="button" onClick={onClick} className={"block w-full rounded-md border p-2 text-left text-xs hover:border-zinc-400 " + (event.isReminder ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-zinc-50")}>
     <div className="font-medium text-zinc-900">{event.isReminder && "🔔 "}{event.title}</div>
-    {!event.allDay && <div className="mt-0.5 text-zinc-500">{format(eventDate(event), "h:mm a")}</div>}
+    {!event.allDay && <div className="mt-0.5 text-zinc-500">{event.startTime}</div>}
   </button>;
 }
 
-function MonthView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor: (day: Date) => CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
+function MonthView({ date, todayKey, eventsFor, onDay, onEvent }: { date: Date; todayKey: string; eventsFor: (day: Date) => CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
   const days = Array.from({ length: 42 }, (_, index) =>
     addDays(startOfWeek(startOfMonth(date), { weekStartsOn: 1 }), index),
   );
   const [selected, setSelected] = useState<string | null>(() => {
-    const today = new Date();
-    return isSameMonth(today, date) ? ymd(today) : ymd(startOfMonth(date));
+    return todayKey.slice(0, 7) === ymd(startOfMonth(date)).slice(0, 7)
+      ? todayKey
+      : ymd(startOfMonth(date));
   });
   const selectedDay = new Date(`${selected ?? ymd(startOfMonth(date))}T00:00:00`);
 
@@ -115,6 +122,7 @@ function MonthView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor:
             day={day}
             compact
             selected={selected === ymd(day)}
+            todayKey={todayKey}
             currentMonth={isSameMonth(day, date)}
             events={eventsFor(day)}
             onDay={() => setSelected(ymd(day))}
@@ -127,6 +135,7 @@ function MonthView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor:
           <DayCell
             key={ymd(day)}
             day={day}
+            todayKey={todayKey}
             currentMonth={isSameMonth(day, date)}
             events={eventsFor(day)}
             onDay={onDay}
@@ -163,7 +172,7 @@ function MonthView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor:
   );
 }
 
-function DayCell({ day, compact = false, selected = false, currentMonth, events, onDay, onEvent }: { day: Date; compact?: boolean; selected?: boolean; currentMonth: boolean; events: CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
+function DayCell({ day, todayKey, compact = false, selected = false, currentMonth, events, onDay, onEvent }: { day: Date; todayKey: string; compact?: boolean; selected?: boolean; currentMonth: boolean; events: CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
   if (compact) {
     return (
       <div
@@ -178,7 +187,7 @@ function DayCell({ day, compact = false, selected = false, currentMonth, events,
           onClick={() => onDay(day)}
           className={
             "flex min-h-9 min-w-9 items-center justify-center text-xs font-semibold " +
-            (isToday(day)
+            (isTodayKey(day, todayKey)
               ? "rounded-full bg-[var(--vx-accent-600)] px-1.5 py-0.5 text-white"
               : "text-zinc-700")
           }
@@ -199,23 +208,126 @@ function DayCell({ day, compact = false, selected = false, currentMonth, events,
       </div>
     );
   }
-  return <div className={"min-h-28 border-b border-r border-zinc-200 p-2 " + (!currentMonth ? "bg-zinc-50 text-zinc-400" : "")}><button type="button" onClick={() => onDay(day)} className={"mb-1 text-xs font-semibold " + (isToday(day) ? "rounded-full bg-[var(--vx-accent-600)] px-1.5 py-0.5 text-white" : "text-zinc-700")}>{format(day, "d")}</button><div className="space-y-1">{events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}{events.length > 3 && <div className="text-[11px] text-zinc-500">+{events.length - 3} more</div>}</div></div>;
+  return <div className={"min-h-28 border-b border-r border-zinc-200 p-2 " + (!currentMonth ? "bg-zinc-50 text-zinc-400" : "")}><button type="button" onClick={() => onDay(day)} className={"mb-1 text-xs font-semibold " + (isTodayKey(day, todayKey) ? "rounded-full bg-[var(--vx-accent-600)] px-1.5 py-0.5 text-white" : "text-zinc-700")}>{format(day, "d")}</button><div className="space-y-1">{events.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}{events.length > 3 && <div className="text-[11px] text-zinc-500">+{events.length - 3} more</div>}</div></div>;
 }
 
-function WeekView({ date, eventsFor, onDay, onEvent }: { date: Date; eventsFor: (day: Date) => CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
+function WeekView({ date, todayKey, eventsFor, onDay, onEvent }: { date: Date; todayKey: string; eventsFor: (day: Date) => CalendarEventItem[]; onDay: (day: Date) => void; onEvent: (event: CalendarEventItem) => void }) {
   const days = Array.from({ length: 7 }, (_, index) => addDays(date, index));
-  return <div className="grid grid-cols-1 gap-2 md:grid-cols-7">{days.map((day) => <div key={ymd(day)} className={"min-h-48 rounded-lg border bg-white p-2 " + (isToday(day) ? "border-zinc-900" : "border-zinc-200")}><button type="button" onClick={() => onDay(day)} className="mb-2 text-xs font-semibold text-zinc-700">{format(day, "EEE, MMM d")}</button><div className="space-y-1">{eventsFor(day).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}</div></div>)}</div>;
+  return <div className="grid grid-cols-1 gap-2 md:grid-cols-7">{days.map((day) => <div key={ymd(day)} className={"min-h-48 rounded-lg border bg-white p-2 " + (isTodayKey(day, todayKey) ? "border-zinc-900" : "border-zinc-200")}><button type="button" onClick={() => onDay(day)} className="mb-2 text-xs font-semibold text-zinc-700">{format(day, "EEE, MMM d")}</button><div className="space-y-1">{eventsFor(day).map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}</div></div>)}</div>;
 }
 
 function DayView({ date, events, onAdd, onEvent }: { date: Date; events: CalendarEventItem[]; onAdd: () => void; onEvent: (event: CalendarEventItem) => void }) {
   return <Card className="p-4"><div className="mb-3 text-sm font-semibold text-zinc-800">{format(date, "EEEE, MMMM d")}</div>{events.length === 0 ? <button type="button" onClick={onAdd} className="w-full rounded-md border border-dashed border-zinc-300 p-8 text-sm text-zinc-500 hover:bg-zinc-50">No events — add one</button> : <div className="space-y-2">{events.map((event) => <EventCard key={event.id} event={event} onClick={() => onEvent(event)} />)}</div>}</Card>;
 }
 
-function YearView({ date, eventsFor, onMonth }: { date: Date; eventsFor: (day: Date) => CalendarEventItem[]; onMonth: (month: Date) => void }) {
-  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{eachMonthOfInterval({ start: new Date(date.getFullYear(), 0, 1), end: new Date(date.getFullYear(), 11, 1) }).map((month) => <Card key={month.toISOString()} className="p-3"><button type="button" onClick={() => onMonth(month)} className="mb-2 text-sm font-semibold text-zinc-900 hover:underline">{format(month, "MMMM")}</button><div className="grid grid-cols-7 gap-1 text-center text-[10px]">{eachDayOfInterval({ start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }) }).map((day) => <span key={ymd(day)} className={(eventsFor(day).length ? "font-bold text-zinc-900 " : "text-zinc-400 ") + (isToday(day) ? "rounded-full bg-zinc-900 text-white" : "")}>{format(day, "d")}</span>)}</div></Card>)}</div>;
+function YearView({ date, todayKey, eventsFor, onMonth }: { date: Date; todayKey: string; eventsFor: (day: Date) => CalendarEventItem[]; onMonth: (month: Date) => void }) {
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{eachMonthOfInterval({ start: new Date(date.getFullYear(), 0, 1), end: new Date(date.getFullYear(), 11, 1) }).map((month) => <Card key={month.toISOString()} className="p-3"><button type="button" onClick={() => onMonth(month)} className="mb-2 text-sm font-semibold text-zinc-900 hover:underline">{format(month, "MMMM")}</button><div className="grid grid-cols-7 gap-1 text-center text-[10px]">{eachDayOfInterval({ start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }) }).map((day) => <span key={ymd(day)} className={(eventsFor(day).length ? "font-bold text-zinc-900 " : "text-zinc-400 ") + (isTodayKey(day, todayKey) ? "rounded-full bg-zinc-900 text-white" : "")}>{format(day, "d")}</span>)}</div></Card>)}</div>;
 }
 
 function EventDialog({ initialDate, event, onClose, canDelete = true }: { initialDate: string; event?: CalendarEventItem; onClose: () => void; canDelete?: boolean }) {
   const action = event ? updateCalendarEvent.bind(null, event.id) : createCalendarEvent;
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"><div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{event ? "Edit event" : "Add event"}</h2><button type="button" onClick={onClose} className="text-zinc-500 hover:text-zinc-900" aria-label="Close">×</button></div><form action={async (fd) => { const date = String(fd.get("date") ?? ""); const startTime = String(fd.get("startTime") || "09:00"); const endTime = String(fd.get("endTime") || ""); const allDay = fd.get("allDay") === "on"; const start = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}`); if (!Number.isNaN(start.getTime())) fd.set("startsAtISO", start.toISOString()); if (endTime) { const end = new Date(`${date}T${endTime}`); if (!Number.isNaN(end.getTime())) fd.set("endsAtISO", end.toISOString()); } await action(fd); onClose(); }} className="space-y-4"><Field label="Title *"><Input name="title" required defaultValue={event?.title ?? ""} autoFocus /></Field><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><Field label="Date *"><Input name="date" type="date" required defaultValue={initialDate} /></Field><Field label="Start time"><Input name="startTime" type="time" defaultValue={event && !event.allDay ? format(eventDate(event), "HH:mm") : "09:00"} /></Field><Field label="End time"><Input name="endTime" type="time" defaultValue={event?.endsAt ? format(new Date(event.endsAt), "HH:mm") : ""} /></Field></div><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="allDay" defaultChecked={event?.allDay} /> All day</label><label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" name="isReminder" defaultChecked={event?.isReminder} /> Reminder</label><Field label="Notes"><Textarea name="notes" rows={3} defaultValue={event?.notes ?? ""} /></Field><div className="flex justify-between"><div>{event && canDelete && <button type="button" onClick={async () => { await deleteCalendarEvent(event.id); onClose(); }} className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Delete</button>}</div><div className="flex gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><SaveButton>Save</SaveButton></div></div></form></div></div>;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            {event ? "Edit event" : "Add event"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-zinc-500 hover:text-zinc-900"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <form
+          action={async (fd) => {
+            await action(fd);
+            onClose();
+          }}
+          className="space-y-4"
+        >
+          <Field label="Title *">
+            <Input
+              name="title"
+              required
+              defaultValue={event?.title ?? ""}
+              autoFocus
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Date *">
+              <Input
+                name="date"
+                type="date"
+                required
+                defaultValue={initialDate}
+              />
+            </Field>
+            <Field label="Start time">
+              <Input
+                name="startTime"
+                type="time"
+                defaultValue={event ? event.startTime : "09:00"}
+              />
+            </Field>
+            <Field label="End time">
+              <Input
+                name="endTime"
+                type="time"
+                defaultValue={event?.endTime ?? ""}
+              />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              name="allDay"
+              defaultChecked={event?.allDay}
+            />{" "}
+            All day
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              name="isReminder"
+              defaultChecked={event?.isReminder}
+            />{" "}
+            Reminder
+          </label>
+          <Field label="Notes">
+            <Textarea name="notes" rows={3} defaultValue={event?.notes ?? ""} />
+          </Field>
+          <div className="flex justify-between">
+            <div>
+              {event && canDelete && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await deleteCalendarEvent(event.id);
+                    onClose();
+                  }}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+              <SaveButton>Save</SaveButton>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
