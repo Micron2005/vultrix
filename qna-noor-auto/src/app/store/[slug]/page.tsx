@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { shopDisplayName } from "@/lib/shop";
 import { formatMoney } from "@/lib/utils";
 import { ShopCartLink } from "../StorefrontClient";
 
@@ -16,7 +17,13 @@ export default async function PublicShopPage({
   });
   if (!shop?.enabled) notFound();
   const products = await db.part.findMany({
-    where: { orgId: shop.orgId, shopListed: true, archived: false },
+    where: {
+      orgId: shop.orgId,
+      shopListed: true,
+      archived: false,
+      unitPrice: { gt: 0 },
+      photos: { some: {} },
+    },
     orderBy: { name: "asc" },
     include: {
       photos: { orderBy: { position: "asc" }, take: 1, select: { id: true } },
@@ -27,7 +34,7 @@ export default async function PublicShopPage({
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <header className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
           <div className="min-w-0">
-            <h1 className="break-words text-2xl font-bold sm:text-3xl">{shop.organization.name}</h1>
+            <h1 className="break-words text-2xl font-bold sm:text-3xl">{shopDisplayName(shop, shop.organization.name)}</h1>
             {shop.tagline && <p className="mt-2 text-zinc-600 dark:text-zinc-300">{shop.tagline}</p>}
           </div>
           <ShopCartLink slug={slug} />

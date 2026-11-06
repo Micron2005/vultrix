@@ -1,7 +1,10 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { CartPageClient } from "../../StorefrontClient";
+
+export const metadata: Metadata = { title: "Your cart" };
 
 export default async function PublicShopCartPage({
   params,
@@ -15,7 +18,13 @@ export default async function PublicShopCartPage({
   });
   if (!shop?.enabled) notFound();
   const products = await db.part.findMany({
-    where: { orgId: shop.orgId, archived: false },
+    where: {
+      orgId: shop.orgId,
+      shopListed: true,
+      archived: false,
+      unitPrice: { gt: 0 },
+      photos: { some: {} },
+    },
     include: { photos: { orderBy: { position: "asc" }, take: 1, select: { id: true } } },
     orderBy: { name: "asc" },
   });

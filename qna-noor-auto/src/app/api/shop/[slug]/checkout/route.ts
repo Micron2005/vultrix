@@ -6,6 +6,7 @@ import { billingConfigured, getStripe } from "@/lib/stripe";
 import {
   buildShopCart,
   createShopOrderToken,
+  shopDisplayName,
   type ShopCartItem,
 } from "@/lib/shop";
 
@@ -63,6 +64,7 @@ export async function POST(
   if (!shop?.enabled) {
     return NextResponse.json({ error: "Shop not found." }, { status: 404 });
   }
+  const displayName = shopDisplayName(shop, shop.organization.name);
   if (
     !billingConfigured() ||
     !shop.organization.stripeConnectChargesEnabled ||
@@ -159,6 +161,7 @@ export async function POST(
               unit_amount: Math.round(line.unitPrice * 100),
               product_data: {
                 name: line.itemName,
+                description: `Sold by ${displayName}`,
                 ...(photo ? { images: [photo] } : {}),
               },
             },
