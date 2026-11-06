@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  aggregateSalesByChannel,
+  buildProductFeedXml,
   buildShopCart,
   isValidShopSlug,
   suggestedShopSlug,
   type ShopCartPart,
+  type ProductFeedItem,
+  xmlEscape,
 } from "./shop";
 
 const shop = {
@@ -115,4 +119,99 @@ test("shop slugs are lowercase, bounded, and reject reserved routes", () => {
   assert.equal(isValidShopSlug("a".repeat(41)), false);
   assert.equal(suggestedShopSlug("The Harbor & Lane!"), "the-harbor-lane");
   assert.equal(suggestedShopSlug("API"), "my-shop");
+});
+
+test("xmlEscape escapes all XML special characters", () => {
+  assert.equal(
+    xmlEscape(`& < > " '`),
+    "&amp; &lt; &gt; &quot; &apos;",
+  );
+});
+
+test("buildProductFeedXml filters products and builds a Google product feed", () => {
+  const items: ProductFeedItem[] = [
+    {
+      id: `part<&"'`,
+      name: `Mugs & <cups> "bright" 'new'`,
+      description: `Handmade & durable <ceramic> "cups"`,
+      unitPrice: 14.5,
+      qtyOnHand: 2,
+      category: "Home & kitchen",
+      photoIds: ["photo&1", "photo-2", "photo-3", "photo-4", "photo-5", "photo-6", "photo-7"],
+    },
+    {
+      id: "out-of-stock",
+      name: "Out of stock",
+      description: null,
+      unitPrice: 12,
+      qtyOnHand: 0,
+      category: null,
+      photoIds: ["photo-8"],
+    },
+    {
+      id: "no-photo",
+      name: "No photo",
+      description: null,
+      unitPrice: 10,
+      qtyOnHand: 1,
+      category: null,
+      photoIds: [],
+    },
+    {
+      id: "no-price",
+      name: "No price",
+      description: null,
+      unitPrice: null,
+      qtyOnHand: 1,
+      category: null,
+      photoIds: ["photo-9"],
+    },
+  ];
+  const shop = { slug: "bright-side", shipEnabled: true, shipFlatRate: 6.5 };
+  const feed = buildProductFeedXml(
+    shop,
+    `Harbor & Lane's "Shop"`,
+    items,
+    "https://vultrix.example/",
+  );
+
+  assert.equal((feed.match(/<item>/g) ?? []).length, 2);
+  assert.match(feed, /xmlns:g="http:\/\/base\.google\.com\/ns\/1\.0"/);
+  assert.match(feed, /<g:id>part&lt;&amp;&quot;&apos;<\/g:id>/);
+  assert.match(feed, /<g:title>Mugs &amp; &lt;cups&gt; &quot;bright&quot; &apos;new&apos;<\/g:title>/);
+  assert.match(feed, /<g:description>Handmade &amp; durable &lt;ceramic&gt; &quot;cups&quot;<\/g:description>/);
+  assert.match(feed, /<g:link>https:\/\/vultrix\.example\/store\/bright-side\/part%3C%26%22&apos;<\/g:link>/);
+  assert.match(feed, /<g:image_link>https:\/\/vultrix\.example\/api\/shop\/photo\/photo%261<\/g:image_link>/);
+  assert.equal((feed.match(/<g:additional_image_link>/g) ?? []).length, 5);
+  assert.match(feed, /<g:price>14\.50 USD<\/g:price>/);
+  assert.match(feed, /<g:availability>in_stock<\/g:availability>/);
+  assert.match(feed, /<g:availability>out_of_stock<\/g:availability>/);
+  assert.match(feed, /<g:brand>Harbor &amp; Lane&apos;s &quot;Shop&quot;<\/g:brand>/);
+  assert.match(feed, /<g:identifier_exists>no<\/g:identifier_exists>/);
+  assert.match(feed, /<g:product_type>Home &amp; kitchen<\/g:product_type>/);
+  assert.match(feed, /<g:shipping><g:country>US<\/g:country><g:price>6\.50 USD<\/g:price><\/g:shipping>/);
+
+  const pickupOnlyFeed = buildProductFeedXml(
+    { ...shop, shipEnabled: false },
+    "Shop",
+    [items[0]],
+    "https://vultrix.example",
+  );
+  assert.doesNotMatch(pickupOnlyFeed, /<g:shipping>/);
+});
+
+test("aggregateSalesByChannel groups channels and sorts by revenue", () => {
+  assert.deepEqual(
+    aggregateSalesByChannel([
+      { channel: "Etsy", quantity: 2, unitPrice: 12.5 },
+      { channel: null, quantity: 1, unitPrice: 8 },
+      { channel: "Vultrix Shop", quantity: 3, unitPrice: 10 },
+      { channel: "Etsy", quantity: 1, unitPrice: 5 },
+    ]),
+    [
+      { channel: "Etsy", count: 2, itemsSold: 3, revenue: 30 },
+      { channel: "Your Vultrix shop", count: 1, itemsSold: 3, revenue: 30 },
+      { channel: "Not set", count: 1, itemsSold: 1, revenue: 8 },
+    ],
+  );
 });

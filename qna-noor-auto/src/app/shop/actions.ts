@@ -8,6 +8,11 @@ import { requireUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
 import { isValidShopSlug } from "@/lib/shop";
 import { logActivity } from "@/lib/activity";
+import { assertCanViewFinancials } from "@/lib/permissions";
+import { dateInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import { parseDecimal } from "@/lib/utils";
+import { createSale } from "@/lib/sales";
 import { escapeHtml, sendEmail, shopEmailHeader } from "@/lib/email";
 
 async function shopManager() {
@@ -26,6 +31,23 @@ async function ensureInventory(orgId: string) {
   if (!org || !enabledFeatureSet(org).has("inventory")) {
     throw new Error("Inventory is not enabled for this account.");
   }
+}
+
+async function shopSalesAccess() {
+  const user = await requireUser();
+  assertCanViewFinancials(user.role);
+  if (!user.orgId) redirect("/admin");
+  if (!enabledFeatureSet(user).has("financials")) redirect("/");
+  await ensureInventory(user.orgId);
+  return {
+    user,
+    orgId: user.orgId,
+    timezone: await orgTimeZone(user.orgId),
+  };
+}
+
+function formText(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
 }
 
 export async function saveShopSettings(formData: FormData) {
@@ -110,6 +132,70 @@ export async function setShopListed(partId: string, listed: boolean) {
   revalidatePath("/shop");
   const shop = await db.shop.findUnique({ where: { orgId }, select: { slug: true } });
   if (shop) revalidatePath(`/store/${shop.slug}`);
+}
+
+export async function recordShopSale(formData: FormData) {
+  const { user, orgId, timezone } = await shopSalesAccess();
+  const partId = formText(formData, "partId");
+  const source = formText(formData, "channel");
+  const otherChannel = formText(formData, "otherChannel");
+  const allowedSources = new Set([
+    "Etsy",
+    "Instagram",
+    "Facebook",
+    "TikTok",
+    "Craft fair / market",
+    "In person",
+    "Other",
+  ]);
+  if (!allowedSources.has(source)) throw new Error("Choose a sales channel.");
+  const channel = source === "Other" ? otherChannel : source;
+  if (!channel || channel.length > 100) {
+    throw new Error("Enter a valid sales channel.");
+  }
+
+  const quantity = Number(formText(formData, "quantity"));
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error("Quantity must be a whole number greater than zero.");
+  }
+  const unitPrice = parseDecimal(formText(formData, "unitPrice"));
+  if (unitPrice == null || unitPrice < 0) {
+    throw new Error("Price must be a valid number of zero or greater.");
+  }
+  const soldAt = dateInputInTimeZone(
+    formText(formData, "soldAt"),
+    timezone,
+    new Date(Number.NaN),
+  );
+  if (Number.isNaN(soldAt.getTime())) throw new Error("Sale date is invalid.");
+
+  const part = await db.part.findFirst({
+    where: { id: partId, orgId, shopListed: true, archived: false },
+    select: { id: true, name: true },
+  });
+  if (!part) throw new Error("This item is no longer listed in your shop.");
+
+  const sale = await createSale(orgId, {
+    partId: part.id,
+    itemName: part.name,
+    quantity,
+    unitPrice,
+    channel,
+    soldAt,
+    note: null,
+  });
+  await logActivity({
+    orgId,
+    user,
+    action: "sale.create",
+    entity: "Sale",
+    entityId: sale.id,
+    summary: `Sale recorded for ${quantity} ${sale.itemName}`,
+  });
+  revalidatePath("/shop");
+  revalidatePath("/sales");
+  revalidatePath("/reports");
+  revalidatePath(`/inventory/${part.id}`);
 }
 
 export async function addShopPhoto(partId: string, dataUrl: string) {

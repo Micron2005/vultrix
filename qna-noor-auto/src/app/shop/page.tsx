@@ -4,14 +4,26 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
-import { suggestedShopSlug } from "@/lib/shop";
-import { ShopShareTools, ShopPhotoManager } from "./ShopTools";
+import { canViewFinancials } from "@/lib/permissions";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import {
+  aggregateSalesByChannel,
+  suggestedShopSlug,
+} from "@/lib/shop";
+import { localCalendarDay } from "@/lib/timezone";
+import { formatMoney } from "@/lib/utils";
+import {
+  ShopFeedCopyButton,
+  ShopPhotoManager,
+  ShopShareTools,
+  ShopSoldElsewhereForm,
+} from "./ShopTools";
 import { saveShopSettings, setShopListed } from "./actions";
 
 export default async function ShopManagementPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; range?: string }>;
 }) {
   const user = await requireUser();
   if (!user.orgId) return null;
@@ -26,6 +38,11 @@ export default async function ShopManagementPage({
   if (!org) return null;
   const manager = user.role === "OWNER" || user.role === "ADMIN";
   const inventoryEnabled = enabledFeatureSet(org).has("inventory");
+  const canViewSales =
+    canViewFinancials(user.role) && enabledFeatureSet(org).has("financials");
+  const defaultSaleDate = canViewSales
+    ? localCalendarDay(new Date(), await orgTimeZone(user.orgId))
+    : "";
   const parts = inventoryEnabled
     ? await db.part.findMany({
         where: { orgId: user.orgId, archived: false },
@@ -38,8 +55,32 @@ export default async function ShopManagementPage({
     `${headersList.get("x-forwarded-proto") ?? "https"}://${headersList.get("x-forwarded-host") ?? headersList.get("host")}`;
   const slug = shop?.slug ?? suggestedShopSlug(org.name);
   const shopUrl = `${origin}/store/${encodeURIComponent(slug)}`;
+  const feedUrl = `${origin}/api/shop/${encodeURIComponent(slug)}/feed.xml`;
   const shareQr = await QRCode.toDataURL(shopUrl, { width: 280, margin: 1 });
   const chargesReady = org.stripeConnectChargesEnabled && Boolean(org.stripeConnectAccountId);
+  const range =
+    query.range === "90d" || query.range === "all" ? query.range : "30d";
+  const now = new Date();
+  const sales = canViewSales
+    ? await db.sale.findMany({
+        where: {
+          orgId: user.orgId,
+          ...(range === "all"
+            ? {}
+            : {
+                soldAt: {
+                  gte: new Date(
+                    now.getTime() -
+                      (range === "90d" ? 90 : 30) * 24 * 60 * 60 * 1000,
+                  ),
+                  lte: now,
+                },
+              }),
+        },
+        select: { channel: true, quantity: true, unitPrice: true },
+      })
+    : [];
+  const salesByChannel = aggregateSalesByChannel(sales);
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -85,6 +126,35 @@ export default async function ShopManagementPage({
           <ShopShareTools url={shopUrl} qr={shareQr} filename={`${slug}-shop-qr.png`} />
         </section>
       )}
+      {shop && (
+        <section className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+          <div>
+            <h2 className="text-lg font-semibold">Sell on other sites</h2>
+            <p className="mt-2 break-all text-sm">{feedUrl}</p>
+            <div className="mt-2">
+              <ShopFeedCopyButton url={feedUrl} />
+            </div>
+          </div>
+          <ol className="list-decimal space-y-2 pl-5 text-sm">
+            <li>
+              <strong>Facebook &amp; Instagram Shop:</strong> In Meta Commerce
+              Manager, go to Catalog → Data sources → Data feed → Scheduled
+              feed, paste the URL, and choose hourly or daily updates.
+            </li>
+            <li>
+              <strong>Google:</strong> In Merchant Center, go to Products → Add
+              products from a file → “Add a link to a file,” then paste the URL.
+            </li>
+          </ol>
+          <p className="text-sm">
+            Items need a photo and price to appear in the feed.
+          </p>
+          <p className="text-sm">
+            Etsy, markets, in person: log those sales below so your stock stays
+            right.
+          </p>
+        </section>
+      )}
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="mb-3 text-lg font-semibold">Inventory items</h2>
         {!inventoryEnabled ? (
@@ -102,6 +172,15 @@ export default async function ShopManagementPage({
                     <h3 className="break-words font-medium">{part.name}</h3>
                     <p className="text-sm text-zinc-500">{(part.unitPrice ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" })} · {part.qtyOnHand} in stock · {part.photos.length} photos</p>
                     {manager && <ShopPhotoManager partId={part.id} photos={part.photos} />}
+                    {part.shopListed && canViewSales && (
+                      <div className="mt-3">
+                        <ShopSoldElsewhereForm
+                          partId={part.id}
+                          unitPrice={part.unitPrice}
+                          defaultSoldAt={defaultSaleDate}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {manager && <form action={setShopListed.bind(null, part.id, !part.shopListed)}><button className={`rounded px-3 py-2 text-sm ${part.shopListed ? "border" : "bg-blue-700 text-white"}`}>{part.shopListed ? "In shop — remove" : "List in shop"}</button></form>}
@@ -113,6 +192,82 @@ export default async function ShopManagementPage({
           </div>
         )}
       </section>
+      {canViewSales && (
+        <section
+          id="sales-by-channel"
+          className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Sales by channel</h2>
+            <nav aria-label="Sales by channel date range" className="flex gap-2">
+              {[
+                { value: "30d", label: "30 days" },
+                { value: "90d", label: "90 days" },
+                { value: "all", label: "All time" },
+              ].map((option) => (
+                <Link
+                  key={option.value}
+                  href={`/shop?range=${option.value}`}
+                  aria-current={range === option.value ? "page" : undefined}
+                  className={`rounded border px-3 py-2 text-sm ${
+                    range === option.value
+                      ? "border-blue-700 bg-blue-50 dark:bg-blue-950"
+                      : "border-zinc-300 dark:border-zinc-700"
+                  }`}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          {salesByChannel.length === 0 ? (
+            <p className="text-sm text-zinc-600">No sales in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500 dark:bg-zinc-900">
+                  <tr>
+                    <th className="px-3 py-2">Channel</th>
+                    <th className="px-3 py-2 text-right">Sales</th>
+                    <th className="px-3 py-2 text-right">Items sold</th>
+                    <th className="px-3 py-2 text-right">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {salesByChannel.map((summary, index) => (
+                    <tr
+                      key={summary.channel}
+                      className={
+                        index === 0
+                          ? "bg-blue-50 dark:bg-blue-950/40"
+                          : undefined
+                      }
+                    >
+                      <td className="px-3 py-2 font-medium">
+                        {summary.channel}
+                        {index === 0 && (
+                          <span className="ml-2 rounded-full bg-blue-700 px-2 py-1 text-xs text-white">
+                            Best place to sell
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {summary.count.toLocaleString("en-US")}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {summary.itemsSold.toLocaleString("en-US")}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {formatMoney(summary.revenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
       <footer className="text-sm text-zinc-500">Descriptions are edited from the existing <Link href="/inventory" className="text-blue-700 underline">inventory item form</Link>.</footer>
     </main>
   );

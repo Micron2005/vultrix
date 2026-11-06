@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addShopPhoto, deleteShopPhoto, moveShopPhoto } from "./actions";
+import {
+  addShopPhoto,
+  deleteShopPhoto,
+  moveShopPhoto,
+  recordShopSale,
+} from "./actions";
 import { fileToResizedDataUrl } from "@/lib/imageResize";
 
 export function ShopShareTools({
@@ -33,6 +38,135 @@ export function ShopShareTools({
       <img src={qr} alt="Shop QR code" className="size-24 rounded border bg-white p-1" />
       <a href={qr} download={filename} className="text-sm text-blue-700 underline">Download QR PNG</a>
       <span aria-live="polite" className="text-xs text-zinc-500">{message}</span>
+    </div>
+  );
+}
+
+export function ShopFeedCopyButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={async () => {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+        }}
+        className="rounded border px-3 py-2 text-sm"
+      >
+        Copy feed URL
+      </button>
+      <span aria-live="polite" className="text-xs text-zinc-500">
+        {copied ? "Copied" : ""}
+      </span>
+    </div>
+  );
+}
+
+export function ShopSoldElsewhereForm({
+  partId,
+  unitPrice,
+  defaultSoldAt,
+}: {
+  partId: string;
+  unitPrice: number | null;
+  defaultSoldAt: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [channel, setChannel] = useState("Etsy");
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded border px-3 py-2 text-sm"
+      >
+        Sold elsewhere
+      </button>
+    );
+  }
+  return (
+    <div className="w-full rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold">Record an outside sale</h4>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-sm text-zinc-600 underline"
+        >
+          Cancel
+        </button>
+      </div>
+      <form action={recordShopSale} className="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="partId" value={partId} />
+        <label className="grid gap-1 text-sm">
+          <span>Where</span>
+          <select
+            name="channel"
+            value={channel}
+            onChange={(event) => setChannel(event.target.value)}
+            className="rounded border bg-transparent px-3 py-2"
+          >
+            <option value="Etsy">Etsy</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Facebook">Facebook</option>
+            <option value="TikTok">TikTok</option>
+            <option value="Craft fair / market">Craft fair / market</option>
+            <option value="In person">In person</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+        {channel === "Other" && (
+          <label className="grid gap-1 text-sm">
+            <span>Other channel</span>
+            <input
+              name="otherChannel"
+              required
+              maxLength={100}
+              className="rounded border bg-transparent px-3 py-2"
+            />
+          </label>
+        )}
+        <label className="grid gap-1 text-sm">
+          <span>Quantity</span>
+          <input
+            name="quantity"
+            type="number"
+            required
+            min="1"
+            step="1"
+            defaultValue="1"
+            className="rounded border bg-transparent px-3 py-2"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span>Price each</span>
+          <input
+            name="unitPrice"
+            type="number"
+            required
+            min="0"
+            step="0.01"
+            defaultValue={unitPrice ?? 0}
+            className="rounded border bg-transparent px-3 py-2"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span>Date</span>
+          <input
+            name="soldAt"
+            type="date"
+            required
+            defaultValue={defaultSoldAt}
+            className="rounded border bg-transparent px-3 py-2"
+          />
+        </label>
+        <div className="flex items-end">
+          <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white">
+            Record sale
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
