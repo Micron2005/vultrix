@@ -72,6 +72,121 @@ export function shopFulfillmentLabel(fulfillment: string): string {
   return fulfillment === "SHIP" ? "Ship" : "Pickup";
 }
 
+export type ProductFeedShop = {
+  slug: string;
+  shipEnabled: boolean;
+  shipFlatRate: number;
+};
+
+export type ProductFeedItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  unitPrice: number | null;
+  qtyOnHand: number;
+  category: string | null;
+  photoIds: string[];
+};
+
+export function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function feedPrice(amount: number): string {
+  return `${(Math.round(amount * 100) / 100).toFixed(2)} USD`;
+}
+
+export function buildProductFeedXml(
+  shop: ProductFeedShop,
+  orgName: string,
+  items: ProductFeedItem[],
+  root: string,
+): string {
+  const origin = root.replace(/\/$/, "");
+  const shopUrl = `${origin}/store/${encodeURIComponent(shop.slug)}`;
+  const products = items
+    .filter(
+      (item) =>
+        item.unitPrice != null &&
+        Number.isFinite(item.unitPrice) &&
+        item.unitPrice > 0 &&
+        item.photoIds.length > 0,
+    )
+    .map((item) => {
+      const productUrl = `${shopUrl}/${encodeURIComponent(item.id)}`;
+      const photos = item.photoIds.slice(0, 6);
+      const description = item.description || item.name;
+      return `  <item>
+    <g:id>${xmlEscape(item.id)}</g:id>
+    <g:title>${xmlEscape(item.name.slice(0, 150))}</g:title>
+    <g:description>${xmlEscape(description.slice(0, 5000))}</g:description>
+    <g:link>${xmlEscape(productUrl)}</g:link>
+    <g:image_link>${xmlEscape(`${origin}/api/shop/photo/${encodeURIComponent(photos[0])}`)}</g:image_link>
+${photos
+  .slice(1)
+  .map(
+    (photoId) =>
+      `    <g:additional_image_link>${xmlEscape(`${origin}/api/shop/photo/${encodeURIComponent(photoId)}`)}</g:additional_image_link>`,
+  )
+  .join("\n")}
+    <g:price>${feedPrice(item.unitPrice!)}</g:price>
+    <g:availability>${item.qtyOnHand > 0 ? "in_stock" : "out_of_stock"}</g:availability>
+    <g:condition>new</g:condition>
+    <g:brand>${xmlEscape(orgName)}</g:brand>
+    <g:identifier_exists>no</g:identifier_exists>
+${item.category ? `    <g:product_type>${xmlEscape(item.category)}</g:product_type>\n` : ""}${shop.shipEnabled ? `    <g:shipping><g:country>US</g:country><g:price>${feedPrice(shop.shipFlatRate)}</g:price></g:shipping>\n` : ""}  </item>`;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+<channel>
+  <title>${xmlEscape(`${orgName} product feed`)}</title>
+  <link>${xmlEscape(shopUrl)}</link>
+  <description>${xmlEscape(`Products available from ${orgName}`)}</description>
+${products}
+</channel>
+</rss>`;
+}
+
+export type SalesChannelSummary = {
+  channel: string;
+  count: number;
+  itemsSold: number;
+  revenue: number;
+};
+
+export function aggregateSalesByChannel(
+  sales: Array<{
+    channel: string | null;
+    quantity: number;
+    unitPrice: number;
+  }>,
+): SalesChannelSummary[] {
+  const groups = new Map<string, SalesChannelSummary>();
+  for (const sale of sales) {
+    const channel = sale.channel ?? "Not set";
+    const summary = groups.get(channel) ?? {
+      channel: channel === "Vultrix Shop" ? "Your Vultrix shop" : channel,
+      count: 0,
+      itemsSold: 0,
+      revenue: 0,
+    };
+    summary.count += 1;
+    summary.itemsSold += sale.quantity;
+    summary.revenue += sale.quantity * sale.unitPrice;
+    groups.set(channel, summary);
+  }
+  return [...groups.values()].sort(
+    (a, b) => b.revenue - a.revenue || a.channel.localeCompare(b.channel),
+  );
+}
+
 type ShopShippingDetails = {
   name?: string | null;
   address?: {
