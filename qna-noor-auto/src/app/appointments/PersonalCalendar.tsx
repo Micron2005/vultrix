@@ -43,6 +43,10 @@ type Props = {
 
 const views = ["day", "week", "month", "year"] as const;
 const ymd = (date: Date) => format(date, "yyyy-MM-dd");
+const timeLabel = (time: string) => {
+  const [hour, minute] = time.split(":").map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+};
 const isTodayKey = (date: Date, todayKey: string) => ymd(date) === todayKey;
 
 export function PersonalCalendar({
@@ -91,7 +95,7 @@ export function PersonalCalendar({
 function EventCard({ event, onClick }: { event: CalendarEventItem; onClick: () => void }) {
   return <button type="button" onClick={onClick} className={"block w-full rounded-md border p-2 text-left text-xs hover:border-zinc-400 " + (event.isReminder ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-zinc-50")}>
     <div className="font-medium text-zinc-900">{event.isReminder && "🔔 "}{event.title}</div>
-    {!event.allDay && <div className="mt-0.5 text-zinc-500">{event.startTime}</div>}
+    {!event.allDay && event.startTime && <div className="mt-0.5 text-zinc-500">{timeLabel(event.startTime)}</div>}
   </button>;
 }
 
