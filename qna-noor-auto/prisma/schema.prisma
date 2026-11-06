@@ -393,6 +393,7 @@ model Part {
 
   notes    String?
   archived Boolean @default(false)
+  shopListed Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -400,6 +401,8 @@ model Part {
   partLines      PartLine[]
   stockMoves     StockMove[]
   sales          Sale[]
+  photos         ProductPhoto[]
+  shopOrderLines ShopOrderLine[]
   cannedJobParts CannedJobPart[]
 
   orgId        String
@@ -795,6 +798,9 @@ model Sale {
   channel   String?
   note      String?
 
+  shopOrderId String?
+  shopOrder   ShopOrder? @relation(fields: [shopOrderId], references: [id], onDelete: SetNull)
+
   incomeId String?
   income   Income?  @relation(fields: [incomeId], references: [id], onDelete: SetNull)
 
@@ -804,6 +810,74 @@ model Sale {
   @@index([orgId])
   @@index([soldAt])
   @@index([partId])
+}
+
+model Shop {
+  id            String       @id @default(cuid())
+  orgId         String       @unique
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  slug          String       @unique
+  enabled       Boolean      @default(false)
+  tagline       String?
+  shipEnabled   Boolean      @default(true)
+  shipFlatRate  Float        @default(0)
+  pickupEnabled Boolean      @default(false)
+  pickupNote    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model ProductPhoto {
+  id           String       @id @default(cuid())
+  partId       String
+  part         Part         @relation(fields: [partId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  dataUrl      String
+  position     Int          @default(0)
+  createdAt    DateTime     @default(now())
+
+  @@index([partId])
+}
+
+model ShopOrder {
+  id              String          @id @default(cuid())
+  orgId           String
+  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  number          Int
+  publicToken     String          @unique
+  status          String          @default("PENDING")
+  fulfillment     String
+  subtotal        Float
+  shipping        Float
+  total           Float
+  stripeSessionId String?         @unique
+  paymentIntentId String?
+  buyerName       String?
+  buyerEmail      String?
+  buyerPhone      String?
+  shipAddress     Json?
+  trackingNumber  String?
+  paidAt          DateTime?
+  fulfilledAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lines           ShopOrderLine[]
+  sales           Sale[]
+
+  @@unique([orgId, number])
+  @@index([orgId, status])
+}
+
+model ShopOrderLine {
+  id        String    @id @default(cuid())
+  orderId   String
+  order     ShopOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partId    String?
+  part      Part?     @relation(fields: [partId], references: [id], onDelete: SetNull)
+  itemName  String
+  unitPrice Float
+  quantity  Int
 }
 
 model Goal {
@@ -1197,6 +1271,9 @@ model Organization {
   activityLogs      ActivityLog[]
   recurringInvoices RecurringInvoice[]
   sales             Sale[]
+  shop              Shop?
+  productPhotos     ProductPhoto[]
+  shopOrders        ShopOrder[]
   goals             Goal[]
   goalCheckIns      GoalCheckIn[]
   goalEntries       GoalEntry[]

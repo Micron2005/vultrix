@@ -36,6 +36,7 @@ export const NAV_ITEMS: NavCatalogItem[] = [
   { href: "/notes", label: "Knowledge", feature: "knowledge" },
   { href: "/technicians", label: "Technicians", feature: "technicians" },
   { href: "/inventory", label: "Inventory", feature: "inventory" },
+  { href: "/shop", label: "Shop", required: true },
   { href: "/canned-jobs", label: "Presets", feature: "presets" },
   { href: "/expenses", label: "Financials", feature: "financials" },
   { href: "/goals", label: "Goals" },

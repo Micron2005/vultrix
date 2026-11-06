@@ -13,7 +13,8 @@ export type NotificationKind =
   | "new_follower"
   | "song_shared"
   | "song_left"
-  | "take_note";
+  | "take_note"
+  | "shop_order";
 
 type NotificationUser = Pick<CurrentUser, "id" | "orgId" | "role">;
 
