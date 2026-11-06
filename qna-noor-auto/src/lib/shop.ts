@@ -1,6 +1,445 @@
 import { db, dbBase } from "./db";
 import type { CSSProperties } from "react";
 import { accentVarsFromHex } from "./appearance";
+import { randomBytes } from "node:crypto";
+import type Stripe from "stripe";
+import { createSaleTx } from "@/lib/sales";
+import { notify } from "@/lib/notifications";
+import { notifyLowStockIfCrossed } from "@/lib/lowStock";
+import { escapeHtml, sendEmail, shopEmailHeader } from "@/lib/email";
+import { formatMoney } from "@/lib/utils";
+
+export const RESERVED_SHOP_SLUGS = new Set([
+  "admin",
+  "api",
+  "cart",
+  "checkout",
+  "login",
+  "new",
+  "order",
+  "orders",
+  "privacy",
+  "settings",
+  "shop",
+  "signup",
+  "success",
+  "terms",
+]);
+
+export function isValidShopSlug(slug: string): boolean {
+  return (
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) &&
+    slug.length >= 3 &&
+    slug.length <= 40 &&
+    !RESERVED_SHOP_SLUGS.has(slug)
+  );
+}
+
+export function suggestedShopSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+  return slug.length >= 3 && !RESERVED_SHOP_SLUGS.has(slug)
+    ? slug
+    : "my-shop";
+}
+
+export function createShopOrderToken(): string {
+  return randomBytes(18).toString("base64url");
+}
+
+export function shopOrderStatusLabel(status: string): string {
+  switch (status) {
+    case "PAID":
+      return "New — paid";
+    case "SHIPPED":
+      return "Shipped";
+    case "PICKED_UP":
+      return "Picked up";
+    case "CANCELED":
+      return "Canceled";
+    default:
+      return "Pending payment";
+  }
+}
+
+export function shopFulfillmentLabel(fulfillment: string): string {
+  return fulfillment === "SHIP" ? "Ship" : "Pickup";
+}
+
+type ShopShippingDetails = {
+  name?: string | null;
+  address?: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  } | null;
+};
+
+function sessionShippingDetails(session: Stripe.Checkout.Session) {
+  const extended = session as Stripe.Checkout.Session & {
+    collected_information?: {
+      shipping_details?: ShopShippingDetails | null;
+    } | null;
+    shipping_details?: ShopShippingDetails | null;
+    shipping_cost?: { amount_total?: number | null } | null;
+  };
+  return (
+    extended.collected_information?.shipping_details ??
+    extended.shipping_details ??
+    null
+  );
+}
+
+function safeShippingAddress(session: Stripe.Checkout.Session) {
+  const details = sessionShippingDetails(session);
+  const address = details?.address ?? session.customer_details?.address ?? null;
+  if (!address) return undefined;
+  return {
+    name: details?.name ?? session.customer_details?.name ?? null,
+    address: {
+      line1: address.line1 ?? null,
+      line2: address.line2 ?? null,
+      city: address.city ?? null,
+      state: address.state ?? null,
+      postal_code: address.postal_code ?? null,
+      country: address.country ?? null,
+    },
+  };
+}
+
+function shippingAmountFromSession(session: Stripe.Checkout.Session): number {
+  const extended = session as Stripe.Checkout.Session & {
+    shipping_cost?: { amount_total?: number | null } | null;
+  };
+  const cents =
+    extended.shipping_cost?.amount_total ??
+    session.total_details?.amount_shipping ??
+    0;
+  return Math.max(0, Math.round(cents) / 100);
+}
+
+function appOrigin(): string {
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "https://vultrix.net"
+  ).replace(/\/$/, "");
+}
+
+export async function recordShopOrderPayment(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (
+    session.mode !== "payment" ||
+    session.payment_status !== "paid" ||
+    session.metadata?.kind !== "shop"
+  ) {
+    return;
+  }
+  const orgId = session.metadata.orgId;
+  const orderId = session.metadata.shopOrderId;
+  if (!orgId || !orderId) return;
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? session.id);
+  const total =
+    Math.max(0, Math.round(session.amount_total ?? 0)) / 100;
+  const shipping = shippingAmountFromSession(session);
+  const paidAt = new Date();
+  const details = sessionShippingDetails(session);
+  const shipAddress = safeShippingAddress(session);
+  const stockAlerts: Array<{
+    partId: string;
+    qtyBefore: number;
+    qtyAfter: number;
+    partName: string;
+  }> = [];
+
+  const paidOrder = await db.$transaction(async (tx) => {
+    const order = await tx.shopOrder.findFirst({
+      where: { id: orderId, orgId },
+      include: { lines: true },
+    });
+    if (!order) return null;
+
+    const updated = await tx.shopOrder.updateMany({
+      where: { id: order.id, orgId, status: "PENDING" },
+      data: {
+        status: "PAID",
+        paymentIntentId,
+        buyerName:
+          session.customer_details?.name ?? details?.name ?? null,
+        buyerEmail: session.customer_details?.email ?? null,
+        buyerPhone: session.customer_details?.phone ?? null,
+        ...(shipAddress ? { shipAddress } : {}),
+        total,
+        shipping,
+        subtotal: Math.max(0, Math.round((total - shipping) * 100) / 100),
+        paidAt,
+      },
+    });
+    if (updated.count === 0) return null;
+
+    for (const line of order.lines) {
+      const sale = await createSaleTx(tx, orgId, {
+        soldAt: paidAt,
+        partId: line.partId,
+        shopOrderId: order.id,
+        itemName: line.itemName,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        channel: "Vultrix Shop",
+        note: `Shop order #${order.number}`,
+      });
+      for (const alert of sale.stockAlerts) {
+        const part = await tx.part.findUnique({
+          where: { id: alert.partId },
+          select: { name: true },
+        });
+        stockAlerts.push({
+          ...alert,
+          partName: part?.name ?? "Inventory item",
+        });
+      }
+    }
+    if (shipping > 0) {
+      await tx.income.create({
+        data: {
+          orgId,
+          receivedAt: paidAt,
+          amount: shipping,
+          source: `Shipping — Shop order #${order.number}`,
+          frequency: "ONE_TIME",
+          note: `Shop order #${order.number}`,
+        },
+      });
+    }
+    return { ...order, total, shipping, paidAt };
+  });
+  if (!paidOrder) return;
+
+  for (const alert of stockAlerts) {
+    try {
+      await notifyLowStockIfCrossed(alert.partId, alert.qtyBefore);
+    } catch (error) {
+      console.error("Shop order low-stock notification failed:", error);
+    }
+    if (alert.qtyAfter < 0) {
+      await notify({
+        orgId,
+        kind: "shop_order",
+        title: `Oversold: ${alert.partName}`,
+        body: `Shop order #${paidOrder.number} left inventory below zero.`,
+        href: `/inventory/${alert.partId}`,
+      });
+    }
+  }
+
+  const [shop, organization, owner] = await Promise.all([
+    db.shop.findUnique({ where: { orgId }, select: { slug: true } }),
+    db.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true, billingEmail: true },
+    }),
+    db.user.findFirst({
+      where: { orgId, role: "OWNER", isActive: true },
+      select: { email: true },
+    }),
+  ]);
+  const shopName = organization?.name ?? "Shop";
+  const ownerEmail = organization?.billingEmail ?? owner?.email ?? null;
+  const orderUrl = shop
+    ? `${appOrigin()}/store/${encodeURIComponent(shop.slug)}/order/${encodeURIComponent(paidOrder.publicToken)}`
+    : appOrigin();
+  const itemList = paidOrder.lines
+    .map(
+      (line) =>
+        `<li>${escapeHtml(line.itemName)} × ${line.quantity} — ${formatMoney(line.unitPrice * line.quantity)}</li>`,
+    )
+    .join("");
+  const address = paidOrder.shipAddress as
+    | {
+        name?: string | null;
+        address?: Record<string, string | null | undefined>;
+      }
+    | null;
+  const addressText = address?.address
+    ? [
+        address.name,
+        address.address.line1,
+        address.address.line2,
+        [address.address.city, address.address.state, address.address.postal_code]
+          .filter(Boolean)
+          .join(", "),
+      ]
+        .filter(Boolean)
+        .map((line) => `<div>${escapeHtml(String(line))}</div>`)
+        .join("")
+    : "Pickup";
+  const header = shopEmailHeader({ shopName, logo: null, accent: null });
+  const orderHeading = `Shop order #${paidOrder.number}`;
+
+  await notify({
+    orgId,
+    kind: "shop_order",
+    title: `New order #${paidOrder.number} — ${formatMoney(total)}`,
+    body: paidOrder.lines.map((line) => line.itemName).join(", "),
+    href: `/shop/orders/${paidOrder.id}`,
+  });
+  if (ownerEmail) {
+    await sendEmail({
+      to: ownerEmail,
+      subject: `New order #${paidOrder.number} — ${formatMoney(total)}`,
+      html: `${header}<h1>${escapeHtml(orderHeading)}</h1><p><strong>Status:</strong> ${escapeHtml(shopOrderStatusLabel("PAID"))}</p><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(shopFulfillmentLabel(paidOrder.fulfillment))}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
+    });
+  }
+  if (paidOrder.buyerEmail) {
+    await sendEmail({
+      to: paidOrder.buyerEmail,
+      subject: `Your order from ${shopName}`,
+      html: `${header}<h1>Thank you for your order</h1><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><a href="${escapeHtml(orderUrl)}">View your order</a></p>`,
+      replyTo: ownerEmail ?? undefined,
+    });
+  }
+}
+
+export async function cancelExpiredShopOrder(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.metadata?.kind !== "shop") return;
+  const orgId = session.metadata.orgId;
+  const orderId = session.metadata.shopOrderId;
+  if (!orgId || !orderId) return;
+  await db.shopOrder.updateMany({
+    where: { id: orderId, orgId, status: "PENDING" },
+    data: { status: "CANCELED" },
+  });
+}
+
+export type ShopCartItem = {
+  partId: string;
+  quantity: number;
+};
+
+export type ShopCartPart = {
+  id: string;
+  name: string;
+  unitPrice: number | null;
+  qtyOnHand: number;
+  shopListed: boolean;
+  archived: boolean;
+  photos?: Array<{ id: string }>;
+};
+
+export type ShopCartLine = {
+  partId: string;
+  itemName: string;
+  unitPrice: number;
+  quantity: number;
+  photoId?: string;
+};
+
+export type ShopCartResult =
+  | {
+      ok: true;
+      lines: ShopCartLine[];
+      subtotal: number;
+      shipping: number;
+      total: number;
+    }
+  | { ok: false; error: string };
+
+export function buildShopCart(
+  parts: ShopCartPart[],
+  items: ShopCartItem[],
+  shop: {
+    shipEnabled: boolean;
+    shipFlatRate: number;
+    pickupEnabled: boolean;
+  },
+  fulfillment: string,
+): ShopCartResult {
+  if (items.length === 0) return { ok: false, error: "Your cart is empty." };
+  if (fulfillment !== "SHIP" && fulfillment !== "PICKUP") {
+    return { ok: false, error: "Choose a valid fulfillment option." };
+  }
+  if (fulfillment === "SHIP" && !shop.shipEnabled) {
+    return { ok: false, error: "Shipping is not available." };
+  }
+  if (fulfillment === "PICKUP" && !shop.pickupEnabled) {
+    return { ok: false, error: "Pickup is not available." };
+  }
+  if (
+    !Number.isFinite(shop.shipFlatRate) ||
+    shop.shipFlatRate < 0
+  ) {
+    return { ok: false, error: "Shipping rate is invalid." };
+  }
+
+  const byId = new Map(parts.map((part) => [part.id, part]));
+  const quantities = new Map<string, number>();
+  for (const item of items) {
+    if (
+      !item.partId ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity < 1
+    ) {
+      return { ok: false, error: "Cart quantities must be whole numbers." };
+    }
+    quantities.set(
+      item.partId,
+      (quantities.get(item.partId) ?? 0) + item.quantity,
+    );
+  }
+
+  const lines: ShopCartLine[] = [];
+  let subtotalCents = 0;
+  for (const [partId, quantity] of quantities) {
+    const part = byId.get(partId);
+    if (!part || !part.shopListed || part.archived) {
+      return { ok: false, error: "An item in your cart is no longer available." };
+    }
+    if (part.unitPrice == null || !Number.isFinite(part.unitPrice) || part.unitPrice <= 0) {
+      return { ok: false, error: `${part.name} is not available for purchase.` };
+    }
+    if (quantity > part.qtyOnHand) {
+      return {
+        ok: false,
+        error: `Only ${Math.max(0, part.qtyOnHand)} ${part.qtyOnHand === 1 ? "is" : "are"} available for ${part.name}.`,
+      };
+    }
+    const cents = Math.round(part.unitPrice * 100);
+    subtotalCents += cents * quantity;
+    lines.push({
+      partId,
+      itemName: part.name,
+      unitPrice: cents / 100,
+      quantity,
+      ...(part.photos?.[0] ? { photoId: part.photos[0].id } : {}),
+    });
+  }
+
+  const shippingCents =
+    fulfillment === "SHIP" ? Math.round(shop.shipFlatRate * 100) : 0;
+  return {
+    ok: true,
+    lines,
+    subtotal: subtotalCents / 100,
+    shipping: shippingCents / 100,
+    total: (subtotalCents + shippingCents) / 100,
+  };
+}
 
 const DEFAULTS: Record<string, string> = {
   shopName: "",

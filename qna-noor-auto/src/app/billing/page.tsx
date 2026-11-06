@@ -40,8 +40,13 @@ export default async function BillingPage({
   if (user.role !== "OWNER" && user.role !== "ADMIN") redirect("/");
 
   const sp = (await searchParams) ?? {};
-  let org = await db.organization.findUnique({ where: { id: user.orgId } });
+  const [initialOrg, shop] = await Promise.all([
+    db.organization.findUnique({ where: { id: user.orgId } }),
+    db.shop.findUnique({ where: { orgId: user.orgId }, select: { id: true } }),
+  ]);
+  let org = initialOrg;
   if (!org) redirect("/");
+  const shopExists = Boolean(shop);
 
   // Returning from Stripe onboarding — pull the latest status so the page
   // immediately reflects whether the shop can now accept payments.
@@ -150,7 +155,7 @@ export default async function BillingPage({
 
       <Card className="mt-6">
         <CardHeader title="Plan and account type" />
-        <form action={updatePlan} className="p-4 space-y-4">
+        <form id="plan" action={updatePlan} className="p-4 space-y-4">
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">
               Account type
@@ -241,12 +246,12 @@ export default async function BillingPage({
         </Card>
       </div>
 
-      {hasInvoices && (
+      {(hasInvoices || shopExists) && (
         <Card className="mt-6">
           <CardHeader title="Accept customer payments" />
-          <div className="p-4 space-y-4">
+          <div id="connect" className="p-4 space-y-4">
           <p className="text-sm text-zinc-600">
-            Let your customers pay their invoices online by card. Money goes
+            Let customers pay your invoices and shop orders online by card. Money goes
             straight to your own Stripe account and pays out to your bank — we
             never hold it and take no cut.
           </p>

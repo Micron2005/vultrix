@@ -6,6 +6,7 @@ type SalesTransaction = Pick<typeof db, "part" | "stockMove" | "sale" | "income"
 export type SaleInput = {
   soldAt: Date;
   partId?: string | null;
+  shopOrderId?: string | null;
   itemName: string;
   quantity: number;
   unitPrice: number;
@@ -18,6 +19,12 @@ export type SellingProduct = {
   itemName: string;
   units: number;
   revenue: number;
+};
+
+export type SaleStockAlert = {
+  partId: string;
+  qtyBefore: number;
+  qtyAfter: number;
 };
 
 export async function loadTopSellingProducts(
@@ -67,16 +74,17 @@ async function writeStockMove(
   partId: string,
   delta: number,
   itemName: string,
-) {
+) : Promise<{ qtyBefore: number; qtyAfter: number } | null> {
   if (delta === 0) return null;
   const part = await tx.part.findUnique({
     where: { id: partId },
     select: { qtyOnHand: true },
   });
   if (!part) throw new Error("Inventory item not found.");
-  await tx.part.update({
+  const updatedPart = await tx.part.update({
     where: { id: partId },
     data: { qtyOnHand: { increment: delta } },
+    select: { qtyOnHand: true },
   });
   await tx.stockMove.create({
     data: {
@@ -86,7 +94,7 @@ async function writeStockMove(
       note: saleNote(itemName),
     },
   });
-  return part.qtyOnHand;
+  return { qtyBefore: part.qtyOnHand, qtyAfter: updatedPart.qtyOnHand };
 }
 
 function assertSaleInput(input: SaleInput): void {
@@ -110,54 +118,69 @@ function assertSaleInput(input: SaleInput): void {
 
 export async function createSale(orgId: string, input: SaleInput) {
   assertSaleInput(input);
-  const stockAlerts: { partId: string; qtyBefore: number }[] = [];
-  const sale = await db.$transaction(async (tx) => {
-    const part = input.partId
-      ? await getPartForOrg(tx, orgId, input.partId)
-      : null;
-    const itemName = part?.name ?? input.itemName.trim();
-    const unitCost = input.unitCost ?? part?.costPrice ?? null;
-    const sale = await tx.sale.create({
-      data: {
-        orgId,
-        soldAt: input.soldAt,
-        partId: part?.id ?? null,
-        itemName,
-        quantity: input.quantity,
-        unitPrice: input.unitPrice,
-        unitCost,
-        channel: input.channel?.trim() || null,
-        note: input.note?.trim() || null,
-      },
-    });
-    if (part) {
-      const qtyBefore = await writeStockMove(
-        tx,
-        part.id,
-        -input.quantity,
-        itemName,
-      );
-      if (qtyBefore !== null) stockAlerts.push({ partId: part.id, qtyBefore });
-    }
-    const income = await tx.income.create({
-      data: {
-        orgId,
-        receivedAt: input.soldAt,
-        amount: input.quantity * input.unitPrice,
-        source: itemName,
-        frequency: "ONE_TIME",
-        note: input.note?.trim() || null,
-      },
-    });
-    return tx.sale.update({
-      where: { id: sale.id },
-      data: { incomeId: income.id },
-    });
+  const result = await db.$transaction((tx) => createSaleTx(tx, orgId, input));
+  await notifySaleStockAlerts(result.stockAlerts);
+  return result.sale;
+}
+
+export async function createSaleTx(
+  tx: SalesTransaction,
+  orgId: string,
+  input: SaleInput,
+): Promise<{ sale: Awaited<ReturnType<typeof db.sale.create>>; stockAlerts: SaleStockAlert[] }> {
+  assertSaleInput(input);
+  const stockAlerts: SaleStockAlert[] = [];
+  const part = input.partId
+    ? await getPartForOrg(tx, orgId, input.partId)
+    : null;
+  const itemName = part?.name ?? input.itemName.trim();
+  const unitCost = input.unitCost ?? part?.costPrice ?? null;
+  const sale = await tx.sale.create({
+    data: {
+      orgId,
+      soldAt: input.soldAt,
+      partId: part?.id ?? null,
+      shopOrderId: input.shopOrderId ?? null,
+      itemName,
+      quantity: input.quantity,
+      unitPrice: input.unitPrice,
+      unitCost,
+      channel: input.channel?.trim() || null,
+      note: input.note?.trim() || null,
+    },
   });
-  for (const alert of stockAlerts) {
+  if (part) {
+    const stockMove = await writeStockMove(
+      tx,
+      part.id,
+      -input.quantity,
+      itemName,
+    );
+    if (stockMove) {
+      stockAlerts.push({ partId: part.id, ...stockMove });
+    }
+  }
+  const income = await tx.income.create({
+    data: {
+      orgId,
+      receivedAt: input.soldAt,
+      amount: input.quantity * input.unitPrice,
+      source: itemName,
+      frequency: "ONE_TIME",
+      note: input.note?.trim() || null,
+    },
+  });
+  const linkedSale = await tx.sale.update({
+    where: { id: sale.id },
+    data: { incomeId: income.id },
+  });
+  return { sale: linkedSale, stockAlerts };
+}
+
+async function notifySaleStockAlerts(alerts: SaleStockAlert[]): Promise<void> {
+  for (const alert of alerts) {
     await notifyLowStockIfCrossed(alert.partId, alert.qtyBefore);
   }
-  return sale;
 }
 
 export async function updateSale(
@@ -166,7 +189,7 @@ export async function updateSale(
   input: SaleInput,
 ) {
   assertSaleInput(input);
-  const stockAlerts: { partId: string; qtyBefore: number }[] = [];
+  const stockAlerts: SaleStockAlert[] = [];
   const sale = await db.$transaction(async (tx) => {
     const existing = await tx.sale.findFirst({
       where: { id, orgId },
@@ -190,28 +213,28 @@ export async function updateSale(
     const unitCost = input.unitCost ?? newPart?.costPrice ?? null;
 
     if (oldPart && newPart && oldPart.id === newPart.id) {
-      const qtyBefore = await writeStockMove(
+      const stockMove = await writeStockMove(
         tx,
         oldPart.id,
         existing.quantity - input.quantity,
         itemName,
       );
-      if (qtyBefore !== null && existing.quantity < input.quantity) {
-        stockAlerts.push({ partId: oldPart.id, qtyBefore });
+      if (stockMove && existing.quantity < input.quantity) {
+        stockAlerts.push({ partId: oldPart.id, ...stockMove });
       }
     } else {
       if (oldPart) {
         await writeStockMove(tx, oldPart.id, existing.quantity, existing.itemName);
       }
       if (newPart) {
-        const qtyBefore = await writeStockMove(
+        const stockMove = await writeStockMove(
           tx,
           newPart.id,
           -input.quantity,
           itemName,
         );
-        if (qtyBefore !== null) {
-          stockAlerts.push({ partId: newPart.id, qtyBefore });
+        if (stockMove) {
+          stockAlerts.push({ partId: newPart.id, ...stockMove });
         }
       }
     }
@@ -257,9 +280,7 @@ export async function updateSale(
     }
     return sale;
   });
-  for (const alert of stockAlerts) {
-    await notifyLowStockIfCrossed(alert.partId, alert.qtyBefore);
-  }
+  await notifySaleStockAlerts(stockAlerts);
   return sale;
 }
 

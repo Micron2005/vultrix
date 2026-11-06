@@ -5,6 +5,7 @@ import { getStripe, billingConfigured } from "@/lib/stripe";
 import { syncSubscriptionToOrg } from "@/lib/billing";
 import { ensureAccountFromCheckout } from "@/lib/signup";
 import { recordOnlinePayment } from "@/lib/connect";
+import { cancelExpiredShopOrder, recordShopOrderPayment } from "@/lib/shop";
 
 // Stripe needs the raw request body to verify the signature, so this handler
 // reads req.text() directly (no JSON parsing middleware in the App Router).
@@ -48,7 +49,11 @@ export async function POST(req: Request) {
       // on the shop's connected account — record it. Subscriptions are the
       // platform's own monthly plan billing.
       if (session.mode === "payment") {
-        await recordOnlinePayment(session);
+        if (session.metadata?.kind === "shop") {
+          await recordShopOrderPayment(session);
+        } else {
+          await recordOnlinePayment(session);
+        }
         break;
       }
       const customerId =
@@ -64,6 +69,14 @@ export async function POST(req: Request) {
       // Materialize the account now that the customer got through payment.
       // Idempotent — safe even if /api/signup/complete already ran.
       await ensureAccountFromCheckout({ customerId, subscription: sub });
+      break;
+    }
+
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "shop") {
+        await cancelExpiredShopOrder(session);
+      }
       break;
     }
 

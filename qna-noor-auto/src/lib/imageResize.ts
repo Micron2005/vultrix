@@ -1,7 +1,10 @@
 export const MAX_EDGE = 1600;
 export const JPEG_QUALITY = 0.72;
 
-export function fileToResizedDataUrl(file: File): Promise<string> {
+export function fileToResizedDataUrl(
+  file: File,
+  maxEdge = MAX_EDGE,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read failed"));
@@ -9,7 +12,7 @@ export function fileToResizedDataUrl(file: File): Promise<string> {
       const img = new Image();
       img.onerror = () => reject(new Error("decode failed"));
       img.onload = () => {
-        const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
         const w = Math.max(1, Math.round(img.width * scale));
         const h = Math.max(1, Math.round(img.height * scale));
         const canvas = document.createElement("canvas");
