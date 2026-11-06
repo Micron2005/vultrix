@@ -2,16 +2,13 @@ import { Field, Input, Textarea } from "@/components/ui";
 import { SaveButton } from "@/components/SaveButton";
 import { RepeatFields } from "./RepeatFields";
 
-function toDateInput(d: Date | null | undefined): string {
-  if (!d) return new Date().toISOString().slice(0, 10);
-  return new Date(d).toISOString().slice(0, 10);
-}
-
 export function IncomeForm({
   action,
+  dateValue,
   initial,
 }: {
   action: (fd: FormData) => void;
+  dateValue: string;
   initial?: {
     amount?: number;
     receivedAt?: Date;
@@ -32,7 +29,7 @@ export function IncomeForm({
             type="date"
             name="receivedAt"
             required
-            defaultValue={toDateInput(initial?.receivedAt)}
+            defaultValue={dateValue}
           />
         </Field>
         <Field label="Amount (required)">

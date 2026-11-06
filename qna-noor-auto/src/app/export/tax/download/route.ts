@@ -11,6 +11,13 @@ import {
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import { fullName } from "@/lib/utils";
 import { requireFinancialAccess } from "@/lib/permissions";
+import {
+  dateInputInTimeZone,
+  isDateInput,
+  localCalendarDay,
+  shiftCalendarDay,
+} from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const dynamic = "force-dynamic";
 
@@ -21,59 +28,51 @@ type DateRange = {
   toText: string;
 };
 
-function dateText(d: Date): string {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
+function dateText(d: Date, timeZone: string): string {
+  return localCalendarDay(d, timeZone);
 }
 
-function startOfDay(d: Date): Date {
-  const value = new Date(d);
-  value.setHours(0, 0, 0, 0);
-  return value;
+function parseDate(value: string | null, timeZone: string): Date | null {
+  if (!isDateInput(value ?? "")) return null;
+  const parsed = dateInputInTimeZone(value, timeZone, new Date(Number.NaN));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function endOfDay(d: Date): Date {
-  const value = new Date(d);
-  value.setHours(23, 59, 59, 999);
-  return value;
-}
-
-function parseDate(value: string | null): Date | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  const parsed = new Date(year, month - 1, day);
-  if (
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-  return startOfDay(parsed);
-}
-
-function resolveDateRange(url: URL): DateRange {
-  const now = new Date();
-  const fallbackFrom = new Date(now.getFullYear(), 0, 1);
-  const from = parseDate(url.searchParams.get("from"));
-  const toStart = parseDate(url.searchParams.get("to"));
+function resolveDateRange(url: URL, timeZone: string): DateRange {
+  const todayKey = localCalendarDay(new Date(), timeZone);
+  const fallbackFromKey = `${todayKey.slice(0, 4)}-01-01`;
+  const fallbackFrom = dateInputInTimeZone(
+    fallbackFromKey,
+    timeZone,
+    new Date(Number.NaN),
+  );
+  const fallbackToExclusive = dateInputInTimeZone(
+    shiftCalendarDay(todayKey, 1),
+    timeZone,
+    new Date(Number.NaN),
+  );
+  const fromValue = url.searchParams.get("from");
+  const toValue = url.searchParams.get("to");
+  const from = parseDate(fromValue, timeZone);
+  const toStart = parseDate(toValue, timeZone);
   if (!from || !toStart || from > toStart) {
     return {
-      from: startOfDay(fallbackFrom),
-      to: endOfDay(now),
-      fromText: dateText(fallbackFrom),
-      toText: dateText(now),
+      from: fallbackFrom,
+      to: new Date(fallbackToExclusive.getTime() - 1),
+      fromText: fallbackFromKey,
+      toText: todayKey,
     };
   }
-  const to = endOfDay(toStart);
+  const toExclusive = dateInputInTimeZone(
+    shiftCalendarDay(toValue!, 1),
+    timeZone,
+    new Date(Number.NaN),
+  );
   return {
     from,
-    to,
-    fromText: dateText(from),
-    toText: dateText(toStart),
+    to: new Date(toExclusive.getTime() - 1),
+    fromText: fromValue!,
+    toText: toValue!,
   };
 }
 
@@ -93,9 +92,10 @@ function money(value: number): number {
 export async function GET(request: Request) {
   await requireFinancialAccess();
   const orgId = await requireOrgId();
+  const timeZone = await orgTimeZone(orgId);
   const user = await getCurrentUser();
   const hasInvoices = enabledFeatureSet(user ?? {}).has("invoices");
-  const range = resolveDateRange(new URL(request.url));
+  const range = resolveDateRange(new URL(request.url), timeZone);
 
   const [expenses, payments, income] = await Promise.all([
     db.expense.findMany({
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
   ]);
 
   const expenseRows = expenses.map((expense) => ({
-    date: dateText(expense.paidAt),
+    date: dateText(expense.paidAt, timeZone),
     category: expense.category,
     vendor: expense.vendor ?? "",
     amount: money(expense.amount),
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
 
   const paymentRows = hasInvoices
     ? payments.map((payment) => ({
-        date: dateText(payment.paidAt),
+        date: dateText(payment.paidAt, timeZone),
         invoiceNumber: payment.repairOrder.roNumber,
         customer: fullName(payment.repairOrder.customer),
         method: payment.method,
@@ -153,7 +153,7 @@ export async function GET(request: Request) {
   const incomeRows = hasInvoices
     ? []
     : income.map((entry) => ({
-        date: dateText(entry.receivedAt),
+        date: dateText(entry.receivedAt, timeZone),
         source: entry.source,
         amount: money(entry.amount),
         note: entry.note ?? "",
@@ -211,7 +211,7 @@ export async function GET(request: Request) {
       });
       return [
         {
-          date: dateText(selectedDate.date),
+          date: dateText(selectedDate.date, timeZone),
           dateField: selectedDate.field,
           invoiceNumber: repairOrder.roNumber,
           customer: fullName(repairOrder.customer),

@@ -6,32 +6,35 @@ import { db } from "@/lib/db";
 import { requireOrgId, requireUser } from "@/lib/session";
 import { assertCanDelete } from "@/lib/permissions";
 import { createCalendarEventForOrg } from "@/lib/calendar";
+import {
+  dateInputInTimeZone,
+  dateTimeInputInTimeZone,
+} from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 const CalendarEventSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
   date: z.string().min(1, "Date is required"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
-  startsAtISO: z.string().optional(),
-  endsAtISO: z.string().optional(),
   allDay: z.string().optional(),
   isReminder: z.string().optional(),
   notes: z.string().optional(),
 });
 
-function eventData(fd: FormData) {
+function eventData(fd: FormData, timeZone: string) {
   const raw = CalendarEventSchema.parse(Object.fromEntries(fd.entries()));
-  const parsedStartsAt = raw.startsAtISO ? new Date(raw.startsAtISO) : null;
-  const startsAt = parsedStartsAt && !Number.isNaN(parsedStartsAt.getTime())
-    ? parsedStartsAt
-    : raw.allDay
-      ? new Date(`${raw.date}T00:00:00`)
-      : new Date(`${raw.date}T${raw.startTime || "09:00"}`);
-  const parsedEndsAt = raw.endsAtISO ? new Date(raw.endsAtISO) : null;
-  const endsAt = parsedEndsAt && !Number.isNaN(parsedEndsAt.getTime())
-    ? parsedEndsAt
-    : raw.endTime
-      ? new Date(`${raw.date}T${raw.endTime}`)
+  const allDay = raw.allDay === "on";
+  const startsAt = allDay
+    ? dateInputInTimeZone(raw.date, timeZone, new Date(Number.NaN))
+    : dateTimeInputInTimeZone(
+        raw.date,
+        raw.startTime || "09:00",
+        timeZone,
+      );
+  const endsAt =
+    !allDay && raw.endTime
+      ? dateTimeInputInTimeZone(raw.date, raw.endTime, timeZone)
       : null;
   if (Number.isNaN(startsAt.getTime()) || (endsAt && Number.isNaN(endsAt.getTime()))) {
     throw new Error("Invalid date or time");
@@ -41,7 +44,7 @@ function eventData(fd: FormData) {
     title: raw.title,
     startsAt,
     endsAt,
-    allDay: raw.allDay === "on",
+    allDay,
     isReminder: raw.isReminder === "on",
     notes: raw.notes?.trim() || null,
   };
@@ -49,13 +52,18 @@ function eventData(fd: FormData) {
 
 export async function createCalendarEvent(fd: FormData) {
   const orgId = await requireOrgId();
-  await createCalendarEventForOrg(orgId, eventData(fd));
+  const timeZone = await orgTimeZone(orgId);
+  await createCalendarEventForOrg(orgId, eventData(fd, timeZone));
   revalidatePath("/appointments");
 }
 
 export async function updateCalendarEvent(id: string, fd: FormData) {
   const orgId = await requireOrgId();
-  await db.calendarEvent.updateMany({ where: { id, orgId }, data: eventData(fd) });
+  const timeZone = await orgTimeZone(orgId);
+  await db.calendarEvent.updateMany({
+    where: { id, orgId },
+    data: eventData(fd, timeZone),
+  });
   revalidatePath("/appointments");
 }
 

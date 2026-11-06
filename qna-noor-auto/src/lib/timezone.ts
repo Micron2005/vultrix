@@ -63,6 +63,53 @@ export function localCalendarDay(date: Date, timeZone: string): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+export function formatDateInTimeZone(date: Date, timeZone: string): string {
+  return formatInTimeZone(date, timeZone, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export type PersonalCalendarView = "day" | "week" | "month" | "year";
+
+export function personalCalendarRange(
+  view: PersonalCalendarView,
+  dateKey: string,
+  timeZone: string,
+): { start: Date; end: Date } {
+  if (!isDateInput(dateKey)) {
+    throw new Error("Invalid calendar date");
+  }
+
+  const mondayOnOrBefore = (key: string) => {
+    const weekday = new Date(`${key}T12:00:00.000Z`).getUTCDay();
+    return shiftCalendarDay(key, -((weekday + 6) % 7));
+  };
+
+  let startKey: string;
+  let endKey: string;
+  if (view === "day") {
+    startKey = dateKey;
+    endKey = shiftCalendarDay(dateKey, 1);
+  } else if (view === "week") {
+    startKey = mondayOnOrBefore(dateKey);
+    endKey = shiftCalendarDay(startKey, 7);
+  } else if (view === "month") {
+    startKey = mondayOnOrBefore(`${dateKey.slice(0, 7)}-01`);
+    endKey = shiftCalendarDay(startKey, 42);
+  } else {
+    const year = Number(dateKey.slice(0, 4));
+    startKey = `${dateKey.slice(0, 4)}-01-01`;
+    endKey = `${String(year + 1).padStart(4, "0")}-01-01`;
+  }
+
+  return {
+    start: dateInputInTimeZone(startKey, timeZone, new Date(Number.NaN)),
+    end: dateInputInTimeZone(endKey, timeZone, new Date(Number.NaN)),
+  };
+}
+
 /**
  * Interpret an HTML date input as midnight in the organization's timezone.
  * Date-only values must not be parsed as UTC because that can move the sale

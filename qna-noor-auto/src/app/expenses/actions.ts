@@ -8,6 +8,8 @@ import { createExpenseForOrg } from "@/lib/expenses";
 import { logActivity } from "@/lib/activity";
 import { formatMoney } from "@/lib/utils";
 import { assertCanViewFinancials } from "@/lib/permissions";
+import { dateInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   nthOccurrence,
   RECURRING_INTERVALS,
@@ -25,11 +27,9 @@ function cleanStr(v: FormDataEntryValue | null): string | null {
   return t === "" ? null : t;
 }
 
-function parseDate(v: FormDataEntryValue | null): Date {
+function parseDate(v: FormDataEntryValue | null, timeZone: string): Date {
   const s = String(v ?? "").trim();
-  if (!s) return new Date();
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return s ? dateInputInTimeZone(s, timeZone, new Date()) : new Date();
 }
 
 function parseCategory(v: FormDataEntryValue | null): string {
@@ -121,10 +121,11 @@ async function syncExpenseReceipts(
 export async function createExpense(fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  const timeZone = await orgTimeZone(orgId);
   assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
-  const paidAt = parseDate(fd.get("paidAt"));
+  const paidAt = parseDate(fd.get("paidAt"), timeZone);
   const vendor = cleanStr(fd.get("vendor"));
   const reference = cleanStr(fd.get("reference"));
   const method = cleanStr(fd.get("method"));
@@ -205,10 +206,11 @@ export async function createExpense(fd: FormData) {
 export async function updateExpense(id: string, fd: FormData) {
   const orgId = await requireOrgId();
   const user = await requireUser();
+  const timeZone = await orgTimeZone(orgId);
   assertCanViewFinancials(user.role);
   const amount = parseMoney(fd.get("amount"));
   const category = parseCategory(fd.get("category"));
-  const paidAt = parseDate(fd.get("paidAt"));
+  const paidAt = parseDate(fd.get("paidAt"), timeZone);
   const vendor = cleanStr(fd.get("vendor"));
   const reference = cleanStr(fd.get("reference"));
   const method = cleanStr(fd.get("method"));
