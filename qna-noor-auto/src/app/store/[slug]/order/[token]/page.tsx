@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/utils";
+import { shopOrderStatusLabel } from "@/lib/shop";
 import { ClearShopCartOnNew } from "../../../StorefrontClient";
 
 export default async function PublicShopOrderPage({
@@ -24,7 +25,7 @@ export default async function PublicShopOrderPage({
       <div className="mx-auto max-w-2xl px-4 py-10">
         <ClearShopCartOnNew slug={slug} clear={query.new === "1"} />
         <h1 className="text-3xl font-bold">Order #{order.number}</h1>
-        <p className="mt-2 text-lg font-medium">{order.status === "PAID" ? "Paid" : order.status === "SHIPPED" || order.status === "PICKED_UP" ? "Complete" : order.status}</p>
+        <p className="mt-2 text-lg font-medium">{shopOrderStatusLabel(order.status)}</p>
         <div className="my-6 divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
           {order.lines.map((line) => (
             <div key={line.id} className="flex justify-between gap-4 p-4">

@@ -53,6 +53,25 @@ export function createShopOrderToken(): string {
   return randomBytes(18).toString("base64url");
 }
 
+export function shopOrderStatusLabel(status: string): string {
+  switch (status) {
+    case "PAID":
+      return "New — paid";
+    case "SHIPPED":
+      return "Shipped";
+    case "PICKED_UP":
+      return "Picked up";
+    case "CANCELED":
+      return "Canceled";
+    default:
+      return "Pending payment";
+  }
+}
+
+export function shopFulfillmentLabel(fulfillment: string): string {
+  return fulfillment === "SHIP" ? "Ship" : "Pickup";
+}
+
 type ShopShippingDetails = {
   name?: string | null;
   address?: {
@@ -137,9 +156,7 @@ export async function recordShopOrderPayment(
   const total =
     Math.max(0, Math.round(session.amount_total ?? 0)) / 100;
   const shipping = shippingAmountFromSession(session);
-  const paidAt = session.created
-    ? new Date(session.created * 1000)
-    : new Date();
+  const paidAt = new Date();
   const details = sessionShippingDetails(session);
   const shipAddress = safeShippingAddress(session);
   const stockAlerts: Array<{
@@ -243,7 +260,7 @@ export async function recordShopOrderPayment(
   const shopName = organization?.name ?? "Shop";
   const ownerEmail = organization?.billingEmail ?? owner?.email ?? null;
   const orderUrl = shop
-    ? `${appOrigin()}/s/${encodeURIComponent(shop.slug)}/order/${encodeURIComponent(paidOrder.publicToken)}`
+    ? `${appOrigin()}/store/${encodeURIComponent(shop.slug)}/order/${encodeURIComponent(paidOrder.publicToken)}`
     : appOrigin();
   const itemList = paidOrder.lines
     .map(
@@ -284,7 +301,7 @@ export async function recordShopOrderPayment(
     await sendEmail({
       to: ownerEmail,
       subject: `New order #${paidOrder.number} — ${formatMoney(total)}`,
-      html: `${header}<h1>${escapeHtml(orderHeading)}</h1><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(paidOrder.fulfillment)}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
+      html: `${header}<h1>${escapeHtml(orderHeading)}</h1><p><strong>Status:</strong> ${escapeHtml(shopOrderStatusLabel("PAID"))}</p><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(shopFulfillmentLabel(paidOrder.fulfillment))}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
     });
   }
   if (paidOrder.buyerEmail) {

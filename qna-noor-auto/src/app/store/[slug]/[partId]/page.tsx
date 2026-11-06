@@ -21,7 +21,7 @@ export default async function PublicShopProductPage({
     <main className="min-h-screen bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
         <header className="mb-6 flex items-center justify-between">
-          <Link href={`/s/${encodeURIComponent(slug)}`} className="text-sm text-blue-700 underline dark:text-blue-300">Back to shop</Link>
+          <Link href={`/store/${encodeURIComponent(slug)}`} className="text-sm text-blue-700 underline dark:text-blue-300">Back to shop</Link>
           <ShopCartLink slug={slug} />
         </header>
         <div className="grid gap-7 lg:grid-cols-2">

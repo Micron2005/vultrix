@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/utils";
+import { shopFulfillmentLabel, shopOrderStatusLabel } from "@/lib/shop";
 import { markOrderPickedUp, markOrderShipped } from "../../actions";
 import { CopyAddressButton } from "../../ShopTools";
 
@@ -29,7 +30,7 @@ export default async function ShopOrderDetailPage({
     <main className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
       <Link href="/shop/orders" className="text-sm text-blue-700 underline">← Orders</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Order #{order.number}</h1><p className="mt-1 text-sm text-zinc-500">{order.status} · {order.createdAt.toLocaleString()}</p></div>
+        <div><h1 className="text-2xl font-bold">Order #{order.number}</h1><p className="mt-1 text-sm text-zinc-500">{shopOrderStatusLabel(order.status)} · {order.createdAt.toLocaleString()}</p></div>
         <span className="text-xl font-semibold">{formatMoney(order.total)}</span>
       </div>
       {query.error && <p role="alert" className="rounded bg-red-50 p-3 text-red-800">This order can no longer be fulfilled in that way.</p>}
@@ -39,7 +40,7 @@ export default async function ShopOrderDetailPage({
         <p className="mt-2">{order.buyerName || "Customer"}</p>
         {order.buyerEmail && <p><a className="text-blue-700 underline" href={`mailto:${order.buyerEmail}`}>{order.buyerEmail}</a></p>}
         {order.buyerPhone && <p>{order.buyerPhone}</p>}
-        <p className="mt-3">Fulfillment: {order.fulfillment}</p>
+        <p className="mt-3">Fulfillment: {shopFulfillmentLabel(order.fulfillment)}</p>
         {addressLines.length > 0 && (
           <div className="mt-3 flex flex-wrap items-start gap-3">
             <address className="not-italic">{addressLines.map((line) => <div key={line}>{line}</div>)}</address>

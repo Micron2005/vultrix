@@ -22,7 +22,7 @@ export default async function PublicShopCartPage({
   return (
     <main className="min-h-screen bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <Link href={`/s/${encodeURIComponent(slug)}`} className="text-sm text-blue-700 underline dark:text-blue-300">← Continue shopping</Link>
+        <Link href={`/store/${encodeURIComponent(slug)}`} className="text-sm text-blue-700 underline dark:text-blue-300">← Continue shopping</Link>
         <h1 className="my-5 text-3xl font-bold">Your cart</h1>
         <CartPageClient
           slug={slug}

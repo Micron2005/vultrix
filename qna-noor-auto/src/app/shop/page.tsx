@@ -7,7 +7,6 @@ import { enabledFeatureSet } from "@/lib/features";
 import { suggestedShopSlug } from "@/lib/shop";
 import { ShopShareTools, ShopPhotoManager } from "./ShopTools";
 import { saveShopSettings, setShopListed } from "./actions";
-import { ShopShareTools as ItemShareTools } from "./ShopTools";
 
 export default async function ShopManagementPage({
   searchParams,
@@ -38,7 +37,7 @@ export default async function ShopManagementPage({
   const origin = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
     `${headersList.get("x-forwarded-proto") ?? "https"}://${headersList.get("x-forwarded-host") ?? headersList.get("host")}`;
   const slug = shop?.slug ?? suggestedShopSlug(org.name);
-  const shopUrl = `${origin}/s/${encodeURIComponent(slug)}`;
+  const shopUrl = `${origin}/store/${encodeURIComponent(slug)}`;
   const shareQr = await QRCode.toDataURL(shopUrl, { width: 280, margin: 1 });
   const chargesReady = org.stripeConnectChargesEnabled && Boolean(org.stripeConnectAccountId);
   return (
@@ -55,7 +54,7 @@ export default async function ShopManagementPage({
         {manager ? (
           <form action={saveShopSettings} className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm">Shop URL slug
-              <input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9-]+" defaultValue={slug} className="rounded border bg-transparent px-3 py-2" />
+              <input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9\-]+" defaultValue={slug} className="rounded border bg-transparent px-3 py-2" />
             </label>
             <label className="grid gap-1 text-sm">Tagline
               <input name="tagline" maxLength={180} defaultValue={shop?.tagline ?? ""} className="rounded border bg-transparent px-3 py-2" />
@@ -89,7 +88,7 @@ export default async function ShopManagementPage({
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="mb-3 text-lg font-semibold">Inventory items</h2>
         {!inventoryEnabled ? (
-          <p className="text-sm text-zinc-600">Inventory is off. Review your plan and available features in <Link href="/billing" className="text-blue-700 underline">Billing</Link>.</p>
+          <p className="text-sm text-zinc-600">Inventory is off. Choose an account plan that includes Inventory in <Link href="/billing#plan" className="text-blue-700 underline">Billing settings</Link>.</p>
         ) : parts.length === 0 ? (
           <p className="text-sm text-zinc-600">Add items in <Link href="/inventory" className="text-blue-700 underline">Inventory</Link> to sell them here.</p>
         ) : (
@@ -106,7 +105,7 @@ export default async function ShopManagementPage({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {manager && <form action={setShopListed.bind(null, part.id, !part.shopListed)}><button className={`rounded px-3 py-2 text-sm ${part.shopListed ? "border" : "bg-blue-700 text-white"}`}>{part.shopListed ? "In shop — remove" : "List in shop"}</button></form>}
-                    {part.shopListed && <ItemShareTools url={itemUrl} qr={qr} filename={`${slug}-${part.id}.png`} />}
+                    {part.shopListed && <ShopShareTools url={itemUrl} qr={qr} filename={`${slug}-${part.id}.png`} />}
                   </div>
                 </article>
               );

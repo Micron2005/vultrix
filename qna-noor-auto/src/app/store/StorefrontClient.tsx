@@ -79,7 +79,7 @@ export function ShopCartLink({ slug }: { slug: string }) {
   }, [slug]);
   return (
     <Link
-      href={`/s/${encodeURIComponent(slug)}/cart`}
+      href={`/store/${encodeURIComponent(slug)}/cart`}
       className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
     >
       Cart{count ? ` (${count})` : ""}
@@ -292,13 +292,13 @@ export function CartPageClient({
   if (!cart.length) {
     return (
       <div className="rounded-2xl border border-zinc-200 p-6 text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-        Your cart is empty. <Link className="text-blue-600 underline" href={`/s/${slug}`}>Browse items</Link>
+        Your cart is empty. <Link className="text-blue-600 underline" href={`/store/${slug}`}>Browse items</Link>
       </div>
     );
   }
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="space-y-3">
+    <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="min-w-0 space-y-3">
         {rows.map(({ entry, product }) => (
           <div key={entry.partId} className="flex min-w-0 gap-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
             {product?.photoId && (
@@ -327,7 +327,7 @@ export function CartPageClient({
           </div>
         ))}
       </div>
-      <aside className="h-fit space-y-4 rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <aside className="h-fit min-w-0 space-y-4 rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
         <h2 className="text-lg font-semibold">Fulfillment</h2>
         {shipEnabled && (
           <label className="flex items-start gap-3">

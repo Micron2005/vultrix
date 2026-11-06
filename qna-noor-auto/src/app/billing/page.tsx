@@ -150,7 +150,7 @@ export default async function BillingPage({
 
       <Card className="mt-6">
         <CardHeader title="Plan and account type" />
-        <form action={updatePlan} className="p-4 space-y-4">
+        <form id="plan" action={updatePlan} className="p-4 space-y-4">
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">
               Account type

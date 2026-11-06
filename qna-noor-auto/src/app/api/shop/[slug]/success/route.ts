@@ -11,7 +11,7 @@ export async function GET(
   const { slug } = await params;
   const root = baseUrl(req);
   const returnToShop = () =>
-    NextResponse.redirect(new URL(`/s/${encodeURIComponent(slug)}`, root), 303);
+    NextResponse.redirect(new URL(`/store/${encodeURIComponent(slug)}`, root), 303);
   const sessionId = new URL(req.url).searchParams.get("session_id");
   if (!sessionId || !billingConfigured()) return returnToShop();
 
@@ -53,7 +53,7 @@ export async function GET(
     if (!order) return returnToShop();
     return NextResponse.redirect(
       new URL(
-        `/s/${encodeURIComponent(slug)}/order/${encodeURIComponent(order.publicToken)}?new=1`,
+        `/store/${encodeURIComponent(slug)}/order/${encodeURIComponent(order.publicToken)}?new=1`,
         root,
       ),
       303,

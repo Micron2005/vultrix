@@ -86,8 +86,8 @@ export async function saveShopSettings(formData: FormData) {
   });
   revalidatePath("/shop");
   revalidatePath("/shop/orders");
-  revalidatePath(`/s/${previous?.slug ?? shop.slug}`);
-  revalidatePath(`/s/${shop.slug}`);
+  revalidatePath(`/store/${previous?.slug ?? shop.slug}`);
+  revalidatePath(`/store/${shop.slug}`);
   redirect("/shop?saved=1");
 }
 
@@ -109,7 +109,7 @@ export async function setShopListed(partId: string, listed: boolean) {
   });
   revalidatePath("/shop");
   const shop = await db.shop.findUnique({ where: { orgId }, select: { slug: true } });
-  if (shop) revalidatePath(`/s/${shop.slug}`);
+  if (shop) revalidatePath(`/store/${shop.slug}`);
 }
 
 export async function addShopPhoto(partId: string, dataUrl: string) {

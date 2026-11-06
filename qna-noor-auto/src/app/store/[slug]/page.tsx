@@ -37,7 +37,7 @@ export default async function PublicShopPage({
             {products.map((part) => (
               <Link
                 key={part.id}
-                href={`/s/${encodeURIComponent(slug)}/${encodeURIComponent(part.id)}`}
+                href={`/store/${encodeURIComponent(slug)}/${encodeURIComponent(part.id)}`}
                 className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {part.photos[0] ? (

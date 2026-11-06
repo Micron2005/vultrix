@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/utils";
+import { shopFulfillmentLabel, shopOrderStatusLabel } from "@/lib/shop";
 
 export default async function ShopOrdersPage({
   searchParams,
@@ -16,7 +17,7 @@ export default async function ShopOrdersPage({
     ? { orgId: user.orgId, status: "PAID" }
     : filter === "done"
       ? { orgId: user.orgId, status: { in: ["SHIPPED", "PICKED_UP"] } }
-      : { orgId: user.orgId };
+      : { orgId: user.orgId, status: { not: "PENDING" } };
   const orders = await db.shopOrder.findMany({
     where,
     include: { lines: true },
@@ -42,7 +43,7 @@ export default async function ShopOrdersPage({
                 <strong>#{order.number} · {order.buyerName || order.buyerEmail || "Customer"}</strong>
                 <span>{formatMoney(order.total)}</span>
               </div>
-              <p className="mt-1 text-sm text-zinc-500">{order.status} · {order.fulfillment} · {order.createdAt.toLocaleString()}</p>
+              <p className="mt-1 text-sm text-zinc-500">{shopOrderStatusLabel(order.status)} · {shopFulfillmentLabel(order.fulfillment)} · {order.createdAt.toLocaleString()}</p>
               <p className="mt-2 text-sm">{order.lines.map((line) => `${line.itemName} × ${line.quantity}`).join(", ")}</p>
             </Link>
           ))}

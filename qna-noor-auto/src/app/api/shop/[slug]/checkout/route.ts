@@ -197,7 +197,7 @@ export async function POST(
           },
         },
         success_url: `${root}/api/shop/${encodeURIComponent(slug)}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${root}/s/${encodeURIComponent(slug)}/cart`,
+        cancel_url: `${root}/store/${encodeURIComponent(slug)}/cart`,
       },
       { stripeAccount: shop.organization.stripeConnectAccountId },
     );
