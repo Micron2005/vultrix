@@ -5,6 +5,7 @@ import {
   buildProductFeedXml,
   buildShopCart,
   isValidShopSlug,
+  shopDisplayName,
   suggestedShopSlug,
   type ShopCartPart,
   type ProductFeedItem,
@@ -106,6 +107,15 @@ test("buildShopCart rejects invalid, unavailable, and over-stock quantities", ()
     ).ok,
     false,
   );
+  assert.equal(
+    buildShopCart(
+      [{ ...availablePart, photos: [] }],
+      [{ partId: "part-1", quantity: 1 }],
+      shop,
+      "SHIP",
+    ).ok,
+    false,
+  );
 });
 
 test("shop slugs are lowercase, bounded, and reject reserved routes", () => {
@@ -119,6 +129,15 @@ test("shop slugs are lowercase, bounded, and reject reserved routes", () => {
   assert.equal(isValidShopSlug("a".repeat(41)), false);
   assert.equal(suggestedShopSlug("The Harbor & Lane!"), "the-harbor-lane");
   assert.equal(suggestedShopSlug("API"), "my-shop");
+});
+
+test("shopDisplayName prefers the custom name and falls back to the organization name", () => {
+  assert.equal(
+    shopDisplayName({ name: " Brightside Market " }, "Brightside Cleaning Co."),
+    "Brightside Market",
+  );
+  assert.equal(shopDisplayName({ name: "   " }, "Brightside Cleaning Co."), "Brightside Cleaning Co.");
+  assert.equal(shopDisplayName({ name: null }, "Brightside Cleaning Co."), "Brightside Cleaning Co.");
 });
 
 test("xmlEscape escapes all XML special characters", () => {
@@ -167,7 +186,7 @@ test("buildProductFeedXml filters products and builds a Google product feed", ()
       photoIds: ["photo-9"],
     },
   ];
-  const shop = { slug: "bright-side", shipEnabled: true, shipFlatRate: 6.5 };
+  const shop = { slug: "bright-side", name: "Brightside Market", shipEnabled: true, shipFlatRate: 6.5 };
   const feed = buildProductFeedXml(
     shop,
     `Harbor & Lane's "Shop"`,
@@ -186,7 +205,9 @@ test("buildProductFeedXml filters products and builds a Google product feed", ()
   assert.match(feed, /<g:price>14\.50 USD<\/g:price>/);
   assert.match(feed, /<g:availability>in_stock<\/g:availability>/);
   assert.match(feed, /<g:availability>out_of_stock<\/g:availability>/);
-  assert.match(feed, /<g:brand>Harbor &amp; Lane&apos;s &quot;Shop&quot;<\/g:brand>/);
+  assert.match(feed, /<g:brand>Brightside Market<\/g:brand>/);
+  assert.match(feed, /<title>Brightside Market product feed<\/title>/);
+  assert.match(feed, /<description>Products available from Brightside Market<\/description>/);
   assert.match(feed, /<g:identifier_exists>no<\/g:identifier_exists>/);
   assert.match(feed, /<g:product_type>Home &amp; kitchen<\/g:product_type>/);
   assert.match(feed, /<g:shipping><g:country>US<\/g:country><g:price>6\.50 USD<\/g:price><\/g:shipping>/);

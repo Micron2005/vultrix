@@ -11,6 +11,7 @@ export async function GET(
     where: { slug },
     select: {
       slug: true,
+      name: true,
       orgId: true,
       enabled: true,
       shipEnabled: true,
@@ -46,6 +47,7 @@ export async function GET(
   const feed = buildProductFeedXml(
     {
       slug: shop.slug,
+      name: shop.name,
       shipEnabled: shop.shipEnabled,
       shipFlatRate: shop.shipFlatRate,
     },

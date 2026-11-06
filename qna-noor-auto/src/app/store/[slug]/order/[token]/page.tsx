@@ -1,8 +1,24 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/utils";
 import { shopOrderStatusLabel } from "@/lib/shop";
 import { ClearShopCartOnNew } from "../../../StorefrontClient";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; token: string }>;
+}): Promise<Metadata> {
+  const { slug, token } = await params;
+  const shop = await db.shop.findUnique({ where: { slug } });
+  if (!shop?.enabled) return { title: "Order" };
+  const order = await db.shopOrder.findFirst({
+    where: { publicToken: token, orgId: shop.orgId },
+    select: { number: true },
+  });
+  return { title: order ? `Order #${order.number}` : "Order" };
+}
 
 export default async function PublicShopOrderPage({
   params,

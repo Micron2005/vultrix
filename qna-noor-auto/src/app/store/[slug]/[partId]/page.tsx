@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/utils";
@@ -13,7 +14,14 @@ export default async function PublicShopProductPage({
   const shop = await db.shop.findUnique({ where: { slug } });
   if (!shop?.enabled) notFound();
   const part = await db.part.findFirst({
-    where: { id: partId, orgId: shop.orgId, shopListed: true, archived: false },
+    where: {
+      id: partId,
+      orgId: shop.orgId,
+      shopListed: true,
+      archived: false,
+      unitPrice: { gt: 0 },
+      photos: { some: {} },
+    },
     include: { photos: { orderBy: { position: "asc" }, select: { id: true } } },
   });
   if (!part) notFound();
@@ -44,4 +52,26 @@ export default async function PublicShopProductPage({
       </div>
     </main>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; partId: string }>;
+}): Promise<Metadata> {
+  const { slug, partId } = await params;
+  const shop = await db.shop.findUnique({ where: { slug } });
+  if (!shop?.enabled) return { title: "Product" };
+  const part = await db.part.findFirst({
+    where: {
+      id: partId,
+      orgId: shop.orgId,
+      shopListed: true,
+      archived: false,
+      unitPrice: { gt: 0 },
+      photos: { some: {} },
+    },
+    select: { name: true },
+  });
+  return { title: part?.name ?? "Product" };
 }

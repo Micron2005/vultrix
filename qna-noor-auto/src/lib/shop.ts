@@ -35,6 +35,13 @@ export function isValidShopSlug(slug: string): boolean {
   );
 }
 
+export function shopDisplayName(
+  shop: { name?: string | null } | null | undefined,
+  orgName: string,
+): string {
+  return shop?.name?.trim() || orgName;
+}
+
 export function suggestedShopSlug(name: string): string {
   const slug = name
     .toLowerCase()
@@ -74,6 +81,7 @@ export function shopFulfillmentLabel(fulfillment: string): string {
 
 export type ProductFeedShop = {
   slug: string;
+  name: string | null;
   shipEnabled: boolean;
   shipFlatRate: number;
 };
@@ -108,6 +116,7 @@ export function buildProductFeedXml(
   root: string,
 ): string {
   const origin = root.replace(/\/$/, "");
+  const displayName = shopDisplayName(shop, orgName);
   const shopUrl = `${origin}/store/${encodeURIComponent(shop.slug)}`;
   const products = items
     .filter(
@@ -137,7 +146,7 @@ ${photos
     <g:price>${feedPrice(item.unitPrice!)}</g:price>
     <g:availability>${item.qtyOnHand > 0 ? "in_stock" : "out_of_stock"}</g:availability>
     <g:condition>new</g:condition>
-    <g:brand>${xmlEscape(orgName)}</g:brand>
+    <g:brand>${xmlEscape(displayName)}</g:brand>
     <g:identifier_exists>no</g:identifier_exists>
 ${item.category ? `    <g:product_type>${xmlEscape(item.category)}</g:product_type>\n` : ""}${shop.shipEnabled ? `    <g:shipping><g:country>US</g:country><g:price>${feedPrice(shop.shipFlatRate)}</g:price></g:shipping>\n` : ""}  </item>`;
     })
@@ -146,9 +155,9 @@ ${item.category ? `    <g:product_type>${xmlEscape(item.category)}</g:product_ty
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
 <channel>
-  <title>${xmlEscape(`${orgName} product feed`)}</title>
+  <title>${xmlEscape(`${displayName} product feed`)}</title>
   <link>${xmlEscape(shopUrl)}</link>
-  <description>${xmlEscape(`Products available from ${orgName}`)}</description>
+  <description>${xmlEscape(`Products available from ${displayName}`)}</description>
 ${products}
 </channel>
 </rss>`;
@@ -362,7 +371,7 @@ export async function recordShopOrderPayment(
   }
 
   const [shop, organization, owner] = await Promise.all([
-    db.shop.findUnique({ where: { orgId }, select: { slug: true } }),
+    db.shop.findUnique({ where: { orgId }, select: { slug: true, name: true } }),
     db.organization.findUnique({
       where: { id: orgId },
       select: { name: true, billingEmail: true },
@@ -372,7 +381,8 @@ export async function recordShopOrderPayment(
       select: { email: true },
     }),
   ]);
-  const shopName = organization?.name ?? "Shop";
+  const organizationName = organization?.name ?? "Shop";
+  const shopName = shopDisplayName(shop, organizationName);
   const ownerEmail = organization?.billingEmail ?? owner?.email ?? null;
   const orderUrl = shop
     ? `${appOrigin()}/store/${encodeURIComponent(shop.slug)}/order/${encodeURIComponent(paidOrder.publicToken)}`
@@ -402,7 +412,12 @@ export async function recordShopOrderPayment(
         .map((line) => `<div>${escapeHtml(String(line))}</div>`)
         .join("")
     : "Pickup";
-  const header = shopEmailHeader({ shopName, logo: null, accent: null });
+  const ownerHeader = shopEmailHeader({
+    shopName: organizationName,
+    logo: null,
+    accent: null,
+  });
+  const buyerHeader = shopEmailHeader({ shopName, logo: null, accent: null });
   const orderHeading = `Shop order #${paidOrder.number}`;
 
   await notify({
@@ -416,14 +431,14 @@ export async function recordShopOrderPayment(
     await sendEmail({
       to: ownerEmail,
       subject: `New order #${paidOrder.number} — ${formatMoney(total)}`,
-      html: `${header}<h1>${escapeHtml(orderHeading)}</h1><p><strong>Status:</strong> ${escapeHtml(shopOrderStatusLabel("PAID"))}</p><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(shopFulfillmentLabel(paidOrder.fulfillment))}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
+      html: `${ownerHeader}<h1>${escapeHtml(orderHeading)}</h1><p><strong>Status:</strong> ${escapeHtml(shopOrderStatusLabel("PAID"))}</p><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(shopFulfillmentLabel(paidOrder.fulfillment))}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
     });
   }
   if (paidOrder.buyerEmail) {
     await sendEmail({
       to: paidOrder.buyerEmail,
       subject: `Your order from ${shopName}`,
-      html: `${header}<h1>Thank you for your order</h1><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><a href="${escapeHtml(orderUrl)}">View your order</a></p>`,
+      html: `${buyerHeader}<h1>Thank you for your order</h1><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><a href="${escapeHtml(orderUrl)}">View your order</a></p>`,
       replyTo: ownerEmail ?? undefined,
     });
   }
@@ -526,6 +541,9 @@ export function buildShopCart(
       return { ok: false, error: "An item in your cart is no longer available." };
     }
     if (part.unitPrice == null || !Number.isFinite(part.unitPrice) || part.unitPrice <= 0) {
+      return { ok: false, error: `${part.name} is not available for purchase.` };
+    }
+    if (!part.photos?.length) {
       return { ok: false, error: `${part.name} is not available for purchase.` };
     }
     if (quantity > part.qtyOnHand) {
