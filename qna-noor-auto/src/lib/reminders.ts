@@ -3,7 +3,11 @@ import { getCustomerContactLists } from "@/lib/customerContacts";
 import { loadOpenAR } from "@/lib/ar";
 import { getAllSettings, shopBranding } from "@/lib/shop";
 import { computeAllVehicleReminders } from "@/lib/serviceReminders";
-import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
+import {
+  sendEmailResult,
+  escapeHtml,
+  shopEmailHeader,
+} from "@/lib/email";
 import { enabledFeatureSet } from "@/lib/features";
 import {
   formatInTimeZone,
@@ -149,31 +153,23 @@ async function writeReminder(
     return counts;
   }
 
-  let sent = false;
-  try {
-    sent = await sendEmail({ to, subject, html, replyTo });
-  } catch (error: unknown) {
-    await db.reminderLog.update({
-      where: { id: row.id },
-      data: {
-        status: "FAILED",
-        detail: error instanceof Error ? error.message : "Email send failed.",
-      },
-    });
-    counts.failed = 1;
-    return counts;
-  }
+  const sendResult = await sendEmailResult({
+    kind: `reminder_${kind.toLowerCase()}`,
+    orgId,
+    to,
+    subject,
+    html,
+    replyTo,
+  });
 
   await db.reminderLog.update({
     where: { id: row.id },
     data: {
-      status: sent ? "SENT" : "FAILED",
-      detail: sent
-        ? "Email sent."
-        : "Email sending is not configured or the provider rejected the send.",
+      status: sendResult.ok ? "SENT" : "FAILED",
+      detail: sendResult.ok ? "Email sent." : sendResult.error,
     },
   });
-  if (sent) counts.sent = 1;
+  if (sendResult.ok) counts.sent = 1;
   else counts.failed = 1;
   return counts;
 }

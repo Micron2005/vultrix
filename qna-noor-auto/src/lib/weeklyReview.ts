@@ -18,7 +18,11 @@ import {
 } from "@/lib/timezone";
 import { formatMoney, fullName } from "@/lib/utils";
 import { getAllSettings } from "@/lib/shop";
-import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
+import {
+  emailBrandHeader,
+  sendEmailResult,
+  escapeHtml,
+} from "@/lib/email";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { parsePositiveSetting, siteOrigin } from "@/lib/reminders";
 
@@ -404,7 +408,9 @@ export async function sendWeeklyReviewForOrg(
       weekStartDay,
       now,
     );
-    const sent = await sendEmail({
+    const sendResult = await sendEmailResult({
+      kind: "weekly_review",
+      orgId,
       to,
       subject: `${organization.name} — weekly review`,
       html: weeklyReviewEmailHtml(review, timezone, organization.name),
@@ -413,13 +419,13 @@ export async function sendWeeklyReviewForOrg(
     await db.reminderLog.update({
       where: { id: log.id },
       data: {
-        status: sent ? "SENT" : "FAILED",
-        detail: sent
+        status: sendResult.ok ? "SENT" : "FAILED",
+        detail: sendResult.ok
           ? "Weekly review email sent."
-          : "Email sending is not configured or the provider rejected the send.",
+          : sendResult.error,
       },
     });
-    if (sent) result.sent = 1;
+    if (sendResult.ok) result.sent = 1;
     else result.failed = 1;
   } catch (error) {
     console.error("[weekly-review] send failed:", error);

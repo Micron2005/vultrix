@@ -296,6 +296,7 @@ export async function materializeAccount(
   // 5. Welcome + owner-notification emails (only on a brand-new account).
   try {
     await sendSignupEmails({
+      orgId,
       name: pending.name,
       firstName: pending.firstName,
       lastName: pending.lastName,
@@ -324,6 +325,7 @@ function trialEndDate(sub: Stripe.Subscription): Date | null {
 }
 
 async function sendSignupEmails(args: {
+  orgId: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -334,6 +336,7 @@ async function sendSignupEmails(args: {
   subscription: Stripe.Subscription;
 }): Promise<void> {
   const {
+    orgId,
     name,
     firstName,
     lastName,
@@ -348,6 +351,8 @@ async function sendSignupEmails(args: {
 
   // 1. Thank-you / welcome to the new shop owner.
   await sendEmail({
+    kind: "welcome",
+    orgId,
     to: email,
     subject: `Welcome to ${APP_NAME} 🔧`,
     html: welcomeHtml({ name, username, loginUrl, trialEnd }),
@@ -359,6 +364,8 @@ async function sendSignupEmails(args: {
     process.env.SIGNUP_NOTIFY_EMAIL || process.env.LEADS_NOTIFY_EMAIL;
   if (notify) {
     await sendEmail({
+      kind: "signup_notify",
+      orgId,
       to: notify,
       subject: `New ${APP_NAME} signup: ${name}`,
       html: ownerNotifyHtml({
