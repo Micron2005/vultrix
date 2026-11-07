@@ -13,7 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { DEFAULT_MAIL_FROM } from "@/lib/branding";
+import { escapeHtml, sendEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -96,23 +96,13 @@ export async function GET(req: Request) {
   }
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 /**
  * Email the owner when a new lead arrives. No-ops quietly if Resend isn't
- * configured yet (so the form keeps working before env vars are set).
+ * configured with a destination address.
  */
 async function notifyNewLead(lead: LeadData): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.LEADS_NOTIFY_EMAIL;
-  if (!apiKey || !to) return;
-
-  const from = process.env.LEADS_FROM_EMAIL || DEFAULT_MAIL_FROM;
+  if (!to) return;
 
   const row = (label: string, value: string) =>
     value
@@ -138,26 +128,12 @@ async function notifyNewLead(lead: LeadData): Promise<void> {
     <p style="margin-top:20px;color:#a1a1aa;font-size:12px">Reply to this email to respond directly to ${escapeHtml(lead.email)}.</p>
   </div>`;
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      reply_to: lead.email,
-      subject: `New Vultrix lead: ${lead.name}${lead.shop ? ` — ${lead.shop}` : ""}`,
-      html,
-    }),
+  await sendEmail({
+    kind: "lead_notify",
+    orgId: null,
+    to,
+    replyTo: lead.email,
+    subject: `New Vultrix lead: ${lead.name}${lead.shop ? ` — ${lead.shop}` : ""}`,
+    html,
   });
-
-  if (!res.ok) {
-    console.error(
-      "[marketing-leads] Resend notify failed:",
-      res.status,
-      await res.text().catch(() => ""),
-    );
-  }
 }

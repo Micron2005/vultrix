@@ -14,7 +14,11 @@ import {
 } from "@/lib/routines";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import { localCalendarDay } from "@/lib/timezone";
-import { emailBrandHeader, sendEmail, escapeHtml } from "@/lib/email";
+import {
+  emailBrandHeader,
+  sendEmailResult,
+  escapeHtml,
+} from "@/lib/email";
 import type { Role } from "@/lib/session";
 import { notify } from "@/lib/notifications";
 
@@ -264,7 +268,7 @@ export async function sendDailyDigestForOrg(
   };
   const organization = await db.organization.findUnique({
     where: { id: orgId },
-    select: { name: true, timezone: true },
+    select: { id: true, name: true, timezone: true },
   });
   if (!organization) return result;
   const settings = await getAllSettings(orgId);
@@ -321,7 +325,9 @@ export async function sendDailyDigestForOrg(
         continue;
       }
       result.attempted += 1;
-      const sent = await sendEmail({
+      const sendResult = await sendEmailResult({
+        kind: "daily_digest",
+        orgId: organization.id,
         to: recipient.email!,
         subject: `${organization.name} — today`,
         html: digest.html,
@@ -330,13 +336,13 @@ export async function sendDailyDigestForOrg(
       await db.reminderLog.update({
         where: { id: log.id },
         data: {
-          status: sent ? "SENT" : "FAILED",
-          detail: sent
+          status: sendResult.ok ? "SENT" : "FAILED",
+          detail: sendResult.ok
             ? "Daily digest email sent."
-            : "Email sending is not configured or the provider rejected the send.",
+            : sendResult.error,
         },
       });
-      if (sent) result.sent += 1;
+      if (sendResult.ok) result.sent += 1;
       else result.failed += 1;
     } catch (error) {
       console.error("[daily-digest] send failed:", error);
