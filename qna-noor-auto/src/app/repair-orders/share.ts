@@ -8,7 +8,7 @@ import { requireOrgId } from "@/lib/session";
 import { notify } from "@/lib/notifications";
 import { fullName } from "@/lib/utils";
 
-async function newToken(): Promise<string> {
+export async function newToken(): Promise<string> {
   // ~22 chars, URL-safe, non-guessable. Retry if the (astronomically unlikely)
   // collision happens.
   for (let i = 0; i < 5; i++) {

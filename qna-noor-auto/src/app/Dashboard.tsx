@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { LinkButton, PageHeader } from "@/components/ui";
 import type { CurrentUser } from "@/lib/session";
 import type { FeatureKey } from "@/lib/features";
 import { db } from "@/lib/db";
 import { enabledFeatureSet, repairOrderNouns } from "@/lib/features";
+import { firstResultState } from "@/lib/firstResult";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   DASHBOARD_BLOCKS,
@@ -264,7 +266,8 @@ export async function Dashboard({
   searchParams: SearchParams;
 }) {
   const orgId = user.orgId as string;
-  const [timezone, layoutRecord, orgRecord, onboarding] = await Promise.all([
+  const [timezone, layoutRecord, orgRecord, onboarding, firstResultCount] =
+    await Promise.all([
     orgTimeZone(orgId),
     db.user.findUnique({
       where: { id: user.id },
@@ -272,11 +275,30 @@ export async function Dashboard({
     }),
     db.organization.findUnique({
       where: { id: orgId },
-      select: { dashDefault: true, navDefault: true },
+      select: {
+        dashDefault: true,
+        navDefault: true,
+        onboardingDismissedAt: true,
+      },
     }),
     loadOnboarding(user),
+    user.accountType === "BUSINESS" && user.features.includes("invoices")
+      ? db.repairOrder.count({ where: { orgId } })
+      : user.accountType === "PERSONAL"
+        ? db.routineCheckOff.count({ where: { orgId } })
+        : Promise.resolve(0),
   ]);
   const features = enabledFeatureSet(user);
+  const firstResult = firstResultState({
+    accountType: user.accountType,
+    features: user.features,
+    repairOrderCount:
+      user.accountType === "BUSINESS" ? firstResultCount : 0,
+    checkOffCount:
+      user.accountType === "PERSONAL" ? firstResultCount : 0,
+    dismissed: Boolean(orgRecord?.onboardingDismissedAt),
+    role: user.role,
+  });
   const context: DashboardContext = {
     accountType: user.accountType,
     autoShop: (user.accountType ?? "AUTO_SHOP") === "AUTO_SHOP",
@@ -388,6 +410,22 @@ export async function Dashboard({
           </>
         }
       />
+      {!editing && firstResult?.showBanner && (
+        <Link
+          href="/start"
+          className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 hover:bg-zinc-100"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Start here
+          </span>
+          <span className="flex-1 text-sm font-medium text-zinc-900">
+            {firstResult.kind === "invoice"
+              ? "Send your first invoice — takes a minute"
+              : "Start your first routine"}
+          </span>
+          <span className="text-sm font-medium text-zinc-600">Start →</span>
+        </Link>
+      )}
       {!editing && onboarding && <GetStartedCard {...onboarding} />}
       <DashboardGrid
         layout={renderedLayout}
