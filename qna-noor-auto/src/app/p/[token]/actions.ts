@@ -106,6 +106,8 @@ export async function requestAppointment(fd: FormData) {
   if (shop.shopEmail) {
     const appUrl = `${siteOrigin() ?? "https://vultrix.net"}/appointments/${appointment.id}`;
     await sendEmail({
+      kind: "appointment_request",
+      orgId: customer.orgId,
       to: shop.shopEmail,
       subject: `Appointment request from ${fullName(customer)}`,
       html: `
