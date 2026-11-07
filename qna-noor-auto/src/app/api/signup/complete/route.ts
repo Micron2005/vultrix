@@ -45,7 +45,13 @@ export async function GET(req: Request) {
         id: result.ownerId,
         organization: org,
       });
-      const res = NextResponse.redirect(new URL("/", url), { status: 303 });
+      const destination =
+        org.accountType === "BUSINESS" || org.accountType === "PERSONAL"
+          ? "/start"
+          : "/";
+      const res = NextResponse.redirect(new URL(destination, url), {
+        status: 303,
+      });
       res.cookies.set(SESSION_COOKIE, token, {
         httpOnly: true,
         sameSite: "lax",
