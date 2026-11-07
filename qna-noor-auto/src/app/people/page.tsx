@@ -261,16 +261,24 @@ export default async function PeoplePage({
         description="Find someone by their exact name or @username."
         actions={
           canManage ? (
-            <Link
-              href="/people/messages"
-              aria-label={`Messages, ${unreadMessages} unread`}
-              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
-            >
-              <span>Messages</span>
-              <span className="min-w-5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-center text-xs text-zinc-700">
-                {unreadMessages}
-              </span>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/people/projects"
+                className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+              >
+                Projects
+              </Link>
+              <Link
+                href="/people/messages"
+                aria-label={`Messages, ${unreadMessages} unread`}
+                className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+              >
+                <span>Messages</span>
+                <span className="min-w-5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-center text-xs text-zinc-700">
+                  {unreadMessages}
+                </span>
+              </Link>
+            </div>
           ) : undefined
         }
       />
