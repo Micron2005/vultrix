@@ -68,6 +68,7 @@ import { TestAiKeyButton } from "./TestAiKeyButton";
 import { saveVehicleIntelSharing } from "./vehicle-intel-actions";
 import { saveFocusPacks } from "./focus-actions";
 import { FOCUS_PACKS } from "@/lib/focusPacks";
+import { updateAnnouncementEmailPreference } from "./announcement-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -697,6 +698,38 @@ export default async function SettingsPage({
               any number goals falling behind.
             </p>
             <SaveButton>Save weekly review settings</SaveButton>
+          </form>
+        </Card>
+      )}
+
+      {user.role === "OWNER" && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader title="Announcement emails" />
+          <form
+            action={updateAnnouncementEmailPreference}
+            className="space-y-4 p-6"
+          >
+            <input type="hidden" name="optIn" value="false" />
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex items-start gap-3 text-sm text-zinc-800">
+                <input
+                  type="checkbox"
+                  name="optIn"
+                  value="true"
+                  defaultChecked={!org.announcementsOptOut}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                />
+                Receive Vultrix announcement emails
+              </label>
+              <span className="shrink-0 text-xs font-medium text-zinc-500">
+                {org.announcementsOptOut ? "Off" : "On"}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Receipts, password resets, and other account emails are unaffected.
+              You can change this preference any time.
+            </p>
+            <SaveButton>Save announcement preference</SaveButton>
           </form>
         </Card>
       )}

@@ -164,6 +164,8 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname === "/signup") return true;
   if (pathname === "/forgot-password") return true;
   if (pathname === "/reset-password") return true;
+  if (pathname === "/unsubscribe") return true;
+  if (pathname === "/api/unsubscribe") return true;
   if (pathname === "/terms") return true;
   if (pathname === "/privacy") return true;
   if (pathname === "/status") return true;

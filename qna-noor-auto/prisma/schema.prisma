@@ -537,6 +537,35 @@ model EmailLog {
   @@index([orgId, createdAt])
 }
 
+model Announcement {
+  id         String   @id @default(cuid())
+  subject    String
+  body       String
+  testSentAt DateTime?
+  testSentTo String?
+  status     String   @default("draft")
+  sentAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  recipients AnnouncementRecipient[]
+}
+
+model AnnouncementRecipient {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email          String
+  status         String       @default("pending")
+  error          String?
+  sentAt         DateTime?
+
+  @@unique([announcementId, email])
+  @@index([announcementId, status])
+}
+
 // Knowledge base — your own repair notes keyed to year/make/model/engine.
 // Think of these as your institutional memory / "hotline archive."
 // Every field except title is optional so you can capture partial knowledge.
@@ -1239,6 +1268,7 @@ model Organization {
   musicAddonGraceUntil DateTime?
   // Contact email used for the Stripe customer / receipts.
   billingEmail         String?
+  announcementsOptOut Boolean  @default(false)
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
   // Mirrors the Stripe subscription status: trialing | active | past_due |
@@ -1314,6 +1344,7 @@ model Organization {
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
   emailLogs         EmailLog[]
+  announcementRecipients AnnouncementRecipient[]
 
   @@index([status])
 }
