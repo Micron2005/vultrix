@@ -106,6 +106,7 @@ export function Nav({
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/signups", label: "New signups" },
+        { href: "/admin/email", label: "Email health" },
         { href: "/admin/leads", label: "Leads" },
         { href: "/admin/status", label: "Status page" },
         { href: "/admin/landing", label: "Customize site" },
