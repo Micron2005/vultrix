@@ -152,12 +152,14 @@ export function classifyMoneyRow(input: {
   credit?: number | null;
   type?: string | null;
 }): { kind: MoneyRowKind; amount: number } | null {
-  const hasDebit = input.debit != null;
-  const hasCredit = input.credit != null;
-  if (hasDebit || hasCredit) {
-    const amount = Math.abs(Number(hasDebit ? input.debit : input.credit));
-    if (!Number.isFinite(amount) || amount === 0) return null;
-    return { kind: hasDebit ? "expense" : "income", amount };
+  const debit = Number(input.debit);
+  if (input.debit != null && Number.isFinite(debit) && debit !== 0) {
+    return { kind: "expense", amount: Math.abs(debit) };
+  }
+
+  const credit = Number(input.credit);
+  if (input.credit != null && Number.isFinite(credit) && credit !== 0) {
+    return { kind: "income", amount: Math.abs(credit) };
   }
 
   const amount = Number(input.amount);

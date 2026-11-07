@@ -180,7 +180,7 @@ export default async function ExportPage() {
         description="Download a full copy of your data as one ZIP of CSVs."
       />
 
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="Tax export" />
         <div className="space-y-4 p-4">
           <div className="text-sm text-zinc-700">
@@ -190,7 +190,7 @@ export default async function ExportPage() {
           <form
             action="/export/tax/download"
             method="get"
-            className="flex flex-wrap items-end gap-3"
+            className="flex min-w-0 flex-wrap items-end gap-3"
           >
             <label className="text-sm text-zinc-700">
               <span className="mb-1 block text-xs font-medium text-zinc-500">
@@ -237,7 +237,7 @@ export default async function ExportPage() {
         </div>
       </Card>
 
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="Download everything" />
         <div className="p-4 space-y-4">
           <div className="text-sm text-zinc-700">
@@ -258,9 +258,9 @@ export default async function ExportPage() {
         </div>
       </Card>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader title="What's in the export" />
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto">
           <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
             <tr>

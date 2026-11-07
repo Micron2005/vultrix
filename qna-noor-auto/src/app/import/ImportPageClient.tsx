@@ -31,9 +31,9 @@ export function ImportPageClient({
   return (
     <>
       <PageHeader title="Import CSV" description={description} />
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="What would you like to import?" />
-        <div className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-2 p-4 sm:grid-cols-3">
           {availableTypes.map((option) => (
             <label
               key={option.id}
@@ -59,7 +59,7 @@ export function ImportPageClient({
 
       {selected === "customers" && showIdentifixImport && (
         <>
-          <Card className="mb-4 border-blue-300 bg-blue-50">
+          <Card className="mb-4 min-w-0 border-blue-300 bg-blue-50">
             <div className="p-4 text-sm text-zinc-800">
               <p className="mb-1 font-semibold text-blue-900">
                 Got an Identifix multi-file export (A.csv + B.csv + C.csv)?
@@ -77,7 +77,7 @@ export function ImportPageClient({
               </p>
             </div>
           </Card>
-          <Card className="mb-4">
+          <Card className="mb-4 min-w-0">
             <CardHeader title="How to export from Identifix Shop Management" />
             <div className="space-y-2 p-4 text-sm text-zinc-700">
               <p>

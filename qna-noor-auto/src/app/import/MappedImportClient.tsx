@@ -123,7 +123,7 @@ export function MappedImportClient({ type }: { type: ImportType }) {
 
   return (
     <>
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="1. Upload CSV" />
         <div className="min-w-0 p-4 sm:p-6">
           <input
@@ -147,13 +147,12 @@ export function MappedImportClient({ type }: { type: ImportType }) {
 
       {parsed && (
         <>
-          <Card className="mb-4">
-            <CardHeader title="2. Map columns">
-              <span className="text-xs text-zinc-500">
-                Auto-matched where possible. Unmapped fields are skipped.
-              </span>
-            </CardHeader>
-            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-6">
+          <Card className="mb-4 min-w-0">
+            <CardHeader
+              title="2. Map columns"
+              description="Auto-matched where possible. Unmapped fields are skipped."
+            />
+            <div className="grid min-w-0 grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-6">
               {fields.map((field) => (
                 <Field key={field.key} label={field.label}>
                   <Select
@@ -177,9 +176,9 @@ export function MappedImportClient({ type }: { type: ImportType }) {
             </div>
           </Card>
 
-          <Card className="mb-4">
+          <Card className="mb-4 min-w-0">
             <CardHeader title="3. Preview first rows" />
-            <div className="overflow-x-auto p-4">
+            <div className="min-w-0 overflow-x-auto p-4">
               {type === "money" ? (
                 <table className="w-full min-w-[440px] text-xs">
                   <thead className="bg-zinc-50 text-left text-zinc-600">
@@ -237,7 +236,7 @@ export function MappedImportClient({ type }: { type: ImportType }) {
             </div>
           </Card>
 
-          <Card className="mb-4">
+          <Card className="mb-4 min-w-0">
             <CardHeader title="4. Run import" />
             <div className="p-4 sm:p-6">
               <Button onClick={handleRun} disabled={isPending || !csvText}>

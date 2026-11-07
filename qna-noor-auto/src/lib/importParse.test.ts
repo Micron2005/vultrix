@@ -59,6 +59,15 @@ test("classifies debit and credit columns before type or signed amount", () => {
     classifyMoneyRow({ amount: -20, credit: 20 }),
     { kind: "income", amount: 20 },
   );
+  assert.deepEqual(
+    classifyMoneyRow({ debit: 0, credit: 45 }),
+    { kind: "income", amount: 45 },
+  );
+  assert.deepEqual(
+    classifyMoneyRow({ debit: 12, credit: 0 }),
+    { kind: "expense", amount: 12 },
+  );
+  assert.equal(classifyMoneyRow({ debit: 0, credit: 0 }), null);
 });
 
 test("classifies type text before falling back to the amount sign", () => {
@@ -83,5 +92,12 @@ test("classifies type text before falling back to the amount sign", () => {
 test("does not classify zero or missing amounts", () => {
   assert.equal(classifyMoneyRow({ amount: 0 }), null);
   assert.equal(classifyMoneyRow({ amount: null }), null);
-  assert.equal(classifyMoneyRow({ debit: 0, amount: 10 }), null);
+  assert.deepEqual(
+    classifyMoneyRow({ debit: 0, amount: 10 }),
+    { kind: "income", amount: 10 },
+  );
+  assert.deepEqual(
+    classifyMoneyRow({ debit: 0, credit: 0, amount: -10 }),
+    { kind: "expense", amount: 10 },
+  );
 });
