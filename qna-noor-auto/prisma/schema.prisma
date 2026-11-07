@@ -520,6 +520,23 @@ model ReminderLog {
   @@index([orgId, createdAt])
 }
 
+model EmailLog {
+  id                String        @id @default(cuid())
+  orgId             String?
+  organization      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  kind              String
+  to                String
+  subject           String
+  status            String
+  error             String?
+  providerMessageId String?
+  createdAt         DateTime      @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([orgId, createdAt])
+}
+
 // Knowledge base — your own repair notes keyed to year/make/model/engine.
 // Think of these as your institutional memory / "hotline archive."
 // Every field except title is optional so you can capture partial knowledge.
@@ -1296,6 +1313,7 @@ model Organization {
   takeNotes         TakeNote[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
+  emailLogs         EmailLog[]
 
   @@index([status])
 }

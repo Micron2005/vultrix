@@ -85,7 +85,7 @@ export async function reopenInspection(id: string) {
 
 export async function sendInspectionToCustomer(id: string): Promise<{
   emailed: boolean;
-  reason: "sent" | "no_email" | "email_not_configured";
+  reason: "sent" | "no_email" | "email_not_configured" | "send_failed";
 }> {
   const { orgId } = await requireAutoShop();
   return sendToCustomer(orgId, id);

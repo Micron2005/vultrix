@@ -23,7 +23,7 @@ export type InspectionRunnerActions = {
     inspectionId: string,
   ) => Promise<{
     emailed: boolean;
-    reason: "sent" | "no_email" | "email_not_configured";
+    reason: "sent" | "no_email" | "email_not_configured" | "send_failed";
   }>;
   delete?: (inspectionId: string) => Promise<void>;
 };
@@ -181,7 +181,7 @@ export function InspectionRunner({
             )}
             {actions.delete ? <form action={actions.delete.bind(null, data.id)} onSubmit={(event) => { if (!confirm("Delete this inspection? Photos and ratings will be lost.")) event.preventDefault(); }}><button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-700">Delete</button></form> : null}
           </div>
-          {status === "COMPLETED" && sentAt && <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sent {new Date(sentAt).toLocaleDateString()} · {data.portalToken ? "portal link ready" : "customer has no portal link"}{sendReason === "sent" && data.customerEmail ? ` · Emailed to ${data.customerEmail}` : sendReason === "no_email" ? " · Customer has no email — share the portal link" : sendReason === "email_not_configured" ? " · Email isn't set up for this shop — share the portal link" : ""}</div>}
+          {status === "COMPLETED" && sentAt && <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sent {new Date(sentAt).toLocaleDateString()} · {data.portalToken ? "portal link ready" : "customer has no portal link"}{sendReason === "sent" && data.customerEmail ? ` · Emailed to ${data.customerEmail}` : sendReason === "no_email" ? " · Customer has no email — share the portal link" : sendReason === "email_not_configured" ? " · Email isn't set up for this shop — share the portal link" : sendReason === "send_failed" ? " · Email failed to send — share the portal link" : ""}</div>}
           {status === "COMPLETED" && sentAt && portalLink && <div className="mt-2 flex flex-wrap items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-zinc-100 px-2 py-1 text-xs">{portalLink}</code><button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${portalLink}`)} className="rounded border border-zinc-300 px-2 py-1 text-xs">Copy portal link</button></div>}
         </section>
       </div>
