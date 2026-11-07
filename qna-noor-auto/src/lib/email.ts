@@ -1,7 +1,5 @@
-// Tiny transactional-email helper built on Resend's REST API (no SDK, so no
-// extra dependency). Mirrors the proven approach already used by the marketing
-// leads endpoint. Sends are best-effort: if RESEND_API_KEY isn't set, calls
-// no-op quietly so the app keeps working before email is configured.
+// Transactional-email helper built on Resend's REST API (no SDK dependency).
+// Every attempted send is recorded in EmailLog without storing its HTML body.
 //
 // Env vars (set in Vercel → Settings → Environment Variables):
 //   RESEND_API_KEY   your Resend API key (re_...)
@@ -9,6 +7,7 @@
 //                    and finally the platform's default noreply sender.
 
 import { DEFAULT_MAIL_FROM } from "@/lib/branding";
+import { db } from "@/lib/db";
 
 export function emailBrandHeader(): string {
   const base =
@@ -33,6 +32,17 @@ type SendArgs = {
   subject: string;
   html: string;
   replyTo?: string;
+  kind: string;
+  orgId?: string | null;
+  logSubject?: string;
+};
+
+export type EmailSendStatus = "SENT" | "FAILED" | "NOT_CONFIGURED";
+
+export type EmailSendResult = {
+  ok: boolean;
+  status: EmailSendStatus;
+  error: string | null;
 };
 
 export function escapeHtml(s: string): string {
@@ -42,53 +52,130 @@ export function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+export function emailFromAddress(): string {
+  return (
+    process.env.MAIL_FROM ||
+    process.env.LEADS_FROM_EMAIL ||
+    DEFAULT_MAIL_FROM
+  );
+}
+
+export function resendErrorDetail(status: number, body: string): string {
+  const trimmed = body.trim();
+  let detail: string;
+
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "name" in parsed &&
+      typeof parsed.name === "string" &&
+      "message" in parsed &&
+      typeof parsed.message === "string"
+    ) {
+      detail = `Resend ${status} (${parsed.name}): ${parsed.message}`;
+    } else {
+      detail = trimmed ? `Resend ${status}: ${trimmed}` : `Resend ${status}`;
+    }
+  } catch {
+    detail = trimmed ? `Resend ${status}: ${trimmed}` : `Resend ${status}`;
+  }
+
+  return detail.slice(0, 500);
+}
+
 /**
- * Send one transactional email via Resend. Returns true on success, false if
- * email isn't configured or the send failed. Never throws.
+ * Send one transactional email via Resend and record the result.
  */
-export async function sendEmail({
+export async function sendEmailResult({
   to,
   subject,
   html,
   replyTo,
-}: SendArgs): Promise<boolean> {
+  kind,
+  orgId = null,
+  logSubject,
+}: SendArgs): Promise<EmailSendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[email] RESEND_API_KEY not set — skipping send to", to);
-    return false;
-  }
+  let result: EmailSendResult;
+  let providerMessageId: string | null = null;
 
-  const from =
-    process.env.MAIL_FROM ||
-    process.env.LEADS_FROM_EMAIL ||
-    DEFAULT_MAIL_FROM;
+  if (!apiKey) {
+    result = {
+      ok: false,
+      status: "NOT_CONFIGURED",
+      error: "RESEND_API_KEY is not set",
+    };
+  } else {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: emailFromAddress(),
+          to: [to],
+          subject,
+          html,
+          ...(replyTo ? { reply_to: replyTo } : {}),
+        }),
+      });
+      const body = await res.text().catch(() => "");
+      if (!res.ok) {
+        result = {
+          ok: false,
+          status: "FAILED",
+          error: resendErrorDetail(res.status, body),
+        };
+      } else {
+        try {
+          const payload: unknown = JSON.parse(body);
+          if (
+            payload &&
+            typeof payload === "object" &&
+            "id" in payload &&
+            typeof payload.id === "string"
+          ) {
+            providerMessageId = payload.id;
+          }
+        } catch {
+          providerMessageId = null;
+        }
+        result = { ok: true, status: "SENT", error: null };
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      result = {
+        ok: false,
+        status: "FAILED",
+        error: `Network error: ${message}`.slice(0, 500),
+      };
+    }
+  }
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    await db.emailLog.create({
+      data: {
+        orgId,
+        kind,
+        to,
+        subject: logSubject ?? subject,
+        status: result.status,
+        error: result.error,
+        providerMessageId,
       },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject,
-        html,
-        ...(replyTo ? { reply_to: replyTo } : {}),
-      }),
     });
-    if (!res.ok) {
-      console.error(
-        "[email] Resend send failed:",
-        res.status,
-        await res.text().catch(() => ""),
-      );
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error("[email] send error:", e);
-    return false;
+  } catch (error) {
+    console.error("[email] failed to write send log:", error);
   }
+
+  return result;
+}
+
+export async function sendEmail(args: SendArgs): Promise<boolean> {
+  return (await sendEmailResult(args)).ok;
 }

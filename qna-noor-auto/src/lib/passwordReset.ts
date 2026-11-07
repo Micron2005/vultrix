@@ -38,7 +38,12 @@ function generateCode(): string {
   return crypto.randomInt(0, 1_000_000).toString().padStart(CODE_LENGTH, "0");
 }
 
-type ResolvedUser = { id: string; username: string; deliveryEmail: string | null };
+type ResolvedUser = {
+  id: string;
+  orgId: string | null;
+  username: string;
+  deliveryEmail: string | null;
+};
 
 /**
  * Resolve a username/email to a single account and the address a reset code
@@ -85,7 +90,12 @@ async function resolveUser(identifierRaw: string): Promise<ResolvedUser | null> 
       : null) ||
     null;
 
-  return { id: user.id, username: user.username, deliveryEmail };
+  return {
+    id: user.id,
+    orgId: user.orgId,
+    username: user.username,
+    deliveryEmail,
+  };
 }
 
 /**
@@ -124,8 +134,11 @@ export async function requestPasswordReset(identifier: string): Promise<void> {
   });
 
   const sent = await sendEmail({
+    kind: "password_reset",
+    orgId: resolved.orgId,
     to: resolved.deliveryEmail,
     subject: `Your ${APP_NAME} password reset code: ${code}`,
+    logSubject: "Password reset code",
     html: resetHtml({ username: resolved.username, code }),
     replyTo: SUPPORT_EMAIL,
   });
