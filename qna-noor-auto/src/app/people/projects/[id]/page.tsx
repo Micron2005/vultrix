@@ -72,7 +72,10 @@ export default async function ProjectPage({
     db.follow.findMany({ where: { followingId: profile.id }, include: { follower: { select: { id: true, orgId: true, handle: true, displayName: true } } } }),
     db.song.findMany({ where: songAccessWhere(orgId), select: { id: true, title: true }, orderBy: { title: "asc" }, take: 100 }),
     project.notesUpdatedByOrgId
-      ? db.organization.findUnique({ where: { id: project.notesUpdatedByOrgId }, select: { name: true } })
+      ? db.organization.findUnique({
+          where: { id: project.notesUpdatedByOrgId },
+          select: { name: true, profile: { select: { displayName: true } } },
+        })
       : Promise.resolve(null),
   ]);
   const memberOrgIds = new Set([project.orgId, ...project.members.map((member) => member.orgId)]);
@@ -84,12 +87,14 @@ export default async function ProjectPage({
   const songIds = new Set(songs.map((song) => song.id));
   const posts = [...project.posts].reverse();
   const isOwner = project.orgId === orgId;
+  const ownerName = project.organization.profile?.displayName ?? project.organization.name;
+  const editorName = editorOrg?.profile?.displayName ?? editorOrg?.name ?? "a project member";
   const error = query.error ? errors[query.error] : undefined;
   const taskAction = (taskId: string, done: boolean) => setProjectTaskDone.bind(null, project.id, taskId, done);
 
   return (
     <div className="min-w-0 space-y-5">
-      <PageHeader title={project.title} description={`Owned by ${project.organization.name}`} actions={<Link className="text-sm text-[var(--vx-accent-600)] hover:underline" href="/people/projects">All projects</Link>} />
+      <PageHeader title={project.title} description={`Owned by ${ownerName}`} actions={<Link className="text-sm text-[var(--vx-accent-600)] hover:underline" href="/people/projects">All projects</Link>} />
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Badge tone={project.status === "done" ? "success" : "neutral"}>{project.status}</Badge>
@@ -103,13 +108,21 @@ export default async function ProjectPage({
         <CardHeader title="People" />
         <CardBody className="min-w-0 space-y-4">
           <ul className="space-y-2">
-            <li className="flex min-w-0 flex-wrap items-center gap-2 text-sm"><span className="font-medium">{project.organization.profile?.displayName ?? project.organization.name}</span><span className="text-zinc-500">{project.organization.name} · owner</span></li>
-            {project.members.map((member) => (
-              <li key={member.orgId} className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium">{member.organization.profile?.displayName ?? member.organization.name}</span><span className="text-zinc-500">{member.organization.name}</span>
-                {isOwner && <form action={removeProjectMember.bind(null, project.id, member.orgId)}><button className="text-xs text-red-700 hover:underline">Remove</button></form>}
-              </li>
-            ))}
+            <li className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium">{ownerName}</span>
+              {project.organization.name !== ownerName && <span className="text-zinc-500">{project.organization.name}</span>}
+              <span className="text-zinc-500">· owner</span>
+            </li>
+            {project.members.map((member) => {
+              const displayName = member.organization.profile?.displayName ?? member.organization.name;
+              return (
+                <li key={member.orgId} className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{displayName}</span>
+                  {member.organization.name !== displayName && <span className="text-zinc-500">{member.organization.name}</span>}
+                  {isOwner && <form action={removeProjectMember.bind(null, project.id, member.orgId)}><button className="text-xs text-red-700 hover:underline">Remove</button></form>}
+                </li>
+              );
+            })}
           </ul>
           {isOwner && (
             <div className="border-t border-zinc-200 pt-4">
@@ -148,7 +161,7 @@ export default async function ProjectPage({
             <Textarea name="notes" rows={7} maxLength={50000} defaultValue={project.notes} className="w-full min-w-0" placeholder="Project notes everyone can edit…" />
             <Button type="submit" variant="secondary">Save notes</Button>
           </form>
-          {project.notesUpdatedAt && <p className="mt-3 text-xs text-zinc-500">Last edited by {editorOrg?.name ?? "a project member"} · {formatInTimeZone(project.notesUpdatedAt, timezone, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>}
+          {project.notesUpdatedAt && <p className="mt-3 text-xs text-zinc-500">Last edited by {editorName} · {formatInTimeZone(project.notesUpdatedAt, timezone, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>}
         </CardBody>
       </Card>
 
@@ -196,7 +209,7 @@ export default async function ProjectPage({
             const canOpen = songIds.has(song.id);
             return <li key={song.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0 break-words"><strong>{song.title}</strong> · {song.stage}</span>
-              {canOpen ? <Link className="text-[var(--vx-accent-600)] hover:underline" href={`/songs/${song.id}`}>Open</Link> : <span className="text-xs text-zinc-500">Ask {project.organization.name} to share this song with you</span>}
+              {canOpen ? <Link className="text-[var(--vx-accent-600)] hover:underline" href={`/songs/${song.id}`}>Open</Link> : <span className="text-xs text-zinc-500">Ask {ownerName} to share this song with you</span>}
               {(isOwner || addedByOrgId === orgId) && <form action={unlinkProjectSong.bind(null, project.id, song.id)}><button className="text-xs text-zinc-500 hover:underline">Unlink</button></form>}
             </li>;
           })}
