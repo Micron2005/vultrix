@@ -727,13 +727,23 @@ export async function linkProjectSong(
 
 export async function unlinkProjectSong(projectId: string, songId: string) {
   const orgId = await requirePeopleManager();
-  await db.projectSongLink.deleteMany({
-    where: {
-      projectId,
-      songId,
-      project: { is: projectAccessWhere(orgId) },
-    },
+  await dbBase.$transaction(async (tx) => {
+    const link = await tx.projectSongLink.findFirst({
+      where: {
+        projectId,
+        songId,
+        project: { is: projectAccessWhere(orgId) },
+      },
+      select: {
+        addedByOrgId: true,
+        project: { select: { orgId: true } },
+      },
+    });
+    if (!link || (link.addedByOrgId !== orgId && link.project.orgId !== orgId)) {
+      return;
+    }
+    await tx.projectSongLink.deleteMany({ where: { projectId, songId } });
+    await touchProject(tx, projectId, orgId);
   });
-  await touchProject(dbBase, projectId, orgId);
   revalidatePath(projectHref(projectId));
 }

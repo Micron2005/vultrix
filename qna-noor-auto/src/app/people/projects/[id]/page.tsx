@@ -61,7 +61,7 @@ export default async function ProjectPage({
       members: { include: { organization: { select: { name: true, profile: { select: { displayName: true } } } } } },
       tasks: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       files: { orderBy: { createdAt: "desc" }, select: { id: true, orgId: true, name: true, mimeType: true, sizeBytes: true, createdAt: true } },
-      posts: { orderBy: { createdAt: "desc" }, take: 50, include: { authorOrg: { select: { name: true } } } },
+      posts: { orderBy: { createdAt: "desc" }, take: 50, include: { authorOrg: { select: { name: true, profile: { select: { displayName: true } } } } } },
       songLinks: { include: { song: { select: { id: true, title: true, stage: true, orgId: true, members: { select: { orgId: true } } } } } },
     },
   });
@@ -165,8 +165,8 @@ export default async function ProjectPage({
               <span className={`min-w-0 flex-1 break-words text-sm ${task.done ? "text-zinc-500 line-through" : "text-zinc-900"}`}>{task.title}</span>
               <form action={assignProjectTask.bind(null, project.id, task.id)} className="flex gap-2">
                 <select className="min-h-9 max-w-44 min-w-0 rounded-md border border-zinc-300 px-2 text-xs" name="assigneeOrgId" defaultValue={task.assigneeOrgId ?? ""}>
-                  <option value="">Unassigned</option><option value={project.orgId}>{project.organization.name}</option>
-                  {project.members.map((member) => <option key={member.orgId} value={member.orgId}>{member.organization.name}</option>)}
+                  <option value="">Unassigned</option><option value={project.orgId}>{project.organization.profile?.displayName ?? project.organization.name}</option>
+                  {project.members.map((member) => <option key={member.orgId} value={member.orgId}>{member.organization.profile?.displayName ?? member.organization.name}</option>)}
                 </select><button className="text-xs text-[var(--vx-accent-600)] hover:underline">Assign</button>
               </form>
               <form action={deleteProjectTask.bind(null, project.id, task.id)}><button className="text-xs text-red-700 hover:underline">Delete</button></form>
@@ -192,12 +192,12 @@ export default async function ProjectPage({
           <select name="songId" className="min-h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3" defaultValue=""><option value="" disabled>Choose a song you can access</option>{songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</select><Button type="submit" variant="secondary">Link song</Button>
         </form>
         {project.songLinks.length ? <ul className="divide-y divide-zinc-200">
-          {project.songLinks.map(({ song }) => {
+          {project.songLinks.map(({ song, addedByOrgId }) => {
             const canOpen = songIds.has(song.id);
             return <li key={song.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0 break-words"><strong>{song.title}</strong> · {song.stage}</span>
               {canOpen ? <Link className="text-[var(--vx-accent-600)] hover:underline" href={`/songs/${song.id}`}>Open</Link> : <span className="text-xs text-zinc-500">Ask {project.organization.name} to share this song with you</span>}
-              <form action={unlinkProjectSong.bind(null, project.id, song.id)}><button className="text-xs text-zinc-500 hover:underline">Unlink</button></form>
+              {(isOwner || addedByOrgId === orgId) && <form action={unlinkProjectSong.bind(null, project.id, song.id)}><button className="text-xs text-zinc-500 hover:underline">Unlink</button></form>}
             </li>;
           })}
         </ul> : <p className="text-sm text-zinc-500">No songs linked yet.</p>}
@@ -206,7 +206,7 @@ export default async function ProjectPage({
       <Card><CardHeader title="Chat" /><CardBody className="min-w-0 space-y-4">
         <div id="chat" className="min-w-0 space-y-3">
           {posts.map((post) => <article key={post.id} className="min-w-0 rounded-lg bg-zinc-50 p-3">
-            <div className="flex flex-wrap justify-between gap-2 text-xs text-zinc-500"><span className="font-medium text-zinc-700">{post.authorOrg.name}</span><time>{formatInTimeZone(post.createdAt, timezone, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></div>
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-zinc-500"><span className="font-medium text-zinc-700">{post.authorOrg.profile?.displayName ?? post.authorOrg.name}</span><time>{formatInTimeZone(post.createdAt, timezone, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></div>
             <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">{post.body}</p>
             {(post.authorOrgId === orgId || isOwner) && <form action={deleteProjectPost.bind(null, project.id, post.id)}><button className="mt-2 text-xs text-red-700 hover:underline">Delete post</button></form>}
           </article>)}
