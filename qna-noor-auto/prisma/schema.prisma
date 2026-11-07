@@ -1314,6 +1314,9 @@ model Profile {
   updatedAt        DateTime     @updatedAt
   following        Follow[]     @relation("FollowFollower")
   followers        Follow[]     @relation("FollowFollowing")
+  conversationsA   Conversation[] @relation("ConversationA")
+  conversationsB   Conversation[] @relation("ConversationB")
+  messagesSent     DirectMessage[] @relation("DirectMessageSender")
 
   @@index([displayNameLower])
 }
@@ -1328,6 +1331,37 @@ model Follow {
 
   @@unique([followerId, followingId])
   @@index([followingId])
+}
+
+model Conversation {
+  id                  String         @id @default(cuid())
+  aProfileId          String
+  aProfile            Profile        @relation("ConversationA", fields: [aProfileId], references: [id], onDelete: Cascade)
+  bProfileId          String
+  bProfile            Profile        @relation("ConversationB", fields: [bProfileId], references: [id], onDelete: Cascade)
+  aReadAt             DateTime?
+  bReadAt             DateTime?
+  lastMessageAt       DateTime?
+  lastSenderProfileId String?
+  lastPreview         String?
+  createdAt           DateTime       @default(now())
+  messages            DirectMessage[]
+
+  @@unique([aProfileId, bProfileId])
+  @@index([aProfileId, lastMessageAt])
+  @@index([bProfileId, lastMessageAt])
+}
+
+model DirectMessage {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderProfileId String
+  sender          Profile      @relation("DirectMessageSender", fields: [senderProfileId], references: [id], onDelete: Cascade)
+  body            String
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 model Song {
