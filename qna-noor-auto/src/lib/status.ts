@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { DEFAULT_MAIL_FROM } from "@/lib/branding";
+import { emailFromAddress } from "@/lib/email";
 import { billingConfigured, getStripe } from "@/lib/stripe";
 
 export type StatusState =
@@ -61,10 +61,7 @@ async function checkDatabase(): Promise<StatusCheck> {
 }
 
 function senderDomain(): string {
-  const sender =
-    process.env.MAIL_FROM ||
-    process.env.LEADS_FROM_EMAIL ||
-    DEFAULT_MAIL_FROM;
+  const sender = emailFromAddress();
   const match = sender.match(/@([^>\s]+)/);
   return match?.[1]?.toLowerCase() ?? "";
 }
@@ -155,7 +152,7 @@ async function checkEmailUncached(): Promise<StatusCheck> {
   }
 }
 
-async function checkEmail(): Promise<StatusCheck> {
+export async function checkEmailStatus(): Promise<StatusCheck> {
   if (emailCache && emailCache.expiresAt > Date.now()) return emailCache.value;
   const value = await checkEmailUncached();
   emailCache = {
@@ -208,7 +205,7 @@ async function checkPayments(): Promise<StatusCheck> {
 export async function getStatusChecks(): Promise<StatusCheck[]> {
   const [database, email, payments] = await Promise.all([
     checkDatabase(),
-    checkEmail(),
+    checkEmailStatus(),
     checkPayments(),
   ]);
   return [

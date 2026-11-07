@@ -1,7 +1,11 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { assertROEditable } from "@/app/repair-orders/actions";
-import { sendEmail, escapeHtml, shopEmailHeader } from "@/lib/email";
+import {
+  sendEmailResult,
+  escapeHtml,
+  shopEmailHeader,
+} from "@/lib/email";
 import { getAllSettings, shopBranding } from "@/lib/shop";
 import { ensurePortalToken } from "@/lib/portalToken";
 import { db } from "./db";
@@ -20,7 +24,12 @@ export type InspectionRunnerData = {
   templateName: string;
   status: string;
   sentAt: string | null;
-  sendReason: "sent" | "no_email" | "email_not_configured" | null;
+  sendReason:
+    | "sent"
+    | "no_email"
+    | "email_not_configured"
+    | "send_failed"
+    | null;
   summary: string;
   technicianId: string | null;
   items: Array<{
@@ -298,7 +307,7 @@ async function appOrigin() {
 
 export async function sendToCustomer(orgId: string, inspectionId: string): Promise<{
   emailed: boolean;
-  reason: "sent" | "no_email" | "email_not_configured";
+  reason: "sent" | "no_email" | "email_not_configured" | "send_failed";
 }> {
   const inspection = await db.inspection.findFirst({
     where: { id: inspectionId, orgId },
@@ -337,7 +346,9 @@ export async function sendToCustomer(orgId: string, inspectionId: string): Promi
     logo: branding.logo,
     accent: branding.accent,
   });
-  const emailed = await sendEmail({
+  const result = await sendEmailResult({
+    kind: "inspection",
+    orgId,
     to: inspection.repairOrder.customer.email,
     subject: `Your vehicle inspection from ${shop}`,
     replyTo: settings.shopEmail || undefined,
@@ -348,8 +359,12 @@ export async function sendToCustomer(orgId: string, inspectionId: string): Promi
     `/repair-orders/${inspection.repairOrderId}/inspections/${inspectionId}`,
   );
   return {
-    emailed,
-    reason: emailed ? "sent" : "email_not_configured",
+    emailed: result.ok,
+    reason: result.ok
+      ? "sent"
+      : result.status === "NOT_CONFIGURED"
+        ? "email_not_configured"
+        : "send_failed",
   };
 }
 
