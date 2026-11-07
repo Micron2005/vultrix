@@ -11,6 +11,7 @@ export type NotificationKind =
   | "low_stock"
   | "task_assigned"
   | "new_follower"
+  | "message"
   | "song_shared"
   | "song_left"
   | "take_note"
