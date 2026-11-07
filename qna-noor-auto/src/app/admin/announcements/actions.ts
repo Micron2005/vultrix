@@ -300,7 +300,7 @@ export async function sendAnnouncementBatch(
               SELECT "announcementsOptOut"
               FROM "Organization"
               WHERE "id" = ${recipient.orgId}
-              FOR UPDATE
+              FOR NO KEY UPDATE
             `;
             const org = orgs[0];
             if (!org || org.announcementsOptOut) {

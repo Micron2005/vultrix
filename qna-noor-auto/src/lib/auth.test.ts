@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { makeToken, tokenNonce } from "./auth";
+import { isPublicPath, makeToken, tokenNonce } from "./auth";
 
 test("tokenNonce returns the nonce from a valid token", () => {
   const token = makeToken("user-1");
@@ -19,4 +19,8 @@ test("tokenNonce rejects a token with the wrong number of parts", () => {
   const token = makeToken("user-1").split(".").slice(0, 3).join(".");
 
   assert.equal(tokenNonce(token), null);
+});
+
+test("brand assets are public", () => {
+  assert.equal(isPublicPath("/brand/vultrix-mark-email.png"), true);
 });
