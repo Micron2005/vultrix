@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { db } from "@/lib/db";
 import { findPeople } from "@/lib/people";
+import { unreadConversationCount } from "@/lib/messagesDb";
 import { requireUser } from "@/lib/session";
 import { follow, removeFollower, saveProfile } from "./actions";
 
@@ -190,7 +191,7 @@ export default async function PeoplePage({
     },
   });
   const canManage = user.role === "OWNER" || user.role === "ADMIN";
-  const [results, followingRows, followerRows] = await Promise.all([
+  const [results, followingRows, followerRows, unreadMessages] = await Promise.all([
     query ? findPeople(query, profile?.id ?? null) : Promise.resolve([]),
     profile
       ? db.follow.findMany({
@@ -214,6 +215,9 @@ export default async function PeoplePage({
           },
         })
       : Promise.resolve([]),
+    canManage
+      ? unreadConversationCount(user.orgId)
+      : Promise.resolve(0),
   ]);
   const followingIds = new Set(followingRows.map((row) => row.following.id));
   const followerIds = new Set(followerRows.map((row) => row.follower.id));
@@ -255,6 +259,20 @@ export default async function PeoplePage({
       <PageHeader
         title="People"
         description="Find someone by their exact name or @username."
+        actions={
+          canManage ? (
+            <Link
+              href="/people/messages"
+              aria-label={`Messages, ${unreadMessages} unread`}
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+            >
+              <span>Messages</span>
+              <span className="min-w-5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-center text-xs text-zinc-700">
+                {unreadMessages}
+              </span>
+            </Link>
+          ) : undefined
+        }
       />
 
       <Card>
@@ -291,7 +309,21 @@ export default async function PeoplePage({
             connected.length ? (
               <div className="divide-y divide-zinc-100">
                 {connected.map((row) => (
-                  <ProfileRow key={row.following.id} profile={row.following} />
+                  <ProfileRow
+                    key={row.following.id}
+                    profile={row.following}
+                    action={
+                      canManage ? (
+                        <LinkButton
+                          href={`/people/messages/${row.following.handle}`}
+                          size="xs"
+                          variant="secondary"
+                        >
+                          Message
+                        </LinkButton>
+                      ) : undefined
+                    }
+                  />
                 ))}
               </div>
             ) : (

@@ -4,19 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { normalizeHandle, normalizeName } from "@/lib/people";
+import { requirePeopleManager } from "@/lib/peopleAccess";
 import { notify } from "@/lib/notifications";
-import { requireUser } from "@/lib/session";
-
-async function requirePeopleManager(): Promise<string> {
-  const user = await requireUser();
-  if (
-    !user.orgId ||
-    (user.role !== "OWNER" && user.role !== "ADMIN")
-  ) {
-    redirect("/people");
-  }
-  return user.orgId;
-}
 
 function revalidatePeoplePaths(
   ...handles: Array<string | null | undefined>
