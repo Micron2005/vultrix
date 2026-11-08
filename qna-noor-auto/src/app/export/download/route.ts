@@ -25,6 +25,8 @@ function csv<T extends object>(rows: T[]): string {
 function extFor(mime: string): string {
   if (mime === "image/jpeg") return "jpg";
   if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
   return "bin";
 }
 
@@ -96,6 +98,21 @@ export async function GET() {
     expenseReceipts,
     noteImages,
     repairOrderPhotos,
+    inspectionTemplates,
+    inspectionTemplateItems,
+    inspections,
+    inspectionItems,
+    inspectionPhotos,
+    songs,
+    songTasks,
+    songIdeas,
+    songLyricDrafts,
+    practiceSessions,
+    beats,
+    beatVocalLayers,
+    beatVersions,
+    beatTakes,
+    songVocalTakes,
   ] = await Promise.all([
     db.customer.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
     db.vehicle.findMany({ where: { orgId }, orderBy: { createdAt: "asc" } }),
@@ -210,6 +227,66 @@ export async function GET() {
     db.repairOrderPhoto.findMany({
       where: { orgId },
       orderBy: { createdAt: "asc" },
+    }),
+    db.inspectionTemplate.findMany({
+      where: { orgId },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    }),
+    db.inspectionTemplateItem.findMany({
+      where: { template: { orgId } },
+      orderBy: [{ templateId: "asc" }, { sortOrder: "asc" }],
+    }),
+    db.inspection.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.inspectionItem.findMany({
+      where: { inspection: { orgId } },
+      orderBy: [{ inspectionId: "asc" }, { sortOrder: "asc" }],
+    }),
+    db.inspectionPhoto.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.song.findMany({
+      where: { orgId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    }),
+    db.songTask.findMany({
+      where: { song: { orgId } },
+      orderBy: [{ songId: "asc" }, { sortOrder: "asc" }],
+    }),
+    db.songIdea.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.songLyricDraft.findMany({
+      where: { orgId },
+      orderBy: [{ songId: "asc" }, { createdAt: "asc" }],
+    }),
+    db.practiceSession.findMany({
+      where: { orgId },
+      orderBy: { startedAt: "asc" },
+    }),
+    db.beat.findMany({
+      where: { orgId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    }),
+    db.beatVocalLayer.findMany({
+      where: { orgId },
+      orderBy: [{ beatId: "asc" }, { sortOrder: "asc" }],
+    }),
+    db.beatVersion.findMany({
+      where: { orgId },
+      orderBy: [{ beatId: "asc" }, { createdAt: "asc" }],
+    }),
+    db.beatTake.findMany({
+      where: { orgId, uploadComplete: true },
+      orderBy: [{ beatId: "asc" }, { createdAt: "asc" }],
+    }),
+    db.songVocalTake.findMany({
+      where: { orgId, uploadComplete: true },
+      orderBy: [{ songId: "asc" }, { createdAt: "asc" }],
     }),
   ]);
 
@@ -937,6 +1014,271 @@ export async function GET() {
     ),
   );
 
+  zip.file(
+    "inspection-templates.csv",
+    csv(
+      inspectionTemplates.map((template) => ({
+        id: template.id,
+        orgId: template.orgId,
+        name: template.name,
+        sortOrder: template.sortOrder,
+        createdAt: toIso(template.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "inspection-template-items.csv",
+    csv(
+      inspectionTemplateItems.map((item) => ({
+        id: item.id,
+        templateId: item.templateId,
+        section: item.section,
+        name: item.name,
+        sortOrder: item.sortOrder,
+      })),
+    ),
+  );
+
+  zip.file(
+    "inspections.csv",
+    csv(
+      inspections.map((inspection) => ({
+        id: inspection.id,
+        orgId: inspection.orgId,
+        repairOrderId: inspection.repairOrderId,
+        templateName: inspection.templateName,
+        technicianId: inspection.technicianId ?? "",
+        status: inspection.status,
+        sentAt: toIso(inspection.sentAt),
+        summary: inspection.summary ?? "",
+        createdAt: toIso(inspection.createdAt),
+        completedAt: toIso(inspection.completedAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "inspection-items.csv",
+    csv(
+      inspectionItems.map((item) => ({
+        id: item.id,
+        inspectionId: item.inspectionId,
+        section: item.section,
+        name: item.name,
+        sortOrder: item.sortOrder,
+        rating: item.rating ?? "",
+        note: item.note ?? "",
+        jobId: item.jobId ?? "",
+      })),
+    ),
+  );
+
+  zip.file(
+    "inspection-photos.csv",
+    csv(
+      inspectionPhotos.map((photo) => ({
+        id: photo.id,
+        orgId: photo.orgId,
+        itemId: photo.itemId,
+        createdAt: toIso(photo.createdAt),
+        file: addAttachment(zip, photo.dataUrl, "inspection-photos", photo.id),
+      })),
+    ),
+  );
+
+  zip.file(
+    "songs.csv",
+    csv(
+      songs.map((song) => ({
+        id: song.id,
+        orgId: song.orgId,
+        title: song.title,
+        stage: song.stage,
+        musicalKey: song.musicalKey ?? "",
+        bpm: song.bpm ?? "",
+        genre: song.genre ?? "",
+        collaborators: song.collaborators ?? "",
+        notes: song.notes ?? "",
+        lyrics: song.lyrics ?? "",
+        lyricsMeta: song.lyricsMeta ?? "",
+        rating: song.rating ?? "",
+        bestTakeKind: song.bestTakeKind ?? "",
+        bestTakeId: song.bestTakeId ?? "",
+        releasedAt: toIso(song.releasedAt),
+        sortOrder: song.sortOrder,
+        createdAt: toIso(song.createdAt),
+        updatedAt: toIso(song.updatedAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "song-tasks.csv",
+    csv(
+      songTasks.map((task) => ({
+        id: task.id,
+        songId: task.songId,
+        stage: task.stage,
+        label: task.label,
+        done: task.done,
+        sortOrder: task.sortOrder,
+      })),
+    ),
+  );
+
+  zip.file(
+    "song-ideas.csv",
+    csv(
+      songIdeas.map((idea) => ({
+        id: idea.id,
+        orgId: idea.orgId,
+        songId: idea.songId ?? "",
+        title: idea.title ?? "",
+        body: idea.body ?? "",
+        audioMimeType: idea.audioMimeType ?? "",
+        durationSec: idea.durationSec ?? "",
+        createdAt: toIso(idea.createdAt),
+        updatedAt: toIso(idea.updatedAt),
+        audioPath: "",
+      })),
+    ),
+  );
+
+  zip.file(
+    "song-lyric-drafts.csv",
+    csv(
+      songLyricDrafts.map((draft) => ({
+        id: draft.id,
+        orgId: draft.orgId,
+        songId: draft.songId,
+        name: draft.name,
+        lyrics: draft.lyrics,
+        createdAt: toIso(draft.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "practice-sessions.csv",
+    csv(
+      practiceSessions.map((session) => ({
+        id: session.id,
+        orgId: session.orgId,
+        songId: session.songId ?? "",
+        startedAt: toIso(session.startedAt),
+        durationSec: session.durationSec,
+        bpm: session.bpm ?? "",
+        notes: session.notes ?? "",
+        createdAt: toIso(session.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "beats.csv",
+    csv(
+      beats.map((beat) => ({
+        id: beat.id,
+        orgId: beat.orgId,
+        songId: beat.songId ?? "",
+        shareToken: beat.shareToken ?? "",
+        title: beat.title,
+        bpm: beat.bpm,
+        swing: beat.swing,
+        kit: beat.kit,
+        data: beat.data,
+        createdAt: toIso(beat.createdAt),
+        updatedAt: toIso(beat.updatedAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "beat-vocal-layers.csv",
+    csv(
+      beatVocalLayers.map((layer) => ({
+        id: layer.id,
+        orgId: layer.orgId,
+        beatId: layer.beatId,
+        name: layer.name,
+        gain: layer.gain,
+        pan: layer.pan,
+        muted: layer.muted,
+        solo: layer.solo,
+        reverb: layer.reverb,
+        eqLow: layer.eqLow,
+        eqHigh: layer.eqHigh,
+        compress: layer.compress,
+        doubler: layer.doubler,
+        compOn: layer.compOn,
+        comp: layer.comp ?? "",
+        sortOrder: layer.sortOrder,
+        createdAt: toIso(layer.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "beat-versions.csv",
+    csv(
+      beatVersions.map((version) => ({
+        id: version.id,
+        orgId: version.orgId,
+        beatId: version.beatId,
+        name: version.name,
+        auto: version.auto,
+        authorOrgId: version.authorOrgId,
+        authorName: version.authorName,
+        bpm: version.bpm,
+        swing: version.swing,
+        kit: version.kit,
+        data: version.data,
+        createdAt: toIso(version.createdAt),
+      })),
+    ),
+  );
+
+  zip.file(
+    "beat-takes.csv",
+    csv(
+      beatTakes.map((take) => ({
+        id: take.id,
+        orgId: take.orgId,
+        beatId: take.beatId,
+        name: take.name,
+        audioMimeType: take.audioMimeType,
+        durationSec: take.durationSec,
+        uploadComplete: take.uploadComplete,
+        layerId: take.layerId ?? "",
+        offsetMs: take.offsetMs,
+        trimStartMs: take.trimStartMs,
+        trimEndMs: take.trimEndMs,
+        gain: take.gain,
+        muted: take.muted,
+        createdAt: toIso(take.createdAt),
+        audioPath: `/songs/audio/beat/${take.id}`,
+      })),
+    ),
+  );
+
+  zip.file(
+    "song-vocal-takes.csv",
+    csv(
+      songVocalTakes.map((take) => ({
+        id: take.id,
+        orgId: take.orgId,
+        songId: take.songId,
+        name: take.name,
+        audioMimeType: take.audioMimeType,
+        durationSec: take.durationSec,
+        uploadComplete: take.uploadComplete,
+        createdAt: toIso(take.createdAt),
+        audioPath: `/songs/audio/song/${take.id}`,
+      })),
+    ),
+  );
+
   const readme = [
     `${APP_NAME} — data export`,
     `Exported: ${new Date().toISOString()}`,
@@ -957,8 +1299,15 @@ export async function GET() {
     "  technicians.id → labor-lines.technicianId",
     "  labor-lines.id + technicians.id → labor-line-tech.laborLineId + labor-line-tech.technicianId",
     "  canned-jobs.id → canned-job-labor.cannedJobId, canned-job-parts.cannedJobId",
+    "  inspection-templates.id → inspection-template-items.templateId",
+    "  inspections.id → inspection-items.inspectionId",
+    "  inspection-items.id → inspection-photos.itemId",
+    "  songs.id → song-tasks.songId, song-ideas.songId, song-lyric-drafts.songId, practice-sessions.songId, beats.songId, song-vocal-takes.songId",
+    "  beats.id → beat-vocal-layers.beatId, beat-versions.beatId, beat-takes.beatId",
+    "  beat-vocal-layers.id → beat-takes.layerId",
     "",
     "Attachments are in attachments/ and are referenced by each row's file column.",
+    "Recorded audio is not included in this zip; open a song in Vultrix to play or download each take (audioPath column).",
     "Open any CSV in Excel, Google Sheets, Numbers, or any spreadsheet app.",
   ].join("\n");
   zip.file("README.txt", readme);

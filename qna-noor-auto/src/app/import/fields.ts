@@ -48,3 +48,32 @@ export const LOGICAL_FIELDS: {
   { key: "mileage", label: "Mileage", group: "vehicle" },
   { key: "vehicleNotes", label: "Vehicle notes", group: "vehicle" },
 ];
+
+export type ImportType = "customers" | "money" | "calendar";
+
+export type MappedImportField = {
+  key: string;
+  label: string;
+  hints: RegExp[];
+};
+
+export const MONEY_IMPORT_FIELDS: MappedImportField[] = [
+  { key: "date", label: "Date (required)", hints: [/date|posted|transaction date/i] },
+  { key: "description", label: "Description", hints: [/description|payee|merchant|name|memo/i] },
+  { key: "amount", label: "Amount", hints: [/^amount$|transaction amount/i] },
+  { key: "debit", label: "Debit", hints: [/debit|withdrawal/i] },
+  { key: "credit", label: "Credit", hints: [/credit|deposit/i] },
+  { key: "type", label: "Type", hints: [/^type$|transaction type/i] },
+  { key: "category", label: "Category", hints: [/category/i] },
+  { key: "note", label: "Note", hints: [/note|memo/i] },
+];
+
+export const CALENDAR_IMPORT_FIELDS: MappedImportField[] = [
+  { key: "title", label: "Title (required)", hints: [/title|subject|event|summary/i] },
+  { key: "startDate", label: "Start date (required)", hints: [/start.*date|^date$|day/i] },
+  { key: "startTime", label: "Start time", hints: [/start.*time|^time$/i] },
+  { key: "endDate", label: "End date", hints: [/end.*date|finish.*date/i] },
+  { key: "endTime", label: "End time", hints: [/end.*time|finish.*time/i] },
+  { key: "allDay", label: "All day", hints: [/all.?day|full.?day/i] },
+  { key: "notes", label: "Notes", hints: [/notes?|description|memo/i] },
+];
