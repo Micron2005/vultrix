@@ -408,18 +408,40 @@ export function resolveAppearance(
   return normalizeAppearance(resolved);
 }
 
+function parseHexChannels(hex: string): [number, number, number] | null {
+  const match = hex.toLowerCase().match(/^#([0-9a-f]{6})$/);
+  if (!match) return null;
+
+  return [0, 2, 4].map((offset) =>
+    Number.parseInt(match[1].slice(offset, offset + 2), 16),
+  ) as [number, number, number];
+}
+
+const toHex = (value: number): string =>
+  Math.max(0, Math.min(255, Math.round(value)))
+    .toString(16)
+    .padStart(2, "0");
+
+function mixHexColors(
+  color: string,
+  background: string,
+  colorRatio: number,
+): string {
+  const channels = parseHexChannels(color);
+  const backgroundChannels = parseHexChannels(background);
+  if (!channels || !backgroundChannels) return background;
+
+  return `#${channels
+    .map((channel, index) =>
+      toHex(channel * colorRatio + backgroundChannels[index] * (1 - colorRatio)),
+    )
+    .join("")}`;
+}
+
 export function accentVarsFromHex(hex: string): Record<string, string> {
   const normalized = hex.toLowerCase();
-  const match = normalized.match(/^#([0-9a-f]{6})$/);
-  if (!match) return {};
-
-  const channels = [0, 2, 4].map((offset) =>
-    Number.parseInt(match[1].slice(offset, offset + 2), 16),
-  );
-  const toHex = (value: number): string =>
-    Math.max(0, Math.min(255, Math.round(value)))
-      .toString(16)
-      .padStart(2, "0");
+  const channels = parseHexChannels(normalized);
+  if (!channels) return {};
   const mixed = (whiteRatio: number): string =>
     `#${channels.map((channel) => toHex(channel * (1 - whiteRatio) + 255 * whiteRatio)).join("")}`;
   const darkened = `#${channels.map((channel) => toHex(channel * 0.88)).join("")}`;
@@ -464,6 +486,27 @@ export function appearanceCss(prefs: AppearancePrefs): string {
   const accentVars = /^#[0-9a-f]{6}$/i.test(normalized.accent)
     ? accentVarsFromHex(normalized.accent)
     : selectedAccent.vars;
+  const sharedAccentVars = Object.fromEntries(
+    Object.entries(accentVars).filter(
+      ([key]) => key !== "--vx-accent-50" && key !== "--vx-accent-100",
+    ),
+  );
+  const lightAccentVars = Object.fromEntries(
+    Object.entries(accentVars).filter(
+      ([key]) => key === "--vx-accent-50" || key === "--vx-accent-100",
+    ),
+  );
+  const accent600 = accentVars["--vx-accent-600"];
+  const paletteAccentColor = accent600?.match(/^var\((--[^)]+)\)$/)?.[1];
+  const accentColor =
+    accent600 && /^#[0-9a-f]{6}$/i.test(accent600)
+      ? accent600
+      : (paletteAccentColor && palette.dark[paletteAccentColor]) ||
+        selectedAccent.swatch;
+  const darkAccentVars = {
+    "--vx-accent-50": mixHexColors(accentColor, "#09090b", 0.15),
+    "--vx-accent-100": mixHexColors(accentColor, "#09090b", 0.25),
+  };
   const scale = lookup(UI_SCALES, normalized.scale);
   const radius = lookup(UI_RADII, normalized.radius);
   const font = lookup(UI_FONTS, normalized.font);
@@ -489,7 +532,7 @@ export function appearanceCss(prefs: AppearancePrefs): string {
             "--radius-xl": "0.75rem",
           };
   const shared = {
-    ...accentVars,
+    ...sharedAccentVars,
     "--vx-root-font": scale.value,
     ...radiusVars,
     "--vx-font": font.value,
@@ -497,7 +540,7 @@ export function appearanceCss(prefs: AppearancePrefs): string {
 
   return [
     `html[data-vx-theme]{${declarations(shared)}}`,
-    `html[data-vx-theme]:not(.dark){${declarations(palette.light)}}`,
-    `html[data-vx-theme].dark{${declarations(palette.dark)}}`,
+    `html[data-vx-theme]:not(.dark){${declarations({ ...palette.light, ...lightAccentVars })}}`,
+    `html[data-vx-theme].dark{${declarations({ ...palette.dark, ...darkAccentVars })}}`,
   ].join("\n");
 }
