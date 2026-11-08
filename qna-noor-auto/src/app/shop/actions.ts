@@ -294,6 +294,8 @@ export async function markOrderShipped(orderId: string, formData: FormData) {
     const shopName = shopDisplayName(order.organization.shop, order.organization.name);
     const lines = order.lines.map((line) => `<li>${escapeHtml(line.itemName)} × ${line.quantity}</li>`).join("");
     await sendEmail({
+      kind: "shop_order_shipped",
+      orgId,
       to: email,
       subject: `Your ${shopName} order has shipped`,
       html: `${shopEmailHeader({ shopName, logo: null, accent: null })}<h1>Your order is on its way</h1><ul>${lines}</ul>${trackingNumber ? `<p>Tracking: ${escapeHtml(trackingNumber)}</p>` : ""}`,

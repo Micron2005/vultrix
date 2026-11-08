@@ -520,6 +520,52 @@ model ReminderLog {
   @@index([orgId, createdAt])
 }
 
+model EmailLog {
+  id                String        @id @default(cuid())
+  orgId             String?
+  organization      Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  kind              String
+  to                String
+  subject           String
+  status            String
+  error             String?
+  providerMessageId String?
+  createdAt         DateTime      @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([orgId, createdAt])
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  subject    String
+  body       String
+  testSentAt DateTime?
+  testSentTo String?
+  status     String   @default("draft")
+  sentAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  recipients AnnouncementRecipient[]
+}
+
+model AnnouncementRecipient {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email          String
+  status         String       @default("pending")
+  error          String?
+  sentAt         DateTime?
+
+  @@unique([announcementId, email])
+  @@index([announcementId, status])
+}
+
 // Knowledge base — your own repair notes keyed to year/make/model/engine.
 // Think of these as your institutional memory / "hotline archive."
 // Every field except title is optional so you can capture partial knowledge.
@@ -1223,6 +1269,7 @@ model Organization {
   musicAddonGraceUntil DateTime?
   // Contact email used for the Stripe customer / receipts.
   billingEmail         String?
+  announcementsOptOut Boolean  @default(false)
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
   // Mirrors the Stripe subscription status: trialing | active | past_due |
@@ -1294,9 +1341,16 @@ model Organization {
   vocalTakes        SongVocalTake[]
   lyricDrafts       SongLyricDraft[]
   songMemberships   SongMember[]
+  ownedProjects     Project[] @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  uploadedProjectFiles ProjectFile[]
+  authoredProjectPosts ProjectPost[]
+  addedProjectSongLinks ProjectSongLink[]
   takeNotes         TakeNote[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
+  emailLogs         EmailLog[]
+  announcementRecipients AnnouncementRecipient[]
 
   @@index([status])
 }
@@ -1315,6 +1369,9 @@ model Profile {
   updatedAt        DateTime     @updatedAt
   following        Follow[]     @relation("FollowFollower")
   followers        Follow[]     @relation("FollowFollowing")
+  conversationsA   Conversation[] @relation("ConversationA")
+  conversationsB   Conversation[] @relation("ConversationB")
+  messagesSent     DirectMessage[] @relation("DirectMessageSender")
 
   @@index([displayNameLower])
 }
@@ -1329,6 +1386,37 @@ model Follow {
 
   @@unique([followerId, followingId])
   @@index([followingId])
+}
+
+model Conversation {
+  id                  String         @id @default(cuid())
+  aProfileId          String
+  aProfile            Profile        @relation("ConversationA", fields: [aProfileId], references: [id], onDelete: Cascade)
+  bProfileId          String
+  bProfile            Profile        @relation("ConversationB", fields: [bProfileId], references: [id], onDelete: Cascade)
+  aReadAt             DateTime?
+  bReadAt             DateTime?
+  lastMessageAt       DateTime?
+  lastSenderProfileId String?
+  lastPreview         String?
+  createdAt           DateTime       @default(now())
+  messages            DirectMessage[]
+
+  @@unique([aProfileId, bProfileId])
+  @@index([aProfileId, lastMessageAt])
+  @@index([bProfileId, lastMessageAt])
+}
+
+model DirectMessage {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderProfileId String
+  sender          Profile      @relation("DirectMessageSender", fields: [senderProfileId], references: [id], onDelete: Cascade)
+  body            String
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 model Song {
@@ -1358,8 +1446,98 @@ model Song {
   vocalTakes    SongVocalTake[]
   lyricDrafts   SongLyricDraft[]
   members       SongMember[]
+  projectLinks  ProjectSongLink[]
 
   @@index([orgId, stage])
+}
+
+model Project {
+  id                    String   @id @default(cuid())
+  orgId                 String
+  organization          Organization @relation("ProjectOwner", fields: [orgId], references: [id], onDelete: Cascade)
+  title                 String
+  description           String?
+  notes                 String   @default("")
+  notesUpdatedAt        DateTime?
+  notesUpdatedByOrgId   String?
+  status                String   @default("active")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  members               ProjectMember[]
+  tasks                 ProjectTask[]
+  files                 ProjectFile[]
+  posts                 ProjectPost[]
+  songLinks             ProjectSongLink[]
+
+  @@index([orgId])
+}
+
+model ProjectMember {
+  id             String       @id @default(cuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([projectId, orgId])
+  @@index([orgId])
+}
+
+model ProjectTask {
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  assigneeOrgId  String?
+  done           Boolean
+  doneAt         DateTime?
+  createdByOrgId String
+  sortOrder      Int
+  createdAt      DateTime  @default(now())
+
+  @@index([projectId, sortOrder])
+}
+
+model ProjectFile {
+  id          String       @id @default(cuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name        String
+  mimeType    String
+  sizeBytes   Int
+  dataUrl     String
+  createdAt   DateTime     @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectPost {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorOrgId  String
+  authorOrg    Organization @relation(fields: [authorOrgId], references: [id], onDelete: Cascade)
+  body         String
+  createdAt    DateTime     @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectSongLink {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  songId       String
+  song         Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  addedByOrgId String
+  addedByOrg   Organization @relation(fields: [addedByOrgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+
+  @@unique([projectId, songId])
+  @@index([projectId])
 }
 
 model SongMember {

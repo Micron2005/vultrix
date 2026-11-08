@@ -429,6 +429,8 @@ export async function recordShopOrderPayment(
   });
   if (ownerEmail) {
     await sendEmail({
+      kind: "shop_order_owner",
+      orgId,
       to: ownerEmail,
       subject: `New order #${paidOrder.number} — ${formatMoney(total)}`,
       html: `${ownerHeader}<h1>${escapeHtml(orderHeading)}</h1><p><strong>Status:</strong> ${escapeHtml(shopOrderStatusLabel("PAID"))}</p><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><strong>Fulfillment:</strong> ${escapeHtml(shopFulfillmentLabel(paidOrder.fulfillment))}</p><p><strong>Ship to / pickup:</strong><br>${addressText}</p><p><a href="${escapeHtml(`${appOrigin()}/shop/orders/${paidOrder.id}`)}">View order</a></p>`,
@@ -436,6 +438,8 @@ export async function recordShopOrderPayment(
   }
   if (paidOrder.buyerEmail) {
     await sendEmail({
+      kind: "shop_order_buyer",
+      orgId,
       to: paidOrder.buyerEmail,
       subject: `Your order from ${shopName}`,
       html: `${buyerHeader}<h1>Thank you for your order</h1><ul>${itemList}</ul><p><strong>Total:</strong> ${formatMoney(total)}</p><p><a href="${escapeHtml(orderUrl)}">View your order</a></p>`,

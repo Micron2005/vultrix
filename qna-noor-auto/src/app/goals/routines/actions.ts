@@ -586,6 +586,7 @@ export async function toggleRoutineCheckOff(
   }
   await updateSingleDayCompletion(routine.id, orgId, routine.day);
   revalidateRoutine(routine.id, routine.goalId);
+  revalidatePath("/start");
 }
 
 export async function skipRoutineDay(itemId: string, day: string) {

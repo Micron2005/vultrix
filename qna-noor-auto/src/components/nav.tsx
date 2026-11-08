@@ -106,6 +106,8 @@ export function Nav({
     ? [
         { href: "/admin", label: "Manage businesses" },
         { href: "/admin/signups", label: "New signups" },
+        { href: "/admin/announcements", label: "Announcements" },
+        { href: "/admin/email", label: "Email health" },
         { href: "/admin/leads", label: "Leads" },
         { href: "/admin/status", label: "Status page" },
         { href: "/admin/landing", label: "Customize site" },
@@ -198,6 +200,7 @@ export function Nav({
     pathname?.endsWith("/qr") ||
     pathname === "/login" ||
     pathname === "/signup" ||
+    pathname === "/unsubscribe" ||
     pathname === "/home" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||

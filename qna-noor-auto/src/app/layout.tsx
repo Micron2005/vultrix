@@ -40,6 +40,7 @@ export default async function RootLayout({
   // layout, so no sidebar/max-width wrapper here.
   if (
     !user ||
+    pathname === "/unsubscribe" ||
     pathname === "/home" ||
     pathname === "/status" ||
     pathname.startsWith("/b/") ||
@@ -49,8 +50,15 @@ export default async function RootLayout({
     const darkLoggedOutPath = ["/login", "/signup", "/admin/login", "/status"].includes(
       pathname,
     );
+    const publicTheme =
+      pathname === "/unsubscribe"
+        ? (await cookies()).get("vx-theme")?.value
+        : undefined;
+    const dark = pathname === "/unsubscribe"
+      ? publicTheme === "dark"
+      : darkLoggedOutPath;
     return (
-      <html lang="en" className={darkLoggedOutPath ? "dark h-full" : "h-full"}>
+      <html lang="en" className={dark ? "dark h-full" : "h-full"}>
         <body className="min-h-full bg-zinc-50 text-zinc-900 antialiased">
           {children}
         </body>

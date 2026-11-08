@@ -9,18 +9,14 @@ import {
 } from "./categories";
 import { ExpenseReceipts, type ExpenseReceiptItem } from "./ExpenseReceipts";
 
-function toDateInput(d: Date | null | undefined): string {
-  if (!d) return new Date().toISOString().slice(0, 10);
-  const iso = new Date(d).toISOString();
-  return iso.slice(0, 10);
-}
-
 export function ExpenseForm({
   action,
+  dateValue,
   initial,
   accountType = "AUTO_SHOP",
 }: {
   action: (fd: FormData) => void;
+  dateValue: string;
   accountType?: string | null;
   initial?: {
     amount?: number;
@@ -48,7 +44,7 @@ export function ExpenseForm({
             type="date"
             name="paidAt"
             required
-            defaultValue={toDateInput(initial?.paidAt)}
+            defaultValue={dateValue}
           />
         </Field>
         <Field label="Amount (required)">

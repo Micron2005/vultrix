@@ -9,7 +9,7 @@ import {
   LinkButton,
   PageHeader,
 } from "@/components/ui";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import { computeTotals } from "@/lib/totals";
 import { loadAppliedShopFeesForROs } from "@/lib/shopFees";
 import {
@@ -21,6 +21,7 @@ import {
 } from "./categories";
 import { enabledFeatureSet } from "@/lib/features";
 import {
+  formatDateInTimeZone,
   dateInputInTimeZone,
   localCalendarDay,
   shiftCalendarDay,
@@ -40,6 +41,14 @@ import {
 } from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
+
+function formatUtcDate(value: Date | string): string {
+  const date =
+    typeof value === "string"
+      ? new Date(`${value}T00:00:00.000Z`)
+      : value;
+  return formatDateInTimeZone(date, "UTC");
+}
 
 export default async function ExpensesListPage({
   searchParams,
@@ -316,7 +325,7 @@ export default async function ExpensesListPage({
                 className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
               >
                 <span className="shrink-0 text-sm text-zinc-500">
-                  {formatDate(entry.day)}
+                  {formatUtcDate(entry.day)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800">
                   {entry.label}
@@ -421,7 +430,7 @@ export default async function ExpensesListPage({
                       : `Expense for ${due.vendor || due.category || "other"}`}
                   </div>
                   <div className="text-sm text-zinc-500">
-                    {formatDate(due.occurrence)} · {prettyInterval(due.interval)}
+                    {formatUtcDate(due.occurrence)} · {prettyInterval(due.interval)}
                   </div>
                 </div>
                 <form action={postConfirmed} className="flex items-end gap-2">
@@ -495,7 +504,7 @@ export default async function ExpensesListPage({
                   </div>
                   <div className="text-sm text-zinc-500">
                     {formatMoney(series.amount)} · {repeatDescription(series.interval)} · next{" "}
-                    {formatDate(series.nextRunAt)}
+                    {formatUtcDate(series.nextRunAt)}
                   </div>
                 </div>
                 <span
@@ -585,7 +594,7 @@ export default async function ExpensesListPage({
                           href={`/expenses/income/${income.id}/edit`}
                           className="hover:underline"
                         >
-                          {formatDate(income.receivedAt)}
+                          {formatDateInTimeZone(income.receivedAt, timezone)}
                         </Link>
                       </td>
                       <td className="px-4 py-2 text-zinc-700">
@@ -717,7 +726,7 @@ export default async function ExpensesListPage({
                       href={`/expenses/${e.id}/edit`}
                       className="hover:underline"
                     >
-                      {formatDate(e.paidAt)}
+                      {formatDateInTimeZone(e.paidAt, timezone)}
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-zinc-700">

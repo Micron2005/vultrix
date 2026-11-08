@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { enabledFeatureSet } from "@/lib/features";
+import { dateInputInTimeZone } from "@/lib/timezone";
+import { orgTimeZone } from "@/lib/orgTimezone";
 
 export const RECURRING_INTERVALS = [
   "DAILY",
@@ -282,6 +284,7 @@ async function postOne(
   },
   occurrence: Date,
   amount: number,
+  timeZone: string,
 ): Promise<boolean> {
   const nextRunAt = nextOccurrenceAfter(series);
   if (series.endDate && occurrence.getTime() > series.endDate.getTime()) {
@@ -312,7 +315,11 @@ async function postOne(
         orgId: series.orgId,
         recurringId: series.id,
         amount,
-        paidAt: occurrence,
+        paidAt: dateInputInTimeZone(
+          occurrence.toISOString().slice(0, 10),
+          timeZone,
+          new Date(Number.NaN),
+        ),
         category: series.category || "MISC",
         vendor: series.vendor,
         reference: series.reference,
@@ -334,7 +341,11 @@ async function postOne(
         orgId: series.orgId,
         recurringId: series.id,
         amount,
-        receivedAt: occurrence,
+        receivedAt: dateInputInTimeZone(
+          occurrence.toISOString().slice(0, 10),
+          timeZone,
+          new Date(Number.NaN),
+        ),
         source: series.source || "Income",
         frequency: legacyFrequency(series.interval as RecurringInterval),
         note: series.note,
@@ -471,6 +482,7 @@ export async function postConfirmedOccurrence(
     { ...series, kind: series.kind as RecurringKind, nextRunAt: current },
     occurrence,
     amount,
+    await orgTimeZone(orgId),
   );
 }
 
@@ -493,7 +505,7 @@ export async function postDueForOrg(
   options: { includeConfirm?: boolean } = {},
 ): Promise<{ posted: number; dueConfirm: DueOccurrence[] }> {
   const through = endOfTodayUTC();
-  const [series, organization] = await Promise.all([
+  const [series, organization, timeZone] = await Promise.all([
     db.recurringEntry.findMany({
       where: { orgId, active: true, nextRunAt: { lte: through } },
       orderBy: { nextRunAt: "asc" },
@@ -502,6 +514,7 @@ export async function postDueForOrg(
       where: { id: orgId },
       select: { accountType: true, features: true },
     }),
+    orgTimeZone(orgId),
   ]);
   const organizationFeatures = enabledFeatureSet(organization ?? {});
   const incomeEnabled = Boolean(
@@ -555,6 +568,7 @@ export async function postDueForOrg(
         },
         current,
         entry.amount,
+        timeZone,
       );
       if (!postedHere) break;
       posted += 1;

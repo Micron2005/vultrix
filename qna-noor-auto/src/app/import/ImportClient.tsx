@@ -78,7 +78,7 @@ export function ImportClient() {
 
   return (
     <>
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="1. Upload CSV" />
         <div className="p-6">
           <input
@@ -101,19 +101,18 @@ export function ImportClient() {
 
       {parsed && (
         <>
-          <Card className="mb-4">
-            <CardHeader title="2. Map columns">
-              <span className="text-xs text-zinc-500">
-                Auto-matched where possible. Set &ldquo;—&rdquo; to skip a field.
-              </span>
-            </CardHeader>
+          <Card className="mb-4 min-w-0">
+            <CardHeader
+              title="2. Map columns"
+              description="Auto-matched where possible. Set “—” to skip a field."
+            />
             <div className="p-6 space-y-6">
               {(["customer", "vehicle"] as const).map((group) => (
                 <div key={group}>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
                     {group} fields
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
                     {LOGICAL_FIELDS.filter((f) => f.group === group).map((f) => (
                       <Field key={f.key} label={f.label}>
                         <Select
@@ -139,7 +138,7 @@ export function ImportClient() {
               ))}
 
               <div className="pt-2">
-                <label className="flex items-center gap-2 text-sm text-zinc-700">
+                <label className="flex min-w-0 items-center gap-2 text-sm text-zinc-700">
                   <input
                     type="checkbox"
                     checked={decodeVins}
@@ -151,9 +150,9 @@ export function ImportClient() {
             </div>
           </Card>
 
-          <Card className="mb-4">
+          <Card className="mb-4 min-w-0">
             <CardHeader title="3. Preview" />
-            <div className="p-4 overflow-x-auto">
+            <div className="min-w-0 overflow-x-auto p-4">
               <table className="w-full text-xs">
                 <thead className="bg-zinc-50">
                   <tr>
@@ -182,7 +181,7 @@ export function ImportClient() {
             </div>
           </Card>
 
-          <Card className="mb-4">
+          <Card className="mb-4 min-w-0">
             <CardHeader title="4. Run import" />
             <div className="p-6">
               <Button onClick={handleRun} disabled={isPending}>

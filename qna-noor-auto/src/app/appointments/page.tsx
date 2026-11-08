@@ -13,14 +13,9 @@ import {
   formatInTimeZone,
   isDateInput,
   localCalendarDay,
+  personalCalendarRange,
   shiftCalendarDay,
 } from "@/lib/timezone";
-import {
-  addDays,
-  endOfWeek,
-  startOfMonth,
-  startOfWeek as dfStartOfWeek,
-} from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -49,34 +44,22 @@ async function PersonalCalendarPage({
   canDeleteEvents: boolean;
 }) {
   const orgId = await requireOrgId();
+  const timezone = await orgTimeZone(orgId);
   const params = await searchParams;
   const view =
     params.view === "day" ||
     params.view === "week" ||
+    params.view === "month" ||
     params.view === "year"
       ? params.view
       : "month";
-  const parsedDate = params.date ? new Date(`${params.date}T00:00:00`) : new Date();
-  const date = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-  const rangeStart =
-    view === "day"
-      ? new Date(date.getFullYear(), date.getMonth(), date.getDate())
-      : view === "week"
-        ? dfStartOfWeek(date, { weekStartsOn: 1 })
-        : view === "year"
-          ? new Date(date.getFullYear(), 0, 1)
-          : dfStartOfWeek(startOfMonth(date), { weekStartsOn: 1 });
-  const rangeEnd =
-    view === "day"
-      ? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-      : view === "week"
-        ? endOfWeek(date, { weekStartsOn: 1 })
-        : view === "year"
-          ? new Date(date.getFullYear() + 1, 0, 1)
-          : addDays(
-              dfStartOfWeek(startOfMonth(date), { weekStartsOn: 1 }),
-              42,
-            );
+  const todayKey = localCalendarDay(new Date(), timezone);
+  const dateKey = isDateInput(params.date) ? params.date : todayKey;
+  const { start: rangeStart, end: rangeEnd } = personalCalendarRange(
+    view,
+    dateKey,
+    timezone,
+  );
   const events = await db.calendarEvent.findMany({
     where: { orgId, startsAt: { gte: rangeStart, lt: rangeEnd } },
     orderBy: { startsAt: "asc" },
@@ -90,12 +73,28 @@ async function PersonalCalendarPage({
       <PersonalCalendar
         canDelete={canDeleteEvents}
         view={view}
-        date={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`}
+        date={dateKey}
+        todayKey={todayKey}
         events={events.map((event) => ({
           id: event.id,
           title: event.title,
-          startsAt: event.startsAt.toISOString(),
-          endsAt: event.endsAt?.toISOString() ?? null,
+          dayKey: localCalendarDay(event.startsAt, timezone),
+          startTime:
+            event.allDay
+              ? ""
+              : formatInTimeZone(event.startsAt, timezone, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                }),
+          endTime:
+            event.allDay || !event.endsAt
+              ? ""
+              : formatInTimeZone(event.endsAt, timezone, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                }),
           allDay: event.allDay,
           isReminder: event.isReminder,
           notes: event.notes,
