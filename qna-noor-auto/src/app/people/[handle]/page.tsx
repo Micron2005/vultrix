@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Badge, Button, Card, CardBody, PageHeader } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  LinkButton,
+  PageHeader,
+} from "@/components/ui";
 import { db } from "@/lib/db";
 import { normalizeHandle, relationship } from "@/lib/people";
 import { requireUser } from "@/lib/session";
@@ -81,7 +88,7 @@ export default async function PersonPage({
             </p>
           )}
           {canManage && (
-            <div className="border-t border-zinc-200 pt-4">
+            <div className="flex flex-wrap gap-2 border-t border-zinc-200 pt-4">
               {relation.following ? (
                 <form action={unfollow.bind(null, profile.id)}>
                   <Button type="submit" variant="secondary">
@@ -92,6 +99,14 @@ export default async function PersonPage({
                 <form action={follow.bind(null, profile.id)}>
                   <Button type="submit">Follow</Button>
                 </form>
+              )}
+              {relation.connected && (
+                <LinkButton
+                  href={`/people/messages/${profile.handle}`}
+                  variant="secondary"
+                >
+                  Message
+                </LinkButton>
               )}
             </div>
           )}
