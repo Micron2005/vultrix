@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { normalizeHandle, relationship } from "@/lib/people";
 import { requireUser } from "@/lib/session";
 import { follow, unfollow } from "../actions";
+import { startProjectWithProfile } from "../projects/actions";
 
 export default async function PersonPage({
   params,
@@ -101,12 +102,19 @@ export default async function PersonPage({
                 </form>
               )}
               {relation.connected && (
-                <LinkButton
-                  href={`/people/messages/${profile.handle}`}
-                  variant="secondary"
-                >
-                  Message
-                </LinkButton>
+                <>
+                  <LinkButton
+                    href={`/people/messages/${profile.handle}`}
+                    variant="secondary"
+                  >
+                    Message
+                  </LinkButton>
+                  <form action={startProjectWithProfile.bind(null, profile.id)}>
+                    <Button type="submit" variant="secondary">
+                      Start a project together
+                    </Button>
+                  </form>
+                </>
               )}
             </div>
           )}

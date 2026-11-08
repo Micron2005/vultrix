@@ -1310,6 +1310,11 @@ model Organization {
   vocalTakes        SongVocalTake[]
   lyricDrafts       SongLyricDraft[]
   songMemberships   SongMember[]
+  ownedProjects     Project[] @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  uploadedProjectFiles ProjectFile[]
+  authoredProjectPosts ProjectPost[]
+  addedProjectSongLinks ProjectSongLink[]
   takeNotes         TakeNote[]
   inspectionTemplates InspectionTemplate[]
   inspections       Inspection[]
@@ -1409,8 +1414,98 @@ model Song {
   vocalTakes    SongVocalTake[]
   lyricDrafts   SongLyricDraft[]
   members       SongMember[]
+  projectLinks  ProjectSongLink[]
 
   @@index([orgId, stage])
+}
+
+model Project {
+  id                    String   @id @default(cuid())
+  orgId                 String
+  organization          Organization @relation("ProjectOwner", fields: [orgId], references: [id], onDelete: Cascade)
+  title                 String
+  description           String?
+  notes                 String   @default("")
+  notesUpdatedAt        DateTime?
+  notesUpdatedByOrgId   String?
+  status                String   @default("active")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  members               ProjectMember[]
+  tasks                 ProjectTask[]
+  files                 ProjectFile[]
+  posts                 ProjectPost[]
+  songLinks             ProjectSongLink[]
+
+  @@index([orgId])
+}
+
+model ProjectMember {
+  id             String       @id @default(cuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([projectId, orgId])
+  @@index([orgId])
+}
+
+model ProjectTask {
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  assigneeOrgId  String?
+  done           Boolean
+  doneAt         DateTime?
+  createdByOrgId String
+  sortOrder      Int
+  createdAt      DateTime  @default(now())
+
+  @@index([projectId, sortOrder])
+}
+
+model ProjectFile {
+  id          String       @id @default(cuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name        String
+  mimeType    String
+  sizeBytes   Int
+  dataUrl     String
+  createdAt   DateTime     @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectPost {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorOrgId  String
+  authorOrg    Organization @relation(fields: [authorOrgId], references: [id], onDelete: Cascade)
+  body         String
+  createdAt    DateTime     @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectSongLink {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  songId       String
+  song         Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  addedByOrgId String
+  addedByOrg   Organization @relation(fields: [addedByOrgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+
+  @@unique([projectId, songId])
+  @@index([projectId])
 }
 
 model SongMember {
