@@ -3,7 +3,23 @@
 import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireOrgId } from "@/lib/session";
+import { requireOrgId, requireUser } from "@/lib/session";
+import { requireFinancialAccess } from "@/lib/permissions";
+import { enabledFeatureSet } from "@/lib/features";
+import { orgTimeZone } from "@/lib/orgTimezone";
+import {
+  dateInputInTimeZone,
+  dateTimeInputInTimeZone,
+} from "@/lib/timezone";
+import { createCalendarEventForOrg } from "@/lib/calendar";
+import { logActivity } from "@/lib/activity";
+import { EXPENSE_CATEGORIES } from "@/app/expenses/categories";
+import {
+  classifyMoneyRow,
+  parseAmount,
+  parseFlexibleDate,
+  parseFlexibleTime,
+} from "@/lib/importParse";
 import { decodeVin } from "@/lib/vin";
 import { ensureCustomerContactsFromScalarFields } from "@/lib/customerContacts";
 import type { ColumnMap, LogicalField } from "./fields";
@@ -200,4 +216,301 @@ export async function runImport(
   revalidatePath("/");
 
   return { customersCreated, vehiclesCreated, skipped, errors };
+}
+
+function importColumnMap(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function importCell(
+  row: Record<string, string>,
+  columns: Record<string, string>,
+  key: string,
+): string {
+  return row[columns[key] ?? ""]?.trim() ?? "";
+}
+
+export async function runMoneyImport(
+  csvText: string,
+  columnMapJson: string,
+): Promise<{
+  incomeCreated: number;
+  expensesCreated: number;
+  duplicates: number;
+  skipped: number;
+  errors: string[];
+}> {
+  const user = await requireFinancialAccess();
+  if (!enabledFeatureSet(user).has("financials")) {
+    throw new Error("Financial imports are not available for this account.");
+  }
+  const orgId = await requireOrgId();
+  const timeZone = await orgTimeZone(orgId);
+  const columns = importColumnMap(columnMapJson);
+  const rows = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  }).data;
+  let incomeCreated = 0;
+  let expensesCreated = 0;
+  let duplicates = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const rowNumber = index + 2;
+    const dateKey = parseFlexibleDate(importCell(row, columns, "date"));
+    if (!dateKey) {
+      skipped++;
+      errors.push(`Row ${rowNumber}: invalid or missing date`);
+      continue;
+    }
+    const classified = classifyMoneyRow({
+      amount: parseAmount(importCell(row, columns, "amount")),
+      debit: parseAmount(importCell(row, columns, "debit")),
+      credit: parseAmount(importCell(row, columns, "credit")),
+      type: importCell(row, columns, "type"),
+    });
+    if (!classified) {
+      skipped++;
+      errors.push(`Row ${rowNumber}: missing or zero amount`);
+      continue;
+    }
+
+    const date = dateInputInTimeZone(dateKey, timeZone, new Date(Number.NaN));
+    const cents = Math.round(classified.amount * 100);
+    if (!Number.isFinite(date.getTime()) || cents <= 0) {
+      skipped++;
+      errors.push(`Row ${rowNumber}: invalid date or amount`);
+      continue;
+    }
+    const amount = cents / 100;
+    const description = importCell(row, columns, "description");
+    const note = importCell(row, columns, "note") || null;
+    const categoryText = importCell(row, columns, "category");
+    const category =
+      EXPENSE_CATEGORIES.find(
+        (candidate) =>
+          candidate.toLowerCase() === categoryText.toLowerCase(),
+      ) ?? "MISC";
+    const source = description || "Imported";
+    const vendor = description || null;
+    const identity = [
+      classified.kind,
+      date.getTime(),
+      cents,
+      (classified.kind === "income" ? source : vendor ?? "")
+        .trim()
+        .toLowerCase(),
+    ].join("|");
+
+    if (seen.has(identity)) {
+      duplicates++;
+      continue;
+    }
+
+    try {
+      const existing =
+        classified.kind === "income"
+          ? await db.income.findFirst({
+              where: { orgId, receivedAt: date, amount, source },
+              select: { id: true },
+            })
+          : await db.expense.findFirst({
+              where: { orgId, paidAt: date, amount, vendor },
+              select: { id: true },
+            });
+      if (existing) {
+        duplicates++;
+        seen.add(identity);
+        continue;
+      }
+
+      if (classified.kind === "income") {
+        await db.income.create({
+          data: {
+            orgId,
+            receivedAt: date,
+            amount,
+            source,
+            frequency: "ONE_TIME",
+            note,
+          },
+        });
+        incomeCreated++;
+      } else {
+        await db.expense.create({
+          data: {
+            orgId,
+            paidAt: date,
+            amount,
+            category,
+            vendor,
+            method: null,
+            note,
+          },
+        });
+        expensesCreated++;
+      }
+      seen.add(identity);
+    } catch (error) {
+      skipped++;
+      errors.push(
+        `Row ${rowNumber}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  await logActivity({
+    orgId,
+    user: { id: user.id, username: user.username },
+    action: "import.money",
+    entity: "Import",
+    summary: `Imported ${incomeCreated} income and ${expensesCreated} expenses; skipped ${duplicates} duplicates and ${skipped} invalid rows`,
+  });
+  revalidatePath("/expenses");
+  revalidatePath("/");
+  revalidatePath("/reports");
+  return { incomeCreated, expensesCreated, duplicates, skipped, errors };
+}
+
+export async function runCalendarImport(
+  csvText: string,
+  columnMapJson: string,
+): Promise<{
+  eventsCreated: number;
+  duplicates: number;
+  skipped: number;
+  errors: string[];
+}> {
+  const orgId = await requireOrgId();
+  const user = await requireUser();
+  if (!enabledFeatureSet(user).has("schedule")) {
+    throw new Error("Calendar imports are not available for this account.");
+  }
+  const timeZone = await orgTimeZone(orgId);
+  const columns = importColumnMap(columnMapJson);
+  const rows = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  }).data;
+  let eventsCreated = 0;
+  let duplicates = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const rowNumber = index + 2;
+    const title = importCell(row, columns, "title");
+    const dateKey = parseFlexibleDate(importCell(row, columns, "startDate"));
+    if (!title || !dateKey) {
+      skipped++;
+      errors.push(
+        `Row ${rowNumber}: ${!title ? "missing title" : "invalid start date"}`,
+      );
+      continue;
+    }
+
+    const rawStartTime = importCell(row, columns, "startTime");
+    const startTime = parseFlexibleTime(rawStartTime);
+    const allDayValue = importCell(row, columns, "allDay").toLowerCase();
+    const allDay = allDayValue
+      ? /^(1|true|yes|y|on|all\s*day)$/i.test(allDayValue)
+      : !rawStartTime;
+    if (!allDay && rawStartTime && !startTime) {
+      skipped++;
+      errors.push(`Row ${rowNumber}: invalid start time`);
+      continue;
+    }
+
+    const startsAt = allDay
+      ? dateInputInTimeZone(dateKey, timeZone, new Date(Number.NaN))
+      : dateTimeInputInTimeZone(
+          dateKey,
+          startTime ?? "09:00",
+          timeZone,
+          new Date(Number.NaN),
+        );
+    if (!Number.isFinite(startsAt.getTime())) {
+      skipped++;
+      errors.push(`Row ${rowNumber}: invalid start date or time`);
+      continue;
+    }
+
+    let endsAt: Date | null = null;
+    const rawEndTime = importCell(row, columns, "endTime");
+    if (!allDay && rawEndTime) {
+      const rawEndDate = importCell(row, columns, "endDate");
+      const endDateKey = rawEndDate
+        ? parseFlexibleDate(rawEndDate)
+        : dateKey;
+      const endTime = parseFlexibleTime(rawEndTime);
+      if (endDateKey && endTime) {
+        const candidate = dateTimeInputInTimeZone(
+          endDateKey,
+          endTime,
+          timeZone,
+          new Date(Number.NaN),
+        );
+        if (candidate > startsAt) endsAt = candidate;
+      }
+    }
+
+    const identity = `${title}|${startsAt.getTime()}`;
+    if (seen.has(identity)) {
+      duplicates++;
+      continue;
+    }
+    try {
+      const existing = await db.calendarEvent.findFirst({
+        where: { orgId, title, startsAt },
+        select: { id: true },
+      });
+      if (existing) {
+        duplicates++;
+        seen.add(identity);
+        continue;
+      }
+      await createCalendarEventForOrg(orgId, {
+        title,
+        startsAt,
+        endsAt,
+        allDay,
+        notes: importCell(row, columns, "notes") || null,
+      });
+      eventsCreated++;
+      seen.add(identity);
+    } catch (error) {
+      skipped++;
+      errors.push(
+        `Row ${rowNumber}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  await logActivity({
+    orgId,
+    user: { id: user.id, username: user.username },
+    action: "calendar.import",
+    entity: "CalendarEvent",
+    summary: `Imported ${eventsCreated} calendar events; skipped ${duplicates} duplicates and ${skipped} invalid rows`,
+  });
+  revalidatePath("/appointments");
+  return { eventsCreated, duplicates, skipped, errors };
 }
