@@ -26,6 +26,12 @@ export default async function ExportPage() {
     features.has("repair_orders") || features.has("invoices");
   const hasTechnicians = features.has("technicians");
   const hasCannedJobs = features.has("presets");
+  const hasInspections = user?.accountType === "AUTO_SHOP";
+  const hasMusic = Boolean(
+    user?.orgId &&
+      user.focusPacks.includes("music") &&
+      user.musicAccess.allowed,
+  );
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const [
@@ -47,6 +53,9 @@ export default async function ExportPage() {
     budgets,
     recurringEntries,
     calendarEvents,
+    inspections,
+    songs,
+    beats,
   ] = await Promise.all([
     db.customer.count({ where: { orgId } }),
     db.vehicle.count({ where: { orgId } }),
@@ -66,6 +75,11 @@ export default async function ExportPage() {
     db.budget.count({ where: { orgId } }),
     db.recurringEntry.count({ where: { orgId } }),
     db.calendarEvent.count({ where: { orgId } }),
+    hasInspections
+      ? db.inspection.count({ where: { orgId } })
+      : Promise.resolve(0),
+    hasMusic ? db.song.count({ where: { orgId } }) : Promise.resolve(0),
+    hasMusic ? db.beat.count({ where: { orgId } }) : Promise.resolve(0),
   ]);
 
   const rows: { label: string; value: number }[] = [
@@ -94,6 +108,13 @@ export default async function ExportPage() {
       : []),
     ...(hasSchedule
       ? [{ label: "Calendar events", value: calendarEvents }]
+      : []),
+    ...(hasInspections ? [{ label: "Inspections", value: inspections }] : []),
+    ...(hasMusic
+      ? [
+          { label: "Songs", value: songs },
+          { label: "Beats", value: beats },
+        ]
       : []),
   ];
   const exportTableNames = [
@@ -135,6 +156,21 @@ export default async function ExportPage() {
     "expense receipts",
     "note images",
     hasRepairOrders ? "repair order photos" : null,
+    hasInspections ? "inspection templates" : null,
+    hasInspections ? "inspection template items" : null,
+    hasInspections ? "inspections" : null,
+    hasInspections ? "inspection items" : null,
+    hasInspections ? "inspection photos" : null,
+    hasMusic ? "songs" : null,
+    hasMusic ? "song tasks" : null,
+    hasMusic ? "song ideas" : null,
+    hasMusic ? "song lyric drafts" : null,
+    hasMusic ? "practice sessions" : null,
+    hasMusic ? "beats" : null,
+    hasMusic ? "beat vocal layers" : null,
+    hasMusic ? "beat versions" : null,
+    hasMusic ? "beat takes" : null,
+    hasMusic ? "song vocal takes" : null,
   ].filter((name): name is string => name !== null);
 
   return (
@@ -144,7 +180,7 @@ export default async function ExportPage() {
         description="Download a full copy of your data as one ZIP of CSVs."
       />
 
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="Tax export" />
         <div className="space-y-4 p-4">
           <div className="text-sm text-zinc-700">
@@ -154,7 +190,7 @@ export default async function ExportPage() {
           <form
             action="/export/tax/download"
             method="get"
-            className="flex flex-wrap items-end gap-3"
+            className="flex min-w-0 flex-wrap items-end gap-3"
           >
             <label className="text-sm text-zinc-700">
               <span className="mb-1 block text-xs font-medium text-zinc-500">
@@ -201,7 +237,7 @@ export default async function ExportPage() {
         </div>
       </Card>
 
-      <Card className="mb-4">
+      <Card className="mb-4 min-w-0">
         <CardHeader title="Download everything" />
         <div className="p-4 space-y-4">
           <div className="text-sm text-zinc-700">
@@ -222,9 +258,9 @@ export default async function ExportPage() {
         </div>
       </Card>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader title="What's in the export" />
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto">
           <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-left text-xs text-zinc-500 uppercase tracking-wider">
             <tr>
