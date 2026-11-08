@@ -8,15 +8,16 @@ import { canViewFinancials } from "@/lib/permissions";
 import { orgTimeZone } from "@/lib/orgTimezone";
 import {
   aggregateSalesByChannel,
+  shopDisplayName,
   suggestedShopSlug,
 } from "@/lib/shop";
 import { localCalendarDay } from "@/lib/timezone";
 import { formatMoney } from "@/lib/utils";
 import {
   ShopFeedCopyButton,
+  ShopItemActions,
   ShopPhotoManager,
   ShopShareTools,
-  ShopSoldElsewhereForm,
 } from "./ShopTools";
 import { saveShopSettings, setShopListed } from "./actions";
 
@@ -50,6 +51,10 @@ export default async function ShopManagementPage({
         orderBy: { name: "asc" },
       })
     : [];
+  const hiddenListedItems = parts.filter(
+    (part) =>
+      part.shopListed && ((part.unitPrice ?? 0) <= 0 || part.photos.length === 0),
+  ).length;
   const headersList = await headers();
   const origin = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
     `${headersList.get("x-forwarded-proto") ?? "https"}://${headersList.get("x-forwarded-host") ?? headersList.get("host")}`;
@@ -94,6 +99,10 @@ export default async function ShopManagementPage({
         <h2 className="mb-4 text-lg font-semibold">Shop setup</h2>
         {manager ? (
           <form action={saveShopSettings} className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm sm:col-span-2">Shop name
+              <input name="name" maxLength={80} defaultValue={shop?.name ?? ""} placeholder={org.name} className="rounded border bg-transparent px-3 py-2" />
+              <span className="text-xs text-zinc-500">Shown to buyers instead of your account name.</span>
+            </label>
             <label className="grid gap-1 text-sm">Shop URL slug
               <input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9\-]+" defaultValue={slug} className="rounded border bg-transparent px-3 py-2" />
             </label>
@@ -123,7 +132,19 @@ export default async function ShopManagementPage({
         <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
           <h2 className="mb-3 text-lg font-semibold">Share your shop</h2>
           <p className="mb-3 break-all text-sm">{shopUrl}</p>
-          <ShopShareTools url={shopUrl} qr={shareQr} filename={`${slug}-shop-qr.png`} />
+          {hiddenListedItems > 0 && (
+            <p className="mb-3 text-sm text-amber-800 dark:text-amber-300">
+              {hiddenListedItems} listed {hiddenListedItems === 1 ? "item is" : "items are"} hidden from buyers until they have a price and photo.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <ShopShareTools
+              url={shopUrl}
+              qr={shareQr}
+              filename={`${slug}-shop-qr.png`}
+              title={shopDisplayName(shop, org.name)}
+            />
+          </div>
         </section>
       )}
       {shop && (
@@ -158,34 +179,56 @@ export default async function ShopManagementPage({
       <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="mb-3 text-lg font-semibold">Inventory items</h2>
         {!inventoryEnabled ? (
-          <p className="text-sm text-zinc-600">Inventory is off. Choose an account plan that includes Inventory in <Link href="/billing#plan" className="text-blue-700 underline">Billing settings</Link>.</p>
+          <p className="text-sm text-zinc-600">Inventory is off. Change your account type in <Link href="/billing#plan" className="text-blue-700 underline">Plan and account type</Link>.</p>
         ) : parts.length === 0 ? (
           <p className="text-sm text-zinc-600">Add items in <Link href="/inventory" className="text-blue-700 underline">Inventory</Link> to sell them here.</p>
         ) : (
-          <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <div className="space-y-4">
             {await Promise.all(parts.map(async (part) => {
               const itemUrl = `${shopUrl}/${encodeURIComponent(part.id)}`;
               const qr = await QRCode.toDataURL(itemUrl, { width: 180, margin: 1 });
+              const missingPrice = part.unitPrice == null || part.unitPrice <= 0;
+              const missingPhoto = part.photos.length === 0;
+              const missingRequirements = missingPrice && missingPhoto
+                ? "add a price and a photo"
+                : missingPrice
+                  ? "add a price"
+                  : "add a photo";
               return (
-                <article key={part.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <div className="min-w-0">
+                <article key={part.id} className="min-w-0 space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                  <header className="min-w-0">
                     <h3 className="break-words font-medium">{part.name}</h3>
                     <p className="text-sm text-zinc-500">{(part.unitPrice ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" })} · {part.qtyOnHand} in stock · {part.photos.length} photos</p>
-                    {manager && <ShopPhotoManager partId={part.id} photos={part.photos} />}
-                    {part.shopListed && canViewSales && (
-                      <div className="mt-3">
-                        <ShopSoldElsewhereForm
-                          partId={part.id}
-                          unitPrice={part.unitPrice}
-                          defaultSoldAt={defaultSaleDate}
-                        />
-                      </div>
+                  </header>
+                  {manager && <ShopPhotoManager partId={part.id} photos={part.photos} />}
+                  {part.shopListed && (missingPrice || missingPhoto) && (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                      <p>Buyers can&apos;t see this yet: {missingRequirements}.</p>
+                      <Link href={`/inventory/${encodeURIComponent(part.id)}/edit`} className="mt-1 inline-block font-medium underline">Edit price</Link>
+                    </div>
+                  )}
+                  <ShopItemActions
+                    partId={part.id}
+                    unitPrice={part.unitPrice}
+                    defaultSoldAt={defaultSaleDate}
+                    canLogSale={part.shopListed && canViewSales}
+                  >
+                    {manager && (
+                      <form className="flex" action={setShopListed.bind(null, part.id, !part.shopListed)}>
+                        <button className={`rounded px-3 py-2 text-sm ${part.shopListed ? "border" : "bg-blue-700 text-white"}`}>
+                          {part.shopListed ? "In shop — remove" : "Add to shop"}
+                        </button>
+                      </form>
                     )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {manager && <form action={setShopListed.bind(null, part.id, !part.shopListed)}><button className={`rounded px-3 py-2 text-sm ${part.shopListed ? "border" : "bg-blue-700 text-white"}`}>{part.shopListed ? "In shop — remove" : "List in shop"}</button></form>}
-                    {part.shopListed && <ShopShareTools url={itemUrl} qr={qr} filename={`${slug}-${part.id}.png`} />}
-                  </div>
+                    {part.shopListed && (
+                      <ShopShareTools
+                        url={itemUrl}
+                        qr={qr}
+                        filename={`${slug}-${part.id}.png`}
+                        title={part.name}
+                      />
+                    )}
+                  </ShopItemActions>
                 </article>
               );
             }))}

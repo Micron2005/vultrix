@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { enabledFeatureSet } from "@/lib/features";
-import { isValidShopSlug } from "@/lib/shop";
+import { isValidShopSlug, shopDisplayName } from "@/lib/shop";
 import { logActivity } from "@/lib/activity";
 import { assertCanViewFinancials } from "@/lib/permissions";
 import { dateInputInTimeZone } from "@/lib/timezone";
@@ -53,11 +53,13 @@ function formText(formData: FormData, key: string): string {
 export async function saveShopSettings(formData: FormData) {
   const { user, orgId } = await shopManager();
   const parsed = z.object({
+    name: z.string().trim().max(80).optional(),
     slug: z.string().trim().min(3).max(40),
     tagline: z.string().trim().max(180).optional(),
     shipFlatRate: z.coerce.number().finite().min(0).max(100000),
     pickupNote: z.string().trim().max(240).optional(),
   }).safeParse({
+    name: formData.get("name") ?? "",
     slug: formData.get("slug"),
     tagline: formData.get("tagline") ?? "",
     shipFlatRate: formData.get("shipFlatRate"),
@@ -80,6 +82,7 @@ export async function saveShopSettings(formData: FormData) {
     where: { orgId },
     create: {
       orgId,
+      name: parsed.data.name || null,
       slug: parsed.data.slug,
       enabled,
       tagline: parsed.data.tagline || null,
@@ -89,6 +92,7 @@ export async function saveShopSettings(formData: FormData) {
       pickupNote: parsed.data.pickupNote || null,
     },
     update: {
+      name: parsed.data.name || null,
       slug: parsed.data.slug,
       enabled,
       tagline: parsed.data.tagline || null,
@@ -267,7 +271,16 @@ export async function markOrderShipped(orderId: string, formData: FormData) {
   const trackingNumber = String(formData.get("trackingNumber") ?? "").trim().slice(0, 120);
   const order = await db.shopOrder.findFirst({
     where: { id: orderId, orgId, status: "PAID", fulfillment: "SHIP" },
-    include: { lines: true, organization: { select: { name: true, billingEmail: true } } },
+    include: {
+      lines: true,
+      organization: {
+        select: {
+          name: true,
+          billingEmail: true,
+          shop: { select: { name: true } },
+        },
+      },
+    },
   });
   if (!order) redirect(`/shop/orders/${orderId}?error=status`);
   const updated = await db.shopOrder.updateMany({
@@ -278,13 +291,14 @@ export async function markOrderShipped(orderId: string, formData: FormData) {
   const owner = await db.user.findFirst({ where: { orgId, role: "OWNER", isActive: true }, select: { email: true } });
   const email = order.buyerEmail;
   if (email) {
+    const shopName = shopDisplayName(order.organization.shop, order.organization.name);
     const lines = order.lines.map((line) => `<li>${escapeHtml(line.itemName)} × ${line.quantity}</li>`).join("");
     await sendEmail({
       kind: "shop_order_shipped",
       orgId,
       to: email,
-      subject: `Your ${order.organization.name} order has shipped`,
-      html: `${shopEmailHeader({ shopName: order.organization.name, logo: null, accent: null })}<h1>Your order is on its way</h1><ul>${lines}</ul>${trackingNumber ? `<p>Tracking: ${escapeHtml(trackingNumber)}</p>` : ""}`,
+      subject: `Your ${shopName} order has shipped`,
+      html: `${shopEmailHeader({ shopName, logo: null, accent: null })}<h1>Your order is on its way</h1><ul>${lines}</ul>${trackingNumber ? `<p>Tracking: ${escapeHtml(trackingNumber)}</p>` : ""}`,
       replyTo: order.organization.billingEmail ?? owner?.email ?? undefined,
     });
   }

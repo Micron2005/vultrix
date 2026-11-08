@@ -194,6 +194,7 @@ export function Nav({
     pathname?.startsWith("/p/") ||
     pathname?.startsWith("/a/") ||
     pathname?.startsWith("/s/") ||
+    pathname?.startsWith("/store/") ||
     pathname?.startsWith("/q/") ||
     pathname?.startsWith("/inventory/qr-sheet") ||
     pathname?.endsWith("/qr") ||

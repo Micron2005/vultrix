@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   addShopPhoto,
@@ -14,30 +14,40 @@ export function ShopShareTools({
   url,
   qr,
   filename,
+  title = "Shop",
 }: {
   url: string;
   qr: string;
   filename: string;
+  title?: string;
 }) {
   const [message, setMessage] = useState("");
+  const [showQr, setShowQr] = useState(false);
   async function copy() {
     await navigator.clipboard.writeText(url);
     setMessage("Copied");
   }
   async function share() {
     if (navigator.share) {
-      await navigator.share({ title: "Shop", url });
+      await navigator.share({ title, url });
     } else {
       await copy();
     }
   }
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="contents">
       <button type="button" onClick={copy} className="rounded border px-3 py-2 text-sm">Copy link</button>
       <button type="button" onClick={share} className="rounded border px-3 py-2 text-sm">Share</button>
-      <img src={qr} alt="Shop QR code" className="size-24 rounded border bg-white p-1" />
-      <a href={qr} download={filename} className="text-sm text-blue-700 underline">Download QR PNG</a>
+      <button type="button" onClick={() => setShowQr((visible) => !visible)} aria-expanded={showQr} className="rounded border px-3 py-2 text-sm">
+        {showQr ? "Hide QR" : "Show QR"}
+      </button>
       <span aria-live="polite" className="text-xs text-zinc-500">{message}</span>
+      {showQr && (
+        <div className="flex w-full min-w-0 basis-full flex-wrap items-center gap-3">
+          <img src={qr} alt="QR code for this shop link" className="size-24 rounded border bg-white p-1" />
+          <a href={qr} download={filename} className="text-sm text-blue-700 underline">Download QR PNG</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -63,110 +73,123 @@ export function ShopFeedCopyButton({ url }: { url: string }) {
   );
 }
 
-export function ShopSoldElsewhereForm({
+export function ShopItemActions({
   partId,
   unitPrice,
   defaultSoldAt,
+  canLogSale,
+  children,
 }: {
   partId: string;
   unitPrice: number | null;
   defaultSoldAt: string;
+  canLogSale: boolean;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState("Etsy");
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="rounded border px-3 py-2 text-sm"
-      >
-        Sold elsewhere
-      </button>
-    );
-  }
   return (
-    <div className="w-full rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h4 className="text-sm font-semibold">Record an outside sale</h4>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-sm text-zinc-600 underline"
-        >
-          Cancel
-        </button>
-      </div>
-      <form action={recordShopSale} className="grid gap-3 sm:grid-cols-2">
-        <input type="hidden" name="partId" value={partId} />
-        <label className="grid gap-1 text-sm">
-          <span>Where</span>
-          <select
-            name="channel"
-            value={channel}
-            onChange={(event) => setChannel(event.target.value)}
-            className="rounded border bg-transparent px-3 py-2"
+    <div className="min-w-0 space-y-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {children}
+        {canLogSale && (
+          <button
+            type="button"
+            onClick={() => setOpen((visible) => !visible)}
+            aria-expanded={open}
+            className="rounded border px-3 py-2 text-sm"
           >
-            <option value="Etsy">Etsy</option>
-            <option value="Instagram">Instagram</option>
-            <option value="Facebook">Facebook</option>
-            <option value="TikTok">TikTok</option>
-            <option value="Craft fair / market">Craft fair / market</option>
-            <option value="In person">In person</option>
-            <option value="Other">Other</option>
-          </select>
-        </label>
-        {channel === "Other" && (
-          <label className="grid gap-1 text-sm">
-            <span>Other channel</span>
-            <input
-              name="otherChannel"
-              required
-              maxLength={100}
-              className="rounded border bg-transparent px-3 py-2"
-            />
-          </label>
-        )}
-        <label className="grid gap-1 text-sm">
-          <span>Quantity</span>
-          <input
-            name="quantity"
-            type="number"
-            required
-            min="1"
-            step="1"
-            defaultValue="1"
-            className="rounded border bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>Price each</span>
-          <input
-            name="unitPrice"
-            type="number"
-            required
-            min="0"
-            step="0.01"
-            defaultValue={unitPrice ?? 0}
-            className="rounded border bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>Date</span>
-          <input
-            name="soldAt"
-            type="date"
-            required
-            defaultValue={defaultSoldAt}
-            className="rounded border bg-transparent px-3 py-2"
-          />
-        </label>
-        <div className="flex items-end">
-          <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white">
-            Record sale
+            {open ? "Cancel sale" : "Log a sale from somewhere else"}
           </button>
+        )}
+      </div>
+      {canLogSale && open && (
+        <div className="w-full min-w-0 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold">Sold it somewhere else?</h4>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-sm text-zinc-600 underline"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">
+            Made a sale on Etsy, at a market or in person? Log it here so your stock and sales stay right.
+          </p>
+          <form action={recordShopSale} className="min-w-0 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input type="hidden" name="partId" value={partId} />
+            <label className="grid min-w-0 gap-1 text-sm">
+              <span>Where</span>
+              <select
+                name="channel"
+                value={channel}
+                onChange={(event) => setChannel(event.target.value)}
+                className="w-full min-w-0 rounded border bg-transparent px-3 py-2"
+              >
+                <option value="Etsy">Etsy</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Craft fair / market">Craft fair / market</option>
+                <option value="In person">In person</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            {channel === "Other" && (
+              <label className="grid min-w-0 gap-1 text-sm">
+                <span>Other channel</span>
+                <input
+                  name="otherChannel"
+                  required
+                  maxLength={100}
+                  className="w-full min-w-0 rounded border bg-transparent px-3 py-2"
+                />
+              </label>
+            )}
+            <label className="grid min-w-0 gap-1 text-sm">
+              <span>Quantity</span>
+              <input
+                name="quantity"
+                type="number"
+                required
+                min="1"
+                step="1"
+                defaultValue="1"
+                className="w-full min-w-0 rounded border bg-transparent px-3 py-2"
+              />
+            </label>
+            <label className="grid min-w-0 gap-1 text-sm">
+              <span>Price each</span>
+              <input
+                name="unitPrice"
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                defaultValue={unitPrice ?? 0}
+                className="w-full min-w-0 rounded border bg-transparent px-3 py-2"
+              />
+            </label>
+            <label className="grid min-w-0 gap-1 text-sm">
+              <span>Date</span>
+              <input
+                name="soldAt"
+                type="date"
+                required
+                defaultValue={defaultSoldAt}
+                className="w-full min-w-0 rounded border bg-transparent px-3 py-2"
+              />
+            </label>
+            <div className="flex min-w-0 items-end">
+              <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white">
+                Record sale
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      )}
     </div>
   );
 }
@@ -227,7 +250,7 @@ export function ShopPhotoManager({
     }
   }
   return (
-    <div className="mt-3 space-y-2">
+    <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap gap-2">
         {photos.map((photo, index) => (
           <div key={photo.id} className="flex items-center gap-1 rounded border p-1">

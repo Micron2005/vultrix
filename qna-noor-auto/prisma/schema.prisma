@@ -863,6 +863,7 @@ model Shop {
   orgId         String       @unique
   organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   slug          String       @unique
+  name          String?
   enabled       Boolean      @default(false)
   tagline       String?
   shipEnabled   Boolean      @default(true)
