@@ -14,13 +14,14 @@
 
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { DEMO_ORG_ID } from "@/lib/demoIds";
 import {
   DEMO_SIGNATURE_PNG,
   DEMO_PHOTO_BEFORE,
   DEMO_PHOTO_AFTER,
 } from "@/lib/demo-assets";
 
-export const DEMO_ORG_ID = "demo-org-vultrix";
+export { DEMO_ORG_ID } from "@/lib/demoIds";
 export const DEMO_USER_ID = "demo-user-vultrix";
 export const DEMO_USERNAME = "vultrix-demo";
 export const DEMO_SHOP_NAME = "Vultrix Demo Shop";

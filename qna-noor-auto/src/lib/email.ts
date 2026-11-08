@@ -32,6 +32,7 @@ type SendArgs = {
   subject: string;
   html: string;
   replyTo?: string;
+  headers?: Record<string, string>;
   kind: string;
   orgId?: string | null;
   logSubject?: string;
@@ -93,6 +94,7 @@ export async function sendEmailResult({
   subject,
   html,
   replyTo,
+  headers,
   kind,
   orgId = null,
   logSubject,
@@ -121,6 +123,7 @@ export async function sendEmailResult({
           subject,
           html,
           ...(replyTo ? { reply_to: replyTo } : {}),
+          ...(headers ? { headers } : {}),
         }),
       });
       const body = await res.text().catch(() => "");
